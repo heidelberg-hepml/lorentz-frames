@@ -106,15 +106,17 @@ class TopTaggingDataset(torch.utils.data.Dataset):
             scalars = torch.zeros(
                 batch.x.shape[0], 0, device=self.device, dtype=self.dtype
             )
-        is_global = batch.is_global if self.cfg.data.include_global_token else None
 
         # add information about which token is global
-        scalars_is_global = torch.zeros(
-            scalars.shape[0], 1, device=self.device, dtype=self.dtype
-        )
-        scalars_is_global[0, :] = 1.0
-        scalars = torch.cat([scalars_is_global, scalars], dim=-1)
+        is_global = batch.is_global if self.cfg.data.include_global_token else None
+        if self.cfg.data.include_global_token:
+            scalars_is_global = torch.zeros(
+                scalars.shape[0], 1, device=self.device, dtype=self.dtype
+            )
+            scalars_is_global[0, :] = 1.0
+            scalars = torch.cat([scalars_is_global, scalars], dim=-1)
 
+        
         # construct edge_index
         adj_matrix = torch.ones((batch.x.shape[0], batch.x.shape[0]))
         edge_index = dense_to_sparse(adj_matrix)[0]
