@@ -90,10 +90,7 @@ class TopTaggingDataset(torch.utils.data.Dataset):
             else:
                 is_global = None
 
-            # construct edge_index
-            adj_matrix = torch.ones((x.shape[0], x.shape[0]))
-            edge_index = dense_to_sparse(adj_matrix)[0]
-            data = Data(x=x, label=label, is_global=is_global, edge_index=edge_index)
+            data = Data(x=x, label=label, is_global=is_global)
             self.data_list.append(data)
 
     def __len__(self):
@@ -118,12 +115,16 @@ class TopTaggingDataset(torch.utils.data.Dataset):
         scalars_is_global[0, :] = 1.0
         scalars = torch.cat([scalars_is_global, scalars], dim=-1)
 
+        # construct edge_index
+        adj_matrix = torch.ones((batch.x.shape[0], batch.x.shape[0]))
+        edge_index = dense_to_sparse(adj_matrix)[0]
+
         return Data(
             x=batch.x,
             scalars=scalars,
             label=batch.label,
             is_global=is_global,
-            edge_index=batch.edge_index,
+            edge_index=edge_index,
         )
 
 
