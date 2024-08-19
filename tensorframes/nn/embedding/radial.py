@@ -9,6 +9,22 @@ from tensorframes.lframes import LFrames
 from tensorframes.reps.tensorreps import TensorReps
 
 
+def double_gradient_safe_norm(edge_vec: Tensor, eps: float = 1e-6) -> Tensor:
+    """Needed when edge_vec contains zero vectors and when differentiating twice."""
+    non_zero_mask = edge_vec.abs().sum(dim=-1) > eps
+    norm = torch.zeros(edge_vec.shape[0], 1, device=edge_vec.device)
+    norm[non_zero_mask] = torch.linalg.norm(edge_vec[non_zero_mask], dim=-1, keepdim=True)
+    return norm
+
+
+def double_gradient_safe_normalize(edge_vec: Tensor, eps: float = 1e-6) -> Tensor:
+    """Needed when edge_vec contains zero vectors and when differentiating twice."""
+    non_zero_mask = edge_vec.abs().sum(dim=-1) > eps
+    norm = torch.linalg.norm(edge_vec[non_zero_mask], dim=-1, keepdim=True)
+    edge_vec[non_zero_mask] = edge_vec[non_zero_mask] / norm
+    return edge_vec
+
+
 def compute_edge_vec(
     pos: Union[Tensor, Tuple], edge_index: Tensor, lframes: Union[LFrames, Tuple] | None = None
 ) -> Tensor:
@@ -101,7 +117,8 @@ class RadialEmbedding(Module):
             edge_vec = compute_edge_vec(pos, edge_index)
 
         # calculate the norm of the distance vector
-        norm = torch.linalg.norm(edge_vec, dim=-1, keepdim=True)  # Shape E x 1
+        # norm = torch.linalg.norm(edge_vec, dim=-1, keepdim=True)  # Shape E x 1
+        norm = double_gradient_safe_norm(edge_vec)  # Shape E x 1
 
         return self.compute_embedding(norm)
 

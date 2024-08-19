@@ -45,7 +45,7 @@ class TensorRep(Tuple):
                     }[name[-1]]
 
                 except Exception:
-                    raise ValueError("Invalid tensor_rep string")
+                    raise ValueError(f"Invalid tensor_rep string {order}")
             elif isinstance(order, tuple):
                 order, p = order
 
@@ -169,7 +169,7 @@ class TensorReps(Tuple):
                     tensor_rep = super().__new__(cls, out)
 
             except Exception:
-                raise ValueError("Invalid tensor_reps string")
+                raise ValueError(f"Invalid tensor_reps string {tensor_reps}")
 
         else:
             out = []
@@ -561,7 +561,9 @@ class TensorRepsTransform(Module):
 
         return output
 
-    def forward(self, coeffs: Tensor, basis_change: LFrames, inplace: bool = False) -> Tensor:
+    def forward(
+        self, coeffs: Tensor | None, basis_change: LFrames, inplace: bool = False
+    ) -> Tensor:
         """Applies the forward transformation to the input coefficients.
 
         Args:
@@ -572,8 +574,13 @@ class TensorRepsTransform(Module):
         Returns:
             Tensor: The transformed coefficients.
         """
+        if coeffs is None:
+            assert self.tensor_reps.dim == 0, "No coeffs are provided for non-trivial transform"
+            return None
 
         if self.use_parallel:
-            return self.transform_coeffs_parallel(coeffs, basis_change, self.avoid_einsum)
+            return self.transform_coeffs_parallel(
+                coeffs, basis_change, self.avoid_einsum, inplace=inplace
+            )
         else:
             return self.transform_coeffs(coeffs, basis_change)

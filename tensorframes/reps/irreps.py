@@ -168,7 +168,7 @@ class Irreps(Tuple):
                     irrep = super().__new__(cls, out)
 
             except Exception:
-                raise ValueError("Invalid irreps string")
+                raise ValueError(f"Invalid irreps string {irreps}")
 
         else:
             out = []
@@ -381,6 +381,10 @@ class IrrepsTransform(Module):
         Returns:
             Tensor: The transformed coefficients.
         """
+
+        if coeffs is None:
+            assert self.irreps.dim == 0, "No coeffs are provided for non-trivial transform"
+            return None
 
         if inplace:
             output_coeffs = coeffs

@@ -6,7 +6,10 @@ import torch
 from torch import Tensor
 
 from tensorframes.lframes import LFrames
-from tensorframes.nn.embedding.radial import compute_edge_vec
+from tensorframes.nn.embedding.radial import (
+    compute_edge_vec,
+    double_gradient_safe_normalize,
+)
 
 
 class AngularEmbedding(torch.nn.Module):
@@ -89,9 +92,7 @@ class TrivialAngularEmbedding(AngularEmbedding):
             Tensor: The computed embedding.
         """
         if self.normalize:
-            return edge_vec / torch.clamp(
-                torch.linalg.norm(edge_vec, dim=-1, keepdim=True), min=1e-9
-            )
+            return double_gradient_safe_normalize(edge_vec)
         else:
             return edge_vec
 
@@ -191,9 +192,7 @@ class GaussianOnSphereEmbedding(AngularEmbedding):
         Returns:
             Tensor: The computed Gaussian embedding.
         """
-        edge_vec = edge_vec / torch.clamp(
-            torch.linalg.norm(edge_vec, dim=-1, keepdim=True), min=1e-9
-        )
+        edge_vec = double_gradient_safe_normalize(edge_vec)
         diff_norm = torch.linalg.norm(edge_vec.unsqueeze(1) - self.centers, dim=-1)
 
         # calculate the gaussian embedding

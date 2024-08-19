@@ -5,7 +5,11 @@ import torch
 from torch import Tensor
 
 from tensorframes.nn.embedding.angular import AngularEmbedding
-from tensorframes.nn.embedding.radial import TrivialRadialEmbedding, get_gaussian_width
+from tensorframes.nn.embedding.radial import (
+    RadialEmbedding,
+    double_gradient_safe_normalize,
+    get_gaussian_width,
+)
 
 
 class AxisWiseEmbeddingFromRadial(AngularEmbedding):
@@ -24,10 +28,10 @@ class AxisWiseEmbeddingFromRadial(AngularEmbedding):
 
     def __init__(
         self,
+        radial_embedding: RadialEmbedding,
         normalize_edge_vec: bool = True,
         axis_specific_radial: bool = False,
         spatial_dim=3,
-        radial_embedding: torch.nn.Module = TrivialRadialEmbedding(),
     ):
         """Initialize the AxisWiseEmbeddingFromRadial module.
 
@@ -64,9 +68,7 @@ class AxisWiseEmbeddingFromRadial(AngularEmbedding):
             Tensor: The computed embedding.
         """
         if self.normalize_edge_vec:
-            edge_vec = edge_vec / torch.clamp(
-                torch.linalg.norm(edge_vec, dim=-1, keepdim=True), min=1e-9
-            )
+            edge_vec = double_gradient_safe_normalize(edge_vec)
 
         if self.axis_specific_radial:
             out = []
@@ -121,9 +123,7 @@ class AxisWiseBesselEmbedding(AngularEmbedding):
         Returns:
             Tensor: The computed embedding.
         """
-        edge_vec = edge_vec / torch.clamp(
-            torch.linalg.norm(edge_vec, dim=-1, keepdim=True), min=1e-9
-        )
+        edge_vec = double_gradient_safe_normalize(edge_vec)
         tmp_mul = torch.einsum("ij,jk->ijk", edge_vec, self.frequencies)
 
         embed = torch.einsum(
@@ -212,9 +212,7 @@ class AxisWiseGaussianEmbedding(AngularEmbedding):
         Returns:
             torch.Tensor: The computed embedding.
         """
-        edge_vec = edge_vec / torch.clamp(
-            torch.linalg.norm(edge_vec, dim=-1, keepdim=True), min=1e-9
-        )
+        edge_vec = double_gradient_safe_normalize(edge_vec)
         squared_diff = torch.square(edge_vec.unsqueeze(2) - self.shift)
         squared_scale = torch.square(self.scale)
 

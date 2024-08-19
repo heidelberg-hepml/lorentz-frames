@@ -141,7 +141,7 @@ def euler_angles_yxy(
         angles[mask_2] = torch.tensor([0.0, 0.0, torch.pi])
         angles[mask_3] = torch.tensor([0.0, torch.pi, torch.pi])
 
-    return angles[..., 0], angles[..., 1], angles[..., 2]
+    return angles
 
 
 def wigner_D_with_J(
@@ -191,7 +191,7 @@ def wigner_D_from_matrix(
     Args:
         l (int): The angular momentum quantum number.
         matrix (torch.Tensor): The rotation matrix. shape (..., 3, 3)
-        angles (torch.Tensor, optional): The Euler angles in yxy convention. If not provided, it will be calculated from the matrix.
+        angles (torch.Tensor, optional): The Euler angles in yxy convention. Of shape (N,3). If not provided, it will be calculated from the matrix.
         J (torch.Tensor, optional): The J matrix. If not provided, it will be looked up based on the angular momentum `l`.
         handle_special_cases (bool, optional): Whether to handle special cases where the matrix is diagonal. Defaults to False.
 
@@ -206,11 +206,9 @@ def wigner_D_from_matrix(
     if J is None:
         J = _Jd[l].to(matrix.dtype).to(matrix.device)
     if angles is None:
-        alpha, beta, gamma = euler_angles_yxy(matrix, handle_special_cases=handle_special_cases)
-    else:
-        alpha, beta, gamma = angles
+        angles = euler_angles_yxy(matrix, handle_special_cases=handle_special_cases)
 
-    return wigner_D_with_J(l, J, alpha, beta, gamma)
+    return wigner_D_with_J(l, J, angles[..., 0], angles[..., 1], angles[..., 2])
 
 
 if __name__ == "__main__":

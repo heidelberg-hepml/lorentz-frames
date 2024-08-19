@@ -2,7 +2,7 @@ from typing import Any, Dict
 
 from torch_geometric.nn import MessagePassing
 
-from tensorframes.lframes.lframes import ChangeOfLFrames
+from tensorframes.lframes import ChangeOfLFrames, LFrames
 
 
 class TFMessagePassing(MessagePassing):
@@ -52,8 +52,8 @@ class TFMessagePassing(MessagePassing):
         """
         assert inputs[-1].get("lframes") is not None, "lframes are not in the propagate inputs"
 
-        self.lframes = inputs[-1].pop("lframes")
-        self.edge_index = inputs[0]
+        self._lframes = inputs[-1].pop("lframes")
+        self._edge_index = inputs[0]
 
         return inputs
 
@@ -70,14 +70,23 @@ class TFMessagePassing(MessagePassing):
         """
 
         # calculate lframes_i, lframes_j and the U matrix
-        lframes_i = self.lframes.index_select(self.edge_index[1])
-        lframes_j = self.lframes.index_select(self.edge_index[0])
+        if isinstance(self._lframes, tuple):
+            lframes_i = self._lframes[1].index_select(self._edge_index[1])
+            lframes_j = self._lframes[0].index_select(self._edge_index[0])
+        elif isinstance(self._lframes, LFrames):
+            lframes_i = self._lframes.index_select(self._edge_index[1])
+            lframes_j = self._lframes.index_select(self._edge_index[0])
+        else:
+            raise ValueError(
+                f"lframes should be either a tuple or an LFrames object but is {type(self._lframes)}"
+            )
+
         U = ChangeOfLFrames(lframes_start=lframes_j, lframes_end=lframes_i)
 
         # now go through the params_dict and get the representations and transform the features in the right way
         for param, param_info in self.params_dict.items():
             if param_info["type"] == "local":
-                assert inputs[-1].get(param + "_j") is not None, f"Key {param}_j not in inputs"
+                assert param + "_j" in inputs[-1], f"Key {param}_j not in inputs"
                 # transform the features according to the representation
                 inputs[-1][param + "_j"] = param_info["transform"](inputs[-1][param + "_j"], U)
             elif param_info["type"] == "global":
