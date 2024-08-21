@@ -116,7 +116,6 @@ class TopTaggingDataset(torch.utils.data.Dataset):
             scalars_is_global[0, :] = 1.0
             scalars = torch.cat([scalars_is_global, scalars], dim=-1)
 
-        
         # construct edge_index
         adj_matrix = torch.ones((batch.x.shape[0], batch.x.shape[0]))
         edge_index = dense_to_sparse(adj_matrix)[0]
@@ -128,6 +127,48 @@ class TopTaggingDataset(torch.utils.data.Dataset):
             is_global=is_global,
             edge_index=edge_index,
         )
+
+
+def construct_beam_reference(p_ref, beam_reference, add_time_reference, two_beams):
+    """
+    Construct beam_reference as symmetry-breaking input
+
+    Parameters
+    ----------
+    p_ref: torch.tensor with shape (..., items, 4)
+        Reference tensor to infer device, dtype and shape for the beam_reference
+    beam_reference: str
+        Different options for adding a beam_reference
+    two_beams: bool
+        Whether we only want (x, 0, 0, 1) or both (x, 0, 0, +/- 1) for the beam
+
+    Returns
+    -------
+    beam: torch.tensor with shape (..., items, mv_channels, 4)
+        beam embedded as mv_channels multivectors,
+        where mv_channels=1 (2) for two_beams=false (true)
+    """
+
+    if beam_reference in ["lightlike", "spacelike", "timelike"]:
+        if beam_reference == "lightlike":
+            beam = [1, 0, 0, 1]
+        elif beam_reference == "timelike":
+            beam = [2**0.5, 0, 0, 1]
+        elif beam_reference == "spacelike":
+            beam = [0, 0, 0, 1]
+        beam = torch.tensor(beam, device=p_ref.device, dtype=p_ref.dtype).reshape(1, 4)
+        if two_beams:
+            beam2 = beam.clone()
+            beam2[..., 4] = -1  # flip pz
+            beam = torch.cat((beam, beam2), dim=0)
+
+    elif beam_reference is None:
+        beam = None
+
+    else:
+        raise ValueError(f"beam_reference {beam_reference} not implemented")
+
+    return beam
 
 
 def get_pt(p):
