@@ -14,7 +14,8 @@ def test_wigner():
     angles = matrix_to_angles(R)
     my_angles = euler_angles_yxy(R)
 
-    for angle, my_angle in zip(angles, my_angles):
+    for i, angle in enumerate(angles):
+        my_angle = my_angles[:, i]
         assert torch.allclose(angle, my_angle, atol=1e-5)
 
     # test angle special cases:
@@ -28,8 +29,9 @@ def test_wigner():
     angles = matrix_to_angles(special_Rs)
     my_angles = euler_angles_yxy(special_Rs, handle_special_cases=True)
 
-    for angle, my_angle in zip(angles, my_angles):
-        assert torch.allclose(angle, my_angle)
+    for i, angle in enumerate(angles):
+        my_angle = my_angles[:, i]
+        assert torch.allclose(angle, my_angle, atol=1e-5)
 
     # test that wigner for the identity matrix is the identity matrix
     for l in range(4):

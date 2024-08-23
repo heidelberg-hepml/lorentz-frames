@@ -15,8 +15,6 @@ def test_tensorreps():
         [(5, TensorRep(0, 1)), (3, TensorRep(0, 1)), (2, TensorRep(0, 1)), (1, TensorRep(0, 1))]
     )
 
-    test = tensor_reps_1 + tensor_reps_2 + tensor_reps_3
-
     random_rot = o3.rand_matrix(10)
 
     coeffs = torch.randn(10, tensor_reps_1.dim)
