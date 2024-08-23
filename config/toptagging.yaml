@@ -1,0 +1,30 @@
+exp_type: toptagging
+exp_name: topt_local_debug
+base_dir: /media/jspinner/shared/Studium/project4/lorentz-frames
+
+data:
+ data_dir : /media/jspinner/shared/Studium/project3/data
+ dataset: mini
+ add_pt: false
+ rescale_data: true
+
+train: true
+training:
+ iterations: 10
+ batchsize: 128
+ lr: 1e-3
+
+evaluation:
+ batchsize: 128
+ save_roc: false
+
+plotting:
+ roc: true
+ loss: true
+ score: true
+
+defaults:
+ - model: gcnconv
+ - default
+ - hydra
+ - _self_

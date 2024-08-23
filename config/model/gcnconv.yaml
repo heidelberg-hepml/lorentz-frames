@@ -1,0 +1,2 @@
+_target_: experiments.toptagging.wrappers.GCNConvWrapper
+mean_aggregation: true
