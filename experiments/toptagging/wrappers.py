@@ -24,10 +24,12 @@ class GCNConvWrapper(nn.Module):
 
     def __init__(
         self,
+        lframesnet,
         mean_aggregation,
     ):
         super().__init__()
         self.mean_aggregation = mean_aggregation
+        self.lframesnet = lframesnet
 
         # for proper models we will use hydra more for instantiating
         in_reps = TensorReps("1x0n+1x1n")
@@ -35,11 +37,8 @@ class GCNConvWrapper(nn.Module):
         self.net = GCNConv(in_reps, out_reps)
 
     def forward(self, batch):
-        # create placeholder lframes
-        lframes_tensor_anything = (
-            torch.eye(3).unsqueeze(0).repeat(batch.x.shape[0], 1, 1)
-        )
-        lframes = LFrames(lframes_tensor_anything)
+        # construct lframes
+        lframes = self.lframesnet(batch.x, batch.edge_index, batch.batch)
 
         # network
         outputs = self.net(edge_index=batch.edge_index, x=batch.x, lframes=lframes)
