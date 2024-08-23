@@ -30,8 +30,8 @@ class GCNConvWrapper(nn.Module):
         self.mean_aggregation = mean_aggregation
 
         # for proper models we will use hydra more for instantiating
-        in_reps = TensorReps("1x0p+1x1n")
-        out_reps = TensorReps("1x0p")
+        in_reps = TensorReps("1x0n+1x1n")
+        out_reps = TensorReps("1x0n")
         self.net = GCNConv(in_reps, out_reps)
 
     def forward(self, batch):
