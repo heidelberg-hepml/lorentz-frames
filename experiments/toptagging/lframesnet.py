@@ -9,6 +9,11 @@ from tensorframes.lframes.classical_lframes import (
 )
 from tensorframes.lframes.learning_lframes import WrappedLearnedLFrames
 from tensorframes.reps import TensorReps
+from tensorframes.nn.embedding.radial import (
+    BesselEmbedding,
+    GaussianEmbedding,
+    TrivialRadialEmbedding,
+)
 
 
 class LFramesNet(nn.Module):
@@ -16,28 +21,22 @@ class LFramesNet(nn.Module):
         super().__init__()
 
         self.approach = approach
-        if approach == "identity":
-            # interpretation: non-equivariant
+        if approach == "identity":  # non-equivariant
             self.net = IdentityLFrames()
-        elif approach == "random_global":
-            # interpretation: data augmentation
+        elif approach == "random_global":  # data augmentation
             self.net = RandomGlobalLFrames()
-        elif approach == "random_local":
-            # interpretation: data augmentation + showing off
+        elif approach == "random_local":  # data augmentation + showing off
             self.net = RandomLFrames()
-        elif approach == "3nn":
-            # interpretation: equivariant
+        elif approach == "3nn":  # interpretation: equivariant
             self.net = ThreeNNLFrames()
-        elif approach == "learned_gramschmidt":
-            # interpretation: equivariant
-            raise NotImplementedError  # not working yet
-
+        elif approach == "learned_gramschmidt":  # interpretation: equivariant
             hidden_channels = [hidden_channels] * layers
             in_reps = TensorReps("1x0n+1x1n")
+            radial_module = TrivialRadialEmbedding()  # more options here
             self.net = WrappedLearnedLFrames(
                 in_reps=in_reps,
                 hidden_channels=hidden_channels,
-                radial_module=None,  # TBD
+                radial_module=radial_module,
             )
         else:
             raise ValueError(f"approach={self.approach} not implemented")
@@ -47,10 +46,8 @@ class LFramesNet(nn.Module):
             pos = x[..., 1:]
             lframes = self.net(pos, idx=None, batch=batch)
         elif self.approach == "learned_gramschmidt":
-            raise NotImplementedError
-
             pos = x[..., 1:]
-            lframes = self.net(
+            _, lframes = self.net(
                 x=x,
                 pos=pos,
                 edge_index=edge_index,
