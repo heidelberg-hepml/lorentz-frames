@@ -24,7 +24,7 @@ plotting:
  score: true
 
 defaults:
- - model: gcnconv
+ - model: protonet
  - default
  - hydra
  - _self_

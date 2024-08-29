@@ -1,8 +1,7 @@
-import numpy as np
 import torch
 from torch import nn
 
-from tensorframes.reps import Irreps, TensorReps
+from tensorframes.reps import TensorReps
 from tensorframes.nn.gcn_conv import GCNConv
 from tensorframes.lframes.lframes import LFrames
 from experiments.toptagging.protonet import ProtoNet
@@ -16,7 +15,28 @@ def mean_pointcloud(x, batch):
     return logits
 
 
-class GCNConvWrapper(nn.Module):
+class LorentzFramesTaggerWrapper(nn.Module):
+    def __init__(
+        self,
+        lframesnet,
+        mean_aggregation,
+    ):
+        super().__init__()
+        self.mean_aggregation = mean_aggregation
+        self.lframesnet = lframesnet
+
+    def extract_score(self, outputs, batch):
+        if self.mean_aggregation:
+            score = mean_pointcloud(outputs, batch.batch)
+        else:
+            score = outputs[batch.is_global]
+        return score
+
+    def forward(self, batch):
+        raise NotImplementedError
+
+
+class GCNConvWrapper(LorentzFramesTaggerWrapper):
     """
     GCNConv for top-tagging
 
@@ -28,9 +48,7 @@ class GCNConvWrapper(nn.Module):
         lframesnet,
         mean_aggregation,
     ):
-        super().__init__()
-        self.mean_aggregation = mean_aggregation
-        self.lframesnet = lframesnet
+        super().__init__(lframesnet, mean_aggregation)
 
         # for proper models we will use hydra more for instantiating
         in_reps = TensorReps("1x0n+1x1n")
@@ -45,41 +63,34 @@ class GCNConvWrapper(nn.Module):
         outputs = self.net(edge_index=batch.edge_index, x=batch.x, lframes=lframes)
 
         # aggregation
-        if self.mean_aggregation:
-            logits = mean_pointcloud(outputs, batch.batch)
-        else:
-            logits = outputs[batch.is_global]
-        return logits
+        score = self.extract_score(outputs, batch)
+        return score
 
 
-class ProtoNetWrapper(nn.Module):
+class ProtoNetWrapper(LorentzFramesTaggerWrapper):
     def __init__(
         self,
         net,
         lframesnet,
         mean_aggregation,
     ):
-        super().__init__()
-        self.mean_aggregation = mean_aggregation
+        super().__init__(lframesnet, mean_aggregation)
         self.net = net
-        self.lframesnet = lframesnet
 
     def forward(self, batch):
         # construct lframes
         lframes = self.lframesnet(batch.x, batch.edge_index, batch.batch)
 
         # network
+        pos = batch.x[:, 1:]
         outputs = self.net(
             x=batch.x,
-            pos=batch.x[:, 1:],
+            pos=pos,
             edge_index=batch.edge_index,
             lframes=lframes,
             batch=batch.batch,
         )
 
         # aggregation
-        if self.mean_aggregation:
-            logits = mean_pointcloud(outputs, batch.batch)
-        else:
-            logits = outputs[batch.is_global]
-        return logits
+        score = self.extract_score(outputs, batch)
+        return score
