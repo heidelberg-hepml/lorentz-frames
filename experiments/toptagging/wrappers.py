@@ -5,6 +5,7 @@ from torch import nn
 from tensorframes.reps import Irreps, TensorReps
 from tensorframes.nn.gcn_conv import GCNConv
 from tensorframes.lframes.lframes import LFrames
+from experiments.toptagging.protonet import ProtoNet
 
 
 def mean_pointcloud(x, batch):
@@ -42,6 +43,39 @@ class GCNConvWrapper(nn.Module):
 
         # network
         outputs = self.net(edge_index=batch.edge_index, x=batch.x, lframes=lframes)
+
+        # aggregation
+        if self.mean_aggregation:
+            logits = mean_pointcloud(outputs, batch.batch)
+        else:
+            logits = outputs[batch.is_global]
+        return logits
+
+
+class ProtoNetWrapper(nn.Module):
+    def __init__(
+        self,
+        net,
+        lframesnet,
+        mean_aggregation,
+    ):
+        super().__init__()
+        self.mean_aggregation = mean_aggregation
+        self.net = net
+        self.lframesnet = lframesnet
+
+    def forward(self, batch):
+        # construct lframes
+        lframes = self.lframesnet(batch.x, batch.edge_index, batch.batch)
+
+        # network
+        outputs = self.net(
+            x=batch.x,
+            pos=batch.x[:, 1:],
+            edge_index=batch.edge_index,
+            lframes=lframes,
+            batch=batch.batch,
+        )
 
         # aggregation
         if self.mean_aggregation:

@@ -1,0 +1,17 @@
+_target_: experiments.toptagging.wrappers.ProtoNetWrapper
+mean_aggregation: true
+
+net:
+ _target_: experiments.toptagging.protonet.ProtoNet
+ in_reps: 1x0n+1x1n
+ hidden_reps: 8x0n+8x1n
+ out_reps: 1x0n
+
+ num_blocks: 2
+ checkpoint_blocks: false
+
+lframesnet:
+ _target_: experiments.toptagging.lframesnet.LFramesNet
+ approach: identity
+ layers: 2
+ hidden_channels: 32
