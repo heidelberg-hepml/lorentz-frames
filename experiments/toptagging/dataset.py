@@ -117,7 +117,9 @@ class TopTaggingDataset(torch.utils.data.Dataset):
             scalars = torch.cat([scalars_is_global, scalars], dim=-1)
 
         # construct edge_index
-        adj_matrix = torch.ones((batch.x.shape[0], batch.x.shape[0]))
+        adj_matrix = torch.ones(
+            (batch.x.shape[0], batch.x.shape[0]), device=self.device
+        )
         edge_index = dense_to_sparse(adj_matrix)[0]
 
         return Data(
