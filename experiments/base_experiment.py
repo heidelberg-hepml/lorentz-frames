@@ -437,6 +437,7 @@ class BaseExperiment:
             f"while validating every {self.cfg.training.validate_every_n_steps} iterations"
         )
         self.training_start_time = time.time()
+        train_time, val_time = 0.0, 0.0
 
         # recycle trainloader
         def cycle(iterable):
@@ -451,11 +452,15 @@ class BaseExperiment:
             if self.cfg.training.optimizer == "ScheduleFree":
                 self.optimizer.train()
             data = next(iterator)
+            t0 = time.time()
             self._step(data, step)
+            train_time += time.time() - t0
 
             # validation (and early stopping)
             if (step + 1) % self.cfg.training.validate_every_n_steps == 0:
+                t0 = time.time()
                 val_loss = self._validate(step)
+                val_time += time.time() - t0
                 if val_loss < smallest_val_loss:
                     smallest_val_loss = val_loss
                     smallest_val_loss_step = step
@@ -492,6 +497,7 @@ class BaseExperiment:
             f"Finished training for {step} iterations = {step / len(self.train_loader):.1f} epochs "
             f"after {dt/60:.2f}min = {dt/60**2:.2f}h"
         )
+        LOGGER.info(f"Spend {train_time:.2f}s training and {val_time:.2f}s validating")
         if self.cfg.use_mlflow:
             log_mlflow("iterations", step)
             log_mlflow("epochs", step / len(self.train_loader))
