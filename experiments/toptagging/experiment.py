@@ -175,7 +175,7 @@ class TaggingExperiment(BaseExperiment):
         if mode == "eval":
             LOGGER.info(
                 f"Rejection rate {title} dataset: {metrics['rej03']:.0f} (epsS=0.3), "
-                f"{metrics['rej05']:.0f} (epsS=0.5), {metrics['rej08']:.0f}"
+                f"{metrics['rej05']:.0f} (epsS=0.5), {metrics['rej08']:.0f} (epsS=0.8)"
             )
 
         if self.cfg.use_mlflow:
