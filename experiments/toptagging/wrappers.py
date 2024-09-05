@@ -94,3 +94,36 @@ class ProtoNetWrapper(LorentzFramesTaggerWrapper):
         # aggregation
         score = self.extract_score(outputs, batch)
         return score
+
+
+class ReferenceNetWrapper(nn.Module):
+    def __init__(
+        self,
+        net,
+        mean_aggregation,
+    ):
+        super().__init__()
+        self.net = net
+        self.mean_aggregation = mean_aggregation
+
+    def forward(self, batch):
+
+        # network
+        pos = batch.x[:, 1:]
+        outputs = self.net(
+            x=batch.x,
+            pos=pos,
+            edge_index=batch.edge_index,
+            batch=batch.batch,
+        )
+
+        # aggregation
+        score = self.extract_score(outputs, batch)
+        return score
+
+    def extract_score(self, outputs, batch):
+        if self.mean_aggregation:
+            score = mean_pointcloud(outputs, batch.batch)
+        else:
+            score = outputs[batch.is_global]
+        return score

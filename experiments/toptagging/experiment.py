@@ -16,6 +16,7 @@ from experiments.mlflow import log_mlflow
 MODEL_TITLE_DICT = {
     "GCNConv": "GCNConv",
     "ProtoNet": "ProtoNet",
+    "ReferenceNet": "ReferenceNet",
 }
 
 
@@ -29,10 +30,11 @@ class TaggingExperiment(BaseExperiment):
         with open_dict(self.cfg):
             gcnconv_name = "experiments.toptagging.wrappers.GCNConvWrapper"
             protonet_name = "experiments.toptagging.wrappers.ProtoNetWrapper"
-            assert self.cfg.model._target_ in [gcnconv_name, protonet_name]
+            referencenet_name = "experiments.toptagging.wrappers.ReferenceNetWrapper"
+            assert self.cfg.model._target_ in [gcnconv_name, protonet_name,referencenet_name]
 
             # global token?
-            if self.cfg.model._target_ in [gcnconv_name, protonet_name]:
+            if self.cfg.model._target_ in [gcnconv_name, protonet_name,referencenet_name]:
                 self.cfg.data.include_global_token = not self.cfg.model.mean_aggregation
 
     def init_data(self):
