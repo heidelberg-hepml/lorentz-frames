@@ -16,7 +16,7 @@ class ReferenceNet(nn.Module):
         in_reps,
         hidden_reps,
         out_reps,
-        hidden_channels = None,
+        hidden_channels=None,
         checkpoint_blocks=False,
         **mlp_kwargs,
     ):
@@ -28,7 +28,7 @@ class ReferenceNet(nn.Module):
         in_reps = TensorReps(in_reps)
         hidden_reps = TensorReps(hidden_reps)
         out_reps = TensorReps(out_reps)
-        
+
         if hidden_channels == None:
             self.hc1 = [hidden_reps.dim, hidden_reps.dim, hidden_reps.dim]
             self.hc2 = [hidden_reps.dim, hidden_reps.dim, hidden_reps.dim]
@@ -46,15 +46,23 @@ class ReferenceNet(nn.Module):
             self.mlp3 = MLP(in_channels=hidden_reps.dim * 2, hidden_channels=self.hc3)
             last_block = EdgeConv(nn=self.mlp3, aggr="add")
         else:
-            self.mlp1 = MLP(in_channels=in_reps.dim * 2, hidden_channels=[hidden_channels[0]]*3)
+            self.mlp1 = MLP(
+                in_channels=in_reps.dim * 2, hidden_channels=[hidden_channels[0]] * 3
+            )
             first_block = EdgeConv(nn=self.mlp1, aggr="add")
 
             middle_blocks = []
             for _ in range(num_blocks - 2):
-                mlp2 = MLP(in_channels=hidden_channels[_] * 2, hidden_channels=[hidden_channels[_+1]]*3)
+                mlp2 = MLP(
+                    in_channels=hidden_channels[_] * 2,
+                    hidden_channels=[hidden_channels[_ + 1]] * 3,
+                )
                 middle_blocks.append(EdgeConv(nn=mlp2, aggr="add"))
 
-            self.mlp3 = MLP(in_channels=hidden_channels[-2] * 2, hidden_channels=[*[hidden_channels[-1]]*2, out_reps.dim])
+            self.mlp3 = MLP(
+                in_channels=hidden_channels[-2] * 2,
+                hidden_channels=[*[hidden_channels[-1]] * 2, out_reps.dim],
+            )
             last_block = EdgeConv(nn=self.mlp3, aggr="add")
 
         self.blocks = nn.ModuleList([first_block, *middle_blocks, last_block])
