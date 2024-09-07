@@ -1,18 +1,11 @@
 import torch
 from torch import nn
+from torch_geometric.nn.aggr import MeanAggregation
 
 from tensorframes.reps import TensorReps
 from tensorframes.nn.gcn_conv import GCNConv
 from tensorframes.lframes.lframes import LFrames
 from experiments.toptagging.protonet import ProtoNet
-
-
-def mean_pointcloud(x, batch):
-    batchsize = max(batch) + 1
-    logits = torch.zeros(batchsize, device=x.device, dtype=x.dtype)
-    logits.index_add_(0, batch, x[:, 0])  # sum
-    logits = logits / torch.bincount(batch)  # mean
-    return logits
 
 
 class LorentzFramesTaggerWrapper(nn.Module):
@@ -22,12 +15,12 @@ class LorentzFramesTaggerWrapper(nn.Module):
         mean_aggregation,
     ):
         super().__init__()
-        self.mean_aggregation = mean_aggregation
+        self.aggregator = MeanAggregation() if mean_aggregation else None
         self.lframesnet = lframesnet
 
     def extract_score(self, outputs, batch):
-        if self.mean_aggregation:
-            score = mean_pointcloud(outputs, batch.batch)
+        if self.aggregator is not None:
+            score = self.aggregator(outputs, index=batch.batch)[:, 0]
         else:
             score = outputs[batch.is_global]
         return score
