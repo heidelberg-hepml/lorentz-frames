@@ -16,6 +16,7 @@ from experiments.mlflow import log_mlflow
 MODEL_TITLE_DICT = {
     "GCNConv": "GCNConv",
     "ProtoNet": "ProtoNet",
+    "ProtoNet2" : "ProtoNet2",
     "ReferenceNet": "ReferenceNet",
 }
 
@@ -31,18 +32,11 @@ class TaggingExperiment(BaseExperiment):
             gcnconv_name = "experiments.toptagging.wrappers.GCNConvWrapper"
             protonet_name = "experiments.toptagging.wrappers.ProtoNetWrapper"
             referencenet_name = "experiments.toptagging.wrappers.ReferenceNetWrapper"
-            assert self.cfg.model._target_ in [
-                gcnconv_name,
-                protonet_name,
-                referencenet_name,
-            ]
+            protonet2_name = "experiments.toptagging.wrappers.ProtoNet2Wrapper"
+            assert self.cfg.model._target_ in [gcnconv_name, protonet_name,referencenet_name, protonet2_name]
 
             # global token?
-            if self.cfg.model._target_ in [
-                gcnconv_name,
-                protonet_name,
-                referencenet_name,
-            ]:
+            if self.cfg.model._target_ in [gcnconv_name, protonet_name,referencenet_name, protonet2_name]:
                 self.cfg.data.include_global_token = not self.cfg.model.mean_aggregation
 
     def init_data(self):
@@ -92,30 +86,33 @@ class TaggingExperiment(BaseExperiment):
     def evaluate(self):
         self.results = {}
 
-        loaders = {
-            "train": self.train_loader,
-            "test": self.test_loader,
-            "val": self.val_loader,
-        }
-        for label in ["test", "val", "train"]:
-            kwargs = {"loader": loaders[label], "title": label, "mode": "eval"}
-            if self.ema is not None:
-                with self.ema.average_parameters():
-                    self.results[label] = self._evaluate_single(**kwargs)
-                self._evaluate_single(**kwargs)
-            else:
-                self.results[label] = self._evaluate_single(**kwargs)
+        # this is a bit ugly, but it does the job
+        if self.ema is not None:
+            with self.ema.average_parameters():
+                self.results["train"] = self._evaluate_single(
+                    self.train_loader, "train", mode="eval"
+                )
+                self.results["val"] = self._evaluate_single(
+                    self.val_loader, "val", mode="eval"
+                )
+                self.results["test"] = self._evaluate_single(
+                    self.test_loader, "test", mode="eval"
+                )
 
-        # test metrics as string for latex table
-        LOGGER.info(
-            r"{0} & {1:.4f} & {2:.4f} & {3:.0f} & {4:.0f} \\".format(
-                self.cfg.run_name,
-                self.results["test"]["accuracy"],
-                self.results["test"]["auc"],
-                self.results["test"]["rej03"],
-                self.results["test"]["rej05"],
+            self._evaluate_single(self.train_loader, "train_noema", mode="eval")
+            self._evaluate_single(self.val_loader, "val_noema", mode="eval")
+            self._evaluate_single(self.test_loader, "test_noema", mode="eval")
+
+        else:
+            self.results["train"] = self._evaluate_single(
+                self.train_loader, "train", mode="eval"
             )
-        )
+            self.results["val"] = self._evaluate_single(
+                self.val_loader, "val", mode="eval"
+            )
+            self.results["test"] = self._evaluate_single(
+                self.test_loader, "test", mode="eval"
+            )
 
     def _evaluate_single(self, loader, title, mode, step=None):
         assert mode in ["val", "eval"]

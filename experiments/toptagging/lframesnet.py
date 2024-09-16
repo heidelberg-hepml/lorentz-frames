@@ -17,7 +17,7 @@ from tensorframes.nn.embedding.radial import (
 
 
 class LFramesNet(nn.Module):
-    def __init__(self, approach, layers, hidden_channels):
+    def __init__(self, approach, layers, hidden_channels, radial_module):
         super().__init__()
 
         self.approach = approach
@@ -30,9 +30,9 @@ class LFramesNet(nn.Module):
         elif approach == "3nn":  # interpretation: equivariant
             self.net = ThreeNNLFrames()
         elif approach == "learned_gramschmidt":  # interpretation: equivariant
+            assert radial_module is not None
             hidden_channels = [hidden_channels] * layers
             in_reps = TensorReps("1x0n+1x1n")
-            radial_module = TrivialRadialEmbedding()  # more options here
             self.net = WrappedLearnedLFrames(
                 in_reps=in_reps,
                 hidden_channels=hidden_channels,

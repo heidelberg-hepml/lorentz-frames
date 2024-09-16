@@ -66,7 +66,9 @@ class ProtoNetWrapper(LorentzFramesTaggerWrapper):
         net,
         lframesnet,
         mean_aggregation,
+        radial_module
     ):
+        lframesnet = lframesnet(radial_module=radial_module)
         super().__init__(lframesnet, mean_aggregation)
         self.net = net
 
@@ -88,6 +90,38 @@ class ProtoNetWrapper(LorentzFramesTaggerWrapper):
         score = self.extract_score(outputs, batch)
         return score
 
+
+class ProtoNet2Wrapper(LorentzFramesTaggerWrapper):
+    def __init__(
+        self,
+        net,
+        lframesnet,
+        mean_aggregation,
+        radial_module,
+        angular_module
+    ):
+        lframesnet = lframesnet(radial_module=radial_module)
+        super().__init__(lframesnet, mean_aggregation)
+        self.net = net(radial_module=radial_module, angular_module=angular_module)
+
+
+    def forward(self, batch):
+        # construct lframes
+        lframes = self.lframesnet(batch.x, batch.edge_index, batch.batch)
+
+        # network
+        pos = batch.x[:, 1:]
+        outputs = self.net(
+            x=batch.x,
+            pos=pos,
+            edge_index=batch.edge_index,
+            lframes=lframes,
+            batch=batch.batch,
+        )
+
+        # aggregation
+        score = self.extract_score(outputs, batch)
+        return score
 
 class ReferenceNetWrapper(nn.Module):
     def __init__(

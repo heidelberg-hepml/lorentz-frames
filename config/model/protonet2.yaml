@@ -1,0 +1,38 @@
+_target_: experiments.toptagging.wrappers.ProtoNet2Wrapper
+mean_aggregation: true
+
+net:
+ _partial_: true
+ _target_: experiments.toptagging.protonet2.ProtoNet
+ in_reps: 1x0n+1x1n
+ hidden_reps: ["8x0n+8x1n", "32x0n+32x1n", "64x0n+64x1n"] # is this reasonable? why does it stay the same proportion of scalar and vectors?
+ out_reps: 1x0n
+ concatenate_receiver_features_in_mlp1: true
+
+ checkpoint_blocks: false
+
+  #angularmodule:
+  #  _target_: tensorframes.nn.embedding.axial.AxisWiseBesselEmbedding
+  #  num_frequencies: 10
+
+  #radialmodule:
+  #    _target_: tensorframes.nn.embedding.radial.BesselEmbedding
+  #    num_frequencies: 10s
+
+lframesnet:
+ _partial_: true
+ _target_: experiments.toptagging.lframesnet.LFramesNet
+ approach: identity
+ layers: 2
+ hidden_channels: 32
+ #radial module
+
+angular_module:
+ _target_: tensorframes.nn.embedding.axial.AxisWiseBesselEmbedding
+ num_frequencies: 10
+ is_learnable: True
+ 
+radial_module:
+ _target_: tensorframes.nn.embedding.radial.BesselEmbedding
+ num_frequencies: 10
+ is_learnable: True

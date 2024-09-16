@@ -8,13 +8,14 @@ from tensorframes.nn.embedding.radial import compute_edge_vec
 from tensorframes.nn.mlp import MLPWrapped
 from tensorframes.nn.tfmessage_passing import TFMessagePassing
 from tensorframes.reps import Irreps, TensorReps
+from experiments.logger import LOGGER
 
 
 class EdgeConv(TFMessagePassing):
     """Multi-Layer Perceptron Convolutional layer for graph neural networks.
 
     Attributes:
-        in_reps (Reps): Input tensor representations or irreps.
+        in_reps (Union[TensorReps, Irreps, str]): Input tensor representations or irreps.
         radial_module (torch.nn.Module): Radial module.
         angular_module (torch.nn.Module): Angular module.
         concatenate_edge_vec (bool): Whether to concatenate edge vectors.
@@ -32,15 +33,10 @@ class EdgeConv(TFMessagePassing):
         hidden_channels: List[int],
         out_channels: int,
         aggr: str = "add",
-        spatial_dim: int = 3,
-        second_hidden_channels: Union[List[int], None] = None,
-        radial_module: Union[torch.nn.Module, None] = None,
-        angular_module: Union[torch.nn.Module, None] = None,
-        concatenate_edge_vec: bool = False,
-        concatenate_receiver_features_in_mlp1: bool = False,
-        concatenate_receiver_features_in_mlp2: bool = False,
-        use_edge_feature_product: bool = False,
-        **mlp_kwargs: Dict,
+        radial_module: torch.nn.Module = None,
+        angular_module: torch.nn.Module = None,
+        concatenate_receiver_features_in_mlp1: bool = True,
+        **mlp_kwargs: Dict
     ):
         """
         Initialize the MLPConv layer.
@@ -50,7 +46,7 @@ class EdgeConv(TFMessagePassing):
         MLP2(f_i, aggr(MLP1(f_i, transformed f_j) odot linear(radial_embedding, angular_embedding))).
 
         Args:
-            in_reps (Reps): Input tensor representations or irreps.
+            in_reps (Union[TensorReps, Irreps]): Input tensor representations or irreps.
             hidden_channels (list[int]): List of hidden channel sizes.
             out_channels (int): Number of output channels.
             aggr (str, optional): Aggregation method. Defaults to "add".
@@ -65,58 +61,27 @@ class EdgeConv(TFMessagePassing):
             **mlp_kwargs: Additional keyword arguments for the MLP layers.
         """
         self.in_reps = in_reps
-        super().__init__(aggr=aggr, params_dict={"x": {"type": "local", "rep": self.in_reps}})
+        super().__init__(aggr=aggr, params_dict={"x": {"type": "local", "rep": self.in_reps}}) #check this out
 
         self.radial_module = radial_module
         self.angular_module = angular_module
-        self.concatenate_edge_vec = concatenate_edge_vec
         self.concatenate_receiver_features_in_mlp1 = concatenate_receiver_features_in_mlp1
-        self.concatenate_receiver_features_in_mlp2 = concatenate_receiver_features_in_mlp2
-        mlp1_in_dim = self.in_reps.dim
-        edge_feature_dim = 0
+
+        mlp1_in_dim = self.in_reps.dim+radial_module.out_dim+angular_module.out_dim
+
         if concatenate_receiver_features_in_mlp1:
             mlp1_in_dim += self.in_reps.dim
-        if concatenate_edge_vec:
-            edge_feature_dim += spatial_dim
-        if radial_module is not None:
-            edge_feature_dim += radial_module.out_dim
-        if angular_module is not None:
-            edge_feature_dim += angular_module.out_dim
 
-        if not use_edge_feature_product:
-            mlp1_in_dim += edge_feature_dim
+        LOGGER.info(f"{mlp1_in_dim=}")
 
-        if mlp1_in_dim == 0:
-            mlp1_in_dim = edge_feature_dim
-            use_edge_feature_product = False
+        self.mlp1 = MLPWrapped(
+        in_channels=mlp1_in_dim,
+        hidden_channels=hidden_channels + [out_channels],
+        **mlp_kwargs
+        )
 
-        if second_hidden_channels is None:
-            self.mlp1 = MLPWrapped(
-                in_channels=mlp1_in_dim,
-                hidden_channels=hidden_channels + [out_channels],
-                **mlp_kwargs,
-            )
-            self.mlp2 = None
-        else:
-            self.mlp1 = MLPWrapped(
-                in_channels=mlp1_in_dim, hidden_channels=hidden_channels, **mlp_kwargs
-            )
-            mlp2_in_dim = hidden_channels[-1]
-            if concatenate_receiver_features_in_mlp2:
-                mlp2_in_dim += in_reps.dim
-            self.mlp2 = MLPWrapped(
-                in_channels=mlp2_in_dim,
-                hidden_channels=second_hidden_channels + [out_channels],
-                **mlp_kwargs,
-            )
         self.out_dim = out_channels
-        if use_edge_feature_product:
-            self.edge_feature_product_layer = torch.nn.Linear(
-                in_features=edge_feature_dim, out_features=self.mlp1.out_dim
-            )
-        else:
-            self.edge_feature_product_layer = None
-
+        
     def forward(
         self,
         x: Union[torch.Tensor, PairTensor],
@@ -146,14 +111,8 @@ class EdgeConv(TFMessagePassing):
         if not isinstance(batch, tuple):
             batch = (batch, batch)
 
-        edge_vec = None
-        if (
-            self.concatenate_edge_vec
-            or self.radial_module is not None
-            or self.angular_module is not None
-        ):
-            edge_vec = compute_edge_vec(pos=pos, edge_index=edge_index, lframes=lframes)
-
+        edge_vec = compute_edge_vec(pos=pos, edge_index=edge_index, lframes=lframes)
+        
         if self.radial_module is None:
             radial_embedding = None
         else:
@@ -164,6 +123,7 @@ class EdgeConv(TFMessagePassing):
             angular_embedding = self.angular_module(edge_vec=edge_vec)
 
         batch = (batch[0].view(-1, 1), batch[1].view(-1, 1))  # needed for index-magic
+        #LOGGER.info(f"preprop {x[0].shape=}")
         x_aggr = self.propagate(
             edge_index,
             x=x,
@@ -173,11 +133,6 @@ class EdgeConv(TFMessagePassing):
             radial_embedding=radial_embedding,
             angular_embedding=angular_embedding,
         )
-
-        if self.mlp2 is not None:
-            if self.concatenate_receiver_features_in_mlp2 and x[1] is not None:
-                x_aggr = torch.cat((x_aggr, x[1]), dim=-1)
-            x_aggr = self.mlp2(x_aggr, batch=batch[1])
 
         return x_aggr
 
@@ -207,21 +162,20 @@ class EdgeConv(TFMessagePassing):
         """
         assert torch.allclose(batch_i, batch_j), "batch_i and batch_j must be equal"
 
-        x = x_j
+        #LOGGER.info(f"{x_i.shape=}")
+        if self.concatenate_receiver_features_in_mlp1:
+            x = torch.cat((x_i, x_j-x_i), dim=-1) #standart edgeConv
+        else:
+            x = x_j #this is pretty dumb
+        #LOGGER.info(f"{x.shape=}")
         edge_features = None
-
-        if self.concatenate_receiver_features_in_mlp1 and x_i is not None:
-            x = torch.cat((x, x_i), dim=-1)
-
-        if self.concatenate_edge_vec:
-            edge_features = edge_vec
 
         if radial_embedding is not None:
             edge_features = (
                 radial_embedding
-                if edge_features is None
-                else torch.cat((edge_features, radial_embedding), dim=-1)
             )
+        #LOGGER.info(f"{radial_embedding.shape=}")
+        #LOGGER.info(f"{angular_embedding.shape=}")
 
         if angular_embedding is not None:
             edge_features = (
@@ -230,18 +184,14 @@ class EdgeConv(TFMessagePassing):
                 else torch.cat((edge_features, angular_embedding), dim=-1)
             )
 
-        if self.edge_feature_product_layer is None:
-            if edge_features is None:
-                assert x is not None, "x and edge_features are both None"
-            else:
-                if x is None:
-                    x = edge_features
-                else:
-                    x = torch.cat((x, edge_features), dim=-1)
-            x = self.mlp1(x, batch=batch_i.view(-1))
+        if edge_features is None:
+            assert x is not None, "x and edge_features are both None"
         else:
-            x = self.edge_feature_product_layer(edge_features) * self.mlp1(
-                x, batch=batch_i.view(-1)
-            )
-
+            if x is None:
+                x = edge_features
+            else:
+                x = torch.cat((x, edge_features), dim=-1)
+        #LOGGER.info(f"before mlp: {x.shape=}, mlp: {self.mlp1=}")
+        x = self.mlp1(x, batch=batch_i.view(-1))
+        #LOGGER.info(f"after mlp: {x.shape=}")
         return x

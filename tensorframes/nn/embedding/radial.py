@@ -7,6 +7,7 @@ from torch.nn import Module
 
 from tensorframes.lframes import LFrames
 from tensorframes.reps.tensorreps import TensorReps
+from experiments.logger import LOGGER
 
 
 def double_gradient_safe_norm(edge_vec: Tensor, eps: float = 1e-6) -> Tensor:
@@ -51,6 +52,7 @@ def compute_edge_vec(
 
     if not isinstance(lframes, tuple):
         lframes = (lframes, lframes)
+        LOGGER.info(f"{lframes=}")
 
     edge_vec = pos_j - pos_i
     if lframes[1] is not None:
@@ -132,6 +134,7 @@ class BesselEmbedding(RadialEmbedding):
         cutoff: float | None = None,
         envelope: Module | None = None,
         flip_negative: bool = False,
+        is_learnable: bool = True
     ) -> None:
         """Initialize the RadialEmbedding layer.
 
@@ -154,11 +157,14 @@ class BesselEmbedding(RadialEmbedding):
             self.envelope = None
 
         data = torch.pi * torch.arange(1, num_frequencies + 1)
-        # Initialize frequencies at canonical positions
-        self.frequencies = torch.nn.Parameter(
-            data=data,
-            requires_grad=True,
-        )
+        if is_learnable:
+            # Initialize frequencies at canonical positions
+            self.frequencies = torch.nn.Parameter(
+                data=data,
+                requires_grad=True,
+            )
+        else:
+            self.register_buffer("frequencies", data)
 
     def compute_embedding(self, norm: Tensor) -> Tensor:
         """Computes the embedding for the given norm.
