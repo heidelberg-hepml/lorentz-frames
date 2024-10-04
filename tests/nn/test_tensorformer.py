@@ -26,7 +26,9 @@ def test_tensorformer_init_and_forward():
     # create test data
     x = torch.randn(10, tensor_reps.dim)
     pos = torch.randn(10, 3)
-    edge_index = torch.tensor([[0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [1, 2, 3, 4, 5, 6, 7, 8, 9, 0]])
+    edge_index = torch.tensor(
+        [[0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [1, 2, 3, 4, 5, 6, 7, 8, 9, 0]]
+    )
     edge_embedding = torch.randn(10, edge_embedding_dim)
 
     lframes_mat = e3nn.o3.rand_matrix(10)

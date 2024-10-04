@@ -117,9 +117,9 @@ def quaternion_slerp(q1, q2, t, eps=1e-6, uniform_step_adaptation=False):
 
     # if the two quaternions are parallel, we can just interpolate linearly:
     interp_quat = torch.zeros_like(q1)
-    interp_quat[parallel_mask] = (1 - tp)[:, None] * q1[parallel_mask] + tp[:, None] * q2[
-        parallel_mask
-    ]
+    interp_quat[parallel_mask] = (1 - tp)[:, None] * q1[parallel_mask] + tp[
+        :, None
+    ] * q2[parallel_mask]
 
     # apply slerp in the non-parallel case:
     angle = angle_between_quats[~parallel_mask]
@@ -127,12 +127,19 @@ def quaternion_slerp(q1, q2, t, eps=1e-6, uniform_step_adaptation=False):
 
     if uniform_step_adaptation:
         # angle between rots is 2 * acos(abs(dot)):
-        angle_between_rots = 2 * torch.where(angle < torch.pi / 2, angle, torch.pi - angle)
+        angle_between_rots = 2 * torch.where(
+            angle < torch.pi / 2, angle, torch.pi - angle
+        )
 
         # (angle_between_quats - torch.sin(angle_between_quats)) / angle_between_quats is the ratio of desired/ actual angle
         #  1 - ratio to make step larger if desired angle is smaller!
         # (1-t) is needed to cap it to the same max angle as with slerp
-        t = 1 - (1 - t) * (angle_between_rots - torch.sin(angle_between_rots)) / angle_between_rots
+        t = (
+            1
+            - (1 - t)
+            * (angle_between_rots - torch.sin(angle_between_rots))
+            / angle_between_rots
+        )
 
     weight1 = torch.sin((1 - t) * angle) / sin_angle
     weight2 = torch.sin(t * angle) / sin_angle
@@ -171,7 +178,9 @@ def sample_gaussian_rotation(ref_rot, width, num_samples=1):
     gauss_quats = torch.zeros(num_samples, 4, device=ref_rot.device)
     gauss_quats[:, 0] = torch.cos(gauss_angles / 2)
     vector_component = torch.randn(num_samples, 3)  # uniform random unit vectors
-    vector_component = vector_component / torch.linalg.norm(vector_component, dim=-1, keepdim=True)
+    vector_component = vector_component / torch.linalg.norm(
+        vector_component, dim=-1, keepdim=True
+    )
     gauss_quats[:, 1:] = torch.sin(gauss_angles / 2)[:, None] * vector_component
 
     gauss_quats = quaternion_product(gauss_quats, ref_quat)
@@ -185,7 +194,9 @@ def nlerp_interpolation(rot1, rot2, t):
 
     dot = (q1 * q2).sum(dim=-1)
     negative_dot = dot < 0
-    q2[negative_dot] = -q2[negative_dot]  # note that q and -q represent the same rotation
+    q2[negative_dot] = -q2[
+        negative_dot
+    ]  # note that q and -q represent the same rotation
     dot[negative_dot] = -dot[negative_dot]
 
     interp_quat = (1 - t) * q1 + t * q2
@@ -204,7 +215,9 @@ def slerp_interpolation(rot1, rot2, t, uniform_step_adaptation=False):
     if torch.isnan(q2).any():
         print("q2 has nan")
 
-    interp_quat = quaternion_slerp(q1, q2, t, uniform_step_adaptation=uniform_step_adaptation)
+    interp_quat = quaternion_slerp(
+        q1, q2, t, uniform_step_adaptation=uniform_step_adaptation
+    )
 
     if torch.isnan(interp_quat).any():
         print("interp_quat has nan")

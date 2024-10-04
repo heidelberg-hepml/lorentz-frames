@@ -42,7 +42,9 @@ def test_wigner():
         )
 
     # test that wigner is 1 for l = 0:
-    assert torch.allclose(wigner_D_from_matrix(0, torch.rand(10, 3, 3)), torch.ones(10, 1, 1))
+    assert torch.allclose(
+        wigner_D_from_matrix(0, torch.rand(10, 3, 3)), torch.ones(10, 1, 1)
+    )
 
     # test that wigner for l=1 is the same as the rotation matrix:
 
@@ -60,7 +62,9 @@ def test_wigner():
 
     # test that wigner is an orthogonal matrix:
     wigner = wigner_D_from_matrix(3, rand_matrix(10))
-    assert torch.allclose(wigner @ wigner.transpose(-1, -2), torch.eye(2 * 3 + 1), atol=1e-6)
+    assert torch.allclose(
+        wigner @ wigner.transpose(-1, -2), torch.eye(2 * 3 + 1), atol=1e-6
+    )
 
     # test that wigner is an orthogonal representation:
     matrix = rand_matrix(10)

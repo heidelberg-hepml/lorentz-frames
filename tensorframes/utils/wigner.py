@@ -145,7 +145,11 @@ def euler_angles_yxy(
 
 
 def wigner_D_with_J(
-    l: int, J: torch.Tensor, alpha: torch.Tensor, beta: torch.Tensor, gamma: torch.Tensor
+    l: int,
+    J: torch.Tensor,
+    alpha: torch.Tensor,
+    beta: torch.Tensor,
+    gamma: torch.Tensor,
 ) -> torch.Tensor:
     """
     Calculate the Wigner D matrix using the precomputed J matrix and Euler angles.
@@ -199,7 +203,9 @@ def wigner_D_from_matrix(
         torch.Tensor: The resulting Wigner D matrix of shape (..., 2l+1, 2l+1)
     """
     if l == 0:
-        return torch.ones(matrix.shape[:-2] + (1, 1), dtype=matrix.dtype, device=matrix.device)
+        return torch.ones(
+            matrix.shape[:-2] + (1, 1), dtype=matrix.dtype, device=matrix.device
+        )
     if l == 1:
         return matrix
 
