@@ -16,7 +16,7 @@ from experiments.mlflow import log_mlflow
 MODEL_TITLE_DICT = {
     "GCNConv": "GCNConv",
     "ProtoNet": "ProtoNet",
-    "ProtoNet2" : "ProtoNet2",
+    "ProtoNet2": "ProtoNet2",
     "ReferenceNet": "ReferenceNet",
 }
 
@@ -33,10 +33,20 @@ class TaggingExperiment(BaseExperiment):
             protonet_name = "experiments.toptagging.wrappers.ProtoNetWrapper"
             referencenet_name = "experiments.toptagging.wrappers.ReferenceNetWrapper"
             protonet2_name = "experiments.toptagging.wrappers.ProtoNet2Wrapper"
-            assert self.cfg.model._target_ in [gcnconv_name, protonet_name,referencenet_name, protonet2_name]
+            assert self.cfg.model._target_ in [
+                gcnconv_name,
+                protonet_name,
+                referencenet_name,
+                protonet2_name,
+            ]
 
             # global token?
-            if self.cfg.model._target_ in [gcnconv_name, protonet_name,referencenet_name, protonet2_name]:
+            if self.cfg.model._target_ in [
+                gcnconv_name,
+                protonet_name,
+                referencenet_name,
+                protonet2_name,
+            ]:
                 self.cfg.data.include_global_token = not self.cfg.model.mean_aggregation
 
     def init_data(self):
@@ -182,6 +192,11 @@ class TaggingExperiment(BaseExperiment):
                 f"{metrics['rej05']:.0f} (epsS=0.5), {metrics['rej08']:.0f} (epsS=0.8)"
             )
 
+        for name, param in self.model.named_parameters():
+            if param.requires_grad:
+                if param.grad is not None:
+                    metrics[f"{name}_max.grad"] = param.grad.abs().max().item()
+
         if self.cfg.use_mlflow:
             for key, value in metrics.items():
                 if key in ["labels_true", "labels_predict", "fpr", "tpr"]:
@@ -195,7 +210,7 @@ class TaggingExperiment(BaseExperiment):
         plot_path = os.path.join(self.cfg.run_dir, f"plots_{self.cfg.run_idx}")
         os.makedirs(plot_path)
         model_title = MODEL_TITLE_DICT[type(self.model.net).__name__]
-        title = model_title
+        title = ""  # model_title
         LOGGER.info(f"Creating plots in {plot_path}")
 
         if self.cfg.evaluate and self.cfg.evaluation.save_roc:
