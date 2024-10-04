@@ -5,59 +5,117 @@ from torch.utils.checkpoint import checkpoint
 from tensorframes.nn.edge_conv import EdgeConv
 from tensorframes.reps import TensorReps
 from tensorframes.nn.mlp import MLPWrapped
+from experiments.logger import LOGGER
 
 
 class ProtoNet(nn.Module):
     def __init__(
         self,
-        num_blocks,
         in_reps,
         hidden_reps,
         out_reps,
+        radial_module,
+        angular_module,
         checkpoint_blocks=False,
+        second_hidden_reps=None,
         **mlp_kwargs,
     ):
         super().__init__()
         self.checkpoint_blocks = checkpoint_blocks
+        num_blocks = len(hidden_reps)
         assert num_blocks >= 2
 
         # convert x_reps from string to proper TensorReps objects
-        in_reps = TensorReps(in_reps)
-        hidden_reps = TensorReps(hidden_reps)
+        in_reps = TensorReps(in_reps)  # TensorReps(4)
+        hidden_reps = [
+            TensorReps(hr) for hr in hidden_reps
+        ]  # [TensorReps(32),TensorReps(128),TensorReps(256)]
+        if second_hidden_reps is None:
+            hidden_channels = [
+                [hr.dim] * 2 for hr in hidden_reps
+            ]  # [[32,32],[128,128],[256,256]]
+        else:  # this accounts for the last hidden -> output layer being transfered to the second network
+            hidden_channels = [
+                [hr.dim] * 3 for hr in hidden_reps
+            ]  # [[32,32],[128,128],[256,256]]
         out_reps = TensorReps(out_reps)
 
-        # build edgeconv blocks
-        edgeconv_kwargs = {
-            "aggr": "add",
-            "spatial_dim": 3,
-            "hidden_channels": [hidden_reps.dim, hidden_reps.dim],
-            "radial_module": None,
-            "angular_module": None,
-            "concatenate_receiver_features_in_mlp1": False,
-            "concatenate_receiver_features_in_mlp2": False,
-            "use_edge_feature_product": False,
-            **mlp_kwargs,
-        }
-        first_block = EdgeConv(
-            in_reps=in_reps,
-            out_channels=hidden_reps.dim,
-            **edgeconv_kwargs,
-        )
-        middle_blocks = []
-        for _ in range(num_blocks - 2):
-            middle_blocks.append(
-                EdgeConv(
-                    in_reps=hidden_reps,
-                    out_channels=hidden_reps.dim,
-                    **edgeconv_kwargs,
-                )
+        self.output_dim = out_reps.dim
+
+        if second_hidden_reps is not None:
+            second_hidden_reps = [TensorReps(shr) for shr in second_hidden_reps]
+            second_hidden_channels = [
+                [shr.dim] for shr in second_hidden_reps
+            ]  # i begin with only one to see if there is any increase in performance
+
+            # build edgeConv blocks
+            first_block = EdgeConv(
+                in_reps=in_reps,
+                hidden_channels=hidden_channels[0],
+                out_channels=hidden_reps[0].dim,
+                aggr="add",
+                radial_module=radial_module,
+                angular_module=angular_module,
+                second_hidden_channels=second_hidden_channels[0],
             )
-        last_block = EdgeConv(
-            in_reps=hidden_reps,
-            out_channels=out_reps.dim,
-            **edgeconv_kwargs,
-        )
+
+            middle_blocks = []
+            for layerID in range(num_blocks - 2):
+                middle_blocks.append(
+                    EdgeConv(
+                        in_reps=hidden_reps[layerID],
+                        hidden_channels=hidden_channels[layerID + 1],
+                        out_channels=hidden_reps[layerID + 1].dim,
+                        aggr="add",
+                        radial_module=radial_module,
+                        angular_module=angular_module,
+                        second_hidden_channels=second_hidden_channels[layerID + 1],
+                    )
+                )
+            last_block = EdgeConv(
+                in_reps=hidden_reps[-2],
+                hidden_channels=hidden_channels[-1],
+                out_channels=out_reps.dim,
+                aggr="add",
+                radial_module=radial_module,
+                angular_module=angular_module,
+                second_hidden_channels=second_hidden_channels[-1],
+            )
+        else:
+            # build edgeConv blocks
+            first_block = EdgeConv(
+                in_reps=in_reps,
+                hidden_channels=hidden_channels[0],
+                out_channels=hidden_reps[0].dim,
+                aggr="add",
+                radial_module=radial_module,
+                angular_module=angular_module,
+            )
+
+            middle_blocks = []
+            for layerID in range(num_blocks - 2):
+                middle_blocks.append(
+                    EdgeConv(
+                        in_reps=hidden_reps[layerID],
+                        hidden_channels=hidden_channels[layerID + 1],
+                        out_channels=hidden_reps[layerID + 1].dim,
+                        aggr="add",
+                        radial_module=radial_module,
+                        angular_module=angular_module,
+                    )
+                )
+            last_block = EdgeConv(
+                in_reps=hidden_reps[-2],
+                hidden_channels=hidden_channels[-1],
+                out_channels=out_reps.dim,
+                aggr="add",
+                radial_module=radial_module,
+                angular_module=angular_module,
+            )
+
         self.blocks = nn.ModuleList([first_block, *middle_blocks, last_block])
+        for i, l in enumerate(self.blocks):
+            LOGGER.info(f"layer{i}: {l}")
 
     def forward(self, x, pos, edge_index, lframes, batch):
         # loop through edge_conv blocks
