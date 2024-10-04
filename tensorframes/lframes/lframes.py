@@ -112,7 +112,9 @@ class LFrames:
 
         if self.cache_wigner and self.wigner_cache is not {}:
             for l in self.wigner_cache:
-                new_lframes.wigner_cache[l] = self.wigner_cache[l].index_select(0, indices)
+                new_lframes.wigner_cache[l] = self.wigner_cache[l].index_select(
+                    0, indices
+                )
 
         return new_lframes
 

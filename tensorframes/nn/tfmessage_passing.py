@@ -50,7 +50,9 @@ class TFMessagePassing(MessagePassing):
         Returns:
             tuple: The modified inputs dictionary.
         """
-        assert inputs[-1].get("lframes") is not None, "lframes are not in the propagate inputs"
+        assert (
+            inputs[-1].get("lframes") is not None
+        ), "lframes are not in the propagate inputs"
 
         self._lframes = inputs[-1].pop("lframes")
         self._edge_index = inputs[0]
@@ -88,10 +90,14 @@ class TFMessagePassing(MessagePassing):
             if param_info["type"] == "local":
                 assert param + "_j" in inputs[-1], f"Key {param}_j not in inputs"
                 # transform the features according to the representation
-                inputs[-1][param + "_j"] = param_info["transform"](inputs[-1][param + "_j"], U)
+                inputs[-1][param + "_j"] = param_info["transform"](
+                    inputs[-1][param + "_j"], U
+                )
             elif param_info["type"] == "global":
                 if inputs[-1].get(param) is not None:
-                    inputs[-1][param] = param_info["transform"](inputs[-1][param], lframes_i)
+                    inputs[-1][param] = param_info["transform"](
+                        inputs[-1][param], lframes_i
+                    )
                 if inputs[-1].get(param + "_j") is not None:
                     inputs[-1][param + "_j"] = param_info["transform"](
                         inputs[-1][param + "_j"], lframes_i

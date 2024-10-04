@@ -267,7 +267,9 @@ class TensorReps(Tuple):
 
         return TensorReps(out)
 
-    def get_transform_class(self, use_parallel: bool = True, avoid_einsum: bool = False):
+    def get_transform_class(
+        self, use_parallel: bool = True, avoid_einsum: bool = False
+    ):
         """Returns the tensor reps transform class.
 
         Args:
@@ -299,7 +301,10 @@ class TensorRepsTransform(Module):
     """
 
     def __init__(
-        self, tensor_reps: TensorReps, use_parallel: bool = True, avoid_einsum: bool = False
+        self,
+        tensor_reps: TensorReps,
+        use_parallel: bool = True,
+        avoid_einsum: bool = False,
     ):
         """Initialize a TensorReps object.
 
@@ -315,7 +320,9 @@ class TensorRepsTransform(Module):
         self.spatial_dim = tensor_reps.spatial_dim
 
         # prepare for fast transform
-        n_start_index_dict = {n: [] for n in range(0, self.tensor_reps.max_rep.rep.order + 1)}
+        n_start_index_dict = {
+            n: [] for n in range(0, self.tensor_reps.max_rep.rep.order + 1)
+        }
         pseudo_mask = torch.zeros(self.tensor_reps.dim, dtype=bool)
         start_idx = 0
         for i, mul_reps in enumerate(self.tensor_reps):
@@ -360,7 +367,9 @@ class TensorRepsTransform(Module):
         # remove scalars from l_sorted:
         self.sorted_n.remove(0)
         pseudo_tensor = torch.where(
-            pseudo_mask, -torch.ones(self.tensor_reps.dim), torch.ones(self.tensor_reps.dim)
+            pseudo_mask,
+            -torch.ones(self.tensor_reps.dim),
+            torch.ones(self.tensor_reps.dim),
         ).float()
         self.register_buffer("pseudo_tensor", pseudo_tensor)
 
@@ -386,7 +395,9 @@ class TensorRepsTransform(Module):
         batch_index = ord("a")
 
         for i in range(order):
-            einsum += chr(batch_index) + chr(start + 2 * i) + chr(start + 2 * i + 1) + ","
+            einsum += (
+                chr(batch_index) + chr(start + 2 * i) + chr(start + 2 * i + 1) + ","
+            )
 
         einsum += chr(batch_index)
 
@@ -451,7 +462,9 @@ class TensorRepsTransform(Module):
                 )
             else:
                 n_mask = self.n_masks[i]
-                smaller_tensor = coeffs[:, n_mask].view(N, -1, *(l * (self.spatial_dim,)))
+                smaller_tensor = coeffs[:, n_mask].view(
+                    N, -1, *(l * (self.spatial_dim,))
+                )
 
             if i == 0:
                 # highest n
@@ -535,7 +548,9 @@ class TensorRepsTransform(Module):
                         "i,ij->ij", det_sign, coeffs[:, left_index:right_index]
                     )
                 else:
-                    output[:, left_index:right_index] = coeffs[:, left_index:right_index]
+                    output[:, left_index:right_index] = coeffs[
+                        :, left_index:right_index
+                    ]
                 current_index += length
                 continue
 
@@ -545,7 +560,9 @@ class TensorRepsTransform(Module):
                 coeffs.shape[0], mul, *([3] * rep_n)
             )
 
-            trafo_tensors = torch.einsum(einsum_str, *([basis_change.matrices] * rep_n), tensor)
+            trafo_tensors = torch.einsum(
+                einsum_str, *([basis_change.matrices] * rep_n), tensor
+            )
 
             output[:, left_index:right_index] = trafo_tensors.flatten(start_dim=1)
 
@@ -575,7 +592,9 @@ class TensorRepsTransform(Module):
             Tensor: The transformed coefficients.
         """
         if coeffs is None:
-            assert self.tensor_reps.dim == 0, "No coeffs are provided for non-trivial transform"
+            assert (
+                self.tensor_reps.dim == 0
+            ), "No coeffs are provided for non-trivial transform"
             return None
 
         if self.use_parallel:

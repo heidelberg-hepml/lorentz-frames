@@ -78,12 +78,17 @@ class QuaternionsUpdateLFrames(torch.nn.Module):
         axis = torch.nn.functional.normalize(out[..., 2:], p=2, dim=-1)
         rot_matr = quaternions_to_matrix(
             torch.cat(
-                [torch.cos(angle / 2).unsqueeze(-1), torch.sin(angle / 2).unsqueeze(-1) * axis],
+                [
+                    torch.cos(angle / 2).unsqueeze(-1),
+                    torch.sin(angle / 2).unsqueeze(-1) * axis,
+                ],
                 dim=-1,
             )
         )
 
-        new_lframes = LFrames(torch.einsum("ijk, ikn -> ijn", rot_matr, lframes.matrices))
+        new_lframes = LFrames(
+            torch.einsum("ijk, ikn -> ijn", rot_matr, lframes.matrices)
+        )
         new_x = self.coeffs_transform(x, LFrames(rot_matr))
 
         return new_x, new_lframes

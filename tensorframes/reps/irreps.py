@@ -25,7 +25,9 @@ class Irrep(Tuple):
         -1
     """
 
-    def __new__(cls, angular_momentum: Union[int, str, "Irrep"], p: int = None) -> "Irrep":
+    def __new__(
+        cls, angular_momentum: Union[int, str, "Irrep"], p: int = None
+    ) -> "Irrep":
         """Initializes the `Irrep` object.
 
         Args:
@@ -54,7 +56,9 @@ class Irrep(Tuple):
             elif isinstance(angular_momentum, tuple):
                 angular_momentum, p = angular_momentum
 
-        assert isinstance(angular_momentum, int) and angular_momentum >= 0, angular_momentum
+        assert (
+            isinstance(angular_momentum, int) and angular_momentum >= 0
+        ), angular_momentum
         assert p in [-1, 1], p
         return super().__new__(cls, (angular_momentum, p))
 
@@ -311,7 +315,8 @@ class IrrepsTransform(Module):
 
         # prepare for fast transform
         l_start_index_dict = {
-            l_val: [] for l_val in range(0, self.irreps.max_rep.rep.angular_momentum + 1)
+            l_val: []
+            for l_val in range(0, self.irreps.max_rep.rep.angular_momentum + 1)
         }
         odd_mask = torch.zeros(self.irreps.dim, dtype=bool)
         start_idx = 0
@@ -369,7 +374,10 @@ class IrrepsTransform(Module):
             self.register_buffer(f"J_matrix_{l_val}", _Jd[l_val].float())
 
     def forward(
-        self, coeffs: Tensor, basis_change: Union[LFrames, ChangeOfLFrames], inplace: bool = False
+        self,
+        coeffs: Tensor,
+        basis_change: Union[LFrames, ChangeOfLFrames],
+        inplace: bool = False,
     ) -> Tensor:
         """Applies the transformation to the input coefficients.
 
@@ -383,7 +391,9 @@ class IrrepsTransform(Module):
         """
 
         if coeffs is None:
-            assert self.irreps.dim == 0, "No coeffs are provided for non-trivial transform"
+            assert (
+                self.irreps.dim == 0
+            ), "No coeffs are provided for non-trivial transform"
             return None
 
         if inplace:
@@ -415,7 +425,9 @@ class IrrepsTransform(Module):
             J_matrix = getattr(self, f"J_matrix_{l}")
             wigner = basis_change.wigner_D(l, J=J_matrix).transpose(-1, -2)
             if self.is_sorted:
-                output_coeffs[:, start_idx:end_idx] = torch.matmul(l_tensor, wigner).flatten(1)
+                output_coeffs[:, start_idx:end_idx] = torch.matmul(
+                    l_tensor, wigner
+                ).flatten(1)
             else:
                 output_coeffs[:, l_mask] = torch.matmul(l_tensor, wigner).flatten(1)
 

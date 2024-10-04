@@ -37,8 +37,8 @@ class EdgeConv(TFMessagePassing):
         radial_module: Union[torch.nn.Module, None] = None,
         angular_module: Union[torch.nn.Module, None] = None,
         concatenate_edge_vec: bool = False,
-        concatenate_receiver_features_in_mlp1: bool = False,
-        concatenate_receiver_features_in_mlp2: bool = False,
+        concatenate_receiver_features_in_mlp1: bool = True,
+        concatenate_receiver_features_in_mlp2: bool = True,
         use_edge_feature_product: bool = False,
         **mlp_kwargs: Dict,
     ):
@@ -65,13 +65,19 @@ class EdgeConv(TFMessagePassing):
             **mlp_kwargs: Additional keyword arguments for the MLP layers.
         """
         self.in_reps = in_reps
-        super().__init__(aggr=aggr, params_dict={"x": {"type": "local", "rep": self.in_reps}})
+        super().__init__(
+            aggr=aggr, params_dict={"x": {"type": "local", "rep": self.in_reps}}
+        )
 
         self.radial_module = radial_module
         self.angular_module = angular_module
         self.concatenate_edge_vec = concatenate_edge_vec
-        self.concatenate_receiver_features_in_mlp1 = concatenate_receiver_features_in_mlp1
-        self.concatenate_receiver_features_in_mlp2 = concatenate_receiver_features_in_mlp2
+        self.concatenate_receiver_features_in_mlp1 = (
+            concatenate_receiver_features_in_mlp1
+        )
+        self.concatenate_receiver_features_in_mlp2 = (
+            concatenate_receiver_features_in_mlp2
+        )
         mlp1_in_dim = self.in_reps.dim
         edge_feature_dim = 0
         if concatenate_receiver_features_in_mlp1:

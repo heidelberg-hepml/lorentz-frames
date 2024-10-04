@@ -5,6 +5,7 @@ from torch_geometric.nn import knn
 
 from tensorframes.lframes.gram_schmidt import gram_schmidt
 from tensorframes.lframes.lframes import LFrames
+import torch_cluster
 
 
 class ThreeNNLFrames(torch.nn.Module):
@@ -39,13 +40,15 @@ class ThreeNNLFrames(torch.nn.Module):
 
         # convert idx to bool tensor:
         if idx.dtype != torch.bool:
-            idx = torch.zeros(pos.shape[0], dtype=torch.bool, device=pos.device).scatter_(
-                0, idx, True
-            )
+            idx = torch.zeros(
+                pos.shape[0], dtype=torch.bool, device=pos.device
+            ).scatter_(0, idx, True)
 
         # find 2 closest neighbors:
         row, col = knn(pos, pos[idx], k=4, batch_x=batch, batch_y=batch[idx])
-        mask_self_loops = torch.arange(pos.shape[0], dtype=int, device=idx.device)[idx][row] == col
+        mask_self_loops = (
+            torch.arange(pos.shape[0], dtype=int, device=idx.device)[idx][row] == col
+        )
         assert (
             mask_self_loops.sum() == idx.sum()
         ), f"every center should have a self loop, {mask_self_loops.sum()} != {idx.sum()}"
@@ -94,7 +97,10 @@ class RandomLFrames(torch.nn.Module):
             idx = torch.ones(pos.shape[0], dtype=torch.bool, device=pos.device)
         lframes = rand_matrix(pos[idx].shape[0], device=pos.device)
         if self.flip_probability > 0:
-            flip_mask = torch.rand(lframes.shape[0], device=lframes.device) < self.flip_probability
+            flip_mask = (
+                torch.rand(lframes.shape[0], device=lframes.device)
+                < self.flip_probability
+            )
             # flip the x-axis
             lframes[flip_mask, 0] = -lframes[flip_mask, 0]
         return LFrames(lframes)

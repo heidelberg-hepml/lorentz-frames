@@ -10,6 +10,7 @@ from tensorframes.nn.embedding.radial import (
     double_gradient_safe_normalize,
     get_gaussian_width,
 )
+from experiments.logger import LOGGER
 
 
 class AxisWiseEmbeddingFromRadial(AngularEmbedding):
@@ -180,7 +181,9 @@ class AxisWiseGaussianEmbedding(AngularEmbedding):
 
         self.num_gaussians = num_gaussians
         minimum_initial_range = (
-            -maximum_initial_range if minimum_initial_range is None else minimum_initial_range
+            -maximum_initial_range
+            if minimum_initial_range is None
+            else minimum_initial_range
         )
 
         if gaussian_width is None:
@@ -193,13 +196,17 @@ class AxisWiseGaussianEmbedding(AngularEmbedding):
             # use linspace to create the shifts of the gaussians in the range of 0 to 3
             # we use 3 as an initialisation because the bond length of c-c is 3 Bohr
             self.shift = torch.nn.Parameter(
-                torch.linspace(minimum_initial_range, maximum_initial_range, num_gaussians)
+                torch.linspace(
+                    minimum_initial_range, maximum_initial_range, num_gaussians
+                )
             )
             # initialisation of the scale parameter as 1
             self.scale = torch.nn.Parameter(torch.ones(num_gaussians) * gaussian_width)
         else:
             self.register_buffer("scale", torch.ones(num_gaussians) * gaussian_width)
-            self.register_buffer("shift", torch.linspace(0, maximum_initial_range, num_gaussians))
+            self.register_buffer(
+                "shift", torch.linspace(0, maximum_initial_range, num_gaussians)
+            )
 
         self.normalized = normalized
 
@@ -224,3 +231,15 @@ class AxisWiseGaussianEmbedding(AngularEmbedding):
             gaussian = gaussian / (np.sqrt(2 * np.pi) * self.scale)
 
         return gaussian.reshape(-1, self.num_gaussians * 3)
+
+
+class TrivialAxisWiseEmbedding(AngularEmbedding):
+    def __init__(
+        self,
+    ) -> None:
+
+        super().__init__(out_dim=3)
+
+    def compute_embedding(self, edge_vec: torch.Tensor) -> torch.Tensor:
+
+        return edge_vec.reshape(-1, 3)
