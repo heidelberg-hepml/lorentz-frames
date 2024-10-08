@@ -124,11 +124,11 @@ class ProtoNetWrapper(LorentzFramesTaggerWrapper):
         if self.post_layer is None:
             score = self.extract_score(outputs, batch)
         else:
-            LOGGER.info(f"{outputs.shape=}")
+            #LOGGER.info(f"{outputs.shape=}")
             logits = global_mean_pool(outputs, batch.batch)  # batch, output_dim
-            LOGGER.info(f"{logits.shape=}")
+            #LOGGER.info(f"{logits.shape=}")
             score = self.post_layer(logits)  # batch, 1
-            LOGGER.info(f"{score.shape=}")
+            #LOGGER.info(f"{score.shape=}")
             score = score.flatten()  # batch
         return score
 
