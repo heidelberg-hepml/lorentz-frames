@@ -12,14 +12,6 @@ from torch_geometric.nn.pool import global_mean_pool
 from torch_geometric.nn.aggr import MeanAggregation
 
 
-def mean_pointcloud(x, batch):
-    batchsize = max(batch) + 1
-    logits = torch.zeros(batchsize, device=x.device, dtype=x.dtype)
-    logits.index_add_(0, batch, x[:, 0])  # sum
-    logits = logits / torch.bincount(batch)  # mean
-    return logits
-
-
 class LorentzFramesTaggerWrapper(nn.Module):
     def __init__(
         self,
