@@ -14,7 +14,7 @@ class EdgeConv(TFMessagePassing):
     """Multi-Layer Perceptron Convolutional layer for graph neural networks.
 
     Attributes:
-        in_reps (Reps): Input tensor representations or irreps.
+        in_reps (Union[TensorReps, Irreps, str]): Input tensor representations or irreps.
         radial_module (torch.nn.Module): Radial module.
         angular_module (torch.nn.Module): Angular module.
         concatenate_edge_vec (bool): Whether to concatenate edge vectors.
@@ -33,9 +33,9 @@ class EdgeConv(TFMessagePassing):
         out_channels: int,
         aggr: str = "add",
         spatial_dim: int = 3,
-        second_hidden_channels: Union[List[int], None] = None,
-        radial_module: Union[torch.nn.Module, None] = None,
-        angular_module: Union[torch.nn.Module, None] = None,
+        second_hidden_channels: List[int] = None,
+        radial_module: torch.nn.Module = None,
+        angular_module: torch.nn.Module = None,
         concatenate_edge_vec: bool = False,
         concatenate_receiver_features_in_mlp1: bool = True,
         concatenate_receiver_features_in_mlp2: bool = True,
@@ -50,7 +50,7 @@ class EdgeConv(TFMessagePassing):
         MLP2(f_i, aggr(MLP1(f_i, transformed f_j) odot linear(radial_embedding, angular_embedding))).
 
         Args:
-            in_reps (Reps): Input tensor representations or irreps.
+            in_reps (Union[TensorReps, Irreps]): Input tensor representations or irreps.
             hidden_channels (list[int]): List of hidden channel sizes.
             out_channels (int): Number of output channels.
             aggr (str, optional): Aggregation method. Defaults to "add".

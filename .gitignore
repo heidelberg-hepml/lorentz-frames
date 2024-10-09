@@ -10,7 +10,7 @@
 
 venv/
 runs/
-mlruns
+mlruns/
 outputs/
 scripts/
 *~
