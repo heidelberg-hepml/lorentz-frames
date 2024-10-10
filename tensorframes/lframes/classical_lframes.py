@@ -5,7 +5,6 @@ from torch_geometric.nn import knn
 
 from tensorframes.lframes.gram_schmidt import gram_schmidt
 from tensorframes.lframes.lframes import LFrames
-import torch_cluster
 
 
 class ThreeNNLFrames(torch.nn.Module):
