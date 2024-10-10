@@ -30,82 +30,51 @@ class ProtoNet(nn.Module):
         hidden_reps = [TensorReps(hr) for hr in hidden_reps]
         if second_hidden_reps is None:
             hidden_channels = [[hr.dim] * 2 for hr in hidden_reps]
+            second_hidden_channels = [None for hr in hidden_reps]
         else:  # this accounts for the last hidden -> output layer being transfered to the second network
             hidden_channels = [[hr.dim] * 3 for hr in hidden_reps]
+            second_hidden_reps = [TensorReps(shr) for shr in second_hidden_reps]
+            second_hidden_channels = [[shr.dim] for shr in second_hidden_reps]
+            assert len(hidden_channels) == len(
+                second_hidden_channels
+            ), "either none or all of the EdgeConv layers need their own second layer channels"
         out_reps = TensorReps(out_reps)
 
         self.output_dim = out_reps.dim
 
-        if second_hidden_reps is not None:
-            second_hidden_reps = [TensorReps(shr) for shr in second_hidden_reps]
-            second_hidden_channels = [
-                [shr.dim] for shr in second_hidden_reps
-            ]  # i begin with only one to see if there is any increase in performance
+        # build edgeConv blocks
+        first_block = EdgeConv(
+            in_reps=in_reps,
+            hidden_channels=hidden_channels[0],
+            out_channels=hidden_reps[0].dim,
+            aggr="add",
+            radial_module=radial_module,
+            angular_module=angular_module,
+            second_hidden_channels=second_hidden_channels[0],
+        )
 
-            # build edgeConv blocks
-            first_block = EdgeConv(
-                in_reps=in_reps,
-                hidden_channels=hidden_channels[0],
-                out_channels=hidden_reps[0].dim,
-                aggr="add",
-                radial_module=radial_module,
-                angular_module=angular_module,
-                second_hidden_channels=second_hidden_channels[0],
-            )
-
-            middle_blocks = []
-            for layerID in range(num_blocks - 2):
-                middle_blocks.append(
-                    EdgeConv(
-                        in_reps=hidden_reps[layerID],
-                        hidden_channels=hidden_channels[layerID + 1],
-                        out_channels=hidden_reps[layerID + 1].dim,
-                        aggr="add",
-                        radial_module=radial_module,
-                        angular_module=angular_module,
-                        second_hidden_channels=second_hidden_channels[layerID + 1],
-                    )
+        middle_blocks = []
+        for layerID in range(num_blocks - 2):
+            middle_blocks.append(
+                EdgeConv(
+                    in_reps=hidden_reps[layerID],
+                    hidden_channels=hidden_channels[layerID + 1],
+                    out_channels=hidden_reps[layerID + 1].dim,
+                    aggr="add",
+                    radial_module=radial_module,
+                    angular_module=angular_module,
+                    second_hidden_channels=second_hidden_channels[layerID + 1],
                 )
-            last_block = EdgeConv(
-                in_reps=hidden_reps[-2],
-                hidden_channels=hidden_channels[-1],
-                out_channels=out_reps.dim,
-                aggr="add",
-                radial_module=radial_module,
-                angular_module=angular_module,
-                second_hidden_channels=second_hidden_channels[-1],
             )
-        else:
-            # build edgeConv blocks
-            first_block = EdgeConv(
-                in_reps=in_reps,
-                hidden_channels=hidden_channels[0],
-                out_channels=hidden_reps[0].dim,
-                aggr="add",
-                radial_module=radial_module,
-                angular_module=angular_module,
-            )
-
-            middle_blocks = []
-            for layerID in range(num_blocks - 2):
-                middle_blocks.append(
-                    EdgeConv(
-                        in_reps=hidden_reps[layerID],
-                        hidden_channels=hidden_channels[layerID + 1],
-                        out_channels=hidden_reps[layerID + 1].dim,
-                        aggr="add",
-                        radial_module=radial_module,
-                        angular_module=angular_module,
-                    )
-                )
-            last_block = EdgeConv(
-                in_reps=hidden_reps[-2],
-                hidden_channels=hidden_channels[-1],
-                out_channels=out_reps.dim,
-                aggr="add",
-                radial_module=radial_module,
-                angular_module=angular_module,
-            )
+        last_block = EdgeConv(
+            in_reps=hidden_reps[-2],
+            hidden_channels=hidden_channels[-1],
+            out_channels=out_reps.dim,
+            aggr="add",
+            radial_module=radial_module,
+            angular_module=angular_module,
+            second_hidden_channels=second_hidden_channels[-1],
+        )
 
         self.blocks = nn.ModuleList([first_block, *middle_blocks, last_block])
         for i, l in enumerate(self.blocks):
