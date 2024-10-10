@@ -37,8 +37,8 @@ class EdgeConv(TFMessagePassing):
         radial_module: torch.nn.Module = None,
         angular_module: torch.nn.Module = None,
         concatenate_edge_vec: bool = False,
-        concatenate_receiver_features_in_mlp1: bool = True,
-        concatenate_receiver_features_in_mlp2: bool = True,
+        concatenate_receiver_features_in_mlp1: bool = False,
+        concatenate_receiver_features_in_mlp2: bool = False,
         use_edge_feature_product: bool = False,
         **mlp_kwargs: Dict,
     ):

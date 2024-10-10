@@ -56,15 +56,21 @@ class ProtoNet(nn.Module):
 
         self.output_dim = out_reps.dim
 
+        edgeconv_kwargs = {
+            "aggr": "add",
+            "concatenate_receiver_features_in_mlp1": True,
+            "concatenate_receiver_features_in_mlp2": True,
+            "radial_module": radial_module,
+            "angular_module": angular_module,
+        }
+
         # build edgeConv blocks
         first_block = EdgeConv(
             in_reps=in_reps,
             hidden_channels=hidden_channels[0],
             out_channels=hidden_reps[0].dim,
-            aggr="add",
-            radial_module=radial_module,
-            angular_module=angular_module,
             second_hidden_channels=second_hidden_channels[0],
+            **edgeconv_kwargs,
         )
 
         middle_blocks = []
@@ -74,20 +80,16 @@ class ProtoNet(nn.Module):
                     in_reps=hidden_reps[layerID],
                     hidden_channels=hidden_channels[layerID + 1],
                     out_channels=hidden_reps[layerID + 1].dim,
-                    aggr="add",
-                    radial_module=radial_module,
-                    angular_module=angular_module,
                     second_hidden_channels=second_hidden_channels[layerID + 1],
+                    **edgeconv_kwargs,
                 )
             )
         last_block = EdgeConv(
             in_reps=hidden_reps[-2],
             hidden_channels=hidden_channels[-1],
             out_channels=out_reps.dim,
-            aggr="add",
-            radial_module=radial_module,
-            angular_module=angular_module,
             second_hidden_channels=second_hidden_channels[-1],
+            **edgeconv_kwargs,
         )
 
         self.blocks = nn.ModuleList([first_block, *middle_blocks, last_block])
