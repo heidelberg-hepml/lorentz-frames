@@ -205,8 +205,7 @@ class TaggingExperiment(BaseExperiment):
     def plot(self):
         plot_path = os.path.join(self.cfg.run_dir, f"plots_{self.cfg.run_idx}")
         os.makedirs(plot_path)
-        model_title = MODEL_TITLE_DICT[type(self.model.net).__name__]
-        title = ""  # model_title
+        title = MODEL_TITLE_DICT[type(self.model.net).__name__]
         LOGGER.info(f"Creating plots in {plot_path}")
 
         if self.cfg.evaluate and self.cfg.evaluation.save_roc:
