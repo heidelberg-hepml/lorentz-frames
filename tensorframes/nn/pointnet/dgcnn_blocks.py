@@ -112,7 +112,9 @@ class DynamicSAModule(torch.nn.Module):
 
         if self.concat_lframes_to_features:
             knn_features = torch.cat([knn_features, lframes.view(-1, 9)], dim=-1)
-        edge_index = knn(knn_features, knn_features[idx], self.k, batch, batch[idx]).flip([0])
+        edge_index = knn(
+            knn_features, knn_features[idx], self.k, batch, batch[idx]
+        ).flip([0])
 
         x_dst = None if x is None else x[idx]
         if self.lframes_learner is not None:
