@@ -91,8 +91,6 @@ class ProtoNet(nn.Module):
         )
 
         self.blocks = nn.ModuleList([first_block, *middle_blocks, last_block])
-        for i, l in enumerate(self.blocks):
-            LOGGER.info(f"layer{i}: {l}")
 
     def forward(self, x, pos, edge_index, lframes, batch):
         # loop through edge_conv blocks

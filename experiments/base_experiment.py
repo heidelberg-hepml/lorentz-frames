@@ -105,6 +105,10 @@ class BaseExperiment:
             f"Instantiated model {type(self.model.net).__name__} with {num_parameters} learnable parameters"
         )
 
+        if self.cfg.debug:
+            for i, l in enumerate(self.model.net.blocks):
+                LOGGER.info(f"layer{i}: {l}")
+
         if self.cfg.ema:
             LOGGER.info(f"Using EMA for validation and eval")
             self.ema = ExponentialMovingAverage(
