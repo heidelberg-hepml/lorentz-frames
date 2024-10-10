@@ -10,7 +10,6 @@ from tensorframes.nn.embedding.radial import (
     double_gradient_safe_normalize,
     get_gaussian_width,
 )
-from experiments.logger import LOGGER
 
 
 class AxisWiseEmbeddingFromRadial(AngularEmbedding):

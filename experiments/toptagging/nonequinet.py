@@ -6,7 +6,6 @@ from torch_geometric.nn.conv import EdgeConv
 from tensorframes.reps import TensorReps
 from tensorframes.nn.mlp import MLPWrapped
 from torchvision.ops import MLP
-from experiments.logger import LOGGER
 
 
 class NonEquiNet(nn.Module):

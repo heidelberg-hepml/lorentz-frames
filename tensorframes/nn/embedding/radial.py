@@ -7,7 +7,6 @@ from torch.nn import Module
 
 from tensorframes.lframes import LFrames
 from tensorframes.reps.tensorreps import TensorReps
-from experiments.logger import LOGGER
 
 
 def double_gradient_safe_norm(edge_vec: Tensor, eps: float = 1e-6) -> Tensor:
@@ -56,7 +55,6 @@ def compute_edge_vec(
 
     if not isinstance(lframes, tuple):
         lframes = (lframes, lframes)
-        # LOGGER.info(f"{lframes=}")
 
     edge_vec = pos_j - pos_i
     if lframes[1] is not None:
