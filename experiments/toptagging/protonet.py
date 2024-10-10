@@ -26,18 +26,12 @@ class ProtoNet(nn.Module):
         assert num_blocks >= 2
 
         # convert x_reps from string to proper TensorReps objects
-        in_reps = TensorReps(in_reps)  # TensorReps(4)
-        hidden_reps = [
-            TensorReps(hr) for hr in hidden_reps
-        ]  # [TensorReps(32),TensorReps(128),TensorReps(256)]
+        in_reps = TensorReps(in_reps)
+        hidden_reps = [TensorReps(hr) for hr in hidden_reps]
         if second_hidden_reps is None:
-            hidden_channels = [
-                [hr.dim] * 2 for hr in hidden_reps
-            ]  # [[32,32],[128,128],[256,256]]
+            hidden_channels = [[hr.dim] * 2 for hr in hidden_reps]
         else:  # this accounts for the last hidden -> output layer being transfered to the second network
-            hidden_channels = [
-                [hr.dim] * 3 for hr in hidden_reps
-            ]  # [[32,32],[128,128],[256,256]]
+            hidden_channels = [[hr.dim] * 3 for hr in hidden_reps]
         out_reps = TensorReps(out_reps)
 
         self.output_dim = out_reps.dim
