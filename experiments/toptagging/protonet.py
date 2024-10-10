@@ -9,6 +9,20 @@ from experiments.logger import LOGGER
 
 
 class ProtoNet(nn.Module):
+    """
+    ProtoNet: Equivariant network, uses tensorframes EdgeConv, radial and angular embedding with weighth sharing and the possibility of second networks in the EdgeConv layers
+
+    Args:
+        in_reps (string): string for input dimention of network e.g. "1x0n+1x1n",
+        hidden_reps (list[string]): strings for intermediate hidden layers in network, each with 2 linear layers, e.g. ["32x0n+32x1n", "64x0n+64x1n"],
+        out_reps (string): string for output dimention of the network, e.g. "1x0n",
+        radial_module (tensorframes.nn.embedding.radial.RadialEmbedding) radial embedding for the edge vectors,
+        angular_module (tensorframes.nn.embedding.angular.AngularEmbedding) angular/axial embedding for the edge vectors,
+        checkpoint_blocks (bool) whether to create checkpoint blocks, Defaults to False,
+        second_hidden_reps (list[string]): string for the dimentions of secondary layers in the EdgeConv layers, should have the same dimention as hidden_reps+1. Defaults to None
+
+    """
+
     def __init__(
         self,
         in_reps,
@@ -35,8 +49,8 @@ class ProtoNet(nn.Module):
             hidden_channels = [[hr.dim] * 3 for hr in hidden_reps]
             second_hidden_reps = [TensorReps(shr) for shr in second_hidden_reps]
             second_hidden_channels = [[shr.dim] for shr in second_hidden_reps]
-            assert len(hidden_channels) == len(
-                second_hidden_channels
+            assert (
+                len(hidden_channels) == len(second_hidden_channels) - 1
             ), "either none or all of the EdgeConv layers need their own second layer channels"
         out_reps = TensorReps(out_reps)
 
