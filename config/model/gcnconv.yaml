@@ -1,8 +1,0 @@
-_target_: experiments.toptagging.wrappers.GCNConvWrapper
-mean_aggregation: true
-
-lframesnet:
- _target_: experiments.toptagging.lframesnet.LFramesNet
- approach: random_global
- layers: 2
- hidden_channels: 32

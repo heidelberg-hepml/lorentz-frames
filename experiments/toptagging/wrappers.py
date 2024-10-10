@@ -2,7 +2,6 @@ import torch
 from torch import nn
 
 from tensorframes.reps import TensorReps
-from tensorframes.nn.gcn_conv import GCNConv
 from tensorframes.lframes.lframes import LFrames
 from experiments.toptagging.protonet import ProtoNet
 from experiments.logger import LOGGER
@@ -31,37 +30,6 @@ class LorentzFramesTaggerWrapper(nn.Module):
 
     def forward(self, batch):
         raise NotImplementedError
-
-
-class GCNConvWrapper(LorentzFramesTaggerWrapper):
-    """
-    GCNConv for top-tagging
-
-    Note: Fully-connected convolutional networks are nonsense
-    """
-
-    def __init__(
-        self,
-        lframesnet,
-        mean_aggregation,
-    ):
-        super().__init__(lframesnet, mean_aggregation)
-
-        # for proper models we will use hydra more for instantiating
-        in_reps = TensorReps("1x0n+1x1n")
-        out_reps = TensorReps("1x0n")
-        self.net = GCNConv(in_reps, out_reps)
-
-    def forward(self, batch):
-        # construct lframes
-        lframes = self.lframesnet(batch.x, batch.edge_index, batch.batch)
-
-        # network
-        outputs = self.net(edge_index=batch.edge_index, x=batch.x, lframes=lframes)
-
-        # aggregation
-        score = self.extract_score(outputs, batch)
-        return score
 
 
 class ProtoNetWrapper(LorentzFramesTaggerWrapper):

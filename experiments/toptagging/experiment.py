@@ -14,7 +14,6 @@ from experiments.logger import LOGGER
 from experiments.mlflow import log_mlflow
 
 MODEL_TITLE_DICT = {
-    "GCNConv": "GCNConv",
     "ProtoNet": "ProtoNet",
     "NonEquiNet": "NoneEquiNet",
 }
@@ -28,18 +27,15 @@ class TaggingExperiment(BaseExperiment):
     def init_physics(self):
         # dynamically extend dict
         with open_dict(self.cfg):
-            gcnconv_name = "experiments.toptagging.wrappers.GCNConvWrapper"
             protonet_name = "experiments.toptagging.wrappers.ProtoNetWrapper"
             nonequinet_name = "experiments.toptagging.wrappers.NonEquiNetWrapper"
             assert self.cfg.model._target_ in [
-                gcnconv_name,
                 protonet_name,
                 nonequinet_name,
             ]
 
             # global token?
             if self.cfg.model._target_ in [
-                gcnconv_name,
                 protonet_name,
                 nonequinet_name,
             ]:
