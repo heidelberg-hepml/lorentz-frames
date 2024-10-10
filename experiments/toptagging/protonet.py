@@ -31,6 +31,10 @@ class ProtoNet(nn.Module):
         angular_module,
         checkpoint_blocks=False,
         second_hidden_reps=None,
+        aggr="add",
+        concatenate_receiver_features_in_mlp1=True,
+        concatenate_receiver_features_in_mlp2=True,
+        use_edge_feature_product=False,
         **mlp_kwargs,
     ):
         super().__init__()
@@ -56,9 +60,10 @@ class ProtoNet(nn.Module):
         self.output_dim = out_reps.dim
 
         edgeconv_kwargs = {
-            "aggr": "add",
-            "concatenate_receiver_features_in_mlp1": True,
-            "concatenate_receiver_features_in_mlp2": True,
+            "aggr": aggr,
+            "concatenate_receiver_features_in_mlp1": concatenate_receiver_features_in_mlp1,
+            "concatenate_receiver_features_in_mlp2": concatenate_receiver_features_in_mlp2,
+            "use_edge_feature_product": use_edge_feature_product,
             "radial_module": radial_module,
             "angular_module": angular_module,
         }

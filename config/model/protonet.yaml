@@ -12,6 +12,11 @@ net:
  checkpoint_blocks: false
  second_hidden_reps: null
 
+ aggr: "add"
+ concatenate_receiver_features_in_mlp1: True
+ concatenate_receiver_features_in_mlp2: True
+ use_edge_feature_product: False
+
 lframesnet:
  _partial_: true
  _target_: experiments.toptagging.lframesnet.LFramesNet
