@@ -116,16 +116,16 @@ class ProtoNetWrapper(LorentzFramesTaggerWrapper):
         if self.post_layer is None:
             score = self.extract_score(outputs, batch)
         else:
-            #LOGGER.info(f"{outputs.shape=}")
+            # LOGGER.info(f"{outputs.shape=}")
             logits = global_mean_pool(outputs, batch.batch)  # batch, output_dim
-            #LOGGER.info(f"{logits.shape=}")
+            # LOGGER.info(f"{logits.shape=}")
             score = self.post_layer(logits)  # batch, 1
-            #LOGGER.info(f"{score.shape=}")
+            # LOGGER.info(f"{score.shape=}")
             score = score.flatten()  # batch
         return score
 
 
-class ReferenceNetWrapper(nn.Module):
+class NonEquiNetWrapper(nn.Module):
     def __init__(
         self,
         net,
@@ -133,7 +133,7 @@ class ReferenceNetWrapper(nn.Module):
     ):
         super().__init__()
         self.net = net
-        self.mean_aggregation = mean_aggregation
+        self.aggregator = MeanAggregation() if mean_aggregation else None
 
     def forward(self, batch):
 
@@ -151,8 +151,8 @@ class ReferenceNetWrapper(nn.Module):
         return score
 
     def extract_score(self, outputs, batch):
-        if self.mean_aggregation:
-            score = mean_pointcloud(outputs, batch.batch)
+        if self.aggregator is not None:
+            score = self.aggregator(outputs, index=batch.batch)[:, 0]
         else:
             score = outputs[batch.is_global]
         return score
