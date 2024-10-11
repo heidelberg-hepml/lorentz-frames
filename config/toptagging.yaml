@@ -1,7 +1,6 @@
 exp_type: toptagging
 exp_name: topt_local_debug
 base_dir: /media/jspinner/shared/Studium/project4/lorentz-frames
-print_table: True
 
 data:
  data_dir : /media/jspinner/shared/Studium/project3/data

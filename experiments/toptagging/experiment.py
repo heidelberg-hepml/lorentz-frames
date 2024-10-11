@@ -192,7 +192,7 @@ class TaggingExperiment(BaseExperiment):
                 name = f"{mode}.{title}" if mode == "eval" else "val"
                 log_mlflow(f"{name}.{key}", value, step=step)
 
-        if mode == "eval" and self.cfg.print_table == True:
+        if mode == "eval":
             aggregator = (
                 "mean aggregation"
                 if self.cfg.model.mean_aggregation == True
@@ -210,7 +210,7 @@ class TaggingExperiment(BaseExperiment):
                 case "3nn":
                     lframeString = "3nn"
                 case _:
-                    lframeString = "not found"
+                    lframeString = self.cfg.model.lframesnet.approach
             num_parameters = sum(
                 p.numel() for p in self.model.parameters() if p.requires_grad
             )
@@ -225,7 +225,7 @@ class TaggingExperiment(BaseExperiment):
             elif self.cfg.model.radial_module.is_learnable == False:
                 learnableString = "\mathbb{1}"
             else:
-                learnableString = "not found"
+                learnableString = "other"
 
             LOGGER.info(
                 f"{lframeString} with {aggregator} ({self.cfg.training.iterations} epochs)&{num_parameters}&{metrics['accuracy']:.4f}&{metrics['auc']:.4f}&{metrics['rej03']:.0f}&{metrics['rej05']:.0f}&{metrics['rej08']:.0f}&{learnableString}\\"
