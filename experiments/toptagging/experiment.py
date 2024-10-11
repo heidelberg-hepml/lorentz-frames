@@ -191,6 +191,45 @@ class TaggingExperiment(BaseExperiment):
                     continue
                 name = f"{mode}.{title}" if mode == "eval" else "val"
                 log_mlflow(f"{name}.{key}", value, step=step)
+
+        if mode == "eval" and self.cfg.print_table == True:
+            aggregator = (
+                "mean aggregation"
+                if self.cfg.model.mean_aggregation == True
+                else "global token"
+            )
+            match self.cfg.model.lframesnet.approach:
+                case "learned_gramschmidt":
+                    lframeString = "Gram-Schmidt"
+                case "identity":
+                    lframeString = "Identity"
+                case "random_global":
+                    lframeString = "Random Global"
+                case "random_local":
+                    lframeString = "Radndom Local"
+                case "3nn":
+                    lframeString = "3nn"
+                case _:
+                    lframeString = "not found"
+            num_parameters = sum(
+                p.numel() for p in self.model.parameters() if p.requires_grad
+            )
+
+            if (
+                self.cfg.model.radial_module._target_
+                == "tensorframes.nn.embedding.radial.TrivialRadialEmbedding"
+            ):
+                learnableString = "no embedding"
+            elif self.cfg.model.radial_module.is_learnable == True:
+                learnableString = "learned"
+            elif self.cfg.model.radial_module.is_learnable == False:
+                learnableString = "\mathbb{1}"
+            else:
+                learnableString = "not found"
+
+            LOGGER.info(
+                f"{lframeString} with {aggregator} ({self.cfg.training.iterations} epochs)&{num_parameters}&{metrics['accuracy']:.4f}&{metrics['auc']:.4f}&{metrics['rej03']:.0f}&{metrics['rej05']:.0f}&{metrics['rej08']:.0f}&{learnableString}\\"
+            )
         return metrics
 
     def plot(self):
