@@ -6,11 +6,16 @@ net:
  _partial_: true
  _target_: experiments.toptagging.protonet.ProtoNet
  in_reps: 1x0n+1x1n
- hidden_reps: ["8x0n+8x1n", "32x0n+32x1n", "64x0n+64x1n"] 
+ hidden_reps: ["32x0n+32x1n", "32x0n+32x1n"] 
  out_reps: 1x0n
 
  checkpoint_blocks: false
  second_hidden_reps: null
+
+ aggr: add
+ concatenate_receiver_features_in_mlp1: True
+ concatenate_receiver_features_in_mlp2: True
+ use_edge_feature_product: False
 
 lframesnet:
  _partial_: true
