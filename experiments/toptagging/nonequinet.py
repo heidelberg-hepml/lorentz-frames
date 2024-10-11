@@ -9,16 +9,7 @@ from torchvision.ops import MLP
 
 
 class NonEquiNet(nn.Module):
-    """
-    ProtoNet: Non-Equivariant network, uses torch_geometric EdgeConv
-
-    Args:
-        in_reps (string): string for input dimention of network e.g. "1x0n+1x1n",
-        hidden_reps (list[string]): strings for intermediate hidden layers in network, each with 2 linear layers, e.g. ["32x0n+32x1n", "64x0n+64x1n"],
-        out_reps (string): string for output dimention of the network, e.g. "1x0n",
-        checkpoint_blocks (bool) whether to create checkpoint blocks, Defaults to False,
-
-    """
+    """NonEquiNet: Non-Equivariant network, uses torch_geometric EdgeConv"""
 
     def __init__(
         self,
@@ -29,6 +20,12 @@ class NonEquiNet(nn.Module):
         checkpoint_blocks=False,
         **mlp_kwargs,
     ):
+        """Args:
+        in_reps (string): string for input dimention of network e.g. "1x0n+1x1n",
+        hidden_reps (list[string]): strings for intermediate hidden layers in network, each with 2 linear layers, e.g. ["32x0n+32x1n", "64x0n+64x1n"],
+        out_reps (string): string for output dimention of the network, e.g. "1x0n",
+        checkpoint_blocks (bool) whether to create checkpoint blocks, Defaults to False,
+        """
         super().__init__()
         self.checkpoint_blocks = checkpoint_blocks
 

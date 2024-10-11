@@ -8,19 +8,7 @@ from tensorframes.nn.mlp import MLPWrapped
 
 
 class ProtoNet(nn.Module):
-    """
-    ProtoNet: Equivariant network, uses tensorframes EdgeConv, radial and angular embedding with weighth sharing and the possibility of second networks in the EdgeConv layers
-
-    Args:
-        in_reps (string): string for input dimention of network e.g. "1x0n+1x1n",
-        hidden_reps (list[string]): strings for intermediate hidden layers in network, each with 2 linear layers, e.g. ["32x0n+32x1n", "64x0n+64x1n"],
-        out_reps (string): string for output dimention of the network, e.g. "1x0n",
-        radial_module (tensorframes.nn.embedding.radial.RadialEmbedding) radial embedding for the edge vectors,
-        angular_module (tensorframes.nn.embedding.angular.AngularEmbedding) angular/axial embedding for the edge vectors,
-        checkpoint_blocks (bool) whether to create checkpoint blocks, Defaults to False,
-        second_hidden_reps (list[string]): string for the dimentions of secondary layers in the EdgeConv layers, should have the same dimention as hidden_reps+1. Defaults to None
-
-    """
+    """ProtoNet: Equivariant network, uses tensorframes EdgeConv, radial and angular embedding with weighth sharing and the possibility of second networks in the EdgeConv layers"""
 
     def __init__(
         self,
@@ -37,6 +25,15 @@ class ProtoNet(nn.Module):
         use_edge_feature_product=False,
         **mlp_kwargs,
     ):
+        """Args:
+        in_reps (string): string for input dimention of network e.g. "1x0n+1x1n",
+        hidden_reps (list[string]): strings for intermediate hidden layers in network, each with 2 linear layers, e.g. ["32x0n+32x1n", "64x0n+64x1n"],
+        out_reps (string): string for output dimention of the network, e.g. "1x0n",
+        radial_module (tensorframes.nn.embedding.radial.RadialEmbedding) radial embedding for the edge vectors,
+        angular_module (tensorframes.nn.embedding.angular.AngularEmbedding) angular/axial embedding for the edge vectors,
+        checkpoint_blocks (bool) whether to create checkpoint blocks, Defaults to False,
+        second_hidden_reps (list[string]): string for the dimentions of secondary layers in the EdgeConv layers, should have the same dimention as hidden_reps+1. Defaults to None
+        """
         super().__init__()
         self.checkpoint_blocks = checkpoint_blocks
         num_blocks = len(hidden_reps)
