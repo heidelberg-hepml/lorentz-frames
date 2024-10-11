@@ -60,10 +60,10 @@ class NonEquiNet(nn.Module):
             first_block = EdgeConv(nn=self.mlp1, aggr="add")
 
             middle_blocks = []
-            for _ in range(num_blocks - 2):
+            for i in range(num_blocks - 2):
                 mlp2 = MLP(
-                    in_channels=hidden_channels[_] * 2,
-                    hidden_channels=[hidden_channels[_ + 1]] * 3,
+                    in_channels=hidden_channels[i] * 2,
+                    hidden_channels=[hidden_channels[i + 1]] * 3,
                 )
                 middle_blocks.append(EdgeConv(nn=mlp2, aggr="add"))
 
