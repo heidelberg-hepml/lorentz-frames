@@ -184,11 +184,6 @@ class TaggingExperiment(BaseExperiment):
                 f"{metrics['rej05']:.0f} (epsS=0.5), {metrics['rej08']:.0f} (epsS=0.8)"
             )
 
-        for name, param in self.model.named_parameters():
-            if param.requires_grad:
-                if param.grad is not None:
-                    metrics[f"{name}_max.grad"] = param.grad.abs().max().item()
-
         if self.cfg.use_mlflow:
             for key, value in metrics.items():
                 if key in ["labels_true", "labels_predict", "fpr", "tpr"]:
