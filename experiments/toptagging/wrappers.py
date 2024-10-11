@@ -59,7 +59,7 @@ class ProtoNetWrapper(LorentzFramesTaggerWrapper):
                 hidden_channels=self.total_post_layers,
                 dropout=0.1,
             )
-            LOGGER.info(f"Using post_layer: {self.post_layer}")
+            LOGGER.debug(f"Using post_layer: {self.post_layer}")
 
         if not self.mean_aggregation:
             assert (
@@ -84,12 +84,9 @@ class ProtoNetWrapper(LorentzFramesTaggerWrapper):
         if self.post_layer is None:
             score = self.extract_score(outputs, batch)
         else:
-            # LOGGER.info(f"{outputs.shape=}")
-            logits = global_mean_pool(outputs, batch.batch)  # batch, output_dim
-            # LOGGER.info(f"{logits.shape=}")
-            score = self.post_layer(logits)  # batch, 1
-            # LOGGER.info(f"{score.shape=}")
-            score = score.flatten()  # batch
+            logits = global_mean_pool(outputs, batch.batch)  # size: (batch, output_dim)
+            score = self.post_layer(logits)  # size: (batch, 1)
+            score = score.flatten()  # size: batch
         return score
 
 

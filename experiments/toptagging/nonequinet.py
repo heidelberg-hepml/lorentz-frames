@@ -88,6 +88,6 @@ class NonEquiNet(nn.Module):
             else:
                 x = block(
                     x=x,
-                    edge_index=edge_index,  # , batch=batch #do I need this, and if so, then I need to figure out how to pass this (probably to nn within edgeConv)
+                    edge_index=edge_index,
                 )
         return x
