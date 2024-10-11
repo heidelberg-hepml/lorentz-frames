@@ -17,3 +17,4 @@ scripts/
 *.hdf5
 *.npy
 *.npz
+*.ipynb_checkpoint*
