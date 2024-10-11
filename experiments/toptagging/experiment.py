@@ -206,7 +206,7 @@ class TaggingExperiment(BaseExperiment):
                 case "random_global":
                     lframeString = "Random Global"
                 case "random_local":
-                    lframeString = "Radndom Local"
+                    lframeString = "Random Local"
                 case "3nn":
                     lframeString = "3nn"
                 case _:
