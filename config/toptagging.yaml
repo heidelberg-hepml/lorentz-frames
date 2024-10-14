@@ -10,7 +10,7 @@ data:
  two_beams: true
  beam_token: true
  add_time_reference: false
- add_scalar_features: false
+ add_scalar_features: true
  scalar_features_preprocessing: # following weaver defaults
  - [-1.3, 0.7] # log_pt (include -log(20) from UNITS)
  - [-1.0, 0.7] # log_energy (include -log(20) from UNITS)

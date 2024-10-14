@@ -11,9 +11,9 @@ def get_batch_from_ptr(ptr):
     )
 
 
-def embed_tagging_data_into_ga(fourmomenta, scalars, ptr, cfg_data):
+def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
     """
-    Embed tagging data into geometric algebra representation
+    Embed tagging data
     We use torch_geometric sparse representations to be more memory efficient
     Note that we do not embed the label, because it is handled elsewhere
 

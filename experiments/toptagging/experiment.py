@@ -9,7 +9,7 @@ from sklearn.metrics import roc_curve, roc_auc_score, accuracy_score
 
 from experiments.base_experiment import BaseExperiment
 from experiments.toptagging.dataset import TopTaggingDataset
-from experiments.toptagging.embedding import embed_tagging_data_into_ga
+from experiments.toptagging.embedding import embed_tagging_data
 from experiments.toptagging.plots import plot_mixer
 from experiments.logger import LOGGER
 from experiments.mlflow import log_mlflow
@@ -280,9 +280,7 @@ class TaggingExperiment(BaseExperiment):
 
     def _get_ypred_and_label(self, batch):
         batch = batch.to(self.device)
-        embedding = embed_tagging_data_into_ga(
-            batch.x, batch.scalars, batch.ptr, self.cfg.data
-        )
+        embedding = embed_tagging_data(batch.x, batch.scalars, batch.ptr, self.cfg.data)
         y_pred = self.model(embedding)
         return y_pred, batch.label.to(self.dtype)
 
