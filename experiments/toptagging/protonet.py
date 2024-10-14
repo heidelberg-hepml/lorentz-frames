@@ -51,14 +51,19 @@ class ProtoNet(nn.Module):
         in_reps = TensorReps(in_reps)
         hidden_reps = [TensorReps(hr) for hr in hidden_reps]
         if second_hidden_reps is None:
-            hidden_channels = [[hr.dim] * hidden_layer_number[i] for i, hr in enumerate(hidden_reps)]
+            hidden_channels = [
+                [hr.dim] * hidden_layer_number[i] for i, hr in enumerate(hidden_reps)
+            ]
             second_hidden_channels = [None for hr in hidden_reps]
         else:  # this accounts for the last hidden -> output layer being transfered to the second network
-            hidden_channels = [[hr.dim] * hidden_layer_number[i]+1 for i, hr in enumerate(hidden_reps)]
+            hidden_channels = [
+                [hr.dim] * hidden_layer_number[i] + 1
+                for i, hr in enumerate(hidden_reps)
+            ]
             second_hidden_reps = [TensorReps(shr) for shr in second_hidden_reps]
             second_hidden_channels = [[shr.dim] for shr in second_hidden_reps]
-            assert (
-                len(hidden_channels) == len(second_hidden_channels)
+            assert len(hidden_channels) == len(
+                second_hidden_channels
             ), "either none or all of the EdgeConv layers need their own second layer channels"
         out_reps = TensorReps(out_reps)
 
