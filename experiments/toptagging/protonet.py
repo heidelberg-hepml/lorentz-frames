@@ -23,6 +23,7 @@ class ProtoNet(nn.Module):
         concatenate_receiver_features_in_mlp1=True,
         concatenate_receiver_features_in_mlp2=True,
         use_edge_feature_product=False,
+        hidden_layer_number=None,
         **mlp_kwargs,
     ):
         """Args:
@@ -33,24 +34,31 @@ class ProtoNet(nn.Module):
         angular_module (tensorframes.nn.embedding.angular.AngularEmbedding) angular/axial embedding for the edge vectors,
         checkpoint_blocks (bool) whether to create checkpoint blocks, Defaults to False,
         second_hidden_reps (list[string]): string for the dimentions of secondary layers in the EdgeConv layers, should have the same dimention as hidden_reps+1. Defaults to None
+        hidden_layer_number (list[int]): number of layers in edgeconv blocks
         """
         super().__init__()
         self.checkpoint_blocks = checkpoint_blocks
         num_blocks = len(hidden_reps)
         assert num_blocks >= 2
 
+        if hidden_layer_number is None:
+            hidden_layer_number = [2 for i in hidden_reps]
+        elif isinstance(hidden_layer_number, int):
+            temp = hidden_layer_number
+            hidden_layer_number = [temp for i in hidden_reps]
+
         # convert x_reps from string to proper TensorReps objects
         in_reps = TensorReps(in_reps)
         hidden_reps = [TensorReps(hr) for hr in hidden_reps]
         if second_hidden_reps is None:
-            hidden_channels = [[hr.dim] * 2 for hr in hidden_reps]
+            hidden_channels = [[hr.dim] * hidden_layer_number[i] for i, hr in enumerate(hidden_reps)]
             second_hidden_channels = [None for hr in hidden_reps]
         else:  # this accounts for the last hidden -> output layer being transfered to the second network
-            hidden_channels = [[hr.dim] * 3 for hr in hidden_reps]
+            hidden_channels = [[hr.dim] * hidden_layer_number[i]+1 for i, hr in enumerate(hidden_reps)]
             second_hidden_reps = [TensorReps(shr) for shr in second_hidden_reps]
             second_hidden_channels = [[shr.dim] for shr in second_hidden_reps]
             assert (
-                len(hidden_channels) == len(second_hidden_channels) - 1
+                len(hidden_channels) == len(second_hidden_channels)
             ), "either none or all of the EdgeConv layers need their own second layer channels"
         out_reps = TensorReps(out_reps)
 
