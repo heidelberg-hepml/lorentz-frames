@@ -9,6 +9,7 @@ from sklearn.metrics import roc_curve, roc_auc_score, accuracy_score
 
 from experiments.base_experiment import BaseExperiment
 from experiments.toptagging.dataset import TopTaggingDataset
+from experiments.toptagging.embedding import embed_tagging_data_into_ga
 from experiments.toptagging.plots import plot_mixer
 from experiments.logger import LOGGER
 from experiments.mlflow import log_mlflow
@@ -17,6 +18,8 @@ MODEL_TITLE_DICT = {
     "ProtoNet": "ProtoNet",
     "NonEquiNet": "NoneEquiNet",
 }
+
+UNITS = 20  # We use units of 20 GeV for all tagging experiments
 
 
 class TaggingExperiment(BaseExperiment):
@@ -47,18 +50,13 @@ class TaggingExperiment(BaseExperiment):
     def _init_data(self, Dataset, data_path):
         LOGGER.info(f"Creating {Dataset.__name__} from {data_path}")
         t0 = time.time()
-        kwargs = {
-            "cfg": self.cfg,
-            "dtype": self.dtype,
-            "device": self.device,
-        }
-        self.data_train = Dataset(data_path, "train", data_scale=None, **kwargs)
-        self.data_test = Dataset(
-            data_path, "test", data_scale=self.data_train.data_scale, **kwargs
-        )
-        self.data_val = Dataset(
-            data_path, "val", data_scale=self.data_train.data_scale, **kwargs
-        )
+        kwargs = {"rescale_data": self.cfg.data.rescale_data}
+        self.data_train = Dataset(**kwargs)
+        self.data_test = Dataset(**kwargs)
+        self.data_val = Dataset(**kwargs)
+        self.data_train.load_data(data_path, "train", data_scale=UNITS)
+        self.data_test.load_data(data_path, "test", data_scale=UNITS)
+        self.data_val.load_data(data_path, "val", data_scale=UNITS)
         dt = time.time() - t0
         LOGGER.info(f"Finished creating datasets after {dt:.2f} s = {dt/60:.2f} min")
 
@@ -139,10 +137,9 @@ class TaggingExperiment(BaseExperiment):
             self.optimizer.eval()
         with torch.no_grad():
             for batch in loader:
-                batch = batch.to(self.device)
-                y_pred = self.model(batch)
+                y_pred, label = self._get_ypred_and_label(batch)
                 y_pred = torch.nn.functional.sigmoid(y_pred)
-                labels_true.append(batch.label.cpu().float())
+                labels_true.append(label.cpu().float())
                 labels_predict.append(y_pred.cpu().float())
         labels_true, labels_predict = torch.cat(labels_true), torch.cat(labels_predict)
         if mode == "eval":
@@ -274,12 +271,20 @@ class TaggingExperiment(BaseExperiment):
         return metrics["bce"]
 
     def _batch_loss(self, batch):
-        y_pred = self.model(batch)
-        loss = self.loss(y_pred, batch.label.to(self.dtype))
+        y_pred, label = self._get_ypred_and_label(batch)
+        loss = self.loss(y_pred, label)
         assert torch.isfinite(loss).all()
 
         metrics = {}
         return loss, metrics
+
+    def _get_ypred_and_label(self, batch):
+        batch = batch.to(self.device)
+        embedding = embed_tagging_data_into_ga(
+            batch.x, batch.scalars, batch.ptr, self.cfg.data
+        )
+        y_pred = self.model(embedding)
+        return y_pred, batch.label.to(self.dtype)
 
     def _init_metrics(self):
         return {}

@@ -41,8 +41,7 @@ class LFramesNet(nn.Module):
         else:
             raise ValueError(f"approach={self.approach} not implemented")
 
-    def forward(self, x, edge_index, batch):
-        pos = x[..., 1:]
+    def forward(self, x, pos, edge_index, batch):
         if self.approach in ["identity", "random_global", "random_local", "3nn"]:
             lframes = self.net(pos, idx=None, batch=batch)
         elif self.approach == "learned_gramschmidt":
