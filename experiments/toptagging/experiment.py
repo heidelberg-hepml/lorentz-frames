@@ -228,7 +228,7 @@ class TaggingExperiment(BaseExperiment):
                 learnableString = "other"
 
             LOGGER.info(
-                f"{lframeString} with {aggregator} ({self.cfg.training.iterations} epochs)&{num_parameters}&{metrics['accuracy']:.4f}&{metrics['auc']:.4f}&{metrics['rej03']:.0f}&{metrics['rej05']:.0f}&{metrics['rej08']:.0f}&{learnableString}\\"
+                f"table: {lframeString} with {aggregator} ({self.cfg.training.iterations} epochs)&{num_parameters}&{metrics['accuracy']:.4f}&{metrics['auc']:.4f}&{metrics['rej03']:.0f}&{metrics['rej05']:.0f}&{metrics['rej08']:.0f}&{learnableString}\\"
             )
         return metrics
 
