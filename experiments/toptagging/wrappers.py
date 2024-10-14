@@ -40,14 +40,18 @@ class ProtoNetWrapper(LorentzFramesTaggerWrapper):
         mean_aggregation,
         radial_module,
         angular_module,
+        in_reps,
         post_layer=None,  # layer to use in the score calculation after the last layer
     ):
         lframesnet = lframesnet(radial_module=radial_module)
         super().__init__(lframesnet, mean_aggregation)
         self.mean_aggregation = mean_aggregation
-        self.net = net(radial_module=radial_module, angular_module=angular_module)
+        self.net = net(
+            radial_module=radial_module, angular_module=angular_module, in_reps=in_reps
+        )
         self.post_layer = post_layer
         network_output_dim = self.net.output_dim
+        self.in_reps = in_reps
         if self.post_layer is not None:
             assert (
                 mean_aggregation == True
@@ -67,13 +71,14 @@ class ProtoNetWrapper(LorentzFramesTaggerWrapper):
             ), "For global nodes, the output layer should be 1"
 
     def forward(self, batch):
-        # construct lframes
+        # construct lframes and transform features into them
         lframes = self.lframesnet(batch.x, batch.edge_index, batch.batch)
-
+        trafo = TensorReps(self.in_reps).get_transform_class()
+        transformed_x = trafo(batch.x, lframes)
         # network
-        pos = batch.x[:, 1:]
+        pos = transformed_x[:, 1:]
         outputs = self.net(
-            x=batch.x,
+            x=transformed_x,
             pos=pos,
             edge_index=batch.edge_index,
             lframes=lframes,

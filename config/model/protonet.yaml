@@ -1,11 +1,11 @@
 _target_: experiments.toptagging.wrappers.ProtoNetWrapper
 mean_aggregation: true
 post_layer: null
+in_reps: 1x0n+1x1n
 
 net:
  _partial_: true
  _target_: experiments.toptagging.protonet.ProtoNet
- in_reps: 1x0n+1x1n
  hidden_reps: ["8x0n+8x1n", "16x0n+16x1n"] 
  hidden_layer_number: [2, 1]
  out_reps: 1x0n
