@@ -3,7 +3,7 @@ mean_aggregation: true
 
 net:
  _target_: experiments.toptagging.nonequinet.NonEquiNet
- in_reps: 1x0n+1x1n
+ in_reps: 8x0n+1x1n
  hidden_reps: 8x0n+8x1n
  out_reps: 1x0n
 
