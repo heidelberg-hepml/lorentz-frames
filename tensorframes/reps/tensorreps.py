@@ -336,10 +336,13 @@ class TensorRepsTransform(Module):
 
         # sort start indices and reps by angular momentum largest first, n_masks can also be precomputed
         self.sorted_n = sorted(n_start_index_dict.keys(), reverse=True)
-        self.is_sorted = all(
-            mul_reps.rep.order == self.sorted_n[::-1][i]
-            for i, mul_reps in enumerate(self.tensor_reps)
-        )
+        if len(self.tensor_reps) == len(self.sorted_n):
+            self.is_sorted = all(
+                mul_reps.rep.order == self.sorted_n[::-1][i]
+                for i, mul_reps in enumerate(self.tensor_reps)
+            )
+        else:
+            self.is_sorted = False
 
         self.n_masks = []
         self.n_muls = []
