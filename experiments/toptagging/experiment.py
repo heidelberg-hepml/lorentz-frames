@@ -225,7 +225,7 @@ class TaggingExperiment(BaseExperiment):
                 learnableString = "other"
 
             LOGGER.info(
-                f"table: {lframeString} with {aggregator} ({self.cfg.training.iterations} epochs)&{num_parameters}&{metrics['accuracy']:.4f}&{metrics['auc']:.4f}&{metrics['rej03']:.0f}&{metrics['rej05']:.0f}&{metrics['rej08']:.0f}&{learnableString}\\"
+                f"table {title}: {lframeString} with {aggregator} ({self.cfg.training.iterations} epochs)&{num_parameters}&{metrics['accuracy']:.4f}&{metrics['auc']:.4f}&{metrics['rej03']:.0f}&{metrics['rej05']:.0f}&{metrics['rej08']:.0f}&{learnableString}\\"
             )
         return metrics
 
@@ -289,6 +289,30 @@ class TaggingExperiment(BaseExperiment):
 
 
 class TopTaggingExperiment(TaggingExperiment):
+    def __init__(self, cfg):
+        super().__init__(cfg)
+
+        fourvector_reps = "1x0n+1x1n"  # this is a representation of a fourvector with the current tensorframes
+        self.in_reps = fourvector_reps  # energy-momentum vector
+
+        if self.cfg.data.add_scalar_features:
+            self.in_reps = "7x0n+" + self.in_reps  # other scalar features
+
+        if not self.cfg.data.beam_token:
+            if self.cfg.data.beam_reference in ["lightlike", "spacelike", "timelike"]:
+                self.in_reps = self.in_reps + "+" + fourvector_reps  # spurions
+
+                if self.cfg.data.two_beams:
+                    self.in_reps = (
+                        self.in_reps + "+" + fourvector_reps
+                    )  # two beam spurions
+
+            if self.cfg.data.add_time_reference:
+                self.in_reps = self.in_reps + "+" + fourvector_reps  # time spurion
+
+        LOGGER.info(f"Using the input representation: {self.in_reps}")
+        self.cfg.model.in_reps = self.in_reps
+
     def init_data(self):
         data_path = os.path.join(
             self.cfg.data.data_dir, f"toptagging_{self.cfg.data.dataset}.npz"

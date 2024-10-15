@@ -1,7 +1,7 @@
 _target_: experiments.toptagging.wrappers.ProtoNetWrapper
 mean_aggregation: true
 post_layer: null
-in_reps: 8x0n+1x1n
+in_reps: ???
 
 net:
  _partial_: true

@@ -117,6 +117,7 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
     else:
         # append spurion to fourmomenta channels
         spurions = spurions.unsqueeze(0).repeat(fourmomenta.shape[0], 1, 1)
+        fourmomenta = fourmomenta.unsqueeze(1)
         fourmomenta = torch.cat((fourmomenta, spurions), dim=-2)
 
     # global tokens

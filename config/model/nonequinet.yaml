@@ -1,9 +1,10 @@
 _target_: experiments.toptagging.wrappers.NonEquiNetWrapper
 mean_aggregation: true
+in_reps: ???
 
 net:
+ _partial_: true
  _target_: experiments.toptagging.nonequinet.NonEquiNet
- in_reps: 8x0n+1x1n
  hidden_reps: 8x0n+8x1n
  out_reps: 1x0n
 
