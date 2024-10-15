@@ -11,15 +11,13 @@ from torch_geometric.nn.pool import global_mean_pool
 from torch_geometric.nn.aggr import MeanAggregation
 
 
-class LorentzFramesTaggerWrapper(nn.Module):
+class TaggerWrapper(nn.Module):
     def __init__(
         self,
-        lframesnet,
         mean_aggregation,
     ):
         super().__init__()
         self.aggregator = MeanAggregation() if mean_aggregation else None
-        self.lframesnet = lframesnet
 
     def extract_score(self, outputs, batch, is_global):
         if self.aggregator is not None:
@@ -27,6 +25,19 @@ class LorentzFramesTaggerWrapper(nn.Module):
         else:
             score = outputs[is_global]
         return score
+
+    def forward(self, batch):
+        raise NotImplementedError
+
+
+class LorentzFramesTaggerWrapper(TaggerWrapper):
+    def __init__(
+        self,
+        lframesnet,
+        mean_aggregation,
+    ):
+        super().__init__(mean_aggregation)
+        self.lframesnet = lframesnet
 
     def forward(self, batch):
         raise NotImplementedError
@@ -43,7 +54,7 @@ class ProtoNetWrapper(LorentzFramesTaggerWrapper):
         in_reps,
         post_layer=None,  # layer to use in the score calculation after the last layer
     ):
-        lframesnet = lframesnet(radial_module=radial_module)
+        lframesnet = lframesnet(radial_module=radial_module, in_reps=in_reps)
         super().__init__(lframesnet, mean_aggregation)
         self.mean_aggregation = mean_aggregation
         self.net = net(
@@ -72,17 +83,19 @@ class ProtoNetWrapper(LorentzFramesTaggerWrapper):
 
     def forward(self, embedding):
         # construct lframes and transform features into them
-        x = torch.cat((embedding["scalars"], embedding["fourmomenta"]), dim=-1)
-        pos = embedding["fourmomenta"][..., 1:]
+        batchsize = embedding["fourmomenta"].shape[0]
+        x = torch.cat(
+            (embedding["scalars"], embedding["fourmomenta"].reshape(batchsize, -1)),
+            dim=-1,
+        )
+        pos = embedding["fourmomenta"][..., 0, 1:]
         edge_index, batch, is_global = [
             embedding[key] for key in ["edge_index", "batch", "is_global"]
         ]
-        lframes = self.lframesnet(x, pos, edge_index, batch)
-        trafo = TensorReps(self.in_reps).get_transform_class()
-        transformed_x = trafo(x, lframes)
+        x_transformed, lframes = self.lframesnet(x, pos, edge_index, batch)
         # network
         outputs = self.net(
-            x=transformed_x,
+            x=x_transformed,
             pos=pos,
             edge_index=edge_index,
             lframes=lframes,
@@ -99,15 +112,15 @@ class ProtoNetWrapper(LorentzFramesTaggerWrapper):
         return score
 
 
-class NonEquiNetWrapper(nn.Module):
+class NonEquiNetWrapper(TaggerWrapper):
     def __init__(
         self,
         net,
         mean_aggregation,
+        in_reps,
     ):
-        super().__init__()
-        self.net = net
-        self.aggregator = MeanAggregation() if mean_aggregation else None
+        super().__init__(mean_aggregation)
+        self.net = net(in_reps=in_reps)
 
     def forward(self, embedding):
         x = torch.cat((embedding["scalars"], embedding["fourmomenta"]), dim=-1)
@@ -126,11 +139,4 @@ class NonEquiNetWrapper(nn.Module):
 
         # aggregation
         score = self.extract_score(outputs, batch, is_global)
-        return score
-
-    def extract_score(self, outputs, batch, is_global):
-        if self.aggregator is not None:
-            score = self.aggregator(outputs, index=batch)[:, 0]
-        else:
-            score = outputs[is_global]
         return score

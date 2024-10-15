@@ -17,22 +17,21 @@ from tensorframes.nn.embedding.radial import (
 
 
 class LFramesNet(nn.Module):
-    def __init__(self, approach, layers, hidden_channels, radial_module):
+    def __init__(self, approach, layers, hidden_channels, radial_module, in_reps):
         super().__init__()
+        self.in_reps = in_reps
 
         self.approach = approach
         if approach == "identity":  # non-equivariant
             self.net = IdentityLFrames()
         elif approach == "random_global":  # data augmentation
             self.net = RandomGlobalLFrames()
-        elif approach == "random_local":  # data augmentation + showing off
-            self.net = RandomLFrames()
         elif approach == "3nn":  # interpretation: equivariant
             self.net = ThreeNNLFrames()
         elif approach == "learned_gramschmidt":  # interpretation: equivariant
             assert radial_module is not None
             hidden_channels = [hidden_channels] * layers
-            in_reps = TensorReps("1x0n+1x1n")
+            in_reps = TensorReps(in_reps)
             self.net = WrappedLearnedLFrames(
                 in_reps=in_reps,
                 hidden_channels=hidden_channels,
@@ -42,10 +41,13 @@ class LFramesNet(nn.Module):
             raise ValueError(f"approach={self.approach} not implemented")
 
     def forward(self, x, pos, edge_index, batch):
-        if self.approach in ["identity", "random_global", "random_local", "3nn"]:
+        if self.approach in ["identity", "random_global", "3nn"]:
             lframes = self.net(pos, idx=None, batch=batch)
+            trafo = TensorReps(self.in_reps).get_transform_class()
+            x_transformed = trafo(x, lframes)
+
         elif self.approach == "learned_gramschmidt":
-            _, lframes = self.net(
+            x_transformed, lframes = self.net(
                 x=x,
                 pos=pos,
                 edge_index=edge_index,
@@ -53,4 +55,4 @@ class LFramesNet(nn.Module):
                 batch=batch,
             )
 
-        return lframes
+        return x_transformed, lframes
