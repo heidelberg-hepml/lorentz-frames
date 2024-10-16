@@ -32,7 +32,7 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
     -------
     embedding: dict
         Embedded data
-        Includes keys for fourmomenta, scalars, is_global and ptr
+        Includes keys for fourmomenta (n_particle (+n_spurion if beam_token), n_vectors, 4), scalars, is_global and ptr
     """
     batchsize = len(ptr) - 1
     arange = torch.arange(batchsize, device=fourmomenta.device)
@@ -78,6 +78,8 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
         fourmomenta.device,
         fourmomenta.dtype,
     )
+
+    fourmomenta = fourmomenta.unsqueeze(1)
     n_spurions = spurions.shape[0]
     if cfg_data.beam_token:
         # prepend spurions to the token list (within each block)
@@ -104,7 +106,7 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
             device=fourmomenta.device,
         )
         fourmomenta[~insert_spurion] = fourmomenta_buffer
-        fourmomenta[insert_spurion] = spurions.repeat(batchsize, 1)
+        fourmomenta[insert_spurion] = spurions.repeat(batchsize, 1).unsqueeze(1)
         scalars_buffer = scalars.clone()
         scalars = torch.zeros(
             fourmomenta.shape[0],
@@ -117,7 +119,6 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
     else:
         # append spurion to fourmomenta channels
         spurions = spurions.unsqueeze(0).repeat(fourmomenta.shape[0], 1, 1)
-        fourmomenta = fourmomenta.unsqueeze(1)
         fourmomenta = torch.cat((fourmomenta, spurions), dim=-2)
 
     # global tokens
