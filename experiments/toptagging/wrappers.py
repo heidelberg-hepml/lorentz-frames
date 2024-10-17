@@ -79,12 +79,17 @@ class ProtoNetWrapper(LorentzFramesTaggerWrapper):
 
     def forward(self, embedding):
         # construct lframes and transform features into them
-        batchsize = embedding["fourmomenta"].shape[0]
+        fourmomenta, scalars = embedding["fourmomenta"], embedding["scalars"]
         x = torch.cat(
-            (embedding["scalars"], embedding["fourmomenta"].reshape(batchsize, -1)),
+            (
+                scalars,
+                fourmomenta.reshape(
+                    fourmomenta.shape[0], fourmomenta.shape[1] * fourmomenta.shape[2]
+                ),
+            ),
             dim=-1,
         )
-        pos = embedding["fourmomenta"][..., 0, 1:]
+        pos = fourmomenta[..., 0, 1:]
         edge_index, batch, is_global = [
             embedding[key] for key in ["edge_index", "batch", "is_global"]
         ]
