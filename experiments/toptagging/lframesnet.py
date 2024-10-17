@@ -4,16 +4,10 @@ from torch import nn
 from tensorframes.lframes.classical_lframes import (
     IdentityLFrames,
     RandomGlobalLFrames,
-    RandomLFrames,
     ThreeNNLFrames,
 )
 from tensorframes.lframes.learning_lframes import WrappedLearnedLFrames
 from tensorframes.reps import TensorReps
-from tensorframes.nn.embedding.radial import (
-    BesselEmbedding,
-    GaussianEmbedding,
-    TrivialRadialEmbedding,
-)
 
 
 class LFramesNet(nn.Module):

@@ -1,12 +1,8 @@
 import torch
 from torch import nn
 
-from tensorframes.reps import TensorReps
-from tensorframes.lframes.lframes import LFrames
-from experiments.toptagging.protonet import ProtoNet
 from experiments.logger import LOGGER
 from torchvision.ops import MLP
-from omegaconf import DictConfig
 from torch_geometric.nn.pool import global_mean_pool
 from torch_geometric.nn.aggr import MeanAggregation
 

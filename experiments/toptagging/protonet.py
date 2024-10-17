@@ -4,7 +4,6 @@ from torch.utils.checkpoint import checkpoint
 
 from tensorframes.nn.edge_conv import EdgeConv
 from tensorframes.reps import TensorReps
-from tensorframes.nn.mlp import MLPWrapped
 
 
 class ProtoNet(nn.Module):
