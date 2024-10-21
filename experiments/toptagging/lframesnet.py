@@ -19,10 +19,13 @@ class LFramesNet(nn.Module):
         if approach == "identity":  # non-equivariant
             self.net = IdentityLFrames()
         elif approach == "random_global":  # data augmentation
+            raise NotImplementedError
             self.net = RandomGlobalLFrames()
         elif approach == "3nn":  # interpretation: equivariant
+            raise NotImplementedError
             self.net = ThreeNNLFrames()
         elif approach == "learned_gramschmidt":  # interpretation: equivariant
+            raise NotImplementedError
             assert radial_module is not None
             hidden_channels = [hidden_channels] * layers
             in_reps = TensorReps(in_reps)

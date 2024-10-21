@@ -292,7 +292,7 @@ class TopTaggingExperiment(TaggingExperiment):
     def __init__(self, cfg):
         super().__init__(cfg)
 
-        fourvector_reps = "1x0n+1x1n"  # this is a representation of a fourvector with the current tensorframes
+        fourvector_reps = "1x1n"  # this is a representation of a fourvector with the current tensorframes
         self.in_reps = fourvector_reps  # energy-momentum vector
 
         if self.cfg.data.add_scalar_features:

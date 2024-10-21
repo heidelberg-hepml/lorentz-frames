@@ -89,7 +89,7 @@ class ProtoNetWrapper(LorentzFramesTaggerWrapper):
             ),
             dim=-1,
         )
-        pos = fourmomenta[..., 0, 1:]
+        pos = fourmomenta[:, 0, :]
         edge_index, batch, is_global = [
             embedding[key] for key in ["edge_index", "batch", "is_global"]
         ]
@@ -124,8 +124,12 @@ class NonEquiNetWrapper(TaggerWrapper):
         self.net = net(in_reps=in_reps)
 
     def forward(self, embedding):
-        x = torch.cat((embedding["scalars"], embedding["fourmomenta"]), dim=-1)
-        pos = embedding["fourmomenta"][..., 1:]
+        scalars, fourmomenta = embedding["scalars"], embedding["fourmomenta"]
+        fourmomenta = fourmomenta.reshape(
+            fourmomenta.shape[0], fourmomenta.shape[1] * fourmomenta.shape[2]
+        )
+        x = torch.cat((scalars, fourmomenta), dim=-1)
+        pos = embedding["fourmomenta"][:, 0, :]
         edge_index, batch, is_global = [
             embedding[key] for key in ["edge_index", "batch", "is_global"]
         ]
