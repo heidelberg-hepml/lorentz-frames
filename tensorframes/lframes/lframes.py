@@ -23,7 +23,7 @@ class LFrames:
         self.matrices = matrices
         self.spatial_dim = spatial_dim
 
-        self.metric = torch.diag(torch.tensor([1.0, -1.0, -1.0, -1.0]))
+        self.metric = torch.diag(torch.tensor([1.0, -1.0, -1.0, -1.0], device=self.device))
         self._det = None
         self._inv = None
         self._angles = None
@@ -122,7 +122,7 @@ class ChangeOfLFrames:
         self.matrices = torch.bmm(lframes_end.matrices, lframes_start.inv)
         self.spatial_dim = lframes_start.spatial_dim
 
-        self.metric = torch.diag(torch.tensor([1.0, -1.0, -1.0, -1.0]))
+        self.metric = torch.diag(torch.tensor([1.0, -1.0, -1.0, -1.0], device=self.device))
         self._det = None
         self._inv = None
         self._angles = None
