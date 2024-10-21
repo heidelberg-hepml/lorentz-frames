@@ -116,7 +116,7 @@ class _TensorMulRep(Tuple):
         if self.rep.order == 0:
             return 1 * self.mul
         else:
-            return (3**self.rep.order) * self.mul
+            return (4**self.rep.order) * self.mul
 
     # to be checked how exactly the memo thing works
     # def __deepcopy__(self, memodict={}):
@@ -132,7 +132,7 @@ class _TensorMulRep(Tuple):
 class TensorReps(Tuple):
     """Represents a collection of tensor representations."""
 
-    def __new__(cls, tensor_reps, spatial_dim=3):
+    def __new__(cls, tensor_reps, spatial_dim=4):
         """Initializes a new TensorReps object.
 
         Args:
@@ -141,7 +141,7 @@ class TensorReps(Tuple):
                 If `tensor_reps` is a string, it is parsed to extract the reps.
                 If `tensor_reps` is a list of tuples, each tuple represents a tensor irrep, where the first element is the multiplicity and the second element is the `TensorRep` object.
 
-            spatial_dim (int, optional): The spatial dimension of the tensor. Defaults to 3.
+            spatial_dim (int, optional): The spatial dimension of the tensor. Defaults to 4.
         """
         if isinstance(tensor_reps, TensorReps):
             tensor_rep = super().__new__(cls, tensor_reps)
@@ -192,7 +192,7 @@ class TensorReps(Tuple):
 
         return tensor_rep
 
-    def __init__(self, tensor_reps, spatial_dim=3) -> None:
+    def __init__(self, tensor_reps, spatial_dim=4) -> None:
         super().__init__()
         self.spatial_dim = spatial_dim
         self._dim = None
@@ -430,7 +430,7 @@ class TensorRepsTransform(Module):
 
         Args:
             coeffs (Tensor): The input coefficients to be transformed. Of shape `(N, dim)`, where `N` is the batch size and `dim` is the total dimension of the tensor reps.
-            basis_change (LFrames): The basis change object representing the transformation. With matrices attribute of shape `(N, 3, 3)`.
+            basis_change (LFrames): The basis change object representing the transformation. With matrices attribute of shape `(N, 4, 4)`.
             avoid_einsum (bool, optional): Whether to avoid using einsum for the transformation. Defaults to False.
             inplace (bool, optional): Whether to perform the transformation inplace. Defaults to False.
 
@@ -507,9 +507,9 @@ class TensorRepsTransform(Module):
                 # this could be faster if things where sorted. then largest would just be coeffs
                 n_mask = n_mask_rev[i]
                 l_mul = n_muls_rev[i]
-                smaller_tensor = largest_tensor[:, : l_mul * 3**n]
+                smaller_tensor = largest_tensor[:, : l_mul * 4**n]
                 output_coeffs[:, n_mask] = smaller_tensor
-                largest_tensor = largest_tensor[:, l_mul * 3**n :]
+                largest_tensor = largest_tensor[:, l_mul * 4**n :]
 
         # apply parity:
         # get the determinants of the rotation matrices:
@@ -523,7 +523,7 @@ class TensorRepsTransform(Module):
 
         Args:
             coeffs (Tensor): The input coefficients to be transformed. Of shape `(N, dim)`, where `N` is the batch size and `dim` is the total dimension of the tensor reps.
-            basis_change (LFrames): The basis change object representing the transformation. With matrices attribute of shape `(N, 3, 3)`.
+            basis_change (LFrames): The basis change object representing the transformation. With matrices attribute of shape `(N, 4, 4)`.
 
         Returns:
             Tensor: The transformed coefficients.
@@ -559,7 +559,7 @@ class TensorRepsTransform(Module):
             einsum_str = self._get_einsum_string(rep_n)
 
             tensor = coeffs[:, left_index:right_index].reshape(
-                coeffs.shape[0], mul, *([3] * rep_n)
+                coeffs.shape[0], mul, *([4] * rep_n)
             )
 
             trafo_tensors = torch.einsum(
@@ -587,7 +587,7 @@ class TensorRepsTransform(Module):
 
         Args:
             coeffs (Tensor): The input coefficients to be transformed. Of shape `(N, dim)`, where `N` is the batch size and `dim` is the total dimension of the tensor reps.
-            basis_change (LFrames): The basis change object representing the transformation. With matrices attribute of shape `(N, 3, 3)`.
+            basis_change (LFrames): The basis change object representing the transformation. With matrices attribute of shape `(N, 4, 4)`.
             inplace (bool, optional): Whether to perform the transformation inplace. Only relevant for parallel trafo. Defaults to False.
 
         Returns:

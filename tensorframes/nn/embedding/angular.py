@@ -81,7 +81,7 @@ class TrivialAngularEmbedding(AngularEmbedding):
             normalize (bool): Indicates whether to normalize the computed embeddings.
             out_dim (int): The output dimension of the embeddings.
         """
-        super().__init__(out_dim=3)
+        super().__init__(out_dim=4)
         self.normalize = normalize
 
     def compute_embedding(self, edge_vec: Tensor) -> Tensor:

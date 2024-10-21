@@ -1,25 +1,20 @@
 import torch
 
-from tensorframes.utils.wigner import _Jd, euler_angles_yxy, wigner_D_from_matrix
-
 
 class LFrames:
-    """Class representing a collection of o3 matrices."""
+    """Class representing a collection of Lorentz transformations."""
 
     def __init__(
-        self, matrices: torch.Tensor, cache_wigner: bool = True, spatial_dim: int = 3
+        self, matrices: torch.Tensor, cache_wigner: bool = True, spatial_dim: int = 4
     ) -> None:
         """Initialize the LFrames class.
 
         Args:
             matrices (torch.Tensor): Tensor of shape (..., spatial_dim, spatial_dim) representing the rotation matrices.
             cache_wigner (bool, optional): Whether to cache the Wigner D matrices. Defaults to True.
-            spatial_dim (int, optional): Dimension of the spatial vectors. Defaults to 3.
-
-        .. note::
-            So far this only supports 3D rotations.
+            spatial_dim (int, optional): Dimension of the spatial vectors. Defaults to 4.
         """
-        assert spatial_dim == 3, "So far only 3D rotations are supported."
+        assert spatial_dim == 4
         assert matrices.shape[-2:] == (
             spatial_dim,
             spatial_dim,

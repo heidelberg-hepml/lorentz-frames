@@ -151,7 +151,7 @@ class IdentityLFrames(torch.nn.Module):
         """Forward pass of the LFrames module.
 
         Args:
-            pos (Tensor): The input tensor of shape (N, 3) representing the positions.
+            pos (Tensor): The input tensor of shape (N, 4) representing the positions.
             idx (Tensor | None): The index tensor of shape (N,) representing the indices to select from `pos`.
                 If None, all indices are selected.
             batch (Tensor | None): The batch tensor of shape (N,) representing the batch indices.
@@ -162,4 +162,4 @@ class IdentityLFrames(torch.nn.Module):
         if idx is None:
             idx = torch.ones(pos.shape[0], dtype=torch.bool, device=pos.device)
 
-        return LFrames(torch.eye(3, device=pos.device).repeat(pos[idx].shape[0], 1, 1))
+        return LFrames(torch.eye(4, device=pos.device).repeat(pos[idx].shape[0], 1, 1))

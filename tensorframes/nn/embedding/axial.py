@@ -31,7 +31,7 @@ class AxisWiseEmbeddingFromRadial(AngularEmbedding):
         radial_embedding: RadialEmbedding,
         normalize_edge_vec: bool = True,
         axis_specific_radial: bool = False,
-        spatial_dim=3,
+        spatial_dim=4,
     ):
         """Initialize the AxisWiseEmbeddingFromRadial module.
 
@@ -39,7 +39,7 @@ class AxisWiseEmbeddingFromRadial(AngularEmbedding):
             radial_type (str): The type of radial embedding to use.
             normalize_edge_vec (bool, optional): Whether to normalize the edge vectors. Defaults to True.
             axis_specific_radial (bool, optional): Whether to use axis-specific radial embeddings. Defaults to False.
-            spatial_dim (int, optional): The spatial dimension. Defaults to 3.
+            spatial_dim (int, optional): The spatial dimension. Defaults to 4.
             **radial_kwargs: Additional keyword arguments to be passed to the radial embedding modules.
         """
         super().__init__(out_dim=radial_embedding.out_dim * spatial_dim)
@@ -98,13 +98,13 @@ class AxisWiseBesselEmbedding(AngularEmbedding):
             dual_sided (bool, optional): Whether to use dual-sided embeddings. Defaults to True.
             is_learnable (bool, optional): Whether the frequencies are learnable parameters. Defaults to True.
         """
-        super().__init__(out_dim=num_frequencies * 3)
+        super().__init__(out_dim=num_frequencies * 4)
 
         self.num_frequencies = num_frequencies
 
         data = torch.pi * torch.arange(1, num_frequencies + 1)
 
-        data = data.repeat(3, 1)
+        data = data.repeat(4, 1)
 
         self.dual_sided = dual_sided
 
@@ -128,12 +128,12 @@ class AxisWiseBesselEmbedding(AngularEmbedding):
 
         embed = torch.einsum(
             "ijk,ij->ijk", torch.sin(tmp_mul), 1 / (edge_vec + 1e-9)
-        )  # shape E x 3
+        )  # shape E x 4
 
         if self.dual_sided:
             embed = torch.einsum("ijk, ij -> ijk", embed, torch.sign(edge_vec))
 
-        out = embed.reshape(-1, self.num_frequencies * 3)
+        out = embed.reshape(-1, self.num_frequencies * 4)
 
         return out
 
@@ -176,7 +176,7 @@ class AxisWiseGaussianEmbedding(AngularEmbedding):
             intersection (float): The intersection parameter for calculating the Gaussian width.
             gaussian_width (float, optional): The width of the Gaussians. If not provided, it is calculated based on the other parameters.
         """
-        super().__init__(out_dim=num_gaussians * 3)
+        super().__init__(out_dim=num_gaussians * 4)
 
         self.num_gaussians = num_gaussians
         minimum_initial_range = (
@@ -192,8 +192,6 @@ class AxisWiseGaussianEmbedding(AngularEmbedding):
                 intersection=intersection,
             )
         if is_learnable:
-            # use linspace to create the shifts of the gaussians in the range of 0 to 3
-            # we use 3 as an initialisation because the bond length of c-c is 3 Bohr
             self.shift = torch.nn.Parameter(
                 torch.linspace(
                     minimum_initial_range, maximum_initial_range, num_gaussians
@@ -229,7 +227,7 @@ class AxisWiseGaussianEmbedding(AngularEmbedding):
         if self.normalized:
             gaussian = gaussian / (np.sqrt(2 * np.pi) * self.scale)
 
-        return gaussian.reshape(-1, self.num_gaussians * 3)
+        return gaussian.reshape(-1, self.num_gaussians * 4)
 
 
 class TrivialAxisWiseEmbedding(AngularEmbedding):
@@ -237,8 +235,8 @@ class TrivialAxisWiseEmbedding(AngularEmbedding):
         self,
     ) -> None:
 
-        super().__init__(out_dim=3)
+        super().__init__(out_dim=4)
 
     def compute_embedding(self, edge_vec: torch.Tensor) -> torch.Tensor:
 
-        return edge_vec.reshape(-1, 3)
+        return edge_vec.reshape(-1, 4)
