@@ -58,17 +58,6 @@ class LFrames:
         return self._inv
 
     @property
-    def angles(self) -> torch.Tensor:
-        """Euler angles in yxy convention corresponding to the o3 matrices.
-
-        Returns:
-            torch.Tensor: Tensor containing the Euler angles.
-        """
-        if self._angles is None:
-            self._angles = euler_angles_yxy(self.matrices)
-        return self._angles
-
-    @property
     def shape(self) -> torch.Size:
         """Shape of the o3 matrices.
 
@@ -162,17 +151,6 @@ class ChangeOfLFrames:
         if self._inv is None:
             self._inv = self.matrices.transpose(-1, -2)
         return self._inv
-
-    @property
-    def angles(self) -> torch.Tensor:
-        """Euler angles in yxy convention corresponding to the o3 matrices.
-
-        Returns:
-            torch.Tensor: Tensor containing the Euler angles.
-        """
-        if self._angles is None:
-            self._angles = euler_angles_yxy(self.matrices)
-        return self._angles
 
     @property
     def shape(self) -> torch.Size:
