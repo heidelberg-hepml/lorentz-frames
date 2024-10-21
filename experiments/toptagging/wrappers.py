@@ -22,8 +22,23 @@ class TaggerWrapper(nn.Module):
             score = outputs[is_global][:, 0]
         return score
 
-    def forward(self, batch):
-        raise NotImplementedError
+    def expand_embedding(self, embedding):
+        # construct lframes and transform features into them
+        fourmomenta, scalars = embedding["fourmomenta"], embedding["scalars"]
+        x = torch.cat(
+            (
+                scalars,
+                fourmomenta.reshape(
+                    fourmomenta.shape[0], fourmomenta.shape[1] * fourmomenta.shape[2]
+                ),
+            ),
+            dim=-1,
+        )
+        pos = fourmomenta[..., 0, :]
+        edge_index, batch, is_global = [
+            embedding[key] for key in ["edge_index", "batch", "is_global"]
+        ]
+        return x, pos, edge_index, batch, is_global
 
 
 class LorentzFramesTaggerWrapper(TaggerWrapper):
@@ -34,9 +49,6 @@ class LorentzFramesTaggerWrapper(TaggerWrapper):
     ):
         super().__init__(mean_aggregation)
         self.lframesnet = lframesnet
-
-    def forward(self, batch):
-        raise NotImplementedError
 
 
 class ProtoNetWrapper(LorentzFramesTaggerWrapper):
@@ -78,22 +90,9 @@ class ProtoNetWrapper(LorentzFramesTaggerWrapper):
             ), "For global nodes, the output layer should be 1"
 
     def forward(self, embedding):
-        # construct lframes and transform features into them
-        fourmomenta, scalars = embedding["fourmomenta"], embedding["scalars"]
-        x = torch.cat(
-            (
-                scalars,
-                fourmomenta.reshape(
-                    fourmomenta.shape[0], fourmomenta.shape[1] * fourmomenta.shape[2]
-                ),
-            ),
-            dim=-1,
-        )
-        pos = fourmomenta[:, 0, :]
-        edge_index, batch, is_global = [
-            embedding[key] for key in ["edge_index", "batch", "is_global"]
-        ]
+        x, pos, edge_index, batch, is_global = self.expand_embedding(embedding)
         x_transformed, lframes = self.lframesnet(x, pos, edge_index, batch)
+
         # network
         outputs = self.net(
             x=x_transformed,
@@ -124,15 +123,7 @@ class NonEquiNetWrapper(TaggerWrapper):
         self.net = net(in_reps=in_reps)
 
     def forward(self, embedding):
-        scalars, fourmomenta = embedding["scalars"], embedding["fourmomenta"]
-        fourmomenta = fourmomenta.reshape(
-            fourmomenta.shape[0], fourmomenta.shape[1] * fourmomenta.shape[2]
-        )
-        x = torch.cat((scalars, fourmomenta), dim=-1)
-        pos = embedding["fourmomenta"][:, 0, :]
-        edge_index, batch, is_global = [
-            embedding[key] for key in ["edge_index", "batch", "is_global"]
-        ]
+        x, pos, edge_index, batch, is_global = self.expand_embedding(embedding)
 
         # network
         outputs = self.net(
