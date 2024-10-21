@@ -32,7 +32,7 @@ class LFrames:
 
     @property
     def det(self) -> torch.Tensor:
-        """Determinant of the o3 matrices.
+        """Determinant of the Lorentz transformation.
 
         Returns:
             torch.Tensor: Tensor containing the determinants.
@@ -43,7 +43,7 @@ class LFrames:
 
     @property
     def inv(self) -> torch.Tensor:
-        """Inverse of the o3 matrices.
+        """Inverse of the Lorentz transformation.
 
         Returns:
             torch.Tensor: Tensor containing the inverses.
@@ -54,19 +54,19 @@ class LFrames:
 
     @property
     def shape(self) -> torch.Size:
-        """Shape of the o3 matrices.
+        """Shape of the Lorentz transformation.
 
         Returns:
-            torch.Size: Size of the o3 matrices.
+            torch.Size: Size of Lorentz transformation.
         """
         return self.matrices.shape
 
     @property
     def device(self) -> torch.device:
-        """Device of the o3 matrices.
+        """Device of the Lorentz transformation.
 
         Returns:
-            torch.device: Device of the o3 matrices.
+            torch.device: Device of the Lorentz transformation.
         """
         return self.matrices.device
 
@@ -127,7 +127,7 @@ class ChangeOfLFrames:
 
     @property
     def det(self) -> torch.Tensor:
-        """Determinant of the o3 matrices.
+        """Determinant of the Lorentz transformation.
 
         Returns:
             torch.Tensor: Tensor containing the determinants.
@@ -138,7 +138,7 @@ class ChangeOfLFrames:
 
     @property
     def inv(self) -> torch.Tensor:
-        """Inverse of the o3 matrices.
+        """Inverse of the Lorentz transformation.
 
         Returns:
             torch.Tensor: Tensor containing the inverses.
@@ -149,19 +149,19 @@ class ChangeOfLFrames:
 
     @property
     def shape(self) -> torch.Size:
-        """Shape of the o3 matrices.
+        """Shape of the Lorentz transformation.
 
         Returns:
-            torch.Size: Size of the o3 matrices.
+            torch.Size: Size of the Lorentz transformation.
         """
         return self.matrices.shape
 
     @property
     def device(self) -> torch.device:
-        """Device of the o3 matrices.
+        """Device of the Lorentz transformation.
 
         Returns:
-            torch.device: Device of the o3 matrices.
+            torch.device: Device of the Lorentz transformation.
         """
         return self.matrices.device
 
