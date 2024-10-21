@@ -15,6 +15,7 @@ class ThreeNNLFrames(torch.nn.Module):
 
     def __init__(self) -> None:
         """Initializes an instance of the ThreeNNLFrames class."""
+        raise NotImplementedError
         super().__init__()
 
     def forward(
@@ -76,6 +77,7 @@ class RandomLFrames(torch.nn.Module):
         Args:
             flip_probability (float, optional): The probability of flipping the frames. Defaults to 0.5.
         """
+        raise NotImplementedError
         super().__init__()
         self.flip_probability = flip_probability
 
@@ -110,6 +112,7 @@ class RandomGlobalLFrames(torch.nn.Module):
 
     def __init__(self) -> None:
         """Initializes an instance of the RandomGlobalLFrames class."""
+        raise NotImplementedError
         super().__init__()
 
     def forward(
