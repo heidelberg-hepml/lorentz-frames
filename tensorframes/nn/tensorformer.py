@@ -84,7 +84,9 @@ class TensorFormer(TFMessagePassing):
         else:
             self.act_scalar = scalar_activation_function
 
-        self.lin_scalar = HeadedLinear(in_dim=hidden_scalar_dim, out_dim=1, num_heads=num_heads)
+        self.lin_scalar = HeadedLinear(
+            in_dim=hidden_scalar_dim, out_dim=1, num_heads=num_heads
+        )
 
         if value_activation_function is None:
             self.act_value = torch.nn.SiLU()
@@ -236,7 +238,9 @@ class TensorFormer(TFMessagePassing):
         scalars = self.lin_scalar(scalars)
 
         if self.softmax:
-            alpha = softmax(scalars / (self.hidden_value_dim**0.5), index, ptr, size_i)
+            alpha = softmax(
+                scalars / (self.hidden_value_dim**0.5), index, ptr, size_i
+            )
         else:
             alpha = self.silu(scalars)
 
@@ -248,6 +252,8 @@ class TensorFormer(TFMessagePassing):
         value = self.lin_value(value, edge_embedding)
 
         out = value * alpha.view(-1, self.num_heads, 1)
-        out = out.contiguous().view(-1, self.num_heads * self.hidden_value_dim) * envelope
+        out = (
+            out.contiguous().view(-1, self.num_heads * self.hidden_value_dim) * envelope
+        )
 
         return out

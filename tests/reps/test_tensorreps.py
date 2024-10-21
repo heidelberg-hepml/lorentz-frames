@@ -12,7 +12,12 @@ def test_tensorreps():
     tensor_reps_1 = TensorReps(rep_1)
     tensor_reps_2 = TensorReps(rep_2)
     tensor_reps_3 = TensorReps(
-        [(5, TensorRep(0, 1)), (3, TensorRep(0, 1)), (2, TensorRep(0, 1)), (1, TensorRep(0, 1))]
+        [
+            (5, TensorRep(0, 1)),
+            (3, TensorRep(0, 1)),
+            (2, TensorRep(0, 1)),
+            (1, TensorRep(0, 1)),
+        ]
     )
 
     random_rot = o3.rand_matrix(10)
@@ -43,7 +48,9 @@ def test_tensorreps():
     print(transformed_coeffs)
     print(basis_change.det[:, None])
 
-    assert torch.allclose(transformed_coeffs, coeffs * basis_change.det[:, None], atol=1e-7)
+    assert torch.allclose(
+        transformed_coeffs, coeffs * basis_change.det[:, None], atol=1e-7
+    )
 
     # test that 1n transforms correctly:
     irrep = TensorReps("5x1")
@@ -79,7 +86,9 @@ def test_tensorreps():
         basis_change.matrices,
         coeffs.reshape(10, 5, 3, 3),
     )
-    assert torch.allclose(transformed_coeffs.reshape(10, 5, 3, 3), naive_trafo, atol=1e-7)
+    assert torch.allclose(
+        transformed_coeffs.reshape(10, 5, 3, 3), naive_trafo, atol=1e-7
+    )
 
     # test that 2p transforms correctly:
     irrep = TensorReps("5x2p")
@@ -93,4 +102,6 @@ def test_tensorreps():
         coeffs.reshape(10, 5, 3, 3),
     )
     naive_trafo *= basis_change.det[:, None, None, None]
-    assert torch.allclose(transformed_coeffs.reshape(10, 5, 3, 3), naive_trafo, atol=1e-7)
+    assert torch.allclose(
+        transformed_coeffs.reshape(10, 5, 3, 3), naive_trafo, atol=1e-7
+    )

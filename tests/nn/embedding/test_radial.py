@@ -32,13 +32,18 @@ def test_radial():
     gauss = GaussianEmbedding()
     assert torch.allclose(gauss(edge_vec=edge_vec1), gauss(edge_vec=edge_vec2))
     assert torch.allclose(
-        gauss(pos=pos, edge_index=edge_index), gauss(pos=(pos, pos), edge_index=edge_index)
+        gauss(pos=pos, edge_index=edge_index),
+        gauss(pos=(pos, pos), edge_index=edge_index),
     )
-    assert torch.allclose(gauss(pos=pos, edge_index=edge_index), gauss(edge_vec=edge_vec1))
+    assert torch.allclose(
+        gauss(pos=pos, edge_index=edge_index), gauss(edge_vec=edge_vec1)
+    )
 
     # test bessel radial embedding
     bessel = BesselEmbedding(num_frequencies=10, cutoff=10.0, envelope=EnvelopePoly(2))
-    assert torch.allclose(bessel(edge_vec=edge_vec1), bessel(edge_vec=edge_vec2), atol=1e-6)
+    assert torch.allclose(
+        bessel(edge_vec=edge_vec1), bessel(edge_vec=edge_vec2), atol=1e-6
+    )
     assert torch.allclose(
         bessel(pos=pos, edge_index=edge_index),
         bessel(pos=(pos, pos), edge_index=edge_index),

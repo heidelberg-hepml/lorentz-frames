@@ -178,10 +178,14 @@ class LearnedGramSchmidtLFrames(MessagePassing):
         mlp_out = self.mlp(x=inp, batch=batch_j)
 
         relative_vec = pos_j - pos_i
-        relative_norm = torch.clamp(torch.linalg.norm(relative_vec, dim=-1, keepdim=True), 1e-6)
+        relative_norm = torch.clamp(
+            torch.linalg.norm(relative_vec, dim=-1, keepdim=True), 1e-6
+        )
         relative_vec = relative_vec / relative_norm
 
-        out = torch.einsum("ij,ik->ijk", mlp_out, relative_vec).reshape(-1, self.num_pred_vecs * 3)
+        out = torch.einsum("ij,ik->ijk", mlp_out, relative_vec).reshape(
+            -1, self.num_pred_vecs * 3
+        )
 
         if self.cutoff is not None and self.envelope is not None:
             scaled_r = relative_norm / self.cutoff
@@ -281,13 +285,22 @@ class WrappedLearnedLFrames(Module):
             LFrames: The output local frames.
         """
         if edge_index is None:
-            assert self.max_radius is not None, "need to provide edge_index if max_radius is None"
+            assert (
+                self.max_radius is not None
+            ), "need to provide edge_index if max_radius is None"
             row, col = radius(
-                pos, pos, self.max_radius, batch, batch, max_num_neighbors=self.max_num_neighbors
+                pos,
+                pos,
+                self.max_radius,
+                batch,
+                batch,
+                max_num_neighbors=self.max_num_neighbors,
             )
             edge_index = torch.stack([col, row], dim=0)
         else:
-            assert self.max_radius is None, "max_radius should be None if edge_index is provided"
+            assert (
+                self.max_radius is None
+            ), "max_radius should be None if edge_index is provided"
         radial = self.radial_module(pos, edge_index)
         if edge_attr is not None:
             edge_attr = edge_attr[:, self.scalar_edge_attr_mask]

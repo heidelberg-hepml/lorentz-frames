@@ -23,7 +23,10 @@ class RandomSampler(torch.nn.Module):
         self.with_replacement = with_replacement
 
     def forward(
-        self, pos: torch.Tensor, batch: torch.Tensor | None = None, ptr: torch.Tensor | None = None
+        self,
+        pos: torch.Tensor,
+        batch: torch.Tensor | None = None,
+        ptr: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Forward pass of the RandomSampler.
 
@@ -48,7 +51,9 @@ class RandomSampler(torch.nn.Module):
         if self.with_replacement:
             idx = torch.concatenate(
                 [
-                    torch.randint(low=ptr[i], high=ptr[i + 1], size=(int(num * self.ratio),))
+                    torch.randint(
+                        low=ptr[i], high=ptr[i + 1], size=(int(num * self.ratio),)
+                    )
                     for i, num in enumerate(num_points)
                 ],
                 dim=0,
@@ -56,7 +61,9 @@ class RandomSampler(torch.nn.Module):
         else:
             idx = torch.concatenate(
                 [
-                    torch.arange(ptr[i], ptr[i + 1])[torch.randperm(num)[: int(num * self.ratio)]]
+                    torch.arange(ptr[i], ptr[i + 1])[
+                        torch.randperm(num)[: int(num * self.ratio)]
+                    ]
                     for i, num in enumerate(num_points)
                 ],
                 dim=0,
@@ -87,7 +94,9 @@ class FPSampler(torch.nn.Module):
         self.ratio = ratio
         self.random_start = random_start
 
-    def forward(self, pos: torch.Tensor, batch: torch.Tensor | None = None) -> torch.Tensor:
+    def forward(
+        self, pos: torch.Tensor, batch: torch.Tensor | None = None
+    ) -> torch.Tensor:
         """Performs forward pass of the point sampling module.
 
         Args:
@@ -99,7 +108,9 @@ class FPSampler(torch.nn.Module):
         """
         if self.ratio == 1:
             return torch.arange(pos.shape[0], device=pos.device)
-        return tg.nn.fps(x=pos, batch=batch, ratio=self.ratio, random_start=self.random_start)
+        return tg.nn.fps(
+            x=pos, batch=batch, ratio=self.ratio, random_start=self.random_start
+        )
 
 
 class CustomPointSampler(torch.nn.Module):

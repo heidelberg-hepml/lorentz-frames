@@ -88,7 +88,9 @@ class MLPWrapped(Module):
         if self.use_torchvision:
             return self.mlp(x)
         else:
-            return self.mlp(x, batch=batch, batch_size=batch_size, return_emb=return_emb)
+            return self.mlp(
+                x, batch=batch, batch_size=batch_size, return_emb=return_emb
+            )
 
 
 class MLP(torch.nn.Module):

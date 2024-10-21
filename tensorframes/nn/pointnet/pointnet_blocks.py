@@ -84,7 +84,12 @@ class SAModule(torch.nn.Module):
         idx = self.center_sampler(pos, batch)
         # note that if there are more point then max_num_neighbors, they are sampled randomly
         row, col = radius(
-            pos, pos[idx], self.r, batch, batch[idx], max_num_neighbors=self.max_num_neighbors
+            pos,
+            pos[idx],
+            self.r,
+            batch,
+            batch[idx],
+            max_num_neighbors=self.max_num_neighbors,
         )
         # print("average number of neighbors: ", len(row) / len(idx), "max_num_neighbors", self.max_num_neighbors)
         edge_index = torch.stack([col, row], dim=0)
@@ -347,14 +352,24 @@ class FPModule(torch.nn.Module):
             Lframes: Output local frames object.
         """
         x = lframes_knn_interpolate(
-            x, pos, pos_skip, lframes, lframes_skip, self.reps, batch, batch_skip, k=self.k
+            x,
+            pos,
+            pos_skip,
+            lframes,
+            lframes_skip,
+            self.reps,
+            batch,
+            batch_skip,
+            k=self.k,
         )
         if x_skip is not None:
             # this step is compatible with local frames (since the skip comes from the same frame)
             x = torch.cat([x, x_skip], dim=-1)  # expect last dim to be the feature dim
 
         if self.lframes_updater is not None:
-            x, lframes_skip = self.lframes_updater(lframes=lframes_skip, x=x, batch=batch)
+            x, lframes_skip = self.lframes_updater(
+                lframes=lframes_skip, x=x, batch=batch
+            )
         x = self.mlp(x, batch=batch)
         return x, pos_skip, batch_skip, lframes_skip
 

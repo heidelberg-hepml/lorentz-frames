@@ -30,7 +30,9 @@ class GCNConv(TFMessagePassing):
         )
         self.linear = torch.nn.Linear(in_reps.dim, out_reps.dim)
 
-    def forward(self, edge_index: torch.Tensor, x: torch.Tensor, lframes: LFrames) -> torch.Tensor:
+    def forward(
+        self, edge_index: torch.Tensor, x: torch.Tensor, lframes: LFrames
+    ) -> torch.Tensor:
         """Performs the forward pass of the GCNConv layer.
 
         Args:
@@ -72,7 +74,9 @@ if __name__ == "__main__":
 
     layer = GCNConv(in_reps, in_reps)
 
-    edge_index = torch.tensor([[0, 1, 1, 2, 2, 3, 4], [1, 0, 2, 1, 3, 2, 2]], dtype=torch.long)
+    edge_index = torch.tensor(
+        [[0, 1, 1, 2, 2, 3, 4], [1, 0, 2, 1, 3, 2, 2]], dtype=torch.long
+    )
 
     x = torch.randn(5, 4)
 

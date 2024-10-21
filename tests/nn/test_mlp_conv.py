@@ -19,7 +19,10 @@ def test_edge_conv_layer():
 
     # Initialize the EdgeConv layer
     mlp_conv = EdgeConv(
-        in_reps=in_reps, hidden_channels=[32, 32], out_channels=16, concatenate_edge_vec=True
+        in_reps=in_reps,
+        hidden_channels=[32, 32],
+        out_channels=16,
+        concatenate_edge_vec=True,
     )
 
     # create some dummy data
@@ -32,7 +35,9 @@ def test_edge_conv_layer():
 
     # Perform the forward pass
     x_local = feature_transform(coeffs=x.clone(), basis_change=lframes)
-    output = mlp_conv(x=x_local, pos=pos, edge_index=edge_index, lframes=lframes, batch=batch)
+    output = mlp_conv(
+        x=x_local, pos=pos, edge_index=edge_index, lframes=lframes, batch=batch
+    )
 
     # add small invariance test:
     global_rot = rand_matrix(1).repeat(10, 1, 1)
@@ -44,10 +49,16 @@ def test_edge_conv_layer():
         pos_trafo.append(pos[i] @ global_rot[0].T)
     lframes_trafo = LFrames(torch.stack(lframes_trafo))
     pos_trafo = torch.stack(pos_trafo)
-    x_trafo_local = feature_transform(coeffs=x_trafo.clone(), basis_change=lframes_trafo)
+    x_trafo_local = feature_transform(
+        coeffs=x_trafo.clone(), basis_change=lframes_trafo
+    )
     assert torch.allclose(x_local, x_trafo_local, atol=1e-6)
     output_trafo = mlp_conv(
-        x=x_trafo_local, pos=pos_trafo, edge_index=edge_index, lframes=lframes_trafo, batch=batch
+        x=x_trafo_local,
+        pos=pos_trafo,
+        edge_index=edge_index,
+        lframes=lframes_trafo,
+        batch=batch,
     )
 
     assert torch.allclose(output, output_trafo, atol=1e-6)
@@ -55,7 +66,9 @@ def test_edge_conv_layer():
     # test if layer is differentiable:
     x_local = feature_transform(coeffs=x.clone(), basis_change=lframes)
     x_local.requires_grad = True
-    output = mlp_conv(x=x_local, pos=pos, edge_index=edge_index, lframes=lframes, batch=batch)
+    output = mlp_conv(
+        x=x_local, pos=pos, edge_index=edge_index, lframes=lframes, batch=batch
+    )
     output.sum().backward()
 
     # get gradients on x:
@@ -68,7 +81,10 @@ def test_edge_conv_layer():
 
     # Initialize the EdgeConv layer
     mlp_conv = EdgeConv(
-        in_reps=in_reps, hidden_channels=[32, 32], out_channels=16, concatenate_edge_vec=True
+        in_reps=in_reps,
+        hidden_channels=[32, 32],
+        out_channels=16,
+        concatenate_edge_vec=True,
     )
 
     # create some dummy data
@@ -81,7 +97,9 @@ def test_edge_conv_layer():
 
     # Perform the forward pass
     x_local = feature_transform(coeffs=x.clone(), basis_change=lframes)
-    output = mlp_conv(x=x_local, pos=pos, edge_index=edge_index, lframes=lframes, batch=batch)
+    output = mlp_conv(
+        x=x_local, pos=pos, edge_index=edge_index, lframes=lframes, batch=batch
+    )
 
     # add small invariance test:
     global_rot = rand_matrix(1).repeat(10, 1, 1)
@@ -93,10 +111,16 @@ def test_edge_conv_layer():
         pos_trafo.append(pos[i] @ global_rot[0].T)
     lframes_trafo = LFrames(torch.stack(lframes_trafo))
     pos_trafo = torch.stack(pos_trafo)
-    x_trafo_local = feature_transform(coeffs=x_trafo.clone(), basis_change=lframes_trafo)
+    x_trafo_local = feature_transform(
+        coeffs=x_trafo.clone(), basis_change=lframes_trafo
+    )
     assert torch.allclose(x_local, x_trafo_local, atol=1e-6)
     output_trafo = mlp_conv(
-        x=x_trafo_local, pos=pos_trafo, edge_index=edge_index, lframes=lframes_trafo, batch=batch
+        x=x_trafo_local,
+        pos=pos_trafo,
+        edge_index=edge_index,
+        lframes=lframes_trafo,
+        batch=batch,
     )
 
     assert torch.allclose(output, output_trafo, atol=1e-6)
@@ -104,7 +128,9 @@ def test_edge_conv_layer():
     # test if layer is differentiable:
     x_local = feature_transform(coeffs=x.clone(), basis_change=lframes)
     x_local.requires_grad = True
-    output = mlp_conv(x=x_local, pos=pos, edge_index=edge_index, lframes=lframes, batch=batch)
+    output = mlp_conv(
+        x=x_local, pos=pos, edge_index=edge_index, lframes=lframes, batch=batch
+    )
     output.sum().backward()
 
     # get gradients on x:

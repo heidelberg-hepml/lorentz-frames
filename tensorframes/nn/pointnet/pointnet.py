@@ -81,9 +81,13 @@ class PointNetEncoder(torch.nn.Module):
         """
         super().__init__()
 
-        assert TensorReps("1x1").dim == spatial_dim, "spatial dim must match with tensor rep"
+        assert (
+            TensorReps("1x1").dim == spatial_dim
+        ), "spatial dim must match with tensor rep"
         self.spatial_dim = spatial_dim
-        list_in_reps = [parse_reps(reps) for reps in list_in_reps]  # parse from str if necessary
+        list_in_reps = [
+            parse_reps(reps) for reps in list_in_reps
+        ]  # parse from str if necessary
         self.list_reps = list_in_reps + [parse_reps(sam_out_reps)]
         self.global_sam = global_sam
         self.cache_layer_outputs = cache_layer_outputs
@@ -91,15 +95,21 @@ class PointNetEncoder(torch.nn.Module):
         self.use_dynamic_sam = use_dynamic_sam
 
         if use_dynamic_sam:
-            assert list_dynamic_k is not None, "list_dynamic_k must be provided for dynamic sam"
+            assert (
+                list_dynamic_k is not None
+            ), "list_dynamic_k must be provided for dynamic sam"
         else:
             assert list_r is not None, "list_r must be provided for sam"
 
         # parse kwargs lists:
         list_conv_kwargs = {} if list_conv_kwargs is None else list_conv_kwargs
         list_sam_kwargs = {} if list_sam_kwargs is None else list_sam_kwargs
-        list_conv_kwargs = repeat_in_list(list_conv_kwargs, repeats=len(list_hidden_channels))
-        list_sam_kwargs = repeat_in_list(list_sam_kwargs, repeats=len(list_hidden_channels))
+        list_conv_kwargs = repeat_in_list(
+            list_conv_kwargs, repeats=len(list_hidden_channels)
+        )
+        list_sam_kwargs = repeat_in_list(
+            list_sam_kwargs, repeats=len(list_hidden_channels)
+        )
         list_lframes_update_kwargs = repeat_in_list(
             list_lframes_update_kwargs, repeats=len(list_hidden_channels)
         )
@@ -224,7 +234,9 @@ class PointNetEncoder(torch.nn.Module):
         if radial_module_type == "none":
             return [None] * self.num_sam_layers, None
 
-        radial_module_kwargs = {} if radial_module_kwargs is None else radial_module_kwargs
+        radial_module_kwargs = (
+            {} if radial_module_kwargs is None else radial_module_kwargs
+        )
         axial_from_radial_kwargs = (
             {} if axial_from_radial_kwargs is None else axial_from_radial_kwargs
         )
@@ -234,7 +246,9 @@ class PointNetEncoder(torch.nn.Module):
             if radial_module_type == "gaussian":
                 radial_module = GaussianEmbedding(**radial_module_kwargs)
             else:
-                raise ValueError(f"radial_module_type {radial_module_type} not supported")
+                raise ValueError(
+                    f"radial_module_type {radial_module_type} not supported"
+                )
 
             if convert_radial_to_axial:
                 radial_module = AxisWiseEmbeddingFromRadial(
@@ -249,10 +263,14 @@ class PointNetEncoder(torch.nn.Module):
                     if adjust_max_radius_with_sampling:
                         radial_module_kwargs["maximum_initial_range"] = self.list_r[i]
                         if convert_radial_to_axial:
-                            radial_module_kwargs["minimum_initial_range"] = -self.list_r[i]
+                            radial_module_kwargs[
+                                "minimum_initial_range"
+                            ] = -self.list_r[i]
                     radial_module = GaussianEmbedding(**radial_module_kwargs)
                 else:
-                    raise ValueError(f"radial_module_type {radial_module_type} not supported")
+                    raise ValueError(
+                        f"radial_module_type {radial_module_type} not supported"
+                    )
 
                 if convert_radial_to_axial:
                     radial_module = AxisWiseEmbeddingFromRadial(
@@ -290,9 +308,13 @@ class PointNetEncoder(torch.nn.Module):
 
         # sam layers:
         for sam in self.sa_modules:
-            x, pos, batch, lframes = sam(x=x, pos=pos, batch=batch, lframes=lframes, epoch=epoch)
+            x, pos, batch, lframes = sam(
+                x=x, pos=pos, batch=batch, lframes=lframes, epoch=epoch
+            )
             if self.cache_layer_outputs:
-                cached_layer_outputs.append(dict(x=x, pos=pos, batch=batch, lframes=lframes))
+                cached_layer_outputs.append(
+                    dict(x=x, pos=pos, batch=batch, lframes=lframes)
+                )
 
         if self.global_sam is not None:
             x, pos, batch, lframes = self.global_sam(
@@ -303,7 +325,9 @@ class PointNetEncoder(torch.nn.Module):
                 cached_layer_outputs=cached_layer_outputs,
             )
             if self.cache_layer_outputs:
-                cached_layer_outputs.append(dict(x=x, pos=pos, batch=batch, lframes=lframes))
+                cached_layer_outputs.append(
+                    dict(x=x, pos=pos, batch=batch, lframes=lframes)
+                )
 
         return x, pos, batch, lframes, cached_layer_outputs
 
@@ -339,13 +363,17 @@ class PointNetDecoder(torch.nn.Module):
         assert (
             encoder_module.global_sam is None
         ), "encoder should not have a global sam module when used with decoder"
-        list_in_reps = [parse_reps(reps) for reps in list_in_reps]  # parse from str if necessary
+        list_in_reps = [
+            parse_reps(reps) for reps in list_in_reps
+        ]  # parse from str if necessary
         self.list_reps = list_in_reps + [parse_reps(out_reps)]
         self.cache_layer_outputs = encoder_module.cache_layer_outputs
 
         list_k = repeat_in_list(list_k, repeats=len(list_hidden_channels))
         list_mlp_kwargs = {} if list_mlp_kwargs is None else list_mlp_kwargs
-        list_mlp_kwargs = repeat_in_list(list_mlp_kwargs, repeats=len(list_hidden_channels))
+        list_mlp_kwargs = repeat_in_list(
+            list_mlp_kwargs, repeats=len(list_hidden_channels)
+        )
         list_lframes_update_kwargs = repeat_in_list(
             list_lframes_update_kwargs, repeats=len(list_hidden_channels)
         )
@@ -363,7 +391,9 @@ class PointNetDecoder(torch.nn.Module):
 
         # init module list
         self.fp_modules = torch.nn.ModuleList()
-        assert list_in_reps[0] == encoder_module.list_reps[-1], "in_reps must match encoder out"
+        assert (
+            list_in_reps[0] == encoder_module.list_reps[-1]
+        ), "in_reps must match encoder out"
         for i, hidden_channels in enumerate(list_hidden_channels):
             in_reps = list_in_reps[i]
             skip_reps = encoder_module.list_reps[-i - 2]
@@ -412,14 +442,17 @@ class PointNetDecoder(torch.nn.Module):
         dec_cached_layer_outputs = [] if self.cache_layer_outputs else None
         for i, fp in enumerate(self.fp_modules):
             x_skip, pos_skip, batch_skip, lframes_skip = (
-                cached_layer_outputs[-i - 2][key] for key in ["x", "pos", "batch", "lframes"]
+                cached_layer_outputs[-i - 2][key]
+                for key in ["x", "pos", "batch", "lframes"]
             )
 
             x, pos, batch, lframes = fp(
                 x, pos, batch, lframes, x_skip, pos_skip, batch_skip, lframes_skip
             )
             if self.cache_layer_outputs:
-                dec_cached_layer_outputs.append(dict(x=x, pos=pos, batch=batch, lframes=lframes))
+                dec_cached_layer_outputs.append(
+                    dict(x=x, pos=pos, batch=batch, lframes=lframes)
+                )
         return x, pos, batch, lframes, dec_cached_layer_outputs
 
 
@@ -456,7 +489,9 @@ class PointNet(torch.nn.Module):
 
         self.cache_layer_outputs = pointnetpp_encoder.cache_layer_outputs
         if pointnetpp_decoder is not None:
-            self.pointnetpp_encoder.cache_layer_outputs = True  # needed for skip connections
+            self.pointnetpp_encoder.cache_layer_outputs = (
+                True  # needed for skip connections
+            )
 
     def forward(self, data, return_cached_layer_outputs=False, epoch=None):
         """Forward pass of the PointNet model.

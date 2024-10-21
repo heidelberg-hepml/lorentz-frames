@@ -11,7 +11,9 @@ class HeadedLinear(torch.nn.Module):
     Every head has its own weight matrix and bias vector.
     """
 
-    def __init__(self, in_dim: int, out_dim: int, num_heads: int, bias: bool = True) -> None:
+    def __init__(
+        self, in_dim: int, out_dim: int, num_heads: int, bias: bool = True
+    ) -> None:
         """Initialize the Linear module.
 
         Args:

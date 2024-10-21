@@ -60,7 +60,11 @@ class FromLocalToGlobalFrame(Module):
         """
         # make an identity lframe
         id_lframes = LFrames(
-            torch.eye(3).to(device=lframes.matrices.device).repeat(lframes.matrices.size(0), 1, 1)
+            torch.eye(3)
+            .to(device=lframes.matrices.device)
+            .repeat(lframes.matrices.size(0), 1, 1)
         )  # TODO make it that it does not use the identity matrix
 
-        return self.trafo_class(x, ChangeOfLFrames(lframes_start=lframes, lframes_end=id_lframes))
+        return self.trafo_class(
+            x, ChangeOfLFrames(lframes_start=lframes, lframes_end=id_lframes)
+        )

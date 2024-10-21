@@ -40,7 +40,7 @@ class EdgeConv(TFMessagePassing):
         concatenate_receiver_features_in_mlp1: bool = False,
         concatenate_receiver_features_in_mlp2: bool = False,
         use_edge_feature_product: bool = False,
-        **mlp_kwargs: Dict
+        **mlp_kwargs: Dict,
     ):
         """
         Initialize the MLPConv layer.
@@ -65,13 +65,19 @@ class EdgeConv(TFMessagePassing):
             **mlp_kwargs: Additional keyword arguments for the MLP layers.
         """
         self.in_reps = in_reps
-        super().__init__(aggr=aggr, params_dict={"x": {"type": "local", "rep": self.in_reps}})
+        super().__init__(
+            aggr=aggr, params_dict={"x": {"type": "local", "rep": self.in_reps}}
+        )
 
         self.radial_module = radial_module
         self.angular_module = angular_module
         self.concatenate_edge_vec = concatenate_edge_vec
-        self.concatenate_receiver_features_in_mlp1 = concatenate_receiver_features_in_mlp1
-        self.concatenate_receiver_features_in_mlp2 = concatenate_receiver_features_in_mlp2
+        self.concatenate_receiver_features_in_mlp1 = (
+            concatenate_receiver_features_in_mlp1
+        )
+        self.concatenate_receiver_features_in_mlp2 = (
+            concatenate_receiver_features_in_mlp2
+        )
         mlp1_in_dim = self.in_reps.dim
         edge_feature_dim = 0
         if concatenate_receiver_features_in_mlp1:
@@ -94,7 +100,7 @@ class EdgeConv(TFMessagePassing):
             self.mlp1 = MLPWrapped(
                 in_channels=mlp1_in_dim,
                 hidden_channels=hidden_channels + [out_channels],
-                **mlp_kwargs
+                **mlp_kwargs,
             )
             self.mlp2 = None
         else:
@@ -107,7 +113,7 @@ class EdgeConv(TFMessagePassing):
             self.mlp2 = MLPWrapped(
                 in_channels=mlp2_in_dim,
                 hidden_channels=second_hidden_channels + [out_channels],
-                **mlp_kwargs
+                **mlp_kwargs,
             )
         self.out_dim = out_channels
         if use_edge_feature_product:

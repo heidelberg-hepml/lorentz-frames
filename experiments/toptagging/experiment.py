@@ -3,19 +3,23 @@ import torch
 from torch_geometric.loader import DataLoader
 
 import os, time
-from omegaconf import OmegaConf, open_dict
+from omegaconf import open_dict
 
 from sklearn.metrics import roc_curve, roc_auc_score, accuracy_score
 
 from experiments.base_experiment import BaseExperiment
 from experiments.toptagging.dataset import TopTaggingDataset
+from experiments.toptagging.embedding import embed_tagging_data
 from experiments.toptagging.plots import plot_mixer
 from experiments.logger import LOGGER
 from experiments.mlflow import log_mlflow
 
 MODEL_TITLE_DICT = {
-    "GCNConv": "GCNConv",
+    "ProtoNet": "ProtoNet",
+    "NonEquiNet": "NoneEquiNet",
 }
+
+UNITS = 20  # We use units of 20 GeV for all tagging experiments
 
 
 class TaggingExperiment(BaseExperiment):
@@ -26,11 +30,18 @@ class TaggingExperiment(BaseExperiment):
     def init_physics(self):
         # dynamically extend dict
         with open_dict(self.cfg):
-            gcnconv_name = "experiments.toptagging.wrappers.GCNConvWrapper"
-            assert self.cfg.model._target_ in [gcnconv_name]
+            protonet_name = "experiments.toptagging.wrappers.ProtoNetWrapper"
+            nonequinet_name = "experiments.toptagging.wrappers.NonEquiNetWrapper"
+            assert self.cfg.model._target_ in [
+                protonet_name,
+                nonequinet_name,
+            ]
 
             # global token?
-            if self.cfg.model._target_ == gcnconv_name:
+            if self.cfg.model._target_ in [
+                protonet_name,
+                nonequinet_name,
+            ]:
                 self.cfg.data.include_global_token = not self.cfg.model.mean_aggregation
 
     def init_data(self):
@@ -39,18 +50,13 @@ class TaggingExperiment(BaseExperiment):
     def _init_data(self, Dataset, data_path):
         LOGGER.info(f"Creating {Dataset.__name__} from {data_path}")
         t0 = time.time()
-        kwargs = {
-            "cfg": self.cfg,
-            "dtype": self.dtype,
-            "device": self.device,
-        }
-        self.data_train = Dataset(data_path, "train", data_scale=None, **kwargs)
-        self.data_test = Dataset(
-            data_path, "test", data_scale=self.data_train.data_scale, **kwargs
-        )
-        self.data_val = Dataset(
-            data_path, "val", data_scale=self.data_train.data_scale, **kwargs
-        )
+        kwargs = {"rescale_data": self.cfg.data.rescale_data}
+        self.data_train = Dataset(**kwargs)
+        self.data_test = Dataset(**kwargs)
+        self.data_val = Dataset(**kwargs)
+        self.data_train.load_data(data_path, "train", data_scale=UNITS)
+        self.data_test.load_data(data_path, "test", data_scale=UNITS)
+        self.data_val.load_data(data_path, "val", data_scale=UNITS)
         dt = time.time() - t0
         LOGGER.info(f"Finished creating datasets after {dt:.2f} s = {dt/60:.2f} min")
 
@@ -131,10 +137,9 @@ class TaggingExperiment(BaseExperiment):
             self.optimizer.eval()
         with torch.no_grad():
             for batch in loader:
-                batch = batch.to(self.device)
-                y_pred = self.model(batch)
+                y_pred, label = self._get_ypred_and_label(batch)
                 y_pred = torch.nn.functional.sigmoid(y_pred)
-                labels_true.append(batch.label.cpu().float())
+                labels_true.append(label.cpu().float())
                 labels_predict.append(y_pred.cpu().float())
         labels_true, labels_predict = torch.cat(labels_true), torch.cat(labels_predict)
         if mode == "eval":
@@ -173,7 +178,7 @@ class TaggingExperiment(BaseExperiment):
         if mode == "eval":
             LOGGER.info(
                 f"Rejection rate {title} dataset: {metrics['rej03']:.0f} (epsS=0.3), "
-                f"{metrics['rej05']:.0f} (epsS=0.5), {metrics['rej08']:.0f}"
+                f"{metrics['rej05']:.0f} (epsS=0.5), {metrics['rej08']:.0f} (epsS=0.8)"
             )
 
         if self.cfg.use_mlflow:
@@ -183,13 +188,51 @@ class TaggingExperiment(BaseExperiment):
                     continue
                 name = f"{mode}.{title}" if mode == "eval" else "val"
                 log_mlflow(f"{name}.{key}", value, step=step)
+
+        if mode == "eval":
+            aggregator = (
+                "mean aggregation"
+                if self.cfg.model.mean_aggregation == True
+                else "global token"
+            )
+            match self.cfg.model.lframesnet.approach:
+                case "learned_gramschmidt":
+                    lframeString = "Gram-Schmidt"
+                case "identity":
+                    lframeString = "Identity"
+                case "random_global":
+                    lframeString = "Random Global"
+                case "random_local":
+                    lframeString = "Random Local"
+                case "3nn":
+                    lframeString = "3nn"
+                case _:
+                    lframeString = self.cfg.model.lframesnet.approach
+            num_parameters = sum(
+                p.numel() for p in self.model.parameters() if p.requires_grad
+            )
+
+            if (
+                self.cfg.model.radial_module._target_
+                == "tensorframes.nn.embedding.radial.TrivialRadialEmbedding"
+            ):
+                learnableString = "no embedding"
+            elif self.cfg.model.radial_module.is_learnable == True:
+                learnableString = "learned"
+            elif self.cfg.model.radial_module.is_learnable == False:
+                learnableString = "\mathbb{1}"
+            else:
+                learnableString = "other"
+
+            LOGGER.info(
+                f"table {title}: {lframeString} with {aggregator} ({self.cfg.training.iterations} epochs)&{num_parameters}&{metrics['accuracy']:.4f}&{metrics['auc']:.4f}&{metrics['rej03']:.0f}&{metrics['rej05']:.0f}&{metrics['rej08']:.0f}&{learnableString}\\"
+            )
         return metrics
 
     def plot(self):
         plot_path = os.path.join(self.cfg.run_dir, f"plots_{self.cfg.run_idx}")
         os.makedirs(plot_path)
-        model_title = MODEL_TITLE_DICT[type(self.model.net).__name__]
-        title = model_title
+        title = MODEL_TITLE_DICT[type(self.model.net).__name__]
         LOGGER.info(f"Creating plots in {plot_path}")
 
         if self.cfg.evaluate and self.cfg.evaluation.save_roc:
@@ -228,18 +271,48 @@ class TaggingExperiment(BaseExperiment):
         return metrics["bce"]
 
     def _batch_loss(self, batch):
-        y_pred = self.model(batch)
-        loss = self.loss(y_pred, batch.label.to(self.dtype))
+        y_pred, label = self._get_ypred_and_label(batch)
+        loss = self.loss(y_pred, label)
         assert torch.isfinite(loss).all()
 
         metrics = {}
         return loss, metrics
+
+    def _get_ypred_and_label(self, batch):
+        batch = batch.to(self.device)
+        embedding = embed_tagging_data(batch.x, batch.scalars, batch.ptr, self.cfg.data)
+        y_pred = self.model(embedding)
+        return y_pred, batch.label.to(self.dtype)
 
     def _init_metrics(self):
         return {}
 
 
 class TopTaggingExperiment(TaggingExperiment):
+    def __init__(self, cfg):
+        super().__init__(cfg)
+
+        fourvector_reps = "1x0n+1x1n"  # this is a representation of a fourvector with the current tensorframes
+        self.in_reps = fourvector_reps  # energy-momentum vector
+
+        if self.cfg.data.add_scalar_features:
+            self.in_reps = "7x0n+" + self.in_reps  # other scalar features
+
+        if not self.cfg.data.beam_token:
+            if self.cfg.data.beam_reference in ["lightlike", "spacelike", "timelike"]:
+                self.in_reps = self.in_reps + "+" + fourvector_reps  # spurions
+
+                if self.cfg.data.two_beams:
+                    self.in_reps = (
+                        self.in_reps + "+" + fourvector_reps
+                    )  # two beam spurions
+
+            if self.cfg.data.add_time_reference:
+                self.in_reps = self.in_reps + "+" + fourvector_reps  # time spurion
+
+        LOGGER.info(f"Using the input representation: {self.in_reps}")
+        self.cfg.model.in_reps = self.in_reps
+
     def init_data(self):
         data_path = os.path.join(
             self.cfg.data.data_dir, f"toptagging_{self.cfg.data.dataset}.npz"

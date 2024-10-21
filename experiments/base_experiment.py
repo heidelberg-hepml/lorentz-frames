@@ -105,6 +105,9 @@ class BaseExperiment:
             f"Instantiated model {type(self.model.net).__name__} with {num_parameters} learnable parameters"
         )
 
+        for i, l in enumerate(self.model.net.blocks):
+            LOGGER.debug(f"layer{i}: {l}")
+
         if self.cfg.ema:
             LOGGER.info(f"Using EMA for validation and eval")
             self.ema = ExponentialMovingAverage(
@@ -326,21 +329,6 @@ class BaseExperiment:
                 eps=self.cfg.training.eps,
                 weight_decay=self.cfg.training.weight_decay,
             )
-        elif self.cfg.training.optimizer == "RAdam":
-            self.optimizer = torch.optim.RAdam(
-                self.model.parameters(),
-                lr=self.cfg.training.lr,
-                betas=self.cfg.training.betas,
-                eps=self.cfg.training.eps,
-            )
-        elif self.cfg.training.optimizer == "AdamW":
-            self.optimizer = torch.optim.AdamW(
-                self.model.parameters(),
-                lr=self.cfg.training.lr,
-                betas=self.cfg.training.betas,
-                eps=self.cfg.training.eps,
-                weight_decay=self.cfg.training.weight_decay,
-            )
         elif self.cfg.training.optimizer == "Lion":
             self.optimizer = Lion(
                 self.model.parameters(),
@@ -437,6 +425,7 @@ class BaseExperiment:
             f"while validating every {self.cfg.training.validate_every_n_steps} iterations"
         )
         self.training_start_time = time.time()
+        train_time, val_time = 0.0, 0.0
 
         # recycle trainloader
         def cycle(iterable):
@@ -451,11 +440,15 @@ class BaseExperiment:
             if self.cfg.training.optimizer == "ScheduleFree":
                 self.optimizer.train()
             data = next(iterator)
+            t0 = time.time()
             self._step(data, step)
+            train_time += time.time() - t0
 
             # validation (and early stopping)
             if (step + 1) % self.cfg.training.validate_every_n_steps == 0:
+                t0 = time.time()
                 val_loss = self._validate(step)
+                val_time += time.time() - t0
                 if val_loss < smallest_val_loss:
                     smallest_val_loss = val_loss
                     smallest_val_loss_step = step
@@ -479,7 +472,10 @@ class BaseExperiment:
 
             # output
             dt = time.time() - self.training_start_time
-            if step in [0, 999]:
+            if (
+                step in [99, 999]
+                or (step + 1) % self.cfg.training.validate_every_n_steps == 0
+            ):
                 dt_estimate = dt * self.cfg.training.iterations / (step + 1)
                 LOGGER.info(
                     f"Finished iteration {step+1} after {dt:.2f}s, "
@@ -492,6 +488,7 @@ class BaseExperiment:
             f"Finished training for {step} iterations = {step / len(self.train_loader):.1f} epochs "
             f"after {dt/60:.2f}min = {dt/60**2:.2f}h"
         )
+        LOGGER.info(f"Spend {train_time:.2f}s training and {val_time:.2f}s validating")
         if self.cfg.use_mlflow:
             log_mlflow("iterations", step)
             log_mlflow("epochs", step / len(self.train_loader))

@@ -11,7 +11,9 @@ def test_irreps():
 
     irreps_1 = Irreps(rep_1)
     irreps_2 = Irreps(rep_2)
-    irreps_3 = Irreps([(5, Irrep(0, 1)), (3, Irrep(0, 1)), (2, Irrep(0, 1)), (1, Irrep(0, 1))])
+    irreps_3 = Irreps(
+        [(5, Irrep(0, 1)), (3, Irrep(0, 1)), (2, Irrep(0, 1)), (1, Irrep(0, 1))]
+    )
 
     test = irreps_1 + irreps_2 + irreps_3
 
@@ -38,7 +40,9 @@ def test_irreps():
     coeffs = torch.randn(10, irrep.dim)
     irreps_transform = IrrepsTransform(irrep)
     transformed_coeffs = irreps_transform(coeffs.clone(), basis_change)
-    assert torch.allclose(transformed_coeffs, coeffs * basis_change.det[:, None], atol=1e-7)
+    assert torch.allclose(
+        transformed_coeffs, coeffs * basis_change.det[:, None], atol=1e-7
+    )
 
     # test that 1n transforms correctly:
     irrep = Irreps("5x1")

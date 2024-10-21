@@ -56,7 +56,9 @@ class AngularEmbedding(torch.nn.Module):
             Tensor: The computed embedding.
         """
         if edge_vec is None:
-            assert lframes is not None, "lframes must be provided if edge_vec is not provided."
+            assert (
+                lframes is not None
+            ), "lframes must be provided if edge_vec is not provided."
             assert pos is not None, "pos must be provided if edge_vec is not provided."
             assert (
                 edge_index is not None

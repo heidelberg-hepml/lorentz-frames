@@ -1,52 +1,143 @@
-import numpy as np
 import torch
 from torch import nn
 
-from tensorframes.reps import Irreps, TensorReps
-from tensorframes.nn.gcn_conv import GCNConv
-from tensorframes.lframes.lframes import LFrames
+from experiments.logger import LOGGER
+from torchvision.ops import MLP
+from torch_geometric.nn.pool import global_mean_pool
+from torch_geometric.nn.aggr import MeanAggregation
 
 
-def mean_pointcloud(x, batch):
-    batchsize = max(batch) + 1
-    logits = torch.zeros(batchsize, device=x.device, dtype=x.dtype)
-    logits.index_add_(0, batch, x[:, 0])  # sum
-    logits = logits / torch.bincount(batch)  # mean
-    return logits
-
-
-class GCNConvWrapper(nn.Module):
-    """
-    GCNConv for top-tagging
-
-    Note: Fully-connected convolutional networks are nonsense
-    """
-
+class TaggerWrapper(nn.Module):
     def __init__(
         self,
         mean_aggregation,
     ):
         super().__init__()
-        self.mean_aggregation = mean_aggregation
+        self.aggregator = MeanAggregation() if mean_aggregation else None
 
-        # for proper models we will use hydra more for instantiating
-        in_reps = TensorReps("1x0n+1x1n")
-        out_reps = TensorReps("1x0n")
-        self.net = GCNConv(in_reps, out_reps)
+    def extract_score(self, outputs, batch, is_global):
+        if self.aggregator is not None:
+            score = self.aggregator(outputs, index=batch)[:, 0]
+        else:
+            score = outputs[is_global]
+        return score
 
     def forward(self, batch):
-        # create placeholder lframes
-        lframes_tensor_anything = (
-            torch.eye(3).unsqueeze(0).repeat(batch.x.shape[0], 1, 1)
-        )
-        lframes = LFrames(lframes_tensor_anything)
+        raise NotImplementedError
 
+
+class LorentzFramesTaggerWrapper(TaggerWrapper):
+    def __init__(
+        self,
+        lframesnet,
+        mean_aggregation,
+    ):
+        super().__init__(mean_aggregation)
+        self.lframesnet = lframesnet
+
+    def forward(self, batch):
+        raise NotImplementedError
+
+
+class ProtoNetWrapper(LorentzFramesTaggerWrapper):
+    def __init__(
+        self,
+        net,
+        lframesnet,
+        mean_aggregation,
+        radial_module,
+        angular_module,
+        in_reps,
+        post_layer=None,  # layer to use in the score calculation after the last layer
+    ):
+        lframesnet = lframesnet(radial_module=radial_module, in_reps=in_reps)
+        super().__init__(lframesnet, mean_aggregation)
+        self.mean_aggregation = mean_aggregation
+        self.net = net(
+            radial_module=radial_module, angular_module=angular_module, in_reps=in_reps
+        )
+        self.post_layer = post_layer
+        network_output_dim = self.net.output_dim
+        self.in_reps = in_reps
+        if self.post_layer is not None:
+            assert (
+                mean_aggregation == True
+            ), "post_layer only works for mean aggregation"
+            self.total_post_layers = post_layer
+            self.total_post_layers.append(1)
+            self.post_layer = MLP(
+                in_channels=network_output_dim,
+                hidden_channels=self.total_post_layers,
+                dropout=0.1,
+            )
+            LOGGER.debug(f"Using post_layer: {self.post_layer}")
+
+        if not self.mean_aggregation:
+            assert (
+                network_output_dim == 1
+            ), "For global nodes, the output layer should be 1"
+
+    def forward(self, embedding):
+        # construct lframes and transform features into them
+        fourmomenta, scalars = embedding["fourmomenta"], embedding["scalars"]
+        x = torch.cat(
+            (
+                scalars,
+                fourmomenta.reshape(
+                    fourmomenta.shape[0], fourmomenta.shape[1] * fourmomenta.shape[2]
+                ),
+            ),
+            dim=-1,
+        )
+        pos = fourmomenta[..., 0, 1:]
+        edge_index, batch, is_global = [
+            embedding[key] for key in ["edge_index", "batch", "is_global"]
+        ]
+        x_transformed, lframes = self.lframesnet(x, pos, edge_index, batch)
         # network
-        outputs = self.net(edge_index=batch.edge_index, x=batch.x, lframes=lframes)
+        outputs = self.net(
+            x=x_transformed,
+            pos=pos,
+            edge_index=edge_index,
+            lframes=lframes,
+            batch=batch,
+        )
 
         # aggregation
-        if self.mean_aggregation:
-            logits = mean_pointcloud(outputs, batch.batch)
+        if self.post_layer is None:
+            score = self.extract_score(outputs, batch, is_global)
         else:
-            logits = outputs[batch.is_global]
-        return logits
+            logits = global_mean_pool(outputs, batch)  # size: (batch, output_dim)
+            score = self.post_layer(logits)  # size: (batch, 1)
+            score = score.flatten()  # size: batch
+        return score
+
+
+class NonEquiNetWrapper(TaggerWrapper):
+    def __init__(
+        self,
+        net,
+        mean_aggregation,
+        in_reps,
+    ):
+        super().__init__(mean_aggregation)
+        self.net = net(in_reps=in_reps)
+
+    def forward(self, embedding):
+        x = torch.cat((embedding["scalars"], embedding["fourmomenta"]), dim=-1)
+        pos = embedding["fourmomenta"][..., 1:]
+        edge_index, batch, is_global = [
+            embedding[key] for key in ["edge_index", "batch", "is_global"]
+        ]
+
+        # network
+        outputs = self.net(
+            x=x,
+            pos=pos,
+            edge_index=edge_index,
+            batch=batch,
+        )
+
+        # aggregation
+        score = self.extract_score(outputs, batch, is_global)
+        return score

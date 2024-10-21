@@ -14,7 +14,9 @@ def test_tensormace_init_and_forward():
     order = 3
     dropout = 0.1
 
-    model = TensorMACE(in_tensor_reps, out_tensor_reps, edge_emb_dim, hidden_dim, order, dropout)
+    model = TensorMACE(
+        in_tensor_reps, out_tensor_reps, edge_emb_dim, hidden_dim, order, dropout
+    )
 
     x = torch.randn(10, in_tensor_reps.dim)
     # create a big edge_index

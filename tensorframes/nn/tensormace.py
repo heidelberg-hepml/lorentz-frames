@@ -63,7 +63,9 @@ class TensorMACE(MessagePassing):
         )
 
         if self.bias:
-            self.bias_1 = torch.nn.Parameter(torch.empty(self.hidden_dim, self.max_order))
+            self.bias_1 = torch.nn.Parameter(
+                torch.empty(self.hidden_dim, self.max_order)
+            )
             self.bias_2 = torch.nn.Parameter(torch.empty(self.out_dim, self.max_order))
 
         self.lin_skip = torch.nn.Linear(self.in_dim, self.out_dim, bias=self.bias)
@@ -119,7 +121,9 @@ class TensorMACE(MessagePassing):
         x = self.layer_norm(x, batch)
 
         # calculate the As
-        A = self.propagate(edge_index, x=x, edge_embedding=edge_embedding, lframes=lframes)
+        A = self.propagate(
+            edge_index, x=x, edge_embedding=edge_embedding, lframes=lframes
+        )
 
         # calculate the Bs
         # Shape param_1: (hidden_dim, order, hidden_dim)
@@ -130,7 +134,9 @@ class TensorMACE(MessagePassing):
 
         # TODO: Why is for loop faster than cumprod?
         B = torch.zeros(
-            (x.shape[0], self.hidden_dim, self.max_order), device=x.device, dtype=x.dtype
+            (x.shape[0], self.hidden_dim, self.max_order),
+            device=x.device,
+            dtype=x.dtype,
         )
         for i in range(self.max_order):
             B[:, :, i] = torch.prod(tmp[:, :, : i + 1], dim=-1)

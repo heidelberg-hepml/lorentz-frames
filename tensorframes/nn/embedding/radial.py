@@ -13,7 +13,9 @@ def double_gradient_safe_norm(edge_vec: Tensor, eps: float = 1e-6) -> Tensor:
     """Needed when edge_vec contains zero vectors and when differentiating twice."""
     non_zero_mask = edge_vec.abs().sum(dim=-1) > eps
     norm = torch.zeros(edge_vec.shape[0], 1, device=edge_vec.device)
-    norm[non_zero_mask] = torch.linalg.norm(edge_vec[non_zero_mask], dim=-1, keepdim=True)
+    norm[non_zero_mask] = torch.linalg.norm(
+        edge_vec[non_zero_mask], dim=-1, keepdim=True
+    )
     return norm
 
 
@@ -26,7 +28,9 @@ def double_gradient_safe_normalize(edge_vec: Tensor, eps: float = 1e-6) -> Tenso
 
 
 def compute_edge_vec(
-    pos: Union[Tensor, Tuple], edge_index: Tensor, lframes: Union[LFrames, Tuple] | None = None
+    pos: Union[Tensor, Tuple],
+    edge_index: Tensor,
+    lframes: Union[LFrames, Tuple] | None = None,
 ) -> Tensor:
     """Compute the edge vectors between node positions and rotates them into the local frames of
     the receiving nodes.
@@ -132,6 +136,7 @@ class BesselEmbedding(RadialEmbedding):
         cutoff: float | None = None,
         envelope: Module | None = None,
         flip_negative: bool = False,
+        is_learnable: bool = True,
     ) -> None:
         """Initialize the RadialEmbedding layer.
 
@@ -154,11 +159,14 @@ class BesselEmbedding(RadialEmbedding):
             self.envelope = None
 
         data = torch.pi * torch.arange(1, num_frequencies + 1)
-        # Initialize frequencies at canonical positions
-        self.frequencies = torch.nn.Parameter(
-            data=data,
-            requires_grad=True,
-        )
+        if is_learnable:
+            # Initialize frequencies at canonical positions
+            self.frequencies = torch.nn.Parameter(
+                data=data,
+                requires_grad=True,
+            )
+        else:
+            self.register_buffer("frequencies", data)
 
     def compute_embedding(self, norm: Tensor) -> Tensor:
         """Computes the embedding for the given norm.
@@ -250,7 +258,9 @@ class GaussianEmbedding(RadialEmbedding):
             # use linspace to create the shifts of the gaussians in the range of 0 to 3
             # we use 3 as an initialisation because the bond length of c-c is 3 Bohr
             self.shift = torch.nn.Parameter(
-                torch.linspace(minimum_initial_range, maximum_initial_range, num_gaussians)
+                torch.linspace(
+                    minimum_initial_range, maximum_initial_range, num_gaussians
+                )
             )
             # initialisation of the scale parameter as 1
             self.scale = torch.nn.Parameter(torch.ones(num_gaussians) * gaussian_width)
@@ -258,7 +268,9 @@ class GaussianEmbedding(RadialEmbedding):
             self.register_buffer("scale", torch.ones(num_gaussians) * gaussian_width)
             self.register_buffer(
                 "shift",
-                torch.linspace(minimum_initial_range, maximum_initial_range, num_gaussians),
+                torch.linspace(
+                    minimum_initial_range, maximum_initial_range, num_gaussians
+                ),
             )
 
         self.normalized = normalized

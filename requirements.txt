@@ -21,3 +21,4 @@ matplotlib
 
 # project-specific
 e3nn
+torch-cluster>=1.6.3
