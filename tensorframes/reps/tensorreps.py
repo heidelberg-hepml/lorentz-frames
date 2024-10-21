@@ -513,8 +513,8 @@ class TensorRepsTransform(Module):
 
         # apply parity:
         # get the determinants of the rotation matrices:
-        is_det_neg = basis_change.det < 0
-        output_coeffs[is_det_neg] = output_coeffs[is_det_neg] * self.pseudo_tensor
+        # is_det_neg = basis_change.det < 0
+        # output_coeffs[is_det_neg] = output_coeffs[is_det_neg] * self.pseudo_tensor
 
         return output_coeffs
 
