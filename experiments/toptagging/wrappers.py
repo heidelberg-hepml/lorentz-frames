@@ -19,7 +19,7 @@ class TaggerWrapper(nn.Module):
         if self.aggregator is not None:
             score = self.aggregator(outputs, index=batch)[:, 0]
         else:
-            score = outputs[is_global][:,0]
+            score = outputs[is_global][:, 0]
         return score
 
     def forward(self, batch):

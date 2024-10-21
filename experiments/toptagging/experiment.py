@@ -298,7 +298,9 @@ class TopTaggingExperiment(TaggingExperiment):
         if self.cfg.data.add_scalar_features:
             self.in_reps = "7x0n+" + self.in_reps  # other scalar features
             if self.cfg.model.mean_aggregation is False:
-                    self.in_reps = str(self.cfg.data.num_global_tokens)+"x0n+" + self.in_reps
+                self.in_reps = (
+                    str(self.cfg.data.num_global_tokens) + "x0n+" + self.in_reps
+                )
 
         if not self.cfg.data.beam_token:
             if self.cfg.data.beam_reference in ["lightlike", "spacelike", "timelike"]:
