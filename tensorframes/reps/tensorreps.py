@@ -287,7 +287,6 @@ class TensorReps(Tuple):
         Returns:
             TensorReps: The sorted tensor reps.
         """
-        # TODO: look at the IRREPS class in e3nn
         return TensorReps(sorted(self, key=lambda x: x.rep.order))
 
 

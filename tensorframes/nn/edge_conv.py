@@ -7,14 +7,14 @@ from tensorframes.lframes import LFrames
 from tensorframes.nn.embedding.radial import compute_edge_vec
 from tensorframes.nn.mlp import MLPWrapped
 from tensorframes.nn.tfmessage_passing import TFMessagePassing
-from tensorframes.reps import Irreps, TensorReps
+from tensorframes.reps import TensorReps
 
 
 class EdgeConv(TFMessagePassing):
     """Multi-Layer Perceptron Convolutional layer for graph neural networks.
 
     Attributes:
-        in_reps (Union[TensorReps, Irreps, str]): Input tensor representations or irreps.
+        in_reps (Union[TensorReps, str]): Input tensor representations.
         radial_module (torch.nn.Module): Radial module.
         angular_module (torch.nn.Module): Angular module.
         concatenate_edge_vec (bool): Whether to concatenate edge vectors.
@@ -28,7 +28,7 @@ class EdgeConv(TFMessagePassing):
 
     def __init__(
         self,
-        in_reps: Union[TensorReps, Irreps],
+        in_reps: TensorReps,
         hidden_channels: List[int],
         out_channels: int,
         aggr: str = "add",
@@ -50,7 +50,7 @@ class EdgeConv(TFMessagePassing):
         MLP2(f_i, aggr(MLP1(f_i, transformed f_j) odot linear(radial_embedding, angular_embedding))).
 
         Args:
-            in_reps (Union[TensorReps, Irreps]): Input tensor representations or irreps.
+            in_reps (TensorReps): Input tensor representations.
             hidden_channels (list[int]): List of hidden channel sizes.
             out_channels (int): Number of output channels.
             aggr (str, optional): Aggregation method. Defaults to "add".

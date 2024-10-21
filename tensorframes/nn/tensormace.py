@@ -7,7 +7,6 @@ from torch_geometric.nn import LayerNorm, MessagePassing
 
 from tensorframes.lframes.lframes import LFrames
 from tensorframes.nn.linear import EdgeLinear
-from tensorframes.reps.irreps import Irreps
 from tensorframes.reps.tensorreps import TensorReps
 
 
@@ -19,8 +18,8 @@ class TensorMACE(MessagePassing):
 
     def __init__(
         self,
-        in_tensor_reps: Union[TensorReps, Irreps],
-        out_tensor_reps: Union[TensorReps, Irreps],
+        in_tensor_reps: TensorReps,
+        out_tensor_reps: TensorReps,
         edge_emb_dim: int,
         hidden_dim: int,
         max_order: int = 3,
@@ -30,8 +29,8 @@ class TensorMACE(MessagePassing):
         """Initialize a TensorMace object.
 
         Args:
-            in_tensor_reps (Union[TensorReps, Irreps]): The input tensor representations.
-            out_tensor_reps (Union[TensorReps, Irreps]): The output tensor representations.
+            in_tensor_reps (TensorReps): The input tensor representations.
+            out_tensor_reps (TensorReps]): The output tensor representations.
             edge_emb_dim (int): The dimension of the edge embeddings.
             hidden_dim (int): The dimension of the hidden layer.
             order (int): The message passing body order. Defaults to 3.

@@ -11,7 +11,7 @@ from tensorframes.lframes.lframes import LFrames
 from tensorframes.nn.embedding.radial import RadialEmbedding
 from tensorframes.nn.envelope import EnvelopePoly
 from tensorframes.nn.mlp import MLPWrapped
-from tensorframes.reps import Irreps, TensorReps
+from tensorframes.reps import TensorReps
 from tensorframes.reps.utils import extract_even_scalar_mask_from_reps
 
 
@@ -209,11 +209,11 @@ class WrappedLearnedLFrames(Module):
 
     def __init__(
         self,
-        in_reps: Union[TensorReps, Irreps],
+        in_reps: TensorReps,
         hidden_channels: list[int],
         radial_module: RadialEmbedding,
         max_radius: float = None,
-        edge_attr_tensor_reps: Union[TensorReps, Irreps] = None,
+        edge_attr_tensor_reps: TensorReps = None,
         max_num_neighbors: int = 64,
         flatten: bool = True,
         **kwargs,
@@ -221,11 +221,11 @@ class WrappedLearnedLFrames(Module):
         """Initializes the WrappedLearnedLocalFramesModule.
 
         Args:
-            in_reps (Union[TensorReps, Irreps]): The input representations.
+            in_reps (TensorReps): The input representations.
             hidden_channels (list[int]): The hidden channels for the LearnedGramSchmidtLFrames module.
             max_radius (float, optional): The maximum radius for the neighbor search. Defaults to None.
             radial_module (torch.nn.Module, optional): The radial module for the radial embedding. Defaults to None.
-            edge_attr_tensor_reps (Union[TensorReps, Irreps], optional): The edge attribute tensor representations. Defaults to None.
+            edge_attr_tensor_reps (TensorReps, optional): The edge attribute tensor representations. Defaults to None.
             max_num_neighbors (int, optional): The maximum number of neighbors for the radius-graph neighbor search. Defaults to 64.
             flatten (bool, optional): Whether to flatten the output. Defaults to True.
             **kwargs: Additional keyword arguments of the LearnedGramSchmidtLFrames module.

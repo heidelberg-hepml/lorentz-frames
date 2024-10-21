@@ -22,8 +22,8 @@ class TFMessagePassing(MessagePassing):
                     "rep": TensorReps("1x0n")
                 },
                 "feat_1": {
-                    "type": "global"
-                    "rep": Irreps("1x0n")
+                    "type": "local"
+                    "rep": TensorReps("1x0n")
                 },
             }
         """

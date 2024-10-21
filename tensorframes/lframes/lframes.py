@@ -118,25 +118,6 @@ class LFrames:
 
         return new_lframes
 
-    def wigner_D(self, l: int, J: torch.Tensor) -> torch.Tensor:
-        """Wigner D matrices corresponding to the rotation matrices.
-
-        Args:
-            l (int): Degree of the Wigner D matrices.
-
-        Returns:
-            torch.Tensor: Tensor containing the Wigner D matrices.
-        """
-        if self.cache_wigner and l in self.wigner_cache:
-            return self.wigner_cache[l]
-        else:
-            wigner = wigner_D_from_matrix(
-                l, self.det[:, None, None] * self.matrices, J=J, angles=self.angles
-            )  # * self.det to ensure wigner gets rotation matrix
-            if self.cache_wigner:
-                self.wigner_cache[l] = wigner
-            return wigner
-
 
 class ChangeOfLFrames:
     """Represents a change of frames between two LFrames objects."""
@@ -211,27 +192,10 @@ class ChangeOfLFrames:
         """
         return self.matrices.device
 
-    def wigner_D(self, l: int, J: torch.Tensor) -> torch.Tensor:
-        """Wigner D matrices corresponding to the rotation matrices.
-
-        Args:
-            l (int): Degree of the Wigner D matrices.
-
-        Returns:
-            torch.Tensor: Tensor containing the Wigner D matrices.
-        """
-        # check if both LFrames objects have the Wigner D matrices cached:
-        if l in self.lframes_start.wigner_cache and l in self.lframes_end.wigner_cache:
-            wigner_start = self.lframes_start.wigner_cache[l]
-            wigner_end = self.lframes_end.wigner_cache[l]
-            return torch.bmm(wigner_end, wigner_start.transpose(-1, -2))
-        else:
-            return wigner_D_from_matrix(
-                l, self.det[:, None, None] * self.matrices, J=J, angles=self.angles
-            )
-
 
 if __name__ == "__main__":
+    raise NotImplementedError
+
     # Example usage:
     matrices = torch.rand(2, 3, 3)
     lframes = LFrames(matrices)

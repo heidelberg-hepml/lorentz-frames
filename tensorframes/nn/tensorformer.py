@@ -11,7 +11,6 @@ from tensorframes.lframes.lframes import LFrames
 from tensorframes.nn.envelope import EnvelopePoly
 from tensorframes.nn.linear import EdgeLinear, HeadedEdgeLinear, HeadedLinear
 from tensorframes.nn.tfmessage_passing import TFMessagePassing
-from tensorframes.reps.irreps import Irreps
 from tensorframes.reps.tensorreps import TensorReps
 
 
@@ -23,7 +22,7 @@ class TensorFormer(TFMessagePassing):
 
     def __init__(
         self,
-        tensor_reps: Union[TensorReps, Irreps],
+        tensor_reps: TensorReps,
         num_heads: int,
         hidden_layers: list[int],
         hidden_value_dim: int,
@@ -43,7 +42,7 @@ class TensorFormer(TFMessagePassing):
         """Initialize the TensorFormer model.
 
         Args:
-            tensor_reps (Union[TensorReps, Irreps]): The representation of the features. Is the same for input and output features, because of the skip connection.
+            tensor_reps (TensorReps): The representation of the features. Is the same for input and output features, because of the skip connection.
             num_heads (int): The number of attention heads.
             hidden_layers (list[int]): The sizes of the hidden layers in the MLP, which is evaluated after the attention step.
             hidden_value_dim (int): The dimension of the hidden value vectors.

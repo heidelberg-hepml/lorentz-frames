@@ -5,7 +5,7 @@ import torch
 
 from tensorframes.lframes import LFrames
 from tensorframes.nn.mlp import MLPWrapped
-from tensorframes.reps import Irreps, TensorReps
+from tensorframes.reps import TensorReps
 from tensorframes.utils.quaternions import quaternions_to_matrix
 
 
@@ -14,7 +14,7 @@ class QuaternionsUpdateLFrames(torch.nn.Module):
 
     def __init__(
         self,
-        in_reps: Union[TensorReps, Irreps],
+        in_reps: TensorReps,
         hidden_channels: list,
         init_zero_angle: bool = False,
         eps: float = 1e-6,
