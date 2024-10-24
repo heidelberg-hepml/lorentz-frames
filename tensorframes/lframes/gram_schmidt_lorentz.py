@@ -4,31 +4,17 @@ from typing import Union
 import torch
 from torch import Tensor
 
-# from tensorframes.utils.lorentz import lnorm, ldo
 from typing import Optional
 
-from tensorframes.utils.lorentz import lnorm, leinsum
+# this could probably be moved to the /utils path eventually, together with a method for the norm
+def leinsum(einstr: str, a: torch.Tensor, b: torch.Tensor, dim: int = -1):
+    index = [slice(None)] * b.dim()
 
+    index[dim] = 0
 
-def orthogonalize(vectors, newVector, eps):
-    subtract = 0
-
-    for i in range(vectors.shape[1]):
-        subtract += (
-            leinsum(newVector, vectors[:, i], 1, "ik,ik->i").unsqueeze(-1)
-            * vectors[:, i]
-            * leinsum(vectors[:, i], vectors[:, i], 1, "ij,ij->i").unsqueeze(
-                -1
-            )  # this is a bit odd
-        )
-
-    newVector -= subtract
-    newNorm = lnorm(newVector, 1, "ij,ij->i")
-
-    newVector[newNorm < eps] = float("nan")
-    newVector[newNorm > eps] /= newNorm[newNorm > eps].unsqueeze(-1)
-
-    return newVector
+    b_copy = b.detach().clone()
+    b_copy[index] *= -1
+    return torch.einsum(einstr, a, b_copy)
 
 
 def gram_schmidt_lorentz(
@@ -54,26 +40,40 @@ def gram_schmidt_lorentz(
         ValueError: If the exceptional_choice parameter is not recognized.
         AssertionError: If z_axis has zero length.
     """
-
+    vectors = vectors.clone()
     assert vectors.shape[1:] == (4, 4)
     assert normalized == True
 
-    lenghts = lnorm(vectors, dim=2, einstr="ijk,ijk->ij")
-    vectors[lenghts < eps] = torch.rand((lenghts < eps).sum(), 4)
-    lenghts = lnorm(vectors, dim=2, einstr="ijk,ijk->ij")
-
-    vectors[:, 0] /= lenghts[:, 0].unsqueeze(-1)
-
-    i = 1
-    while True:
-        newVector = orthogonalize(vectors[:, :i], vectors[:, i], eps)
-        nanmask = torch.isnan(newVector)[:, 0]
-        if torch.sum(nanmask) != 0:
-            vectors[nanmask, i] = torch.rand(torch.sum(nanmask), 4)
-        else:
-            i += 1
-
-        if i >= 4:
-            break
-
+    errorCounter = 0
+    for index in range(vectors.shape[1]):
+        error = True
+        while error == True:
+            sign = (
+                leinsum("nmd,nmd->nm", vectors[:, :index], vectors[:, :index], dim=-1)
+                .sign()
+                .unsqueeze(-1)
+            )
+            weights = leinsum(
+                "npf,nf->np", sign * vectors[:, :index], vectors[:, index], dim=-1
+            )
+            normBefore = (
+                leinsum("nd,nd->n", vectors[:, index], vectors[:, index], dim=-1)
+                .abs()
+                .sqrt()
+            )
+            vectors[:, index] -= torch.sum(
+                torch.einsum("nm,nmj->nmj", weights, vectors[:, :index]), axis=1
+            )
+            norm = (
+                leinsum("nd,nd->n", vectors[:, index], vectors[:, index], dim=-1)
+                .abs()
+                .sqrt()
+            )
+            zeroNorm = norm < 2.0e-1 * normBefore
+            if zeroNorm.sum().item() != 0:  # linearly alligned elements / zero norm
+                vectors[zeroNorm, index] = torch.rand(vectors[zeroNorm, index].shape)
+                errorCounter += 1
+            else:
+                vectors[:, index] /= norm.unsqueeze(1)
+                error = False
     return vectors
