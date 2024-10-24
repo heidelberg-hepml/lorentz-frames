@@ -56,7 +56,7 @@ class ProtoNet(nn.Module):
             second_hidden_channels = [None for hr in hidden_reps]
         else:  # this accounts for the last hidden -> output layer being transfered to the second network
             hidden_channels = [
-                [hr.dim] * hidden_layer_number[i] + 1
+                [hr.dim] * hidden_layer_number[i]
                 for i, hr in enumerate(hidden_reps)
             ]
             second_hidden_reps = [TensorReps(shr) for shr in second_hidden_reps]
