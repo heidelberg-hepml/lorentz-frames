@@ -6,15 +6,13 @@ from torch.nn import Module
 from torch_geometric.nn import MessagePassing, radius
 from torch_geometric.typing import PairTensor
 
-from tensorframes.lframes.gram_schmidt import gram_schmidt
+from tensorframes.lframes.gram_schmidt_lorentz import gram_schmidt_lorentz
 from tensorframes.lframes.lframes import LFrames
 from tensorframes.nn.embedding.radial import RadialEmbedding
 from tensorframes.nn.envelope import EnvelopePoly
 from tensorframes.nn.mlp import MLPWrapped
 from tensorframes.reps import Irreps, TensorReps
 from tensorframes.reps.utils import extract_even_scalar_mask_from_reps
-
-from tensorframes.utils.lorentz import ldot, lnorm
 
 
 class LearnedGramSchmidtLFrames(MessagePassing):
