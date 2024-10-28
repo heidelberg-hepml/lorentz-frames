@@ -20,8 +20,6 @@ def extract_even_scalar_mask_from_reps(reps: TensorReps) -> torch.Tensor:
         end_ind = start_ind + rep_i.dim
         if rep_i.rep == TensorRep(order=0, p=1):
             scalar_mask[start_ind:end_ind] = True
-        elif rep_i.rep == Irrep(angular_momentum=0, p=1):
-            scalar_mask[start_ind:end_ind] = True
         start_ind = end_ind
 
     return scalar_mask

@@ -6,7 +6,7 @@ from tensorframes.lframes.classical_lframes import (
     RandomGlobalLFrames,
     ThreeNNLFrames,
 )
-from tensorframes.lframes.learning_lframes import WrappedLearnedLFrames
+from tensorframes.lframes.learning_lframes_lorentz import WrappedLearnedLFrames
 from tensorframes.reps import TensorReps
 
 
@@ -25,7 +25,6 @@ class LFramesNet(nn.Module):
             raise NotImplementedError
             self.net = ThreeNNLFrames()
         elif approach == "learned_gramschmidt":  # interpretation: equivariant
-            raise NotImplementedError
             assert radial_module is not None
             hidden_channels = [hidden_channels] * layers
             in_reps = TensorReps(in_reps)
