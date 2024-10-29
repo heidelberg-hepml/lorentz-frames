@@ -1,5 +1,7 @@
 import numpy as np
 import torch
+
+torch.autograd.set_detect_anomaly(True)
 from torch_geometric.loader import DataLoader
 
 import os, time

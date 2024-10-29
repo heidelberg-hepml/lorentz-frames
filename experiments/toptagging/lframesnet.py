@@ -6,8 +6,9 @@ from tensorframes.lframes.classical_lframes import (
     RandomGlobalLFrames,
     ThreeNNLFrames,
 )
-from tensorframes.lframes.learning_lframes_lorentz import WrappedLearnedLFrames
+from tensorframes.lframes.learning_lframes import WrappedLearnedLFrames
 from tensorframes.reps import TensorReps
+from experiments.logger import LOGGER
 
 
 class LFramesNet(nn.Module):
@@ -32,6 +33,7 @@ class LFramesNet(nn.Module):
                 in_reps=in_reps,
                 hidden_channels=hidden_channels,
                 radial_module=radial_module,
+                predict_4=False,
             )
         else:
             raise ValueError(f"approach={self.approach} not implemented")

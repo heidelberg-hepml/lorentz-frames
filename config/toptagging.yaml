@@ -1,9 +1,9 @@
 exp_type: toptagging
 exp_name: topt_local_debug
-base_dir: /media/jspinner/shared/Studium/project4/lorentz-frames
+base_dir: /home/sebastian/Code/lorentz-frames
 
 data:
- data_dir : /media/jspinner/shared/Studium/project3/data
+ data_dir : /home/sebastian/Data
  dataset: mini
  rescale_data: true
  beam_reference: null

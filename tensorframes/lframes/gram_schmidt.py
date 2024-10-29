@@ -2,146 +2,124 @@ import warnings
 from typing import Union
 
 import torch
-from torch import Tensor
+from experiments.logger import LOGGER
+
+
+def leinsum(einstr: str, a: torch.Tensor, b: torch.Tensor, dim: int = -1):
+    """torch.einsum, but inverts the first element in the dimention dim
+
+    Args:
+        einstr (str): string for einstein notations
+        a, b (tensors): tensors to operate on
+        dim (int): dimention in which the first element should have opposite sign
+
+    Returns:
+        einsum of the tensors
+    """
+    index = [slice(None)] * b.dim()
+
+    index[dim] = 0
+
+    b_copy = b.detach().clone()
+    b_copy[index] *= -1
+    return torch.einsum(einstr, a, b_copy)
 
 
 def gram_schmidt(
-    x_axis: Tensor,
-    y_axis: Tensor,
-    z_axis: Union[Tensor, None] = None,
-    eps: float = 1e-6,
+    vectors,
+    eps: float = 2.0e-1,
     normalized: bool = True,
     exceptional_choice: str = "random",
-) -> Tensor:
+) -> torch.Tensor:
     """Applies the Gram-Schmidt process to a set of input vectors to orthogonalize them.
 
     Args:
-        x_axis (Tensor): The first input vector. shape (N, 3)
-        y_axis (Tensor): The second input vector. shape (N, 3)
-        z_axis (Tensor, optional): The third input vector. shape (N, 3) Defaults to None. If None, the third vector is computed as the cross product of the first two.
-        eps (float, optional): A small value used for numerical stability. Defaults to 1e-6.
+        vectors (Tensor): The input vectors. shape (4, 4, N) or (3, 4, N) (vectors, dims, size)
+        eps (float, optional): A small value used for numerical stability. Defaults to 2.0e-1.
         normalized (bool, optional): Whether to normalize the output vectors. Defaults to True.
         exceptional_choice (str, optional): The method to handle exceptional cases where the input vectors have zero length.
             Can be either "random" to use a random vector instead, or "zero" to set the vectors to zero.
             Defaults to "random".
 
     Returns:
-        Tensor: A tensor containing the orthogonalized vectors the tensor has shape (N, 3, 3).
-
-    Raises:
-        ValueError: If the exceptional_choice parameter is not recognized.
-        AssertionError: If z_axis has zero length.
+        Tensor: A tensor containing the orthogonalized vectors the tensor has shape (4, 4, N).
     """
-    x_length = torch.linalg.norm(x_axis, dim=-1, keepdim=True)
 
-    x_zero_mask = (x_length < eps).squeeze()
-    if torch.any(x_zero_mask):
-        warnings.warn("x_axis has zero length")
-        # print("x_axis has zero length", x_zero_mask.sum())
-        if exceptional_choice == "random":
-            x_axis = torch.where(
-                x_zero_mask[:, None], x_axis + torch.rand_like(x_axis), x_axis
+    assert normalized == True
+    assert (
+        exceptional_choice == "random" or exceptional_choice == "zero"
+    ), "Exception Choice needs to be 'zero' or 'random'"
+    device = vectors.device
+
+    assert vectors.shape[:-1] == (4, 4) or vectors.shape[:-1] == (
+        3,
+        4,
+    ), f"The shape of the given vectors ({vectors.shape}) needs to be in the format (vectors, dim, size), where vectors can be 4 or 3, dim has to be 4 and size is arbitrary"
+    for index in range(vectors.shape[0]):
+        error = True
+        while error == True:
+            previous = vectors[:index].clone()
+            sign = (
+                leinsum("vds,vds->vs", previous, previous, dim=-2).sign().unsqueeze(-2)
             )
-            x_length = torch.linalg.norm(x_axis, dim=-1, keepdim=True)
-        elif exceptional_choice == "zero":
-            x_axis = torch.where(x_zero_mask[:, None], torch.zeros_like(x_axis), x_axis)
-            x_length = torch.where(x_zero_mask[:, None], eps, x_length)
-        else:
-            raise ValueError(f"exceptional_choice {exceptional_choice} not recognized")
-
-    if normalized:
-        x_axis = x_axis / torch.clamp(x_length, eps)
-        y_axis = y_axis - torch.einsum("ij,ij->i", y_axis, x_axis)[:, None] * x_axis
-    else:
-        y_axis = y_axis - torch.einsum("ij,ij->i", y_axis, x_axis)[
-            :, None
-        ] * x_axis / torch.clamp(torch.square(x_length), eps)
-
-    # handle the case where y_axis is zero (this can happen if x and y are parallel)
-    y_length = torch.linalg.norm(y_axis, dim=-1, keepdim=True)
-
-    y_zero_mask = (y_length < eps).squeeze()
-    if torch.any(y_zero_mask):
-        # print("y_axis has zero length", y_zero_mask.sum())
-        if exceptional_choice == "random":
-            y_axis = torch.where(
-                y_zero_mask[:, None], y_axis + torch.rand_like(y_axis), y_axis
+            weights = leinsum(
+                "vds,ds->vs", sign * previous, vectors[index].clone(), dim=-2
             )
-            y_axis = torch.where(
-                y_zero_mask[:, None],
-                y_axis - torch.einsum("ij,ij->i", y_axis, x_axis)[:, None] * x_axis,
-                y_axis,
+            normBefore = (
+                leinsum("ds,ds->s", vectors[index], vectors[index], dim=-2).abs().sqrt()
             )
-            y_length = torch.linalg.norm(y_axis, dim=-1, keepdim=True)
-        elif exceptional_choice == "zero":
-            y_axis = torch.where(y_zero_mask[:, None], torch.zeros_like(y_axis), y_axis)
-            y_length = torch.where(y_zero_mask[:, None], eps, y_length)
-        else:
-            raise ValueError(f"exceptional_choice {exceptional_choice} not recognized")
-
-    if normalized:
-        y_axis = y_axis / torch.clamp(y_length, eps)
-
-    if z_axis is None:
-        lframes = torch.stack(
-            [x_axis, y_axis, torch.linalg.cross(x_axis, y_axis, dim=-1)], dim=-2
-        )
-    else:
-        if normalized:
-            z_tmp = torch.linalg.cross(x_axis, y_axis, dim=-1)
-            z_dot = torch.einsum("ij, ij -> i", z_tmp, z_axis)
-            z_dot_mask = torch.sign(z_dot).abs() < 0.5
-            z_sign = torch.where(
-                z_dot_mask,
-                torch.sign(torch.rand_like(z_dot_mask.float()) - 0.5),
-                torch.sign(z_dot),
+            vectors[index] -= torch.sum(
+                torch.einsum("vs,vds->vds", weights, previous), axis=0
             )
-            z_axis = z_tmp * z_sign[:, None]
-        else:
-            z_axis = (
-                z_axis
-                - torch.einsum("ij,ij->i", z_axis, x_axis)[:, None]
-                * x_axis
-                / torch.clamp(torch.square(x_length), eps)
-                - torch.einsum("ij,ij->i", z_axis, y_axis)[:, None]
-                * y_axis
-                / torch.clamp(torch.square(y_length), eps)
+            norm = (
+                leinsum("ds,ds->s", vectors[index], vectors[index], dim=-2).abs().sqrt()
             )
-
-        # handle the case where y_axis is zero (this can happen if x and y are parallel)
-        z_length = torch.linalg.norm(z_axis, dim=-1, keepdim=True)
-
-        if normalized:
-            z_axis = z_axis / torch.clamp(z_length, eps)
-            z_length = torch.linalg.norm(z_axis, dim=-1, keepdim=True)
-
-        z_zero_mask = (z_length < eps).squeeze()
-
-        if torch.any(z_zero_mask):
-            if exceptional_choice == "random":
-                flip_vec = torch.sign(torch.rand(z_zero_mask.sum()) - 0.5).to(
-                    device=x_axis.device
-                )
-
-                crossvec = torch.linalg.cross(
-                    x_axis[z_zero_mask], y_axis[z_zero_mask], dim=-1
-                )
-
-                flipped_vec = torch.einsum("i,ij->ij", flip_vec, crossvec)
-
-                z_axis[z_zero_mask] = flipped_vec
-
-                z_length = torch.linalg.norm(z_axis, dim=-1, keepdim=True)
-            elif exceptional_choice == "zero":
-                z_axis = torch.where(
-                    z_zero_mask[:, None], torch.zeros_like(z_axis), z_axis
-                )
-                z_length = torch.where(z_zero_mask[:, None], eps, z_length)
+            zeroNorm = norm < eps * normBefore
+            if zeroNorm.sum().item() != 0:  # linearly alligned elements / zero norm
+                if exceptional_choice == "random":
+                    vectors[index, :, zeroNorm] = torch.rand(
+                        vectors[index, :, zeroNorm].shape, device=device
+                    )
+                elif exceptional_choice == "zero":
+                    vectors[index, :, zeroNorm] = torch.zeros(
+                        vectors[index, :, zeroNorm].shape, device=device
+                    )
             else:
-                raise ValueError(
-                    f"exceptional_choice {exceptional_choice} not recognized"
-                )
+                vectors[index] /= norm.unsqueeze(-2)
+                error = False
+    if vectors.shape[:-1] == (3, 4):
+        vectors = torch.cat(
+            (
+                vectors,
+                torch.zeros(1, vectors.shape[1], vectors.shape[-1], device=device),
+            ),
+            dim=0,
+        )
+        error = True
+        while error:
+            x, y, z, _ = vectors.clone()
+            alpha1 = y[1] / x[1]
+            alpha2 = z[1] / x[1]
+            beta = (z[2] - alpha2 * x[2]) / (y[2] - alpha1 * x[2])
 
-        lframes = torch.stack([x_axis, y_axis, z_axis], dim=-2)
+            vectors[-1, 3] = (
+                (z[0] - alpha2 * x[0]) - beta * (y[0] - alpha1 * x[0])
+            ) / ((z[3] - alpha2 * x[3]) - beta * (y[3] - alpha1 * x[3]))
+            vectors[-1, 2] = (
+                (y[0] - alpha1 * x[0]) - (y[3] - alpha1 * x[3]) * vectors[-1, 3].clone()
+            ) / (y[2] - alpha1 * x[2])
+            vectors[-1, 1] = (
+                x[0] - x[2] * vectors[-1, 2].clone() - x[3] * vectors[-1, 3].clone()
+            ) / x[1]
+            vectors[-1, 0] = torch.tensor(1).repeat(vectors.shape[-1])
+            norm = leinsum("ds,ds->s", vectors[-1], vectors[-1], dim=-2).abs().sqrt()
+            vectors[-1] /= norm.unsqueeze(-2)
 
-    return lframes
+            if vectors[-1].isnan().sum() != 0:
+                vectors *= 10
+                vectors += 1e-6
+                LOGGER.info(f"test")
+            else:
+                error = False
+
+    return vectors.permute(2, 0, 1)
