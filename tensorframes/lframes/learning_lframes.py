@@ -13,7 +13,6 @@ from tensorframes.nn.envelope import EnvelopePoly
 from tensorframes.nn.mlp import MLPWrapped
 from tensorframes.reps import TensorReps
 from tensorframes.reps.utils import extract_even_scalar_mask_from_reps
-from experiments.logger import LOGGER
 
 
 class LearnedGramSchmidtLFrames(MessagePassing):
@@ -26,7 +25,7 @@ class LearnedGramSchmidtLFrames(MessagePassing):
         radial_dim: int,
         hidden_channels: list[int],
         cutoff: float | None = None,
-        predict_4: bool = True,
+        predict_4: bool = False,
         even_scalar_edge_dim: int = 0,
         concat_receiver: bool = True,
         exceptional_choice: str = "random",
@@ -117,8 +116,7 @@ class LearnedGramSchmidtLFrames(MessagePassing):
             vectors=vecs,
             exceptional_choice=self.exceptional_choice,
         )
-        if local_frames.isnan().sum().item() != 0:
-            LOGGER.info(f"{local_frames=}")
+
         return LFrames(local_frames)
 
     def message(

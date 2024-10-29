@@ -2,7 +2,6 @@ import warnings
 from typing import Union
 
 import torch
-from experiments.logger import LOGGER
 
 
 def leinsum(einstr: str, a: torch.Tensor, b: torch.Tensor, dim: int = -1):
@@ -97,7 +96,7 @@ def gram_schmidt(
         )
         error = True
         while error:
-            x, y, z, _ = vectors.clone()
+            x, y, z, _ = torch.clamp(vectors.clone(), 1e-6)
             alpha1 = y[1] / x[1]
             alpha2 = z[1] / x[1]
             beta = (z[2] - alpha2 * x[2]) / (y[2] - alpha1 * x[2])
@@ -114,12 +113,5 @@ def gram_schmidt(
             vectors[-1, 0] = torch.tensor(1).repeat(vectors.shape[-1])
             norm = leinsum("ds,ds->s", vectors[-1], vectors[-1], dim=-2).abs().sqrt()
             vectors[-1] /= norm.unsqueeze(-2)
-
-            if vectors[-1].isnan().sum() != 0:
-                vectors *= 10
-                vectors += 1e-6
-                LOGGER.info(f"test")
-            else:
-                error = False
 
     return vectors.permute(2, 0, 1)
