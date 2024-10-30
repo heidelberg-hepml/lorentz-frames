@@ -8,7 +8,6 @@ from tensorframes.lframes.classical_lframes import (
 )
 from tensorframes.lframes.learning_lframes import WrappedLearnedLFrames
 from tensorframes.reps import TensorReps
-from experiments.logger import LOGGER
 
 
 class LFramesNet(nn.Module):
