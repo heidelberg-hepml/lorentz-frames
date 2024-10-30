@@ -94,24 +94,37 @@ def gram_schmidt(
             ),
             dim=0,
         )
-        error = True
-        while error:
-            x, y, z, _ = torch.clamp(vectors.clone(), 1e-6)
-            alpha1 = y[1] / x[1]
-            alpha2 = z[1] / x[1]
-            beta = (z[2] - alpha2 * x[2]) / (y[2] - alpha1 * x[2])
-
-            vectors[-1, 3] = (
-                (z[0] - alpha2 * x[0]) - beta * (y[0] - alpha1 * x[0])
-            ) / ((z[3] - alpha2 * x[3]) - beta * (y[3] - alpha1 * x[3]))
-            vectors[-1, 2] = (
-                (y[0] - alpha1 * x[0]) - (y[3] - alpha1 * x[3]) * vectors[-1, 3].clone()
-            ) / (y[2] - alpha1 * x[2])
-            vectors[-1, 1] = (
-                x[0] - x[2] * vectors[-1, 2].clone() - x[3] * vectors[-1, 3].clone()
-            ) / x[1]
-            vectors[-1, 0] = torch.tensor(1).repeat(vectors.shape[-1])
-            norm = leinsum("ds,ds->s", vectors[-1], vectors[-1], dim=-2).abs().sqrt()
-            vectors[-1] /= norm.unsqueeze(-2)
+        x, y, z, _ = vectors.clone()
+        vectors[-1] = torch.stack(
+            [
+                -x[1] * y[2] * z[3]
+                + x[1] * y[3] * z[2]
+                - x[2] * y[3] * z[1]
+                + x[2] * y[1] * z[3]
+                - x[3] * y[1] * z[2]
+                + x[3] * y[2] * z[1],
+                -x[0] * y[2] * z[3]
+                + x[0] * y[3] * z[2]
+                - x[2] * y[3] * z[0]
+                + x[2] * y[0] * z[3]
+                - x[3] * y[0] * z[2]
+                + x[3] * y[2] * z[0],
+                +x[0] * y[1] * z[3]
+                - x[0] * y[3] * z[1]
+                + x[1] * y[3] * z[0]
+                - x[1] * y[0] * z[3]
+                + x[3] * y[0] * z[1]
+                - x[3] * y[1] * z[0],
+                -x[0] * y[1] * z[2]
+                + x[0] * y[2] * z[1]
+                - x[1] * y[2] * z[0]
+                + x[1] * y[0] * z[2]
+                - x[2] * y[0] * z[1]
+                + x[2] * y[1] * z[0],
+            ],
+            dim=0,
+        )
+        norm = leinsum("ds,ds->s", vectors[-1], vectors[-1], dim=-2).abs().sqrt()
+        vectors[-1] /= norm.unsqueeze(-2)
 
     return vectors.permute(2, 0, 1)
