@@ -1,5 +1,5 @@
 import torch
-from e3nn.o3 import rand_matrix
+from tensorframes.utils.lorentz_sampling import sample_lorentz
 from torch import Tensor
 from torch_geometric.nn import knn
 
@@ -71,15 +71,10 @@ class ThreeNNLFrames(torch.nn.Module):
 class RandomLFrames(torch.nn.Module):
     """Randomly generates local frames for each node."""
 
-    def __init__(self, flip_probability=0.5) -> None:
-        """Initialize an instance of the RandomLFrames class.
-
-        Args:
-            flip_probability (float, optional): The probability of flipping the frames. Defaults to 0.5.
-        """
+    def __init__(self) -> None:
+        """Initialize an instance of the RandomLFrames class."""
         raise NotImplementedError
         super().__init__()
-        self.flip_probability = flip_probability
 
     def forward(
         self, pos: Tensor, idx: Tensor | None = None, batch: Tensor | None = None
@@ -110,10 +105,10 @@ class RandomLFrames(torch.nn.Module):
 class RandomGlobalLFrames(torch.nn.Module):
     """Randomly generates a global frame."""
 
-    def __init__(self) -> None:
+    def __init__(self, mean_eta, std_eta) -> None:
         """Initializes an instance of the RandomGlobalLFrames class."""
-        raise NotImplementedError
         super().__init__()
+        self.sampler = sample_lorentz(mean_eta=mean_eta, std_eta=std_eta)
 
     def forward(
         self, pos: Tensor, idx: Tensor | None = None, batch: Tensor | None = None
@@ -132,7 +127,7 @@ class RandomGlobalLFrames(torch.nn.Module):
             idx = torch.ones(pos.shape[0], dtype=torch.bool, device=pos.device)
 
         # randomly generate one local frame
-        matrix = rand_matrix(1, device=pos.device)
+        matrix = self.sampler.rand_matrix(1, device=pos.device)
 
         # if random number is less than 0.5, flip the x-axis
         if torch.rand(1, device=pos.device) < 0.5:

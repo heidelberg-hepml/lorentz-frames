@@ -11,7 +11,9 @@ from tensorframes.reps import TensorReps
 
 
 class LFramesNet(nn.Module):
-    def __init__(self, approach, layers, hidden_channels, radial_module, in_reps):
+    def __init__(
+        self, approach, layers, hidden_channels, radial_module, in_reps, **kwargs
+    ):
         super().__init__()
         self.in_reps = in_reps
 
@@ -19,8 +21,9 @@ class LFramesNet(nn.Module):
         if approach == "identity":  # non-equivariant
             self.net = IdentityLFrames()
         elif approach == "random_global":  # data augmentation
-            raise NotImplementedError
-            self.net = RandomGlobalLFrames()
+            mean_eta = kwargs.get("mean_eta", 0)
+            std_eta = kwargs.get("std_eta", 1)
+            self.net = RandomGlobalLFrames(mean_eta=mean_eta, std_eta=std_eta)
         elif approach == "3nn":  # interpretation: equivariant
             raise NotImplementedError
             self.net = ThreeNNLFrames()

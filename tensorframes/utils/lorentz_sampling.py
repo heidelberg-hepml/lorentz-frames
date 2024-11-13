@@ -1,13 +1,17 @@
 import torch
 
 
-class sample_trafo:
+class sample_lorentz:
     """
     Sampler class for random lorentz transformations
     """
 
     def __init__(
-        self, trafo_types: list, axes: list, mean_eta: float = 0, std_eta: float = 1
+        self,
+        trafo_types: list = ["rot", "boost"],
+        axes: list = [[1, 2], [0, 3]],
+        mean_eta: float = 0,
+        std_eta: float = 1,
     ):
         """
         Initializer for Sampler
@@ -24,7 +28,7 @@ class sample_trafo:
         self.std_eta = torch.tensor(std_eta).to(torch.float)
         self.num_trafo = len(trafo_types)
 
-    def sample(self, N: int = 1):
+    def rand_matrix(self, N: int = 1, device: str = "cpu"):
         """
         Sample N transformation matrices with the parameters from the constructor
 
@@ -34,13 +38,13 @@ class sample_trafo:
         Returns:
             final_trafo (tensor): tensor of stacked transformation matrices, shape: (batch, 4, 4)
         """
-        final_trafo = torch.eye(4).unsqueeze(0).repeat(N, 1, 1)
+        final_trafo = torch.eye(4).unsqueeze(0).repeat(N, 1, 1).to(device)
         for i in range(self.num_trafo):
             if self.trafo_types[i] == "boost":
                 angle = torch.normal(
                     mean=self.mean_eta.repeat(N), std=self.std_eta.repeat(N)
                 )
-                temp = torch.eye(4).unsqueeze(0).repeat(N, 1, 1)
+                temp = torch.eye(4).unsqueeze(0).repeat(N, 1, 1).to(device)
                 axes = self.axes[i]
                 temp[:, axes[0], axes[0]] = torch.cosh(angle)
                 temp[:, axes[0], axes[1]] = torch.sinh(angle)
@@ -49,7 +53,7 @@ class sample_trafo:
                 final_trafo = torch.einsum("ijk,ikl->ijl", temp, final_trafo)
             elif self.trafo_types[i] == "rot":
                 angle = torch.rand(N) * 2 * torch.pi
-                temp = torch.eye(4).unsqueeze(0).repeat(N, 1, 1)
+                temp = torch.eye(4).unsqueeze(0).repeat(N, 1, 1).to(device)
                 axes = self.axes[i]
                 temp[:, axes[0], axes[0]] = torch.cos(angle)
                 temp[:, axes[0], axes[1]] = -torch.sin(angle)

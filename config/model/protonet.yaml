@@ -24,6 +24,8 @@ lframesnet:
  approach: identity
  layers: 2
  hidden_channels: 16
+ mean_eta: 0
+ std_eta: 0.95
 
 angular_module:
  _target_: tensorframes.nn.embedding.axial.AxisWiseBesselEmbedding
