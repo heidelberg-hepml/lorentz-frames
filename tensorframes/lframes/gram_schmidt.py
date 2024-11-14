@@ -5,7 +5,14 @@ import torch
 
 
 def leinsum(einstr: str, a: torch.Tensor, b: torch.Tensor, dim: int = -1):
-    """torch.einsum, but inverts the first element in the dimention dim
+    """torch.einsum, but uses the minkovski metric (1, -1, -1, -1)
+    e.g. 
+    a = torch.tensor([1,2,1,2])
+    b = torch.tensor([[2,2,2,2]])
+    result = leinsum(einstr="d,bd->b", a, b, dim=-1)
+    
+    will calculate the following:
+        result = torch.einsum(einstr="d,bd->b", a, torch.tensor([[2,-2,-2,-2]]))
 
     Args:
         einstr (str): string for einstein notations
@@ -17,7 +24,7 @@ def leinsum(einstr: str, a: torch.Tensor, b: torch.Tensor, dim: int = -1):
     """
     index = [slice(None)] * b.dim()
 
-    index[dim] = 0
+    index[dim] = slice(1, None)
 
     b_copy = b.detach().clone()
     b_copy[index] *= -1
@@ -33,7 +40,7 @@ def gram_schmidt(
     """Applies the Gram-Schmidt process to a set of input vectors to orthogonalize them.
 
     Args:
-        vectors (Tensor): The input vectors. shape (4, 4, N) or (3, 4, N) (vectors, dims, size)
+        vectors (Tensor): The input vectors. shape (N, 4, 4) or (N, 3, 4) (size, vectors, dims)
         eps (float, optional): A small value used for numerical stability. Defaults to 2.0e-1.
         normalized (bool, optional): Whether to normalize the output vectors. Defaults to True.
         exceptional_choice (str, optional): The method to handle exceptional cases where the input vectors have zero length.
@@ -41,7 +48,7 @@ def gram_schmidt(
             Defaults to "random".
 
     Returns:
-        Tensor: A tensor containing the orthogonalized vectors the tensor has shape (4, 4, N).
+        Tensor: A tensor containing the orthogonalized vectors the tensor has shape (N, 4, 4).
     """
 
     assert normalized == True
@@ -50,81 +57,78 @@ def gram_schmidt(
     ), "Exception Choice needs to be 'zero' or 'random'"
     device = vectors.device
 
-    assert vectors.shape[:-1] == (4, 4) or vectors.shape[:-1] == (
+    assert vectors.shape[1:] == (4, 4) or vectors.shape[1:] == (
         3,
         4,
-    ), f"The shape of the given vectors ({vectors.shape}) needs to be in the format (vectors, dim, size), where vectors can be 4 or 3, dim has to be 4 and size is arbitrary"
-    for index in range(vectors.shape[0]):
+    ), f"The shape of the given vectors ({vectors.shape}) needs to be in the format (size, vector, dim), where vectors can be 4 or 3, dim has to be 4 and size is arbitrary"
+    orthogonalized_vectors = vectors.clone()
+    for index in range(vectors.shape[-2]):
         error = True
         while error == True:
-            previous = vectors[:index].clone()
+            previous = orthogonalized_vectors[:, :index].clone()
             sign = (
-                leinsum("vds,vds->vs", previous, previous, dim=-2).sign().unsqueeze(-2)
+                leinsum("svd,svd->sv", previous, previous, dim=-1).sign().unsqueeze(-1)
             )
             weights = leinsum(
-                "vds,ds->vs", sign * previous, vectors[index].clone(), dim=-2
+                "svd,sd->sv", sign * previous, orthogonalized_vectors[:,index].clone(), dim=-1
             )
             normBefore = (
-                leinsum("ds,ds->s", vectors[index], vectors[index], dim=-2).abs().sqrt()
+                leinsum("sd,sd->s", orthogonalized_vectors[:,index], orthogonalized_vectors[:,index], dim=-1).abs().sqrt()
             )
-            vectors[index] -= torch.sum(
-                torch.einsum("vs,vds->vds", weights, previous), axis=0
+            orthogonalized_vectors[:,index] -= torch.sum(
+                torch.einsum("sv,svd->svd", weights, previous), axis=-2
             )
             norm = (
-                leinsum("ds,ds->s", vectors[index], vectors[index], dim=-2).abs().sqrt()
+                leinsum("sd,sd->s", orthogonalized_vectors[:,index], orthogonalized_vectors[:,index], dim=-1).abs().sqrt()
             )
             zeroNorm = norm < eps * normBefore
             if zeroNorm.sum().item() != 0:  # linearly alligned elements / zero norm
                 if exceptional_choice == "random":
-                    vectors[index, :, zeroNorm] = torch.rand(
-                        vectors[index, :, zeroNorm].shape, device=device
-                    )
-                elif exceptional_choice == "zero":
-                    vectors[index, :, zeroNorm] = torch.zeros(
-                        vectors[index, :, zeroNorm].shape, device=device
+                    orthogonalized_vectors[zeroNorm, index, :] = torch.rand(
+                        orthogonalized_vectors[zeroNorm, index, :].shape, device=device
                     )
             else:
-                vectors[index] /= norm.unsqueeze(-2)
+                orthogonalized_vectors[:,index] /= norm.unsqueeze(-1)
                 error = False
-    if vectors.shape[:-1] == (3, 4):
-        vectors = torch.cat(
+    if vectors.shape[1:] == (3, 4):
+        orthogonalized_vectors = torch.cat(
             (
-                vectors,
-                torch.zeros(1, vectors.shape[1], vectors.shape[-1], device=device),
+                orthogonalized_vectors,
+                torch.zeros(orthogonalized_vectors.shape[0], 1, orthogonalized_vectors.shape[-1], device=device),
             ),
-            dim=0,
+            dim=1,
         )
-        x, y, z, _ = vectors.clone()
-        vectors[-1] = torch.stack(
+        x, y, z, _ = orthogonalized_vectors.clone().unbind(dim=1)
+        orthogonalized_vectors[:,-1] = torch.stack(
             [
-                -x[1] * y[2] * z[3]
-                + x[1] * y[3] * z[2]
-                - x[2] * y[3] * z[1]
-                + x[2] * y[1] * z[3]
-                - x[3] * y[1] * z[2]
-                + x[3] * y[2] * z[1],
-                -x[0] * y[2] * z[3]
-                + x[0] * y[3] * z[2]
-                - x[2] * y[3] * z[0]
-                + x[2] * y[0] * z[3]
-                - x[3] * y[0] * z[2]
-                + x[3] * y[2] * z[0],
-                +x[0] * y[1] * z[3]
-                - x[0] * y[3] * z[1]
-                + x[1] * y[3] * z[0]
-                - x[1] * y[0] * z[3]
-                + x[3] * y[0] * z[1]
-                - x[3] * y[1] * z[0],
-                -x[0] * y[1] * z[2]
-                + x[0] * y[2] * z[1]
-                - x[1] * y[2] * z[0]
-                + x[1] * y[0] * z[2]
-                - x[2] * y[0] * z[1]
-                + x[2] * y[1] * z[0],
+                -x[:,1] * y[:,2] * z[:,3]
+                + x[:,1] * y[:,3] * z[:,2]
+                - x[:,2] * y[:,3] * z[:,1]
+                + x[:,2] * y[:,1] * z[:,3]
+                - x[:,3] * y[:,1] * z[:,2]
+                + x[:,3] * y[:,2] * z[:,1],
+                -x[:,0] * y[:,2] * z[:,3]
+                + x[:,0] * y[:,3] * z[:,2]
+                - x[:,2] * y[:,3] * z[:,0]
+                + x[:,2] * y[:,0] * z[:,3]
+                - x[:,3] * y[:,0] * z[:,2]
+                + x[:,3] * y[:,2] * z[:,0],
+                +x[:,0] * y[:,1] * z[:,3]
+                - x[:,0] * y[:,3] * z[:,1]
+                + x[:,1] * y[:,3] * z[:,0]
+                - x[:,1] * y[:,0] * z[:,3]
+                + x[:,3] * y[:,0] * z[:,1]
+                - x[:,3] * y[:,1] * z[:,0],
+                -x[:,0] * y[:,1] * z[:,2]
+                + x[:,0] * y[:,2] * z[:,1]
+                - x[:,1] * y[:,2] * z[:,0]
+                + x[:,1] * y[:,0] * z[:,2]
+                - x[:,2] * y[:,0] * z[:,1]
+                + x[:,2] * y[:,1] * z[:,0],
             ],
-            dim=0,
+            dim=-1,
         )
-        norm = leinsum("ds,ds->s", vectors[-1], vectors[-1], dim=-2).abs().sqrt()
-        vectors[-1] /= norm.unsqueeze(-2)
+        norm = leinsum("sd,sd->s", orthogonalized_vectors[:,-1], orthogonalized_vectors[:,-1], dim=-1).abs().sqrt()
+        orthogonalized_vectors[:,-1] /= norm.unsqueeze(-1)
 
-    return vectors.permute(2, 0, 1)
+    return orthogonalized_vectors

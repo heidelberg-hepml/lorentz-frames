@@ -110,7 +110,7 @@ class LearnedGramSchmidtLFrames(MessagePassing):
         )
 
         # calculate the local frames
-        vecs = vecs.reshape(self.num_pred_vecs, 4, -1)
+        vecs = vecs.reshape(-1, self.num_pred_vecs, 4)
 
         local_frames = gram_schmidt(
             vectors=vecs,
