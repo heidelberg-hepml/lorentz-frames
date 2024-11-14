@@ -159,7 +159,7 @@ class LearnedGramSchmidtLFrames(MessagePassing):
         relative_vec = pos_j - pos_i
         # relative_norm = torch.clamp(leinsum("...i,...i", relative_vec,relative_vec, dim=-1).abs().sqrt(), 1e-6).unsqueeze(-1)
 
-        #relative_vec = relative_vec / relative_norm
+        # relative_vec = relative_vec / relative_norm
 
         out = torch.einsum("ij,ik->ijk", mlp_out, relative_vec).reshape(
             -1, self.num_pred_vecs * 4

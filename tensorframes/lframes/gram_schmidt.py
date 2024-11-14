@@ -6,11 +6,11 @@ import torch
 
 def leinsum(einstr: str, a: torch.Tensor, b: torch.Tensor, dim: int = -1):
     """torch.einsum, but uses the minkovski metric (1, -1, -1, -1)
-    e.g. 
+    e.g.
     a = torch.tensor([1,2,1,2])
     b = torch.tensor([[2,2,2,2]])
     result = leinsum(einstr="d,bd->b", a, b, dim=-1)
-    
+
     will calculate the following:
         result = torch.einsum(einstr="d,bd->b", a, torch.tensor([[2,-2,-2,-2]]))
 
@@ -70,16 +70,33 @@ def gram_schmidt(
                 leinsum("svd,svd->sv", previous, previous, dim=-1).sign().unsqueeze(-1)
             )
             weights = leinsum(
-                "svd,sd->sv", sign * previous, orthogonalized_vectors[:,index].clone(), dim=-1
+                "svd,sd->sv",
+                sign * previous,
+                orthogonalized_vectors[:, index].clone(),
+                dim=-1,
             )
             normBefore = (
-                leinsum("sd,sd->s", orthogonalized_vectors[:,index], orthogonalized_vectors[:,index], dim=-1).abs().sqrt()
+                leinsum(
+                    "sd,sd->s",
+                    orthogonalized_vectors[:, index],
+                    orthogonalized_vectors[:, index],
+                    dim=-1,
+                )
+                .abs()
+                .sqrt()
             )
-            orthogonalized_vectors[:,index] -= torch.sum(
+            orthogonalized_vectors[:, index] -= torch.sum(
                 torch.einsum("sv,svd->svd", weights, previous), axis=-2
             )
             norm = (
-                leinsum("sd,sd->s", orthogonalized_vectors[:,index], orthogonalized_vectors[:,index], dim=-1).abs().sqrt()
+                leinsum(
+                    "sd,sd->s",
+                    orthogonalized_vectors[:, index],
+                    orthogonalized_vectors[:, index],
+                    dim=-1,
+                )
+                .abs()
+                .sqrt()
             )
             zeroNorm = norm < eps * normBefore
             if zeroNorm.sum().item() != 0:  # linearly alligned elements / zero norm
@@ -88,47 +105,61 @@ def gram_schmidt(
                         orthogonalized_vectors[zeroNorm, index, :].shape, device=device
                     )
             else:
-                orthogonalized_vectors[:,index] /= norm.unsqueeze(-1)
+                orthogonalized_vectors[:, index] /= norm.unsqueeze(-1)
                 error = False
     if vectors.shape[1:] == (3, 4):
         orthogonalized_vectors = torch.cat(
             (
                 orthogonalized_vectors,
-                torch.zeros(orthogonalized_vectors.shape[0], 1, orthogonalized_vectors.shape[-1], device=device),
+                torch.zeros(
+                    orthogonalized_vectors.shape[0],
+                    1,
+                    orthogonalized_vectors.shape[-1],
+                    device=device,
+                ),
             ),
             dim=1,
         )
         x, y, z, _ = orthogonalized_vectors.clone().unbind(dim=1)
-        orthogonalized_vectors[:,-1] = torch.stack(
+        orthogonalized_vectors[:, -1] = torch.stack(
             [
-                -x[:,1] * y[:,2] * z[:,3]
-                + x[:,1] * y[:,3] * z[:,2]
-                - x[:,2] * y[:,3] * z[:,1]
-                + x[:,2] * y[:,1] * z[:,3]
-                - x[:,3] * y[:,1] * z[:,2]
-                + x[:,3] * y[:,2] * z[:,1],
-                -x[:,0] * y[:,2] * z[:,3]
-                + x[:,0] * y[:,3] * z[:,2]
-                - x[:,2] * y[:,3] * z[:,0]
-                + x[:,2] * y[:,0] * z[:,3]
-                - x[:,3] * y[:,0] * z[:,2]
-                + x[:,3] * y[:,2] * z[:,0],
-                +x[:,0] * y[:,1] * z[:,3]
-                - x[:,0] * y[:,3] * z[:,1]
-                + x[:,1] * y[:,3] * z[:,0]
-                - x[:,1] * y[:,0] * z[:,3]
-                + x[:,3] * y[:,0] * z[:,1]
-                - x[:,3] * y[:,1] * z[:,0],
-                -x[:,0] * y[:,1] * z[:,2]
-                + x[:,0] * y[:,2] * z[:,1]
-                - x[:,1] * y[:,2] * z[:,0]
-                + x[:,1] * y[:,0] * z[:,2]
-                - x[:,2] * y[:,0] * z[:,1]
-                + x[:,2] * y[:,1] * z[:,0],
+                -x[:, 1] * y[:, 2] * z[:, 3]
+                + x[:, 1] * y[:, 3] * z[:, 2]
+                - x[:, 2] * y[:, 3] * z[:, 1]
+                + x[:, 2] * y[:, 1] * z[:, 3]
+                - x[:, 3] * y[:, 1] * z[:, 2]
+                + x[:, 3] * y[:, 2] * z[:, 1],
+                -x[:, 0] * y[:, 2] * z[:, 3]
+                + x[:, 0] * y[:, 3] * z[:, 2]
+                - x[:, 2] * y[:, 3] * z[:, 0]
+                + x[:, 2] * y[:, 0] * z[:, 3]
+                - x[:, 3] * y[:, 0] * z[:, 2]
+                + x[:, 3] * y[:, 2] * z[:, 0],
+                +x[:, 0] * y[:, 1] * z[:, 3]
+                - x[:, 0] * y[:, 3] * z[:, 1]
+                + x[:, 1] * y[:, 3] * z[:, 0]
+                - x[:, 1] * y[:, 0] * z[:, 3]
+                + x[:, 3] * y[:, 0] * z[:, 1]
+                - x[:, 3] * y[:, 1] * z[:, 0],
+                -x[:, 0] * y[:, 1] * z[:, 2]
+                + x[:, 0] * y[:, 2] * z[:, 1]
+                - x[:, 1] * y[:, 2] * z[:, 0]
+                + x[:, 1] * y[:, 0] * z[:, 2]
+                - x[:, 2] * y[:, 0] * z[:, 1]
+                + x[:, 2] * y[:, 1] * z[:, 0],
             ],
             dim=-1,
         )
-        norm = leinsum("sd,sd->s", orthogonalized_vectors[:,-1], orthogonalized_vectors[:,-1], dim=-1).abs().sqrt()
-        orthogonalized_vectors[:,-1] /= norm.unsqueeze(-1)
+        norm = (
+            leinsum(
+                "sd,sd->s",
+                orthogonalized_vectors[:, -1],
+                orthogonalized_vectors[:, -1],
+                dim=-1,
+            )
+            .abs()
+            .sqrt()
+        )
+        orthogonalized_vectors[:, -1] /= norm.unsqueeze(-1)
 
     return orthogonalized_vectors
