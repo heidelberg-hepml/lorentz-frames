@@ -6,8 +6,8 @@ in_reps: ???
 net:
  _partial_: true
  _target_: experiments.toptagging.protonet.ProtoNet
- hidden_reps: ["8x0n+8x1n", "16x0n+16x1n"] 
- hidden_layer_number: [2, 1]
+ hidden_reps: ["21x0n+3x1n"] 
+ hidden_layer_number: [1, 1]
  out_reps: 1x0n
 
  checkpoint_blocks: false
