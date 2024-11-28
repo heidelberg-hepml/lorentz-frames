@@ -5,10 +5,13 @@ from tensorframes.lframes.classical_lframes import (
     IdentityLFrames,
     RandomGlobalLFrames,
     ThreeNNLFrames,
+    COMLFrames,
+    PartialCOMLFrames,
+    RestLFrames,
+    PartialRestLFrames,
 )
 from tensorframes.lframes.learning_lframes import WrappedLearnedLFrames
 from tensorframes.reps import TensorReps
-
 
 class LFramesNet(nn.Module):
     def __init__(
@@ -37,11 +40,19 @@ class LFramesNet(nn.Module):
                 radial_module=radial_module,
                 predict_4=False,
             )
+        elif approach == "COM":
+            self.net = COMLFrames()
+        elif approach == "partialCOM":
+            self.net = PartialCOMLFrames()
+        elif approach == "Rest":
+            self.net = RestLFrames()
+        elif approach == "partialRest":
+            self.net = PartialRestLFrames()
         else:
             raise ValueError(f"approach={self.approach} not implemented")
 
     def forward(self, x, pos, edge_index, batch):
-        if self.approach in ["identity", "random_global", "3nn"]:
+        if self.approach in ["identity", "random_global", "3nn", "COM", "partialCOM", "Rest", "partialRest"]:
             lframes = self.net(pos, idx=None, batch=batch)
             trafo = TensorReps(self.in_reps).get_transform_class()
             x_transformed = trafo(x, lframes)

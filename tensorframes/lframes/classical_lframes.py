@@ -6,7 +6,6 @@ from torch_geometric.nn import knn
 from tensorframes.lframes.gram_schmidt import gram_schmidt
 from tensorframes.lframes.lframes import LFrames
 
-
 class ThreeNNLFrames(torch.nn.Module):
     """Computes local frames using the 3-nearest neighbors.
 
@@ -161,3 +160,151 @@ class IdentityLFrames(torch.nn.Module):
             idx = torch.ones(pos.shape[0], dtype=torch.bool, device=pos.device)
 
         return LFrames(torch.eye(4, device=pos.device).repeat(pos[idx].shape[0], 1, 1))
+
+class COMLFrames(torch.nn.Module):
+    """
+    Creates a center-of-momentum frame for each jet, introducing a additional symmetry
+    """
+    def __init__(self):
+        super().__init__()
+        self.sampler=sample_lorentz(trafo_types=["rot", "rot", "boost"], axes=[[1,2],[1,3],[0,1]])
+    
+    def forward(self, pos: torch.Tensor, idx:torch.Tensor=None, batch: torch.Tensor=None) -> LFrames:
+        """
+        Creates LFrames through transformation matrix into COM frame
+
+       Args:
+            pos (torch.Tensor): Tensor with all the positions of the nodes, shape=(batch, 4)
+            idx (torch.Tensor): Index Tensor
+            batch (torch.tensor): Batch tensor, shape=(batch)
+
+        Return:
+            Lframes of the graphs
+        """
+
+        if idx is not None:
+            pos = pos[idx].clone()
+            batch = batch[idx].clone()
+
+        batchUni = torch.unique(batch)
+        mean_pos = torch.empty(batchUni.max()+1, 4, device=pos.device)
+        for i in batchUni: # this is inefficient but will work for now
+            mean_pos[i] = torch.mean(pos[batch==i], axis=0)
+        
+        angles = torch.empty(batchUni.max()+1, 3, device=pos.device)
+        angles[:,0] = -torch.arctan(mean_pos[:,2]/mean_pos[:,1])
+        angles[:,1] = -torch.arctan(mean_pos[:,3]/(mean_pos[:,1]*torch.cos(angles[:,0])-mean_pos[:,2]*torch.sin(angles[:,0])))
+        angles[:,2] = -torch.arctanh(torch.linalg.norm(mean_pos[:,1:], dim=1)/mean_pos[:,0])
+        
+        trafo = self.sampler.matrix(N=batchUni.max()+1, angles = angles, device=pos.device)
+        #npos = torch.einsum("nmp,np->nm", trafo[batch], pos)
+        
+        return LFrames(trafo[batch])
+    
+class PartialCOMLFrames(torch.nn.Module):
+    """
+    Creates a center-of-momentum frame for each jet, however, restricting ourself to rotation the x-y momentum to be full aligned with the x axis and boosting the jet to remove the z-component
+    """
+    def __init__(self):
+        super().__init__()
+        self.sampler=sample_lorentz(trafo_types=["rot", "boost"], axes=[[1,2],[0,3]])
+    
+    def forward(self, pos: torch.Tensor, idx:torch.Tensor=None, batch: torch.Tensor=None) -> LFrames:
+        """
+        Creates LFrames through transformation matrix into partial COM frame
+
+        Args:
+            pos (torch.Tensor): Tensor with all the positions of the nodes, shape=(batch, 4)
+            idx (torch.Tensor): Index Tensor
+            batch (torch.tensor): Batch tensor, shape=(batch)
+
+        Return:
+            Lframes of the graphs
+        """
+
+        if idx is not None:
+            pos = pos[idx].clone()
+            batch = batch[idx].clone()
+
+        batchUni = torch.unique(batch)
+        mean_pos = torch.empty(batchUni.max()+1, 4, device=pos.device)
+        for i in batchUni: # this is inefficient but will work for now
+            mean_pos[i] = torch.mean(pos[batch==i], axis=0)
+        
+        angles = torch.empty(batchUni.max()+1, 2, device=pos.device)
+        angles[:,0] = -torch.arctan(mean_pos[:,2]/mean_pos[:,1])
+        angles[:,1] = -torch.arctanh(mean_pos[:,3]/mean_pos[:,0])
+        
+        trafo = self.sampler.matrix(N=batchUni.max()+1, angles = angles, device=pos.device)
+        #npos = torch.einsum("nmp,np->nm", trafo[batch], pos)
+        
+        return LFrames(trafo[batch])
+    
+class RestLFrames(torch.nn.Module):
+    """
+    Creates a Rest frame for each particle in the batch, introducing an additional symmetry
+    """
+    def __init__(self):
+        super().__init__()
+        self.sampler=sample_lorentz(trafo_types=["rot", "rot", "boost"], axes=[[1,2],[1,3],[0,1]])
+    
+    def forward(self, pos: torch.Tensor, idx:torch.Tensor=None, batch: torch.Tensor=None) -> LFrames:
+        """
+        Creates LFrames through transformation matrix into particle rest frame
+
+        Args:
+            pos (torch.Tensor): Tensor with all the positions of the nodes, shape=(batch, 4)
+            idx (torch.Tensor): Index Tensor
+            batch (torch.tensor): Batch tensor, shape=(batch)
+
+        Return:
+            Lframes of the graphs
+        """
+
+        if idx is not None:
+            pos = pos[idx].clone()
+            batch = batch[idx].clone()
+        
+        angles = torch.empty(len(pos), 3, device=pos.device)
+        angles[:,0] = -torch.arctan(pos[:,2]/pos[:,1])
+        angles[:,1] = -torch.arctan(pos[:,3]/(pos[:,1]*torch.cos(angles[:,0])-pos[:,2]*torch.sin(angles[:,0])))
+        angles[:,2] = -torch.arctanh(torch.linalg.norm(pos[:,1:], dim=1)/pos[:,0])
+        
+        trafo = self.sampler.matrix(N=len(pos), angles = angles, device=pos.device)
+        #npos = torch.einsum("nmp,np->nm", trafo[batch], pos)
+        
+        return LFrames(trafo)
+    
+class PartialRestLFrames(torch.nn.Module):
+    """
+    Creates a Rest Frame for each particle, however, restricting ourself to rotation the x-y momentum to be full aligned with the x axis and boosting the jet to remove the z-component
+    """
+    def __init__(self):
+        super().__init__()
+        self.sampler=sample_lorentz(trafo_types=["rot", "boost"], axes=[[1,2],[0,3]])
+    
+    def forward(self, pos: torch.Tensor, idx:torch.Tensor=None, batch: torch.Tensor=None) -> LFrames:
+        """
+        Creates LFrames through transformation matrix into partial particle rest frame
+
+        Args:
+            pos (torch.Tensor): Tensor with all the positions of the nodes, shape=(batch, 4)
+            idx (torch.Tensor): Index Tensor
+            batch (torch.tensor): Batch tensor, shape=(batch)
+
+        Return:
+            Lframes of the graphs
+        """
+
+        if idx is not None:
+            pos = pos[idx].clone()
+            batch = batch[idx].clone()
+        
+        angles = torch.empty(len(pos), 2, device=pos.device)
+        angles[:,0] = -torch.arctan(pos[:,2]/pos[:,1])
+        angles[:,1] = -torch.arctanh(pos[:,3]/pos[:,0])
+        
+        trafo = self.sampler.matrix(N=len(pos), angles = angles, device=pos.device)
+        #npos = torch.einsum("nmp,np->nm", trafo[batch], pos)
+        
+        return LFrames(trafo)

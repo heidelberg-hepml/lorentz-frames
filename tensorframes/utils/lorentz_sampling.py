@@ -64,4 +64,44 @@ class sample_lorentz:
                 assert (
                     False
                 ), f"Expected trafo_types 'rot' or 'boost', but got {self.trafo_types[i]} instead."
-        return final_trafo
+        return final_trafo.to(device)
+    
+    def matrix(self, N: int = 1, angles: torch.Tensor = None, device: str = "cpu"):
+        """
+        Create transformation matrices with given angles
+        
+        Args:
+            N (int): Number of the transformation matrices to create
+            angles (torch.tensor): angles to be used for matrices, shape: (N, num_trafos)
+
+        Returns:
+            final_trafo (torch.Tensor): transformation tensors of shape (N, 4, 4)
+        """
+        if not isinstance(angles, torch.Tensor): angles=torch.tensor(angles)
+        assert angles.shape[0] == N, f"Need angles for all matrices, but got {angles.shape[0]} instead of {N}!"
+        
+        final_trafo = torch.eye(4).unsqueeze(0).repeat(N, 1, 1).to(device)
+        for i in range(self.num_trafo):
+            if self.trafo_types[i] == "boost":
+                angle = angles[:,i]
+                temp = torch.eye(4).unsqueeze(0).repeat(N, 1, 1).to(device)
+                axes = self.axes[i]
+                temp[:, axes[0], axes[0]] = torch.cosh(angle)
+                temp[:, axes[0], axes[1]] = torch.sinh(angle)
+                temp[:, axes[1], axes[0]] = torch.sinh(angle)
+                temp[:, axes[1], axes[1]] = torch.cosh(angle)
+                final_trafo = torch.einsum("ijk,ikl->ijl", temp, final_trafo)
+            elif self.trafo_types[i] == "rot":
+                angle = angles[:,i]
+                temp = torch.eye(4).unsqueeze(0).repeat(N, 1, 1).to(device)
+                axes = self.axes[i]
+                temp[:, axes[0], axes[0]] = torch.cos(angle)
+                temp[:, axes[0], axes[1]] = -torch.sin(angle)
+                temp[:, axes[1], axes[0]] = torch.sin(angle)
+                temp[:, axes[1], axes[1]] = torch.cos(angle)
+                final_trafo = torch.einsum("ijk,ikl->ijl", temp, final_trafo)
+            else:
+                assert (
+                    False
+                ), f"Expected trafo_types 'rot' or 'boost', but got {self.trafo_types[i]} instead."
+        return final_trafo.to(device)
