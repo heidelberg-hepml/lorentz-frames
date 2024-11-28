@@ -73,6 +73,14 @@ class LFrames:
         """
         return self.matrices.device
 
+    def inverse_lframes(self) -> "LFrames":
+        """Returns the inverse of the LFrames object.
+
+        Returns:
+           LFrames: LFrames object containing the inverse rotation matrices.
+        """
+        return InvLFrames(self)
+
     def index_select(self, indices: torch.Tensor) -> "LFrames":
         """Selects the rotation matrices corresponding to the given indices.
 
@@ -83,26 +91,145 @@ class LFrames:
             LFrames: LFrames object containing the selected rotation matrices.
         """
 
-        new_lframes = LFrames(
-            self.matrices.index_select(0, indices),
-            cache_wigner=self.cache_wigner,
-            spatial_dim=self.spatial_dim,
-        )
+        return IndexSelectLFrames(self, indices)
 
-        # need to copy the attributes if they are not None
-        if self._det is not None:
-            new_lframes._det = self.det.index_select(0, indices)
-        if self._inv is not None:
-            new_lframes._inv = self.inv.index_select(0, indices)
-        if self._angles is not None:
-            new_lframes._angles = self.angles.index_select(0, indices)
 
-        if self.cache_wigner and self.wigner_cache is not {}:
-            for l in self.wigner_cache:
-                new_lframes.wigner_cache[l] = self.wigner_cache[l].index_select(
-                    0, indices
-                )
+class InvLFrames(LFrames):
+    """Represents the inverse of a collection of o3 matrices."""
 
+    def __init__(self, lframes: LFrames) -> None:
+        """Initialize the InvLFrames class.
+
+        Args:
+            lframes (LFrames): The LFrames object.
+
+        Returns:
+            None
+        """
+        self.lframes = lframes
+        self.spatial_dim = lframes.spatial_dim
+
+        self._det = None
+        self._inv = None
+        self._angles = None
+        self._matrices = None
+
+    @property
+    def matrices(self) -> torch.Tensor:
+        """Returns the matrices stored in the lframes object.
+
+        Returns:
+            torch.Tensor: The matrices stored in the lframes object.
+        """
+        if self._matrices is None:
+            self._matrices = self.lframes.inv
+        return self._matrices
+
+    @property
+    def det(self) -> torch.Tensor:
+        """Determinant of the o3 matrices.
+
+        Returns:
+            torch.Tensor: Tensor containing the determinants.
+        """
+        if self._det is None:
+            self._det = self.lframes.det
+        return self._det
+
+    @property
+    def inv(self) -> torch.Tensor:
+        """Inverse of the o3 matrices.
+
+        Returns:
+            torch.Tensor: Tensor containing the inverses.
+        """
+        if self._inv is None:
+            self._inv = self.lframes.matrices
+        return self._inv
+
+    def index_select(self, indices: torch.Tensor) -> LFrames:
+        """Selects the rotation matrices corresponding to the given indices.
+
+        Args:
+            indices (torch.Tensor): Tensor containing the indices to select.
+
+        Returns:
+            LFrames: LFrames object containing the selected rotation matrices.
+        """
+        return IndexSelectLFrames(self, indices)
+
+
+class IndexSelectLFrames(LFrames):
+    """Represents a selection of rotation matrices from an LFrames object.
+
+    The selection is done on the fly.
+    """
+
+    def __init__(self, lframes: LFrames, indices: torch.Tensor) -> None:
+        """Initialize the IndexSelectLFrames object.
+
+        Args:
+            lframes (LFrames): The LFrames object.
+            indices (torch.Tensor): The indices.
+
+        Returns:
+            None
+        """
+
+        self.lframes = lframes
+        self.indices = indices
+        self.spatial_dim = lframes.spatial_dim
+
+        self._matrices = None
+        self._wigner_cache = {}
+        self._det = None
+        self._inv = None
+        self._angles = None
+
+    @property
+    def matrices(self) -> torch.Tensor:
+        """Returns the matrices stored in the lframes object.
+
+        If the matrices have not been initialized, they are initialized by indexing the matrices
+        attribute of the lframes object with the indices attribute of the current object.
+
+        Returns:
+            torch.Tensor: The matrices stored in the lframes object.
+        """
+        if self._matrices is None:
+            self._matrices = self.lframes.matrices.index_select(0, self.indices)
+        return self._matrices
+
+    @property
+    def det(self) -> torch.Tensor:
+        """Determinant of the o3 matrices.
+
+        Returns:
+            torch.Tensor: Tensor containing the determinants.
+        """
+        if self._det is None:
+            self._det = self.lframes.det.index_select(0, self.indices)
+        return self._det
+
+    @property
+    def inv(self) -> torch.Tensor:
+        """Inverse of the o3 matrices.
+
+        Returns:
+            torch.Tensor: Tensor containing the inverses.
+        """
+        if self._inv is None:
+            self._inv = self.lframes.inv.index_select(0, self.indices)
+        return self._inv
+
+    def index_select(self, indices: torch.Tensor) -> LFrames:
+        """Selects the rotation matrices corresponding to the given indices."""
+        indexed_indices = self.indices.index_select(0, indices)
+        return IndexSelectLFrames(lframes=self.lframes, indices=indexed_indices)
+
+    def inverse_lframes(self) -> LFrames:
+        """Returns the original reference to the LFrames object."""
+        return InvLFrames(self)
         return new_lframes
 
 
@@ -170,6 +297,16 @@ class ChangeOfLFrames:
             torch.device: Device of the Lorentz transformation.
         """
         return self.matrices.device
+
+    def inverse_lframes(self) -> "ChangeOfLFrames":
+        """Returns the inverse of the ChangeOfLFrames object.
+
+        Returns:
+            ChangeOfLFrames: ChangeOfLFrames object containing the inverse rotation matrices.
+        """
+        return ChangeOfLFrames(
+            lframes_start=self.lframes_end, lframes_end=self.lframes_start
+        )
 
 
 if __name__ == "__main__":
