@@ -14,6 +14,7 @@ FILENAMES = {
 }
 DATA_DIR = "data"
 
+
 def load(filename):
     url = os.path.join(BASE_URL, filename)
     print(f"Started to download {url}")
@@ -29,6 +30,7 @@ def main():
     filename = FILENAMES["toptagging"]
     if DOWNLOAD["toptagging"]:
         load(filename)
+
 
 if __name__ == "__main__":
     main()
