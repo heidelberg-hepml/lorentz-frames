@@ -253,6 +253,7 @@ class TensorReps(Tuple):
 
     def simplify(self) -> "TensorReps":
         """Simplifies the tensor reps by combining the same reps.
+        (run self.sort first for complete simplification)
 
         Returns:
             TensorReps: The simplified tensor reps.
@@ -325,7 +326,9 @@ class TensorRepsTransform(Module):
         pseudo_mask = torch.zeros(self.tensor_reps.dim, dtype=bool)
         start_idx = 0
         for i, mul_reps in enumerate(self.tensor_reps):
-            n_start_index_dict[mul_reps.rep.order].append((start_idx, i))
+            n_start_index_dict[mul_reps.rep.order].append(
+                (start_idx, i)
+            )  # this might also be problematic if they are not sorted by order and simplified, since it overwrites the start_idx
 
             # prepare parity mask:
             if mul_reps[1].p == -1:
