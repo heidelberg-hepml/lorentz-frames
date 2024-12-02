@@ -161,8 +161,10 @@ class LearnedGramSchmidtLFrames(MessagePassing):
 
         # relative_vec = relative_vec / relative_norm
 
-        out = torch.einsum("ij,ik->ijk", mlp_out, relative_vec).reshape( # ( nodes , num_pred_vecs ) x ( nodes , 4 ) -> (nodes, num_pred_vecs, 4)
-            -1, self.num_pred_vecs * 4 # e.g (connected_nodes, 12/16)
+        out = torch.einsum(
+            "ij,ik->ijk", mlp_out, relative_vec
+        ).reshape(  # ( nodes , num_pred_vecs ) x ( nodes , 4 ) -> (nodes, num_pred_vecs, 4)
+            -1, self.num_pred_vecs * 4  # e.g (connected_nodes, 12/16)
         )
 
         if self.cutoff is not None and self.envelope is not None:
@@ -234,7 +236,7 @@ class WrappedLearnedLFrames(Module):
         batch: Union[Tensor, PairTensor],
         edge_index: Union[Tensor, None],
         edge_attr: Union[Tensor, None] = None,
-    ) -> LFrames:
+    ) -> tuple[torch.Tensor, LFrames]:
         """Performs the forward pass of the WrappedLearnedLocalFramesModule. Works even if x, pos,
         and batch are tuples.
 
