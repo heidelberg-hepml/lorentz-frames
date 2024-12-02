@@ -124,7 +124,7 @@ class AxisWiseBesselEmbedding(AngularEmbedding):
             Tensor: The computed embedding.
         """
         edge_vec = double_gradient_safe_normalize(edge_vec)
-        tmp_mul = torch.einsum("ij,jk->ijk", edge_vec, self.frequencies)
+        tmp_mul = torch.einsum("ij,jk->ijk", edge_vec, self.frequencies) #(edge, 4) x (4*freq, 1*freq) -> (edge, 4*freq, freq)
 
         embed = torch.einsum(
             "ijk,ij->ijk", torch.sin(tmp_mul), 1 / (edge_vec + 1e-9)
@@ -133,7 +133,7 @@ class AxisWiseBesselEmbedding(AngularEmbedding):
         if self.dual_sided:
             embed = torch.einsum("ijk, ij -> ijk", embed, torch.sign(edge_vec))
 
-        out = embed.reshape(-1, self.num_frequencies * 4)
+        out = embed.reshape(-1, self.num_frequencies * 4) 
 
         return out
 

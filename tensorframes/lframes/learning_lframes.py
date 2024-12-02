@@ -161,8 +161,8 @@ class LearnedGramSchmidtLFrames(MessagePassing):
 
         # relative_vec = relative_vec / relative_norm
 
-        out = torch.einsum("ij,ik->ijk", mlp_out, relative_vec).reshape(
-            -1, self.num_pred_vecs * 4
+        out = torch.einsum("ij,ik->ijk", mlp_out, relative_vec).reshape( # ( nodes , num_pred_vecs ) x ( nodes , 4 ) -> (nodes, num_pred_vecs, 4)
+            -1, self.num_pred_vecs * 4 # e.g (connected_nodes, 12/16)
         )
 
         if self.cutoff is not None and self.envelope is not None:

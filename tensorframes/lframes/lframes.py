@@ -230,7 +230,6 @@ class IndexSelectLFrames(LFrames):
     def inverse_lframes(self) -> LFrames:
         """Returns the original reference to the LFrames object."""
         return InvLFrames(self)
-        return new_lframes
 
 
 class ChangeOfLFrames:
