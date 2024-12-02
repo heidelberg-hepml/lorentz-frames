@@ -1,9 +1,9 @@
 exp_type: toptagging
 exp_name: topt_local_debug
-base_dir: .
+base_dir: /remote/gpu03/pitz/lorentz-frames
 
 data:
- data_dir : data/
+ data_dir : /remote/gpu03/pitz/data
  dataset: mini
  rescale_data: true
  beam_reference: null
