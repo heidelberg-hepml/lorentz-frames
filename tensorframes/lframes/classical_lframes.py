@@ -7,7 +7,15 @@ from tensorframes.lframes.gram_schmidt import gram_schmidt
 from tensorframes.lframes.lframes import LFrames
 
 
-class ThreeNNLFrames(torch.nn.Module):
+class LFramesPredictionModule(torch.nn.Module):
+    def __init__(self) -> None:
+        super().__init__()
+
+    def forward(self, *args, **kwargs) -> LFrames:
+        assert NotImplementedError, "Subclasses must implement this method."
+
+
+class ThreeNNLFrames(LFramesPredictionModule):
     """Computes local frames using the 3-nearest neighbors.
 
     The Frames are O(3) equivariant.
@@ -68,13 +76,14 @@ class ThreeNNLFrames(torch.nn.Module):
         return LFrames(matrices)
 
 
-class RandomLFrames(torch.nn.Module):
+class RandomLFrames(LFramesPredictionModule):
     """Randomly generates local frames for each node."""
 
-    def __init__(self) -> None:
+    def __init__(self, flip_probability: float = 0.5) -> None:
         """Initialize an instance of the RandomLFrames class."""
         raise NotImplementedError
         super().__init__()
+        self.flip_probability = flip_probability
 
     def forward(
         self, pos: Tensor, idx: Tensor | None = None, batch: Tensor | None = None
@@ -91,7 +100,7 @@ class RandomLFrames(torch.nn.Module):
         """
         if idx is None:
             idx = torch.ones(pos.shape[0], dtype=torch.bool, device=pos.device)
-        lframes = rand_matrix(pos[idx].shape[0], device=pos.device)
+        lframes = sample_lorentz(pos[idx].shape[0], device=pos.device)
         if self.flip_probability > 0:
             flip_mask = (
                 torch.rand(lframes.shape[0], device=lframes.device)
@@ -102,7 +111,7 @@ class RandomLFrames(torch.nn.Module):
         return LFrames(lframes)
 
 
-class RandomGlobalLFrames(torch.nn.Module):
+class RandomGlobalLFrames(LFramesPredictionModule):
     """Randomly generates a global frame."""
 
     def __init__(self, mean_eta, std_eta) -> None:
@@ -136,7 +145,7 @@ class RandomGlobalLFrames(torch.nn.Module):
         return LFrames(matrix.repeat(pos[idx].shape[0], 1, 1))
 
 
-class IdentityLFrames(torch.nn.Module):
+class IdentityLFrames(LFramesPredictionModule):
     """Identity local frames."""
 
     def __init__(self) -> None:
@@ -163,7 +172,7 @@ class IdentityLFrames(torch.nn.Module):
         return LFrames(torch.eye(4, device=pos.device).repeat(pos[idx].shape[0], 1, 1))
 
 
-class COMLFrames(torch.nn.Module):
+class COMLFrames(LFramesPredictionModule):
     """
     Creates a center-of-momentum frame for each jet, introducing a additional symmetry
     """
@@ -219,7 +228,7 @@ class COMLFrames(torch.nn.Module):
         return LFrames(trafo[batch])
 
 
-class PartialCOMLFrames(torch.nn.Module):
+class PartialCOMLFrames(LFramesPredictionModule):
     """
     Creates a center-of-momentum frame for each jet, however, restricting ourself to rotation the x-y momentum to be full aligned with the x axis and boosting the jet to remove the z-component
     """
@@ -266,7 +275,7 @@ class PartialCOMLFrames(torch.nn.Module):
         return LFrames(trafo[batch])
 
 
-class RestLFrames(torch.nn.Module):
+class RestLFrames(LFramesPredictionModule):
     """
     Creates a Rest frame for each particle in the batch, introducing an additional symmetry
     """
@@ -313,7 +322,7 @@ class RestLFrames(torch.nn.Module):
         return LFrames(trafo)
 
 
-class PartialRestLFrames(torch.nn.Module):
+class PartialRestLFrames(LFramesPredictionModule):
     """
     Creates a Rest Frame for each particle, however, restricting ourself to rotation the x-y momentum to be full aligned with the x axis and boosting the jet to remove the z-component
     """
