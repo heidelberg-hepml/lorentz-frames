@@ -251,6 +251,19 @@ class TensorReps(Tuple):
         tensor_reps = TensorReps(tensor_reps)
         return TensorReps(super().__add__(tensor_reps))
 
+    @property
+    def is_sorted(self) -> bool:
+        """
+        bool: Whether the tensor reps are sorted by the order of the reps.
+        """
+        if len(self) <= 1:
+            return True
+        else:
+            return all(
+                mul_ir.rep.order <= self[i + 1].rep.order
+                for i, mul_ir in enumerate(self[:-1])
+            )
+
     def simplify(self) -> "TensorReps":
         """Simplifies the tensor reps by combining the same reps.
         (run self.sort first for complete simplification)
@@ -326,9 +339,7 @@ class TensorRepsTransform(Module):
         pseudo_mask = torch.zeros(self.tensor_reps.dim, dtype=bool)
         start_idx = 0
         for i, mul_reps in enumerate(self.tensor_reps):
-            n_start_index_dict[mul_reps.rep.order].append(
-                (start_idx, i)
-            )  # this might also be problematic if they are not sorted by order and simplified, since it overwrites the start_idx
+            n_start_index_dict[mul_reps.rep.order].append((start_idx, i))
 
             # prepare parity mask:
             if mul_reps[1].p == -1:
@@ -338,13 +349,7 @@ class TensorRepsTransform(Module):
 
         # sort start indices and reps by angular momentum largest first, n_masks can also be precomputed
         self.sorted_n = sorted(n_start_index_dict.keys(), reverse=True)
-        if len(self.tensor_reps) == len(self.sorted_n):
-            self.is_sorted = all(
-                mul_reps.rep.order == self.sorted_n[::-1][i]
-                for i, mul_reps in enumerate(self.tensor_reps)
-            )
-        else:
-            self.is_sorted = False
+        self.is_sorted = self.tensor_reps.is_sorted
 
         self.n_masks = []
         self.n_muls = []
