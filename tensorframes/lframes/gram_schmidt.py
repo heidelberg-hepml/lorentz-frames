@@ -75,16 +75,6 @@ def gram_schmidt(
                 orthogonalized_vectors[:, index].clone(),
                 dim=-1,
             )
-            normBefore = (
-                leinsum(
-                    "sd,sd->s",
-                    orthogonalized_vectors[:, index],
-                    orthogonalized_vectors[:, index],
-                    dim=-1,
-                )
-                .abs()
-                .sqrt()
-            )
             orthogonalized_vectors[:, index] -= torch.sum(
                 torch.einsum("sv,svd->svd", weights, previous), axis=-2
             )
@@ -98,7 +88,7 @@ def gram_schmidt(
                 .abs()
                 .sqrt()
             )
-            zeroNorm = norm < eps * normBefore
+            zeroNorm = norm < eps
             if zeroNorm.sum().item() != 0:  # linearly alligned elements / zero norm
                 if exceptional_choice == "random":
                     orthogonalized_vectors[zeroNorm, index, :] = (
@@ -167,3 +157,21 @@ def gram_schmidt(
         orthogonalized_vectors[:, -1] /= norm.unsqueeze(-1)
 
     return orthogonalized_vectors
+
+
+def is_orthogonal(vec):
+    """checks if vectors are orthogonal
+
+    args:
+        vec (torch.Tensor): vectors in shape (N, 4, 4)
+    returns:
+        is_orthogonal (torch.Tensor): bool list of orthogonal tests
+        prod (torch.Tensor): tensor of product between vectors
+    """
+    vec2 = vec.clone()
+    vec2[:, :, 0] *= -1
+
+    prod = torch.round(torch.einsum("ijk,imk->ijm", vec, vec2).abs().sqrt(), decimals=2)
+    return (prod == torch.eye(4).unsqueeze(0).repeat(prod.shape[0], 1, 1)).all(
+        dim=(1, 2)
+    ), prod
