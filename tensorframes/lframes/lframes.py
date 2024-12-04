@@ -1,17 +1,15 @@
 import torch
+from experiments.logger import LOGGER
 
 
 class LFrames:
     """Class representing a collection of Lorentz transformations."""
 
-    def __init__(
-        self, matrices: torch.Tensor, cache_wigner: bool = True, spatial_dim: int = 4
-    ) -> None:
+    def __init__(self, matrices: torch.Tensor, spatial_dim: int = 4) -> None:
         """Initialize the LFrames class.
 
         Args:
             matrices (torch.Tensor): Tensor of shape (..., spatial_dim, spatial_dim) representing the rotation matrices.
-            cache_wigner (bool, optional): Whether to cache the Wigner D matrices. Defaults to True.
             spatial_dim (int, optional): Dimension of the spatial vectors. Defaults to 4.
         """
         assert spatial_dim == 4
@@ -20,7 +18,7 @@ class LFrames:
             spatial_dim,
         ), f"Rotations must be of shape (..., spatial_dim, spatial_dim), but found dim {matrices.shape[-2:]} instead"
 
-        self.matrices = matrices
+        self._matrices = matrices
         self.spatial_dim = spatial_dim
 
         self.metric = torch.diag(
@@ -28,10 +26,6 @@ class LFrames:
         )
         self._det = None
         self._inv = None
-        self._angles = None
-
-        self.cache_wigner = cache_wigner
-        self.wigner_cache = {}
 
     @property
     def det(self) -> torch.Tensor:
@@ -41,7 +35,7 @@ class LFrames:
             torch.Tensor: Tensor containing the determinants.
         """
         if self._det is None:
-            self._det = torch.linalg.det(self.matrices)
+            self._det = torch.linalg.det(self._matrices)
         return self._det
 
     @property
@@ -52,7 +46,7 @@ class LFrames:
             torch.Tensor: Tensor containing the inverses.
         """
         if self._inv is None:
-            self._inv = self.metric @ self.matrices.transpose(-1, -2) @ self.metric
+            self._inv = self.metric @ self._matrices.transpose(-1, -2) @ self.metric
         return self._inv
 
     @property
@@ -72,6 +66,18 @@ class LFrames:
             torch.device: Device of the Lorentz transformation.
         """
         return self.matrices.device
+
+    @property
+    def matrices(self) -> torch.Tensor:
+        """return the transformation matrices"""
+        return self._matrices
+
+    @matrices.setter
+    def matrices(self, new_matrices):
+        """clear cached values dependent on the matrices for safety"""
+        self._inv = None
+        self._det = None
+        self._matrices = new_matrices
 
     def inverse_lframes(self) -> "LFrames":
         """Returns the inverse of the LFrames object.
@@ -106,12 +112,11 @@ class InvLFrames(LFrames):
         Returns:
             None
         """
-        self.lframes = lframes
+        self._lframes = lframes
         self.spatial_dim = lframes.spatial_dim
 
         self._det = None
         self._inv = None
-        self._angles = None
         self._matrices = None
 
     @property
@@ -122,8 +127,14 @@ class InvLFrames(LFrames):
             torch.Tensor: The matrices stored in the lframes object.
         """
         if self._matrices is None:
-            self._matrices = self.lframes.inv
+            self._matrices = self._lframes.inv
         return self._matrices
+
+    @matrices.setter
+    def matrices(self, _):
+        raise RuntimeError(
+            "Attempted to directly set matrices of a InvLFrames object. Try setting the values of the original LFrame instead!"
+        )
 
     @property
     def det(self) -> torch.Tensor:
@@ -133,7 +144,7 @@ class InvLFrames(LFrames):
             torch.Tensor: Tensor containing the determinants.
         """
         if self._det is None:
-            self._det = self.lframes.det
+            self._det = self._lframes.det
         return self._det
 
     @property
@@ -144,7 +155,7 @@ class InvLFrames(LFrames):
             torch.Tensor: Tensor containing the inverses.
         """
         if self._inv is None:
-            self._inv = self.lframes.matrices
+            self._inv = self._lframes.matrices
         return self._inv
 
     def index_select(self, indices: torch.Tensor) -> LFrames:
@@ -176,15 +187,14 @@ class IndexSelectLFrames(LFrames):
             None
         """
 
-        self.lframes = lframes
-        self.indices = indices
+        self._lframes = lframes
+        self._indices = indices
         self.spatial_dim = lframes.spatial_dim
 
         self._matrices = None
         self._wigner_cache = {}
         self._det = None
         self._inv = None
-        self._angles = None
 
     @property
     def matrices(self) -> torch.Tensor:
@@ -197,8 +207,14 @@ class IndexSelectLFrames(LFrames):
             torch.Tensor: The matrices stored in the lframes object.
         """
         if self._matrices is None:
-            self._matrices = self.lframes.matrices.index_select(0, self.indices)
+            self._matrices = self._lframes.matrices.index_select(0, self._indices)
         return self._matrices
+
+    @matrices.setter
+    def matrices(self, _):
+        raise RuntimeError(
+            "Attempted to directly set matrices of a InvLFrames object. Try setting the values of the original LFrame instead!"
+        )
 
     @property
     def det(self) -> torch.Tensor:
@@ -208,7 +224,7 @@ class IndexSelectLFrames(LFrames):
             torch.Tensor: Tensor containing the determinants.
         """
         if self._det is None:
-            self._det = self.lframes.det.index_select(0, self.indices)
+            self._det = self._lframes.det.index_select(0, self._indices)
         return self._det
 
     @property
@@ -219,13 +235,13 @@ class IndexSelectLFrames(LFrames):
             torch.Tensor: Tensor containing the inverses.
         """
         if self._inv is None:
-            self._inv = self.lframes.inv.index_select(0, self.indices)
+            self._inv = self._lframes.inv.index_select(0, self._indices)
         return self._inv
 
     def index_select(self, indices: torch.Tensor) -> LFrames:
         """Selects the rotation matrices corresponding to the given indices."""
-        indexed_indices = self.indices.index_select(0, indices)
-        return IndexSelectLFrames(lframes=self.lframes, indices=indexed_indices)
+        indexed_indices = self._indices.index_select(0, indices)
+        return IndexSelectLFrames(lframes=self._lframes, indices=indexed_indices)
 
     def inverse_lframes(self) -> LFrames:
         """Returns the original reference to the LFrames object."""
@@ -245,9 +261,9 @@ class ChangeOfLFrames:
         assert (
             lframes_start.shape == lframes_end.shape
         ), "Both LFrames objects must have the same shape."
-        self.lframes_start = lframes_start
-        self.lframes_end = lframes_end
-        self.matrices = torch.bmm(lframes_end.matrices, lframes_start.inv)
+        self._lframes_start = lframes_start
+        self._lframes_end = lframes_end
+        self._matrices = torch.bmm(lframes_end.matrices, lframes_start.inv)
         self.spatial_dim = lframes_start.spatial_dim
 
         self.metric = torch.diag(
@@ -255,7 +271,6 @@ class ChangeOfLFrames:
         )
         self._det = None
         self._inv = None
-        self._angles = None
 
     @property
     def det(self) -> torch.Tensor:
@@ -265,7 +280,7 @@ class ChangeOfLFrames:
             torch.Tensor: Tensor containing the determinants.
         """
         if self._det is None:
-            self._det = self.lframes_start.det * self.lframes_end.det
+            self._det = self._lframes_start.det * self._lframes_end.det
         return self._det
 
     @property
@@ -276,7 +291,7 @@ class ChangeOfLFrames:
             torch.Tensor: Tensor containing the inverses.
         """
         if self._inv is None:
-            self._inv = self.metric @ self.matrices.transpose(-1, -2) @ self.metric
+            self._inv = self.metric @ self._matrices.transpose(-1, -2) @ self.metric
         return self._inv
 
     @property
@@ -286,6 +301,9 @@ class ChangeOfLFrames:
         Returns:
             torch.Size: Size of the Lorentz transformation.
         """
+        LOGGER.info(
+            f"{self.matrices=}, {self._lframes_start.matrices=}, {self._lframes_end.matrices=}"
+        )
         return self.matrices.shape
 
     @property
@@ -297,6 +315,11 @@ class ChangeOfLFrames:
         """
         return self.matrices.device
 
+    @property
+    def matrices(self):
+        """return transformation matrices"""
+        return self._matrices
+
     def inverse_lframes(self) -> "ChangeOfLFrames":
         """Returns the inverse of the ChangeOfLFrames object.
 
@@ -304,7 +327,7 @@ class ChangeOfLFrames:
             ChangeOfLFrames: ChangeOfLFrames object containing the inverse rotation matrices.
         """
         return ChangeOfLFrames(
-            lframes_start=self.lframes_end, lframes_end=self.lframes_start
+            lframes_start=self._lframes_end, lframes_end=self._lframes_start
         )
 
 
