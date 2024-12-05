@@ -71,7 +71,7 @@ class sample_lorentz:
         Create transformation matrices with given angles
 
         Args:
-            N (int): Number of the transformation matrices to create
+            N (int): Number of the transformation matrices to create / number of independent transformed systems i.e. graphs / jets
             angles (torch.tensor): angles to be used for matrices, shape: (N, num_trafos)
 
         Returns:

@@ -607,6 +607,12 @@ class TensorRepsTransform(Module):
             ), "No coeffs are provided for non-trivial transform"
             return None
 
+        if isinstance(basis_change.matrices, torch.nn.Identity):  # shortcut
+            if inplace:
+                return coeffs
+            else:
+                return coeffs.clone()
+
         if self.use_parallel:
             return self.transform_coeffs_parallel(
                 coeffs, basis_change, self.avoid_einsum, inplace=inplace

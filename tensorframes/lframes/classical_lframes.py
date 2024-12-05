@@ -142,7 +142,9 @@ class RandomGlobalLFrames(LFramesPredictionModule):
         if torch.rand(1, device=pos.device) < 0.5:
             matrix[0] = -matrix[0]
 
-        return LFrames(matrix.repeat(pos[idx].shape[0], 1, 1))
+        return LFrames.global_trafo(
+            device=pos.device, trafo=matrix, n_batch=pos.shape[0]
+        )
 
 
 class IdentityLFrames(LFramesPredictionModule):
@@ -169,7 +171,7 @@ class IdentityLFrames(LFramesPredictionModule):
         if idx is None:
             idx = torch.ones(pos.shape[0], dtype=torch.bool, device=pos.device)
 
-        return LFrames(torch.eye(4, device=pos.device).repeat(pos[idx].shape[0], 1, 1))
+        return LFrames.global_trafo(pos.device, n_batch=pos.shape[0])
 
 
 class COMLFrames(LFramesPredictionModule):
