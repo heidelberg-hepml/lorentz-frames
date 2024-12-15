@@ -16,15 +16,14 @@ class LFramesPredictionModule(torch.nn.Module):
         assert NotImplementedError, "Subclasses must implement this method."
 
 
-class ThreeNNLFrames(LFramesPredictionModule):
+class NNLFrames(LFramesPredictionModule):
     """Computes local frames using the 3-nearest neighbors.
 
-    The Frames are O(3) equivariant.
+    The Frames are SO(1,3) equivariant.
     """
 
     def __init__(self) -> None:
-        """Initializes an instance of the ThreeNNLFrames class."""
-        raise NotImplementedError
+        """Initializes an instance of the NNLFrames class."""
         super().__init__()
 
     def forward(
@@ -53,7 +52,7 @@ class ThreeNNLFrames(LFramesPredictionModule):
                 pos.shape[0], dtype=torch.bool, device=pos.device
             ).scatter_(0, idx, True)
 
-        # find 2 closest neighbors:
+        # find 3+1 closest neighbors:
         row, col = knn(pos, pos[idx], k=4, batch_x=batch, batch_y=batch[idx])
         mask_self_loops = (
             torch.arange(pos.shape[0], dtype=int, device=idx.device)[idx][row] == col
@@ -72,7 +71,8 @@ class ThreeNNLFrames(LFramesPredictionModule):
         y_axis = pos[col[:, 1]] - pos[row]
         z_axis = pos[col[:, 2]] - pos[row]
 
-        matrices = gram_schmidt(x_axis, y_axis, z_axis)
+        vectors = torch.stack((x_axis, y_axis, z_axis), axis=-2)
+        matrices = gram_schmidt(vectors)
 
         return LFrames(matrices)
 

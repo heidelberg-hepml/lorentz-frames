@@ -28,8 +28,7 @@ class LFramesNet(nn.Module):
             mean_eta = kwargs.get("mean_eta", 0)
             std_eta = kwargs.get("std_eta", 1)
             self.net = RandomGlobalLFrames(mean_eta=mean_eta, std_eta=std_eta)
-        elif approach == "3nn":  # interpretation: equivariant
-            raise NotImplementedError
+        elif approach == "nn":  # interpretation: equivariant
             self.net = ThreeNNLFrames()
         elif approach == "learned_gramschmidt":  # interpretation: equivariant
             assert radial_module is not None
@@ -56,7 +55,7 @@ class LFramesNet(nn.Module):
         if self.approach in [
             "identity",
             "random_global",
-            "3nn",
+            "nn",
             "COM",
             "partialCOM",
             "Rest",
