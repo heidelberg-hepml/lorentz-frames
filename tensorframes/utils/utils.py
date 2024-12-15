@@ -1,6 +1,11 @@
 import torch
 
 
+def stable_arctanh(x):
+    # implementation of arctanh that avoids log(0) issues
+    return 0.5 * (torch.log((1 + x).clamp(min=eps)) - torch.log((1 - x).clamp(min=eps)))
+
+
 def repeat_in_list(
     x: any, repeats: int, repeat_even_if_list: bool = False, repeat_if_none: bool = True
 ) -> list:

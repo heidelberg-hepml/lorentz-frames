@@ -5,6 +5,7 @@ from torch_geometric.nn import knn
 
 from tensorframes.lframes.gram_schmidt import gram_schmidt
 from tensorframes.lframes.lframes import LFrames
+from tensorframes.utils.utils import stable_arctanh
 
 
 class LFramesPredictionModule(torch.nn.Module):
@@ -218,7 +219,7 @@ class COMLFrames(LFramesPredictionModule):
                 - mean_pos[:, 2] * torch.sin(angles[:, 0])
             )
         )
-        angles[:, 2] = -torch.arctanh(
+        angles[:, 2] = -stable_arctanh(
             torch.linalg.norm(mean_pos[:, 1:], dim=1) / mean_pos[:, 0]
         )
 
@@ -267,7 +268,7 @@ class PartialCOMLFrames(LFramesPredictionModule):
 
         angles = torch.empty(batchUni.max() + 1, 2, device=pos.device)
         angles[:, 0] = -torch.arctan(mean_pos[:, 2] / mean_pos[:, 1])
-        angles[:, 1] = -torch.arctanh(mean_pos[:, 3] / mean_pos[:, 0])
+        angles[:, 1] = -stable_arctanh(mean_pos[:, 3] / mean_pos[:, 0])
 
         trafo = self.sampler.matrix(
             N=batchUni.max() + 1, angles=angles, device=pos.device
@@ -316,7 +317,7 @@ class RestLFrames(LFramesPredictionModule):
                 - pos[:, 2] * torch.sin(angles[:, 0])
             )
         )
-        angles[:, 2] = -torch.arctanh(torch.linalg.norm(pos[:, 1:], dim=1) / pos[:, 0])
+        angles[:, 2] = -stable_arctanh(torch.linalg.norm(pos[:, 1:], dim=1) / pos[:, 0])
 
         trafo = self.sampler.matrix(N=len(pos), angles=angles, device=pos.device)
         # npos = torch.einsum("nmp,np->nm", trafo[batch], pos)
@@ -356,7 +357,7 @@ class PartialRestLFrames(LFramesPredictionModule):
 
         angles = torch.empty(len(pos), 2, device=pos.device)
         angles[:, 0] = -torch.arctan(pos[:, 2] / pos[:, 1])
-        angles[:, 1] = -torch.arctanh(pos[:, 3] / pos[:, 0])
+        angles[:, 1] = -stable_arctanh(pos[:, 3] / pos[:, 0])
 
         trafo = self.sampler.matrix(N=len(pos), angles=angles, device=pos.device)
         # npos = torch.einsum("nmp,np->nm", trafo[batch], pos)
