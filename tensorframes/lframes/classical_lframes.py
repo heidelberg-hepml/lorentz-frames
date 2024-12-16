@@ -1,5 +1,5 @@
 import torch
-from tensorframes.utils.lorentz_sampling import sample_lorentz
+from tensorframes.utils.lorentz_sampling import sampleLorentz
 from torch import Tensor
 from torch_geometric.nn import knn
 
@@ -103,7 +103,7 @@ class RandomLFrames(LFramesPredictionModule):
         """
         if idx is None:
             idx = torch.ones(pos.shape[0], dtype=torch.bool, device=pos.device)
-        lframes = sample_lorentz(pos[idx].shape[0], device=pos.device)
+        lframes = sampleLorentz(pos[idx].shape[0], device=pos.device)
         if self.flip_probability > 0:
             flip_mask = (
                 torch.rand(lframes.shape[0], device=lframes.device)
@@ -120,7 +120,7 @@ class RandomGlobalLFrames(LFramesPredictionModule):
     def __init__(self, mean_eta, std_eta) -> None:
         """Initializes an instance of the RandomGlobalLFrames class."""
         super().__init__()
-        self.sampler = sample_lorentz(mean_eta=mean_eta, std_eta=std_eta)
+        self.sampler = sampleLorentz(mean_eta=mean_eta, std_eta=std_eta)
 
     def forward(
         self, pos: Tensor, idx: Tensor | None = None, batch: Tensor | None = None
@@ -184,7 +184,7 @@ class COMLFrames(LFramesPredictionModule):
 
     def __init__(self):
         super().__init__()
-        self.sampler = sample_lorentz(
+        self.sampler = sampleLorentz(
             trafo_types=["rot", "rot", "boost"], axes=[[1, 2], [1, 3], [0, 1]]
         )
         self.mean_aggr = MeanAggregation()
@@ -238,7 +238,7 @@ class PartialCOMLFrames(LFramesPredictionModule):
 
     def __init__(self):
         super().__init__()
-        self.sampler = sample_lorentz(
+        self.sampler = sampleLorentz(
             trafo_types=["rot", "boost"], axes=[[1, 2], [0, 3]]
         )
         self.mean_aggr = MeanAggregation()
@@ -283,7 +283,7 @@ class RestLFrames(LFramesPredictionModule):
 
     def __init__(self):
         super().__init__()
-        self.sampler = sample_lorentz(
+        self.sampler = sampleLorentz(
             trafo_types=["rot", "rot", "boost"], axes=[[1, 2], [1, 3], [0, 1]]
         )
 
@@ -330,7 +330,7 @@ class PartialRestLFrames(LFramesPredictionModule):
 
     def __init__(self):
         super().__init__()
-        self.sampler = sample_lorentz(
+        self.sampler = sampleLorentz(
             trafo_types=["rot", "boost"], axes=[[1, 2], [0, 3]]
         )
 

@@ -1,7 +1,7 @@
 import torch
 
 
-class sample_lorentz:
+class sampleLorentz:
     """
     Sampler class for random lorentz transformations
     """
