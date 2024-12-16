@@ -39,22 +39,20 @@ class sampleLorentz:
             final_trafo (tensor): tensor of stacked transformation matrices, shape: (batch, 4, 4)
         """
         final_trafo = torch.eye(4).unsqueeze(0).repeat(N, 1, 1).to(device)
-        for i in range(self.num_trafo):
-            if self.trafo_types[i] == "boost":
+        for trafo_type, axes in zip(self.trafo_types, self.axes):
+            if trafo_type == "boost":
                 angle = torch.normal(
                     mean=self.mean_eta.repeat(N), std=self.std_eta.repeat(N)
                 )
                 temp = torch.eye(4).unsqueeze(0).repeat(N, 1, 1).to(device)
-                axes = self.axes[i]
                 temp[:, axes[0], axes[0]] = torch.cosh(angle)
                 temp[:, axes[0], axes[1]] = torch.sinh(angle)
                 temp[:, axes[1], axes[0]] = torch.sinh(angle)
                 temp[:, axes[1], axes[1]] = torch.cosh(angle)
                 final_trafo = torch.einsum("ijk,ikl->ijl", temp, final_trafo)
-            elif self.trafo_types[i] == "rot":
+            elif trafo_type == "rot":
                 angle = torch.rand(N) * 2 * torch.pi
                 temp = torch.eye(4).unsqueeze(0).repeat(N, 1, 1).to(device)
-                axes = self.axes[i]
                 temp[:, axes[0], axes[0]] = torch.cos(angle)
                 temp[:, axes[0], axes[1]] = -torch.sin(angle)
                 temp[:, axes[1], axes[0]] = torch.sin(angle)
@@ -63,7 +61,7 @@ class sampleLorentz:
             else:
                 assert (
                     False
-                ), f"Expected trafo_types 'rot' or 'boost', but got {self.trafo_types[i]} instead."
+                ), f"Expected trafo_types 'rot' or 'boost', but got {trafo_type} instead."
         return final_trafo.to(device)
 
     def matrix(self, N: int = 1, angles: torch.Tensor = None, device: str = "cpu"):
@@ -84,20 +82,16 @@ class sampleLorentz:
         ), f"Need angles for all matrices, but got {angles.shape[0]} instead of {N}!"
 
         final_trafo = torch.eye(4).unsqueeze(0).repeat(N, 1, 1).to(device)
-        for i in range(self.num_trafo):
-            if self.trafo_types[i] == "boost":
-                angle = angles[:, i]
+        for trafo_type, axes, angle in zip(self.trafo_types, self.axes, angles.T):
+            if trafo_type == "boost":
                 temp = torch.eye(4).unsqueeze(0).repeat(N, 1, 1).to(device)
-                axes = self.axes[i]
                 temp[:, axes[0], axes[0]] = torch.cosh(angle)
                 temp[:, axes[0], axes[1]] = torch.sinh(angle)
                 temp[:, axes[1], axes[0]] = torch.sinh(angle)
                 temp[:, axes[1], axes[1]] = torch.cosh(angle)
                 final_trafo = torch.einsum("ijk,ikl->ijl", temp, final_trafo)
-            elif self.trafo_types[i] == "rot":
-                angle = angles[:, i]
+            elif trafo_type == "rot":
                 temp = torch.eye(4).unsqueeze(0).repeat(N, 1, 1).to(device)
-                axes = self.axes[i]
                 temp[:, axes[0], axes[0]] = torch.cos(angle)
                 temp[:, axes[0], axes[1]] = -torch.sin(angle)
                 temp[:, axes[1], axes[0]] = torch.sin(angle)
@@ -106,5 +100,5 @@ class sampleLorentz:
             else:
                 assert (
                     False
-                ), f"Expected trafo_types 'rot' or 'boost', but got {self.trafo_types[i]} instead."
+                ), f"Expected trafo_types 'rot' or 'boost', but got {trafo_type} instead."
         return final_trafo.to(device)
