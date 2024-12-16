@@ -4,7 +4,7 @@ from torch import nn
 from tensorframes.lframes.classical_lframes import (
     IdentityLFrames,
     RandomGlobalLFrames,
-    ThreeNNLFrames,
+    NNLFrames,
     COMLFrames,
     PartialCOMLFrames,
     RestLFrames,
@@ -29,7 +29,7 @@ class LFramesNet(nn.Module):
             std_eta = kwargs.get("std_eta", 1)
             self.net = RandomGlobalLFrames(mean_eta=mean_eta, std_eta=std_eta)
         elif approach == "nn":  # interpretation: equivariant
-            self.net = ThreeNNLFrames()
+            self.net = NNLFrames()
         elif approach == "learned_gramschmidt":  # interpretation: equivariant
             assert radial_module is not None
             hidden_channels = [hidden_channels] * layers

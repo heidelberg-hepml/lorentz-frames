@@ -1,7 +1,7 @@
 import torch
 
 
-def stable_arctanh(x):
+def stable_arctanh(x, eps=1e-3):
     # implementation of arctanh that avoids log(0) issues
     return 0.5 * (torch.log((1 + x).clamp(min=eps)) - torch.log((1 - x).clamp(min=eps)))
 
