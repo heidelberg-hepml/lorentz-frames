@@ -6,6 +6,8 @@ from torch_geometric.nn import knn
 from tensorframes.lframes.gram_schmidt import gram_schmidt
 from tensorframes.lframes.lframes import LFrames
 from tensorframes.utils.utils import stable_arctanh
+from torch_geometric.nn.aggr import MeanAggregation
+from experiments.logger import LOGGER
 
 
 class LFramesPredictionModule(torch.nn.Module):
@@ -185,6 +187,7 @@ class COMLFrames(LFramesPredictionModule):
         self.sampler = sample_lorentz(
             trafo_types=["rot", "rot", "boost"], axes=[[1, 2], [1, 3], [0, 1]]
         )
+        self.mean_aggr = MeanAggregation()
 
     def forward(
         self, pos: torch.Tensor, idx: torch.Tensor = None, batch: torch.Tensor = None
@@ -205,12 +208,9 @@ class COMLFrames(LFramesPredictionModule):
             pos = pos[idx].clone()
             batch = batch[idx].clone()
 
-        batchUni = torch.unique(batch)
-        mean_pos = torch.empty(batchUni.max() + 1, 4, device=pos.device)
-        for i in batchUni:  # this is inefficient but will work for now
-            mean_pos[i] = torch.mean(pos[batch == i], axis=0)
+        mean_pos = self.mean_aggr(pos, batch)
 
-        angles = torch.empty(batchUni.max() + 1, 3, device=pos.device)
+        angles = torch.empty(mean_pos.shape[0], 3, device=pos.device)
         angles[:, 0] = -torch.arctan(mean_pos[:, 2] / mean_pos[:, 1])
         angles[:, 1] = -torch.arctan(
             mean_pos[:, 3]
@@ -224,7 +224,7 @@ class COMLFrames(LFramesPredictionModule):
         )
 
         trafo = self.sampler.matrix(
-            N=batchUni.max() + 1, angles=angles, device=pos.device
+            N=mean_pos.shape[0], angles=angles, device=pos.device
         )
         # npos = torch.einsum("nmp,np->nm", trafo[batch], pos)
 
@@ -241,6 +241,7 @@ class PartialCOMLFrames(LFramesPredictionModule):
         self.sampler = sample_lorentz(
             trafo_types=["rot", "boost"], axes=[[1, 2], [0, 3]]
         )
+        self.mean_aggr = MeanAggregation()
 
     def forward(
         self, pos: torch.Tensor, idx: torch.Tensor = None, batch: torch.Tensor = None
@@ -261,17 +262,14 @@ class PartialCOMLFrames(LFramesPredictionModule):
             pos = pos[idx].clone()
             batch = batch[idx].clone()
 
-        batchUni = torch.unique(batch)
-        mean_pos = torch.empty(batchUni.max() + 1, 4, device=pos.device)
-        for i in batchUni:  # this is inefficient but will work for now
-            mean_pos[i] = torch.mean(pos[batch == i], axis=0)
+        mean_pos = self.mean_aggr(pos, batch)
 
-        angles = torch.empty(batchUni.max() + 1, 2, device=pos.device)
+        angles = torch.empty(mean_pos.shape[0], 2, device=pos.device)
         angles[:, 0] = -torch.arctan(mean_pos[:, 2] / mean_pos[:, 1])
         angles[:, 1] = -stable_arctanh(mean_pos[:, 3] / mean_pos[:, 0])
 
         trafo = self.sampler.matrix(
-            N=batchUni.max() + 1, angles=angles, device=pos.device
+            N=mean_pos.shape[0], angles=angles, device=pos.device
         )
         # npos = torch.einsum("nmp,np->nm", trafo[batch], pos)
 
