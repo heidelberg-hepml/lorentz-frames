@@ -20,7 +20,7 @@ class sample_lorentz:
             trafo_types (list): List of trafo_types in order, eg. ["rot", "boost", "rot"]
             axes (list): List of rotation / boost axes in order eg. [[1,2],[0,1],[1,3]]
             mean_eta (float): mean value for rapidity, used for sampling from normal distribution, defaults to 0
-            std_eta (float): std of rapidity, used for sampleing from normal distribution, defaults to 1
+            std_eta (float): std of rapidity, used for sampling from normal distribution, defaults to 1
         """
         self.trafo_types = trafo_types
         self.axes = axes

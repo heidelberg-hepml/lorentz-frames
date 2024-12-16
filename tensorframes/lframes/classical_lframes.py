@@ -13,7 +13,7 @@ class LFramesPredictionModule(torch.nn.Module):
         super().__init__()
 
     def forward(self, *args, **kwargs) -> LFrames:
-        assert NotImplementedError, "Subclasses must implement this method."
+        raise NotImplementedError, "Subclasses must implement this method."
 
 
 class NNLFrames(LFramesPredictionModule):
