@@ -14,7 +14,7 @@ class GramSchmidtUpdateLFrames(torch.nn.Module):
 
     def __init__(
         self,
-        in_reps: Union[TensorReps],
+        in_reps: TensorReps,
         hidden_channels: list,
         exceptional_choice: str = "random",
         use_double_cross_product: bool = False,
@@ -23,7 +23,7 @@ class GramSchmidtUpdateLFrames(torch.nn.Module):
         """Initialize the GramSchmidtUpdateLFrames module.
 
         Args:
-            in_reps (Union[TensorReps, Irreps]): List of input representations.
+            in_reps (TensorReps): List of input representations.
             hidden_channels (list): List of hidden channel sizes for the MLP.
             exceptional_choice (str, optional): Choice of exceptional index. Defaults to "random".
             use_double_cross_product (bool, optional): Whether to use the double cross product to predict the vectors. Defaults to False.
