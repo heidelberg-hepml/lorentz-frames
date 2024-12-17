@@ -117,10 +117,10 @@ class RandomLFrames(LFramesPredictionModule):
 class RandomGlobalLFrames(LFramesPredictionModule):
     """Randomly generates a global frame."""
 
-    def __init__(self, mean_eta, std_eta) -> None:
+    def __init__(self, std_eta) -> None:
         """Initializes an instance of the RandomGlobalLFrames class."""
         super().__init__()
-        self.sampler = sampleLorentz(mean_eta=mean_eta, std_eta=std_eta)
+        self.sampler = sampleLorentz(std_eta=std_eta)
 
     def forward(
         self, pos: Tensor, idx: Tensor | None = None, batch: Tensor | None = None

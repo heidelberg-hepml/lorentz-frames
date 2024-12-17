@@ -25,9 +25,8 @@ class LFramesNet(nn.Module):
         if approach == "identity":  # non-equivariant
             self.net = IdentityLFrames()
         elif approach == "random_global":  # data augmentation
-            mean_eta = kwargs.get("mean_eta", 0)
             std_eta = kwargs.get("std_eta", 1)
-            self.net = RandomGlobalLFrames(mean_eta=mean_eta, std_eta=std_eta)
+            self.net = RandomGlobalLFrames(std_eta=std_eta)
         elif approach == "nn":  # interpretation: equivariant
             self.net = NNLFrames()
         elif approach == "learned_gramschmidt":  # interpretation: equivariant
