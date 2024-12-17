@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 
 
 class sampleLorentz:
@@ -25,11 +26,16 @@ class sampleLorentz:
             std_eta (float): std of rapidity, used for sampleing from normal distribution, defaults to 1
 >>>>>>> 24187c8 (Hard-coded mean_eta to zero for now)
         """
-        self.trafo_types = trafo_types
+        self.trafo_types = np.array(trafo_types)
+        self.num_boosts = (self.trafo_types == "boost").sum()
+        self.num_rots = (self.trafo_types == "rot").sum()
         self.axes = axes
-        self.mean_eta = torch.tensor([0]).to(torch.float)
-        self.std_eta = torch.tensor(std_eta).to(torch.float)
+        self.std_eta = std_eta
         self.num_trafo = len(trafo_types)
+
+        assert (
+            len(trafo_types) == self.num_boosts + self.num_rots
+        ), "trafo_types expect 'rot' or 'boosts', but got other input"
 
     def rand_matrix(self, N: int = 1, device: str = "cpu"):
         """
@@ -41,31 +47,16 @@ class sampleLorentz:
         Returns:
             final_trafo (tensor): tensor of stacked transformation matrices, shape: (batch, 4, 4)
         """
-        final_trafo = torch.eye(4).unsqueeze(0).repeat(N, 1, 1).to(device)
-        for trafo_type, axes in zip(self.trafo_types, self.axes):
-            if trafo_type == "boost":
-                angle = torch.normal(
-                    mean=self.mean_eta.repeat(N), std=self.std_eta.repeat(N)
-                )
-                temp = torch.eye(4).unsqueeze(0).repeat(N, 1, 1).to(device)
-                temp[:, axes[0], axes[0]] = torch.cosh(angle)
-                temp[:, axes[0], axes[1]] = torch.sinh(angle)
-                temp[:, axes[1], axes[0]] = torch.sinh(angle)
-                temp[:, axes[1], axes[1]] = torch.cosh(angle)
-                final_trafo = torch.einsum("ijk,ikl->ijl", temp, final_trafo)
-            elif trafo_type == "rot":
-                angle = torch.rand(N) * 2 * torch.pi
-                temp = torch.eye(4).unsqueeze(0).repeat(N, 1, 1).to(device)
-                temp[:, axes[0], axes[0]] = torch.cos(angle)
-                temp[:, axes[0], axes[1]] = -torch.sin(angle)
-                temp[:, axes[1], axes[0]] = torch.sin(angle)
-                temp[:, axes[1], axes[1]] = torch.cos(angle)
-                final_trafo = torch.einsum("ijk,ikl->ijl", temp, final_trafo)
-            else:
-                assert (
-                    False
-                ), f"Expected trafo_types 'rot' or 'boost', but got {trafo_type} instead."
-        return final_trafo.to(device)
+        angles = torch.empty((N, len(self.trafo_types)), device=device)
+
+        angles[:, self.trafo_types == "boost"] = (
+            torch.randn((N, self.num_boosts), device=device) * self.std_eta
+        )
+        angles[:, self.trafo_types == "rot"] = (
+            torch.rand((N, self.num_rots), device=device) * 2 * torch.pi
+        )
+
+        return self.matrix(N=N, angles=angles, device=device)
 
     def matrix(self, N: int = 1, angles: torch.Tensor = None, device: str = "cpu"):
         """
