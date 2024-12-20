@@ -90,15 +90,19 @@ def gram_schmidt(
             zeroNorm = norm < eps
             if zeroNorm.sum().item() != 0:  # linearly alligned elements / zero norm
                 if exceptional_choice == "random":
-                    orthogonalized_vectors[zeroNorm, index, :] = (
+                    orthogonalized_vectors[zeroNorm, index, :] += (
                         torch.rand(
                             orthogonalized_vectors[zeroNorm, index, :].shape,
                             device=device,
                         )
                         - 0.5
                     )
+                elif exceptional_choice == "zero":
+                    orthogonalized_vectors[zeroNorm, index, :] = torch.zeros(
+                        orthogonalized_vectors[zeroNorm, index, :].shape, device=device
+                    )
             else:
-                orthogonalized_vectors[:, index] /= norm.unsqueeze(-1)
+                orthogonalized_vectors[:, index] /= norm.unsqueeze(-1) + 1e-6
                 error = False
     if vectors.shape[1:] == (3, 4):
         orthogonalized_vectors = torch.cat(
