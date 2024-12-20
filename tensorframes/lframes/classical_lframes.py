@@ -15,7 +15,7 @@ class LFramesPredictionModule(torch.nn.Module):
         super().__init__()
 
     def forward(self, *args, **kwargs) -> LFrames:
-        raise NotImplementedError, "Subclasses must implement this method."
+        raise NotImplementedError("Subclasses must implement this method.")
 
 
 class NNLFrames(LFramesPredictionModule):
@@ -208,19 +208,24 @@ class COMLFrames(LFramesPredictionModule):
             pos = pos[idx].clone()
             batch = batch[idx].clone()
 
+        device = pos.device
         mean_pos = self.mean_aggr(pos, batch)
 
-        angles = torch.empty(mean_pos.shape[0], 3, device=pos.device)
-        angles[:, 0] = -torch.arctan(mean_pos[:, 2] / mean_pos[:, 1])
-        angles[:, 1] = -torch.arctan(
-            mean_pos[:, 3]
-            / (
-                mean_pos[:, 1] * torch.cos(angles[:, 0])
-                - mean_pos[:, 2] * torch.sin(angles[:, 0])
-            )
+        angles = []
+        angles.append(-torch.arctan(mean_pos[:, 2] / mean_pos[:, 1]).to(device))
+        angles.append(
+            -torch.arctan(
+                mean_pos[:, 3]
+                / (
+                    mean_pos[:, 1] * torch.cos(angles[0])
+                    - mean_pos[:, 2] * torch.sin(angles[0])
+                )
+            ).to(device)
         )
-        angles[:, 2] = -stable_arctanh(
-            torch.linalg.norm(mean_pos[:, 1:], dim=1) / mean_pos[:, 0]
+        angles.append(
+            -stable_arctanh(
+                torch.linalg.norm(mean_pos[:, 1:], dim=1) / mean_pos[:, 0]
+            ).to(device)
         )
 
         trafo = self.sampler.matrix(
@@ -257,16 +262,16 @@ class PartialCOMLFrames(LFramesPredictionModule):
         Return:
             Lframes of the graphs
         """
-
+        device = pos.device
         if idx is not None:
             pos = pos[idx].clone()
             batch = batch[idx].clone()
 
         mean_pos = self.mean_aggr(pos, batch)
 
-        angles = torch.empty(mean_pos.shape[0], 2, device=pos.device)
-        angles[:, 0] = -torch.arctan(mean_pos[:, 2] / mean_pos[:, 1])
-        angles[:, 1] = -stable_arctanh(mean_pos[:, 3] / mean_pos[:, 0])
+        angles = []
+        angles.append(-torch.arctan(mean_pos[:, 2] / mean_pos[:, 1]).to(device))
+        angles.append(-stable_arctanh(mean_pos[:, 3] / mean_pos[:, 0]).to(device))
 
         trafo = self.sampler.matrix(
             N=mean_pos.shape[0], angles=angles, device=pos.device
@@ -301,21 +306,22 @@ class RestLFrames(LFramesPredictionModule):
         Return:
             Lframes of the graphs
         """
-
+        device = pos.device
         if idx is not None:
             pos = pos[idx].clone()
             batch = batch[idx].clone()
 
-        angles = torch.empty(len(pos), 3, device=pos.device)
-        angles[:, 0] = -torch.arctan(pos[:, 2] / pos[:, 1])
-        angles[:, 1] = -torch.arctan(
-            pos[:, 3]
-            / (
-                pos[:, 1] * torch.cos(angles[:, 0])
-                - pos[:, 2] * torch.sin(angles[:, 0])
-            )
+        angles = []
+        angles.append(-torch.arctan(pos[:, 2] / pos[:, 1]).to(device))
+        angles.append(
+            -torch.arctan(
+                pos[:, 3]
+                / (pos[:, 1] * torch.cos(angles[0]) - pos[:, 2] * torch.sin(angles[0]))
+            ).to(device)
         )
-        angles[:, 2] = -stable_arctanh(torch.linalg.norm(pos[:, 1:], dim=1) / pos[:, 0])
+        angles.append(
+            -stable_arctanh(torch.linalg.norm(pos[:, 1:], dim=1) / pos[:, 0]).to(device)
+        )
 
         trafo = self.sampler.matrix(N=len(pos), angles=angles, device=pos.device)
         # npos = torch.einsum("nmp,np->nm", trafo[batch], pos)
@@ -348,14 +354,14 @@ class PartialRestLFrames(LFramesPredictionModule):
         Return:
             Lframes of the graphs
         """
-
+        device = pos.device
         if idx is not None:
             pos = pos[idx].clone()
             batch = batch[idx].clone()
 
-        angles = torch.empty(len(pos), 2, device=pos.device)
-        angles[:, 0] = -torch.arctan(pos[:, 2] / pos[:, 1])
-        angles[:, 1] = -stable_arctanh(pos[:, 3] / pos[:, 0])
+        angles = []
+        angles.append(-torch.arctan(pos[:, 2] / pos[:, 1]).to(device))
+        angles.append(-stable_arctanh(pos[:, 3] / pos[:, 0]).to(device))
 
         trafo = self.sampler.matrix(N=len(pos), angles=angles, device=pos.device)
         # npos = torch.einsum("nmp,np->nm", trafo[batch], pos)

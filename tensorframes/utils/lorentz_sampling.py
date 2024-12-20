@@ -19,12 +19,7 @@ class sampleLorentz:
         Args:
             trafo_types (list): List of trafo_types in order, eg. ["rot", "boost", "rot"]
             axes (list): List of rotation / boost axes in order eg. [[1,2],[0,1],[1,3]]
-<<<<<<< HEAD
-            mean_eta (float): mean value for rapidity, used for sampling from normal distribution, defaults to 0
-            std_eta (float): std of rapidity, used for sampling from normal distribution, defaults to 1
-=======
             std_eta (float): std of rapidity, used for sampleing from normal distribution, defaults to 1
->>>>>>> 24187c8 (Hard-coded mean_eta to zero for now)
         """
         self.trafo_types = np.array(trafo_types)
         self.num_boosts = (self.trafo_types == "boost").sum()
@@ -64,13 +59,13 @@ class sampleLorentz:
 
         Args:
             N (int): Number of the transformation matrices to create / number of independent transformed systems i.e. graphs / jets
-            angles (torch.tensor): angles to be used for matrices, shape: (N, num_trafos)
+            angles List(torch.tensor): angles to be used for matrices, shape: num_trafos(N)
 
         Returns:
             final_trafo (torch.Tensor): transformation tensors of shape (N, 4, 4)
         """
         if not isinstance(angles, torch.Tensor):
-            angles = torch.tensor(angles)
+            angles = torch.stack(angles, dim=1)
         assert (
             angles.shape[0] == N
         ), f"Need angles for all matrices, but got {angles.shape[0]} instead of {N}!"
