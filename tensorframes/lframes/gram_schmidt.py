@@ -172,6 +172,6 @@ def is_orthogonal(vec):
     vec2[:, :, 0] *= -1
 
     prod = torch.round(torch.einsum("ijk,imk->ijm", vec, vec2).abs().sqrt(), decimals=2)
-    return (prod == torch.eye(4).unsqueeze(0).repeat(prod.shape[0], 1, 1)).all(
-        dim=(1, 2)
-    ), prod
+    return (
+        (prod - torch.eye(4).unsqueeze(0).repeat(prod.shape[0], 1, 1)).abs() < eps
+    ).all(dim=(1, 2))
