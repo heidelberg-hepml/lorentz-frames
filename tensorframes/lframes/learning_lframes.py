@@ -30,6 +30,7 @@ class LearnedGramSchmidtLFrames(MessagePassing):
         concat_receiver: bool = True,
         exceptional_choice: str = "random",
         envelope: Union[torch.nn.Module, None] = EnvelopePoly(5),
+        normalized_last: bool = True,
         **mlp_kwargs: dict,
     ) -> None:
         """Initialize the LearnedGramSchmidtLFrames model.
@@ -44,12 +45,14 @@ class LearnedGramSchmidtLFrames(MessagePassing):
             concat_receiver (bool, optional): Whether to concatenate the receiver input to the mlp input. Defaults to True.
             exceptional_choice (str, optional): The exceptional choice, which is used by gram schmidt. Defaults to "random".
             envelope (Union[torch.nn.Module, None], optional): The envelope module. Defaults to EnvelopePoly(5).
+            normalized_last (bool): wheter to normalize the last vector in gram schmidt, computed with cross product
             **mlp_kwargs (dict): Additional keyword arguments for the MLP.
         """
         super().__init__()
         self.even_scalar_input_dim = even_scalar_input_dim
         self.radial_dim = radial_dim
 
+        self.normalized_last = normalized_last
         self.hidden_channels = hidden_channels.copy()
 
         if predict_4:
@@ -115,6 +118,7 @@ class LearnedGramSchmidtLFrames(MessagePassing):
         local_frames = gram_schmidt(
             vectors=vecs,
             exceptional_choice=self.exceptional_choice,
+            normalized_last=self.normalized_last,
         )
 
         return LFrames(local_frames)

@@ -34,7 +34,7 @@ def leinsum(einstr: str, a: torch.Tensor, b: torch.Tensor, dim: int = -1):
 def gram_schmidt(
     vectors,
     eps: float = 2.0e-1,
-    normalized: bool = True,
+    normalized_last: bool = True,
     exceptional_choice: str = "random",
 ) -> torch.Tensor:
     """Applies the Gram-Schmidt process to a set of input vectors to orthogonalize them.
@@ -42,7 +42,7 @@ def gram_schmidt(
     Args:
         vectors (Tensor): The input vectors. shape (N, 4, 4) or (N, 3, 4) (size, vectors, dims)
         eps (float, optional): A small value used for numerical stability. Defaults to 2.0e-1.
-        normalized (bool, optional): Whether to normalize the output vectors. Defaults to True.
+        normalized_last (bool, optional): Whether to normalize the last vector when using the cross product to get it.
         exceptional_choice (str, optional): The method to handle exceptional cases where the input vectors have zero length.
             Can be either "random" to use a random vector instead, or "zero" to set the vectors to zero.
             Defaults to "random".
@@ -51,7 +51,6 @@ def gram_schmidt(
         Tensor: A tensor containing the orthogonalized vectors the tensor has shape (N, 4, 4).
     """
 
-    assert normalized == True
     assert (
         exceptional_choice == "random" or exceptional_choice == "zero"
     ), "Exception Choice needs to be 'zero' or 'random'"
@@ -154,7 +153,8 @@ def gram_schmidt(
             .abs()
             .sqrt()
         )
-        orthogonalized_vectors[:, -1] /= norm.unsqueeze(-1)
+        if normalized_last:
+            orthogonalized_vectors[:, -1] /= norm.unsqueeze(-1) + 1e-6
 
     return orthogonalized_vectors
 

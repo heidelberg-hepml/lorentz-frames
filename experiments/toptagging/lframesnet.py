@@ -16,7 +16,14 @@ from tensorframes.reps import TensorReps
 
 class LFramesNet(nn.Module):
     def __init__(
-        self, approach, layers, hidden_channels, radial_module, in_reps, **kwargs
+        self,
+        approach,
+        layers,
+        hidden_channels,
+        radial_module,
+        in_reps,
+        normalized_last: bool = True,
+        **kwargs,
     ):
         super().__init__()
         self.in_reps = in_reps
@@ -28,7 +35,7 @@ class LFramesNet(nn.Module):
             std_eta = kwargs.get("std_eta", 1)
             self.net = RandomGlobalLFrames(std_eta=std_eta)
         elif approach == "nn":  # interpretation: equivariant
-            self.net = NNLFrames()
+            self.net = NNLFrames(normalized_last=normalized_last)
         elif approach == "learned_gramschmidt":  # interpretation: equivariant
             assert radial_module is not None
             hidden_channels = [hidden_channels] * layers
@@ -38,6 +45,7 @@ class LFramesNet(nn.Module):
                 hidden_channels=hidden_channels,
                 radial_module=radial_module,
                 predict_4=False,
+                normalized_last=normalized_last,
             )
         elif approach == "COM":
             self.net = COMLFrames()

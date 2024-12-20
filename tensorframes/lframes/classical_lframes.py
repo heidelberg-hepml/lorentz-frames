@@ -24,9 +24,10 @@ class NNLFrames(LFramesPredictionModule):
     The Frames are SO(1,3) equivariant.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, normalized_last: bool = True) -> None:
         """Initializes an instance of the NNLFrames class."""
         super().__init__()
+        self.normalized_last = normalized_last
 
     def forward(
         self, pos: Tensor, idx: Tensor | None = None, batch: Tensor | None = None
@@ -74,7 +75,7 @@ class NNLFrames(LFramesPredictionModule):
         z_axis = pos[col[:, 2]] - pos[row]
 
         vectors = torch.stack((x_axis, y_axis, z_axis), axis=-2)
-        matrices = gram_schmidt(vectors)
+        matrices = gram_schmidt(vectors, normalized_last=self.normalized_last)
 
         return LFrames(matrices)
 
