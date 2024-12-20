@@ -31,6 +31,7 @@ class LearnedGramSchmidtLFrames(MessagePassing):
         exceptional_choice: str = "random",
         envelope: Union[torch.nn.Module, None] = EnvelopePoly(5),
         normalized_last: bool = True,
+        normalize_contributions: bool = False,
         **mlp_kwargs: dict,
     ) -> None:
         """Initialize the LearnedGramSchmidtLFrames model.
@@ -46,12 +47,14 @@ class LearnedGramSchmidtLFrames(MessagePassing):
             exceptional_choice (str, optional): The exceptional choice, which is used by gram schmidt. Defaults to "random".
             envelope (Union[torch.nn.Module, None], optional): The envelope module. Defaults to EnvelopePoly(5).
             normalized_last (bool): wheter to normalize the last vector in gram schmidt, computed with cross product
+            normalize_contributions (bool): whether to normalize the contributions of the relative vectors, this can lead to problems when the norm becomes zero
             **mlp_kwargs (dict): Additional keyword arguments for the MLP.
         """
         super().__init__()
         self.even_scalar_input_dim = even_scalar_input_dim
         self.radial_dim = radial_dim
 
+        self.normalize_contributions = normalize_contributions
         self.normalized_last = normalized_last
         self.hidden_channels = hidden_channels.copy()
 
@@ -161,9 +164,13 @@ class LearnedGramSchmidtLFrames(MessagePassing):
         mlp_out = self.mlp(x=inp, batch=batch_j)
 
         relative_vec = pos_j - pos_i
-        # relative_norm = torch.clamp(leinsum("...i,...i", relative_vec,relative_vec, dim=-1).abs().sqrt(), 1e-6).unsqueeze(-1)
 
-        # relative_vec = relative_vec / relative_norm
+        if self.normalize_contributions:
+            relative_norm = torch.clamp(
+                leinsum("...i,...i", relative_vec, relative_vec, dim=-1).abs().sqrt(),
+                1e-6,
+            ).unsqueeze(-1)
+            relative_vec = relative_vec / relative_norm
 
         out = torch.einsum(
             "ij,ik->ijk", mlp_out, relative_vec

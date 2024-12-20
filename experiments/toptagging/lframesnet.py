@@ -46,6 +46,7 @@ class LFramesNet(nn.Module):
                 radial_module=radial_module,
                 predict_4=False,
                 normalized_last=normalized_last,
+                normalize_contributions=False,
             )
         elif approach == "COM":
             self.net = COMLFrames()
