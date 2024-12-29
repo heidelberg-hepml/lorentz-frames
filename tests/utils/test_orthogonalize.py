@@ -1,7 +1,8 @@
 import torch
 import pytest
+from tests.constants import TOLERANCES, BATCH_DIMS
+
 from tensorframes.utils.orthogonalize import lorentz_cross
-from tests.constants import MILD_TOLERANCES
 
 
 def lorentz_inner(v1, v2):
@@ -10,7 +11,7 @@ def lorentz_inner(v1, v2):
     return prod.sum(dim=-1)
 
 
-@pytest.mark.parametrize("shape", [[10, 10, 10], [10000]])
+@pytest.mark.parametrize("shape", BATCH_DIMS)
 def test_lorentz_cross(shape):
     # cross product of 3 random vectors
     v1 = torch.randn(shape + [4])
@@ -25,6 +26,6 @@ def test_lorentz_cross(shape):
 
     # check that the inner products vanish
     zeros = torch.zeros_like(inner14)
-    torch.testing.assert_close(inner14, zeros, **MILD_TOLERANCES)
-    torch.testing.assert_close(inner24, zeros, **MILD_TOLERANCES)
-    torch.testing.assert_close(inner34, zeros, **MILD_TOLERANCES)
+    torch.testing.assert_close(inner14, zeros, **TOLERANCES)
+    torch.testing.assert_close(inner24, zeros, **TOLERANCES)
+    torch.testing.assert_close(inner34, zeros, **TOLERANCES)
