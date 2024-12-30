@@ -1,5 +1,7 @@
 import torch
 
+from tensorframes.utils.utils import stable_arctanh
+
 EPS = 1e-10
 CUTOFF = 10
 
@@ -8,11 +10,6 @@ def unpack_last(x):
     # unpack along the last dimension
     n = len(x.shape)
     return torch.permute(x, (n - 1, *list(range(n - 1))))
-
-
-def stable_arctanh(x, eps=EPS):
-    # implementation of arctanh that avoids log(0) issues
-    return 0.5 * (torch.log((1 + x).clamp(min=eps)) - torch.log((1 - x).clamp(min=eps)))
 
 
 def EPPP_to_PtPhiEtaM2(fourmomenta, sqrt_mass=False):
