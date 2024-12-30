@@ -70,13 +70,16 @@ class LFrames:
         ), f"Rotations must be of shape (..., spatial_dim, spatial_dim) or (spatial_dim, spatial_dim), but found dim {matrices.shape[-2:]} instead"
 
         self._device = matrices.device
+        self._dtype = (
+            torch.float32 if isinstance(matrices, torch.nn.Identity) else matrices.dtype
+        )
         self._matrices = matrices
         self.spatial_dim = spatial_dim
         self._is_global = is_global
 
         self.metric = torch.diag(
             torch.tensor(
-                [1.0, -1.0, -1.0, -1.0], device=self._device, dtype=matrices.dtype
+                [1.0, -1.0, -1.0, -1.0], device=self._device, dtype=self._dtype
             )
         )
         self._det = None
@@ -127,6 +130,15 @@ class LFrames:
             torch.device: Device of the Lorentz transformation.
         """
         return self._device
+
+    @property
+    def dtype(self) -> torch.dtype:
+        """Dtype of the Lorentz transformation.
+
+        Returns:
+            torch.dtype: Dtype of the Lorentz transformation.
+        """
+        return self._dtype
 
     @property
     def matrices(self) -> torch.Tensor:
@@ -309,6 +321,10 @@ class IndexSelectLFrames(LFrames):
     def device(self):
         return self._lframes.device
 
+    @property
+    def dtype(self):
+        return self._lframes.dtype
+
     def index_select(self, indices: torch.Tensor) -> LFrames:
         """Selects the rotation matrices corresponding to the given indices."""
         indexed_indices = self._indices.index_select(0, indices)
@@ -351,7 +367,9 @@ class ChangeOfLFrames:
 
         self.metric = torch.diag(
             torch.tensor(
-                [1.0, -1.0, -1.0, -1.0], device=self.device, dtype=lframes_start.dtype
+                [1.0, -1.0, -1.0, -1.0],
+                device=self.device,
+                dtype=lframes_start.dtype,
             )
         )
         self._det = None
@@ -396,6 +414,15 @@ class ChangeOfLFrames:
             torch.device: Device of the Lorentz transformation.
         """
         return self.matrices.device
+
+    @property
+    def dtype(self) -> torch.dtype:
+        """Dtype of the Lorentz transformation.
+
+        Returns:
+            torch.dtype: Dtype of the Lorentz transformation.
+        """
+        return self._lframes_start.dtype
 
     @property
     def matrices(self):
