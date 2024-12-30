@@ -27,4 +27,4 @@ def test_lorentz_cross(shape, n_range, std_eta):
     test = torch.einsum(
         "...ij,...jk,...kl->...il", transform, metric, transform.transpose(-1, -2)
     )
-    torch.testing.assert_allclose(test, metric, **TOLERANCES)
+    torch.testing.assert_close(test, metric, **TOLERANCES)
