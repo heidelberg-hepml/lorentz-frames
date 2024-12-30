@@ -1,5 +1,5 @@
 import torch
-from tensorframes.utils.einsum import leinsum
+from tensorframes.utils.lorentz import leinsum
 
 
 def gram_schmidt(
