@@ -75,7 +75,9 @@ class LFrames:
         self._is_global = is_global
 
         self.metric = torch.diag(
-            torch.tensor([1.0, -1.0, -1.0, -1.0], device=self._device)
+            torch.tensor(
+                [1.0, -1.0, -1.0, -1.0], device=self._device, dtype=matrices.dtype
+            )
         )
         self._det = None
         self._inv = None
@@ -348,7 +350,9 @@ class ChangeOfLFrames:
         self.spatial_dim = lframes_start.spatial_dim
 
         self.metric = torch.diag(
-            torch.tensor([1.0, -1.0, -1.0, -1.0], device=self.device)
+            torch.tensor(
+                [1.0, -1.0, -1.0, -1.0], device=self.device, dtype=lframes_start.dtype
+            )
         )
         self._det = None
         self._inv = None
