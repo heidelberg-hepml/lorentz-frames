@@ -24,13 +24,13 @@ def test_constructor(LFramesPredictor, shape):
     # transform into local frames
     reps = TensorReps("1x1n")
     trafo = TensorReps(reps).get_transform_class()
-    x_transformed = trafo(fourmomenta, lframes)
+    fourmomenta_local = trafo(fourmomenta, lframes)
 
     if LFramesPredictor == IdentityLFrames:
         # fourmomenta should not change
-        torch.testing.assert_close(x_transformed, fourmomenta, **TOLERANCES)
+        torch.testing.assert_close(fourmomenta_local, fourmomenta, **TOLERANCES)
     elif LFramesPredictor == RandomPhiLFrames:
         # energy and pz should not change
         torch.testing.assert_close(
-            x_transformed[..., [0, 3]], fourmomenta[..., [0, 3]], **TOLERANCES
+            fourmomenta_local[..., [0, 3]], fourmomenta[..., [0, 3]], **TOLERANCES
         )
