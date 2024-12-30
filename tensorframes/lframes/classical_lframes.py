@@ -1,5 +1,5 @@
 import torch
-from tensorframes.utils.lorentz_sampling import sampleLorentz
+from tensorframes.utils.transforms import sampleLorentz
 from torch import Tensor
 from torch_geometric.nn import knn
 

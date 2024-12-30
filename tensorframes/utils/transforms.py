@@ -1,5 +1,7 @@
 import torch
 import numpy as np
+from random import randint
+from typing import List
 
 
 class sampleLorentz:
@@ -91,3 +93,110 @@ class sampleLorentz:
                     False
                 ), f"Expected trafo_types 'rot' or 'boost', but got {trafo_type} instead."
         return final_trafo.to(device)
+
+
+"""
+Similar implementation without class
+"""
+
+
+def get_trafo_type(axis):
+    return torch.any(axis == 0, dim=0)
+
+
+def transform(
+    axes: List[int],
+    angles: List[torch.Tensor],
+):
+    """
+    Recursively build transformation matrices based on given lists of axes and angles
+
+    Args:
+        axes: List[torch.Tensor] with elements of shape (2,*dims)
+            Axes along which the transformations are performed
+            Note that this object contains the trafo_types information,
+            because 'trafo_type = 1 if 0 in angle else 0'
+        angles: List[torch.tensor] with elements of shape (*dims,)
+            Angles used for the transformations,
+            can be either rotation angles or rapidities
+
+    Returns:
+        final_trafo: torch.Tensor of shape (*dims, 4, 4)
+    """
+    assert len(axes) == len(angles)
+    dims = angles[0].shape
+    assert all([angle.shape == dims for angle in angles])
+    assert all([axis[0].shape == dims for axis in axes])
+    assert all([axis[1].shape == dims for axis in axes])
+
+    def eye_like(tensor):
+        eye = torch.eye(4, dtype=tensor.dtype, device=tensor.device)
+        eye = eye.view((1,) * len(dims) + eye.shape).repeat(*dims, 1, 1)
+        return eye
+
+    final_trafo = eye_like(angles[0])
+    for axis, angle in zip(axes, angles):
+        trafo = eye_like(angle)
+        trafo_type = get_trafo_type(axis)
+
+        meshgrid = torch.meshgrid(*[torch.arange(d) for d in dims], indexing="ij")
+        trafo[(*meshgrid, axis[0], axis[0])] = torch.where(
+            trafo_type, torch.cosh(angle), torch.cos(angle)
+        )
+        trafo[(*meshgrid, axis[0], axis[1])] = torch.where(
+            trafo_type, torch.sinh(angle), -torch.sin(angle)
+        )
+        trafo[(*meshgrid, axis[1], axis[0])] = torch.where(
+            trafo_type, torch.sinh(angle), torch.sin(angle)
+        )
+        trafo[(*meshgrid, axis[1], axis[1])] = torch.where(
+            trafo_type, torch.cosh(angle), torch.cos(angle)
+        )
+        final_trafo = torch.einsum("...jk,...kl->...jl", trafo, final_trafo)
+    return final_trafo
+
+
+def rand_transform(
+    shape: List[int],
+    n_range: List[int] = [3, 5],
+    std_eta: float = 1,
+    device: str = "cpu",
+    dtype: torch.dtype = torch.float32,
+):
+    """
+    Create N transformation matrices
+
+    Args:
+        shape: List[int]
+            Shape of the transformation matrices
+        n_range: List[int] = [3, 5]
+            Range of number of transformations
+            Warning: For too many transformations, the matrix might not be orthogonal
+            because numerical errors add up
+        std_eta: float
+            Standard deviation of rapidity
+        device: str
+        dtype: torch.dtype
+
+    Returns:
+        final_trafo: torch.tensor of shape (*shape, 4, 4)
+    """
+    n_transforms = randint(*n_range)
+    assert n_transforms > 0
+
+    axes, angles = [], []
+    for _ in range(n_transforms):
+        axis0 = torch.randint(0, 4, shape, device=device)
+        axis1 = (axis0 + torch.randint(1, 4, shape, device=device)) % 4
+        axis = torch.stack([axis0, axis1], dim=0)
+        axes.append(axis)
+
+        trafo_type = get_trafo_type(axis)
+        angle = torch.where(
+            trafo_type,
+            torch.randn(*shape, device=device, dtype=dtype) * std_eta,
+            torch.rand(*shape, device=device, dtype=dtype) * 2 * torch.pi,
+        )
+        angles.append(angle)
+
+    return transform(axes, angles)
