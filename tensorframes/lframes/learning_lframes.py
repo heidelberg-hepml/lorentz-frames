@@ -6,7 +6,8 @@ from torch.nn import Module
 from torch_geometric.nn import MessagePassing
 from torch_geometric.typing import PairTensor
 
-from tensorframes.lframes.gram_schmidt import gram_schmidt, leinsum
+from tensorframes.utils.einsum import leinsum
+from tensorframes.lframes.gram_schmidt import gram_schmidt
 from tensorframes.lframes.lframes import LFrames
 from tensorframes.nn.embedding.radial import RadialEmbedding
 from tensorframes.nn.envelope import EnvelopePoly

@@ -2,13 +2,8 @@ import torch
 import pytest
 from tests.constants import TOLERANCES, BATCH_DIMS
 
+from tensorframes.utils.lorentz import lorentz_inner
 from tensorframes.utils.orthogonalize import lorentz_cross
-
-
-def lorentz_inner(v1, v2):
-    prod = v1 * v2
-    prod *= torch.tensor([1, -1, -1, -1], device=v1.device, dtype=v1.dtype)
-    return prod.sum(dim=-1)
 
 
 @pytest.mark.parametrize("shape", BATCH_DIMS)
