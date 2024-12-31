@@ -71,7 +71,7 @@ class LFrames:
 
         self._device = matrices.device
         self._dtype = (
-            torch.float32 if isinstance(matrices, torch.nn.Identity) else matrices.dtype
+            None if isinstance(matrices, torch.nn.Identity) else matrices.dtype
         )
         self._matrices = matrices
         self.spatial_dim = spatial_dim
@@ -180,7 +180,7 @@ class LFrames:
 
 
 class InvLFrames(LFrames):
-    """Represents the inverse of a collection of o3 matrices."""
+    """Represents the inverse of a collection of Lorentz transformations."""
 
     def __init__(self, lframes: LFrames) -> None:
         """Initialize the InvLFrames class.
@@ -193,6 +193,7 @@ class InvLFrames(LFrames):
         """
         self._lframes = lframes
         self.spatial_dim = lframes.spatial_dim
+        self._is_global = lframes._is_global
 
         self._det = None
         self._inv = None
@@ -217,7 +218,7 @@ class InvLFrames(LFrames):
 
     @property
     def det(self) -> torch.Tensor:
-        """Determinant of the o3 matrices.
+        """Determinant of the Lorentz transformation.
 
         Returns:
             torch.Tensor: Tensor containing the determinants.
@@ -228,7 +229,7 @@ class InvLFrames(LFrames):
 
     @property
     def inv(self) -> torch.Tensor:
-        """Inverse of the o3 matrices.
+        """Inverse of the Lorentz transformation.
 
         Returns:
             torch.Tensor: Tensor containing the inverses.
@@ -297,7 +298,7 @@ class IndexSelectLFrames(LFrames):
 
     @property
     def det(self) -> torch.Tensor:
-        """Determinant of the o3 matrices.
+        """Determinant of the Lorentz transformation.
 
         Returns:
             torch.Tensor: Tensor containing the determinants.
@@ -308,7 +309,7 @@ class IndexSelectLFrames(LFrames):
 
     @property
     def inv(self) -> torch.Tensor:
-        """Inverse of the o3 matrices.
+        """Inverse of the Lorentz transformation.
 
         Returns:
             torch.Tensor: Tensor containing the inverses.
