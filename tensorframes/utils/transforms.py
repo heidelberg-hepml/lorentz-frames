@@ -192,6 +192,7 @@ def rand_transform(
     for _ in range(n_transforms):
         axis0 = torch.randint(0, 4, shape, device=device)
         axis1 = (axis0 + torch.randint(1, 4, shape, device=device)) % 4
+        assert (axis0 != axis1).all()
         axis = torch.stack([axis0, axis1], dim=0)
         axes.append(axis)
 
@@ -204,6 +205,72 @@ def rand_transform(
         angles.append(angle)
 
     return transform(axes, angles)
+
+
+def rand_rotation(
+    shape: List[int],
+    n_range: List[int] = [3, 5],
+    device: str = "cpu",
+    dtype: torch.dtype = torch.float32,
+):
+    """
+    Create N rotation matrices embedded in the Lorentz group
+    This function is very similar to rand_transform,
+    differing only in how axis and angle are created
+
+    Args:
+        shape: List[int]
+            Shape of the transformation matrices
+        n_range: List[int] = [3, 5]
+            Range of number of transformations
+            Warning: For too many transformations, the matrix might not be orthogonal
+            because numerical errors add up
+        device: str
+        dtype: torch.dtype
+
+    Returns:
+        final_trafo: torch.tensor of shape (*shape, 4, 4)
+    """
+    n_transforms = randint(*n_range)
+    assert n_transforms > 0
+
+    axes, angles = [], []
+    for _ in range(n_transforms):
+        axis0 = torch.randint(1, 4, shape, device=device)
+        axis1 = 1 + (axis0 - 1 + torch.randint(1, 3, shape, device=device)) % 3
+        assert (axis0 != axis1).all()
+        axis = torch.stack([axis0, axis1], dim=0)
+        assert (axis != 0).all()
+        axes.append(axis)
+
+        angle = torch.rand(*shape, device=device, dtype=dtype) * 2 * torch.pi
+        angles.append(angle)
+
+    return transform(axes, angles)
+
+
+def rand_phirotation(
+    shape: List[int],
+    device: str = "cpu",
+    dtype: torch.dtype = torch.float32,
+):
+    """
+    Create N xy-plane rotation matrices embedded in the Lorentz group
+    This function is a special case of rand_rotation
+
+    Args:
+        shape: List[int]
+            Shape of the transformation matrices
+        device: str
+        dtype: torch.dtype
+
+    Returns:
+        final_trafo: torch.tensor of shape (*shape, 4, 4)
+    """
+    axis = torch.tensor([1, 2], dtype=torch.long, device=device)
+    axis = axis.view(2, *([1] * len(shape))).repeat(1, *shape)
+    angle = torch.rand(*shape, device=device, dtype=dtype) * 2 * torch.pi
+    return transform([axis], [angle])
 
 
 def restframe_transform(fourmomenta):

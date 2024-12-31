@@ -1,6 +1,6 @@
 import torch
 from tensorframes.lframes.lframes import LFrames
-from tensorframes.utils.transforms import transform, rand_transform
+from tensorframes.utils.transforms import transform, rand_transform, rand_phirotation
 
 
 class LFramesPredictor(torch.nn.Module):
@@ -47,10 +47,7 @@ class RandomPhiLFrames(LFramesPredictor):
 
     def forward(self, fourmomenta):
         # random rotation around z axis
-        axis = torch.tensor([1, 2], dtype=torch.long, device=fourmomenta.device)
-        axis = axis.unsqueeze(-1)
-        angle = torch.rand(1, device=fourmomenta.device) * 2 * torch.pi
-        matrix = transform([axis], [angle])
+        matrix = rand_phirotation([1], device=fourmomenta.device)
 
         return LFrames.global_trafo(
             device=fourmomenta.device, trafo=matrix, n_batch=fourmomenta.shape[0]
