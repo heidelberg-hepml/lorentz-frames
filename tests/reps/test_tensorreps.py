@@ -37,10 +37,6 @@ def test_tensorreps():
     tensor_reps_transform = TensorRepsTransform(rep)
     transformed_coeffs = tensor_reps_transform(coeffs.clone(), basis_change)
 
-    print(coeffs)
-    print(transformed_coeffs)
-    print(basis_change.det[:, None])
-
     torch.testing.assert_close(
         transformed_coeffs, coeffs * basis_change.det[:, None], **TOLERANCES
     )
