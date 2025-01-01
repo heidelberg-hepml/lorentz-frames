@@ -43,11 +43,11 @@ def test_lframes_transformation(LFramesPredictor, batch_dims, logm2_std, logm2_m
     torch.testing.assert_close(lframes_prime_estimated, lframes_prime, **TOLERANCES)
 
 
-@pytest.mark.parametrize("LFramesPredictor", [ReflectLearnedLFrames])
-@pytest.mark.parametrize("batch_dims", [[2]])
+@pytest.mark.parametrize("LFramesPredictor", [RestLFrames, ReflectLearnedLFrames])
+@pytest.mark.parametrize("batch_dims", [[10]])
 @pytest.mark.parametrize("logm2_std", LOGM2_STD)
 @pytest.mark.parametrize("logm2_mean", LOGM2_MEAN)
-def test_equivariance(LFramesPredictor, batch_dims, logm2_std, logm2_mean):
+def test_feature_invariance(LFramesPredictor, batch_dims, logm2_std, logm2_mean):
     dtype = torch.float64  # required to consistently pass tests
 
     # preparations
@@ -67,20 +67,18 @@ def test_equivariance(LFramesPredictor, batch_dims, logm2_std, logm2_mean):
     # sample Lorentz vectors
     fm = sample_vector(batch_dims, logm2_std, logm2_mean, dtype=dtype)
 
-    random = rand_transform(batch_dims, dtype=dtype)
-    random_lframes = LFrames(random, is_global=True)
+    # random global transformation
+    random = rand_transform([1], dtype=dtype)
+    random = random.repeat(*batch_dims, 1, 1)
 
     # path 1: LFrames transform + random transform
     lframes = call_predictor(fm)
     fm_local = trafo(fm, lframes)
-    fm_local_prime1 = trafo(fm_local, random_lframes)
 
     # path 2: random transform + LFrames transform
     fm_prime = torch.einsum("...ij,...j->...i", random, fm)
     lframes_prime = call_predictor(fm_prime)
-    fm_local_prime2 = trafo(fm_prime, lframes_prime)
+    fm_local_prime = trafo(fm_prime, lframes_prime)
 
-    # test equivariance condition
-    print(fm_local_prime1)
-    print(fm_local_prime2)
-    torch.testing.assert_close(fm_local_prime1, fm_local_prime2, **TOLERANCES)
+    # test that features in local frames are invariant
+    torch.testing.assert_close(fm_local, fm_local_prime, **TOLERANCES)
