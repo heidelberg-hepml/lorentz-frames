@@ -6,12 +6,12 @@ from tensorframes.utils.lorentz import lorentz_inner
 from tensorframes.utils.orthogonalize import lorentz_cross
 
 
-@pytest.mark.parametrize("shape", BATCH_DIMS)
-def test_lorentz_cross(shape):
+@pytest.mark.parametrize("batch_dims", BATCH_DIMS)
+def test_lorentz_cross(batch_dims):
     # cross product of 3 random vectors
-    v1 = torch.randn(shape + [4])
-    v2 = torch.randn(shape + [4])
-    v3 = torch.randn(shape + [4])
+    v1 = torch.randn(batch_dims + [4])
+    v2 = torch.randn(batch_dims + [4])
+    v3 = torch.randn(batch_dims + [4])
     v4 = lorentz_cross(v1, v2, v3)
 
     # compute inner product of 4th vector with the first 3
