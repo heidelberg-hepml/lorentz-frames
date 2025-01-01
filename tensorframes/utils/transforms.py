@@ -4,6 +4,7 @@ from random import randint
 from typing import List
 
 from tensorframes.utils.utils import stable_arctanh
+from tensorframes.utils.lorentz import lorentz_eye
 
 
 class sampleLorentz:
@@ -131,14 +132,9 @@ def transform(
     assert all([axis[0].shape == dims for axis in axes])
     assert all([axis[1].shape == dims for axis in axes])
 
-    def eye_like(tensor):
-        eye = torch.eye(4, dtype=tensor.dtype, device=tensor.device)
-        eye = eye.view((1,) * len(dims) + eye.shape).repeat(*dims, 1, 1)
-        return eye
-
-    final_trafo = eye_like(angles[0])
+    final_trafo = lorentz_eye(dims, angles[0].device, angles[0].dtype)
     for axis, angle in zip(axes, angles):
-        trafo = eye_like(angle)
+        trafo = lorentz_eye(dims, angle.device, angle.dtype)
         trafo_type = get_trafo_type(axis)
 
         meshgrid = torch.meshgrid(*[torch.arange(d) for d in dims], indexing="ij")
