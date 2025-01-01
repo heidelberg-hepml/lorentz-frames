@@ -1,7 +1,7 @@
 import torch
 import pytest
 from torch_geometric.utils import dense_to_sparse
-from tests.constants import MILD_TOLERANCES as TOLERANCES, LOGM2_MEAN, LOGM2_STD
+from tests.constants import TOLERANCES, LOGM2_MEAN, LOGM2_STD
 from tests.helpers import sample_vector
 
 from tensorframes.nnhep.equivectors import EquivariantVectors
