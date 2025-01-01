@@ -5,7 +5,11 @@ from tests.constants import TOLERANCES, LOGM2_MEAN, LOGM2_STD
 from tests.helpers import sample_vector
 
 from tensorframes.reps import TensorReps
-from tensorframes.lframes.equi_lframes import RestLFrames, ReflectLearnedLFrames
+from tensorframes.lframes.equi_lframes import (
+    RestLFrames,
+    ReflectLearnedLFrames,
+    MatrixExpLearnedLFrames,
+)
 from tensorframes.utils.transforms import rand_transform
 from tensorframes.lframes.lframes import LFrames
 
@@ -43,7 +47,9 @@ def test_lframes_transformation(LFramesPredictor, batch_dims, logm2_std, logm2_m
     torch.testing.assert_close(lframes_prime_estimated, lframes_prime, **TOLERANCES)
 
 
-@pytest.mark.parametrize("LFramesPredictor", [RestLFrames, ReflectLearnedLFrames])
+@pytest.mark.parametrize(
+    "LFramesPredictor", [RestLFrames, ReflectLearnedLFrames, MatrixExpLearnedLFrames]
+)
 @pytest.mark.parametrize("batch_dims", [[10]])
 @pytest.mark.parametrize("logm2_std", LOGM2_STD)
 @pytest.mark.parametrize("logm2_mean", LOGM2_MEAN)
@@ -54,7 +60,7 @@ def test_feature_invariance(LFramesPredictor, batch_dims, logm2_std, logm2_mean)
     if LFramesPredictor == RestLFrames:
         predictor = LFramesPredictor()
         call_predictor = lambda fm: predictor(fm)
-    elif LFramesPredictor in [ReflectLearnedLFrames]:
+    elif LFramesPredictor in [ReflectLearnedLFrames, MatrixExpLearnedLFrames]:
         assert len(batch_dims) == 1
         predictor = LFramesPredictor(hidden_channels=[16], in_nodes=0).to(dtype=dtype)
         edge_index = dense_to_sparse(torch.ones(batch_dims[0], batch_dims[0]))[0]
@@ -85,5 +91,5 @@ def test_feature_invariance(LFramesPredictor, batch_dims, logm2_std, logm2_mean)
     # test something (dont understand this properly yet...)
     if LFramesPredictor == RestLFrames:
         torch.testing.assert_close(fm_local, fm_local_prime, **TOLERANCES)
-    elif LFramesPredictor in [ReflectLearnedLFrames]:
+    elif LFramesPredictor in [ReflectLearnedLFrames, MatrixExpLearnedLFrames]:
         torch.testing.assert_close(fm_local_prime, fm_local_prime2, **TOLERANCES)

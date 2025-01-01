@@ -15,8 +15,15 @@ def build_generator(v1, v2):
     return generator
 
 
-def matrix_exponential(v1, v2, n_max=20):
+def matrix_exponential(v1, v2):
     generator = build_generator(v1, v2)
 
+    # carefully evaluate matrix exponential
+    # caution: large generator matrices can cause infs
+    assert (
+        generator.max() < 1e2
+    ), f"large generator matrices can cause infs in matrix_exp: generator.max()={generator.max()}."
+    f"consider dividing v1, v2 by a sufficiently large number to avoid this."
     trafo = matrix_exp(generator)
+    assert torch.isfinite(trafo).all()
     return trafo

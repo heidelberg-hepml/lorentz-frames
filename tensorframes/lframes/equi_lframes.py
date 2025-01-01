@@ -6,6 +6,7 @@ from tensorframes.utils.transforms import restframe_transform
 from tensorframes.nnhep.equivectors import EquivariantVectors
 from tensorframes.utils.lorentz import lorentz_inner
 from tensorframes.utils.reflect import reflect_list
+from tensorframes.utils.matrixexp import matrix_exponential
 
 
 class RestLFrames(LFramesPredictor):
@@ -78,4 +79,31 @@ class ReflectLearnedLFrames(LearnedLFrames):
         vecs = [vecs[..., i, :] for i in range(self.n_vectors)]
 
         trafo = reflect_list(vecs)
+        return LFrames(trafo)
+
+
+class MatrixExpLearnedLFrames(LearnedLFrames):
+    """
+    Local frames constructed using the matrix exponential
+    of a generator created based on equivariantly predicted vectors
+    """
+
+    def __init__(
+        self,
+        stability_factor=20,
+        *args,
+        **kwargs,
+    ):
+        self.n_vectors = 2
+        super().__init__(*args, n_vectors=self.n_vectors, **kwargs)
+
+        # to avoid numerical instabilities from large values in matrix_exponential
+        self.stability_factor = stability_factor
+
+    def forward(self, *args, **kwargs):
+        vecs = super().forward(*args, **kwargs)
+        vecs /= self.stability_factor
+        vecs = [vecs[..., i, :] for i in range(self.n_vectors)]
+
+        trafo = matrix_exponential(*vecs)
         return LFrames(trafo)
