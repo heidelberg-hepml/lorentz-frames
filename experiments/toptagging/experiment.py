@@ -197,37 +197,13 @@ class TaggingExperiment(BaseExperiment):
                 if self.cfg.model.mean_aggregation == True
                 else "global token"
             )
-            match self.cfg.model.lframesnet.approach:
-                case "learned_gramschmidt":
-                    lframeString = "Gram-Schmidt"
-                case "identity":
-                    lframeString = "Identity"
-                case "random_global":
-                    lframeString = "Random Global"
-                case "random_local":
-                    lframeString = "Random Local"
-                case "3nn":
-                    lframeString = "3nn"
-                case _:
-                    lframeString = self.cfg.model.lframesnet.approach
+            lframeString = type(self.model.lframesnet).__name__
             num_parameters = sum(
                 p.numel() for p in self.model.parameters() if p.requires_grad
             )
 
-            if (
-                self.cfg.model.radial_module._target_
-                == "tensorframes.nn.embedding.radial.TrivialRadialEmbedding"
-            ):
-                learnableString = "no embedding"
-            elif self.cfg.model.radial_module.is_learnable == True:
-                learnableString = "learned"
-            elif self.cfg.model.radial_module.is_learnable == False:
-                learnableString = "\mathbb{1}"
-            else:
-                learnableString = "other"
-
             LOGGER.info(
-                f"table {title}: {lframeString} with {aggregator} ({self.cfg.training.iterations} epochs)&{num_parameters}&{metrics['accuracy']:.4f}&{metrics['auc']:.4f}&{metrics['rej03']:.0f}&{metrics['rej05']:.0f}&{metrics['rej08']:.0f}&{learnableString}\\"
+                f"table {title}: {lframeString} with {aggregator} ({self.cfg.training.iterations} epochs)&{num_parameters}&{metrics['accuracy']:.4f}&{metrics['auc']:.4f}&{metrics['rej03']:.0f}&{metrics['rej05']:.0f}&{metrics['rej08']:.0f}\\"
             )
         return metrics
 

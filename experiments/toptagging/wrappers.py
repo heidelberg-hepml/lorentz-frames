@@ -142,6 +142,7 @@ class NonEquiNetWrapper(TaggerWrapper):
 ############### alternative implementation ###############
 ##########################################################
 
+from torch_geometric.utils import to_dense_batch
 from xformers.ops.fmha import BlockDiagonalMask
 
 from tensorframes.reps.tensorreps import TensorReps
@@ -244,16 +245,56 @@ class BaselineTransformerWrapper(AggregatedTaggerWrapper):
         jetmomenta_local = EPPP_to_PtPhiEtaM2(fourmomenta_local)
 
         jetmomenta_local = jetmomenta_local.reshape(jetmomenta_local.shape[0], -1)
-        features = torch.cat([jetmomenta_local, scalars], dim=-1)
+        features_local = torch.cat([jetmomenta_local, scalars], dim=-1)
 
-        mask = attention_mask(batch, materialize=features.device == torch.device("cpu"))
+        mask = attention_mask(
+            batch, materialize=features_local.device == torch.device("cpu")
+        )
 
         # network
         outputs = self.net(
-            inputs=features,
+            inputs=features_local,
             attention_mask=mask,
         )
 
         # aggregation
         score = self.extract_score(outputs, batch, is_global)
         return score
+
+
+class BaselineParticleNetWrapper(TaggerWrapper2):
+    def __init__(
+        self,
+        net,
+        mean_aggregation=True,
+        *args,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+        assert (
+            self.lframesnet.is_global
+        ), "Non-equivariant model can only handle global lframes"
+        assert mean_aggregation
+        self.net = net(features_dims=self.in_reps.dim)
+
+    def forward(self, embedding):
+        fourmomenta_local, scalars, _, _, batch, is_global = super().forward(embedding)
+        jetmomenta_local = EPPP_to_PtPhiEtaM2(fourmomenta_local)
+
+        fourmomenta_local = fourmomenta_local.reshape(fourmomenta_local.shape[0], -1)
+        jetmomenta_local = jetmomenta_local.reshape(jetmomenta_local.shape[0], -1)
+        features_local = torch.cat([jetmomenta_local, scalars], dim=-1)
+
+        fourmomenta_local, mask = to_dense_batch(fourmomenta_local, batch)
+        features_local, _ = to_dense_batch(features_local, batch)
+        fourmomenta_local = fourmomenta_local.transpose(1, 2)
+        features_local = features_local.transpose(1, 2)
+        mask = mask.unsqueeze(1)
+
+        # network
+        score = self.net(
+            points=fourmomenta_local,
+            features=features_local,
+            mask=mask,
+        )
+        return score[:, 0]
