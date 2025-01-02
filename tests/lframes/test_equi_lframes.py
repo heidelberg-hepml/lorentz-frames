@@ -2,13 +2,14 @@ import torch
 import pytest
 from torch_geometric.utils import dense_to_sparse
 from tests.constants import TOLERANCES, LOGM2_MEAN, LOGM2_STD
-from tests.helpers import sample_vector
+from tests.helpers import sample_vector, lorentz_test
 
 from tensorframes.reps import TensorReps
 from tensorframes.lframes.equi_lframes import (
     RestLFrames,
     ReflectLearnedLFrames,
     MatrixExpLearnedLFrames,
+    pseudo_trafo,
 )
 from tensorframes.utils.transforms import rand_transform
 from tensorframes.lframes.lframes import LFrames
@@ -60,6 +61,7 @@ def test_lframes_transformation(LFramesPredictor, batch_dims, logm2_std, logm2_m
     )
 
 
+# TODO: Modify pseudo_trafo to make the lorentz_test lines pass
 @pytest.mark.parametrize(
     "LFramesPredictor", [RestLFrames, ReflectLearnedLFrames, MatrixExpLearnedLFrames]
 )
@@ -87,6 +89,11 @@ def test_feature_invariance(LFramesPredictor, batch_dims, logm2_std, logm2_mean)
     # sample Lorentz vectors
     fm = sample_vector(batch_dims, logm2_std, logm2_mean, dtype=dtype)
 
+    if LFramesPredictor in [ReflectLearnedLFrames, MatrixExpLearnedLFrames]:
+        torch.zeros(batch_dims, dtype=torch.long)
+        pseudo = pseudo_trafo(fm, batch)
+        # lorentz_test(pseudo)
+
     # random global transformation
     random = rand_transform([1], dtype=dtype)
     random = random.repeat(*batch_dims, 1, 1)
@@ -94,12 +101,14 @@ def test_feature_invariance(LFramesPredictor, batch_dims, logm2_std, logm2_mean)
 
     # path 1: LFrames transform (+ random transform)
     lframes = call_predictor(fm)
+    # lorentz_test(lframes.matrices)
     fm_local = trafo(fm, lframes)
     fm_local_prime2 = trafo(fm_local, random_lframes)
 
     # path 2: random transform + LFrames transform
     fm_prime = torch.einsum("...ij,...j->...i", random, fm)
     lframes_prime = call_predictor(fm_prime)
+    # lorentz_test(lframes_prime.matrices)
     fm_local_prime = trafo(fm_prime, lframes_prime)
 
     # test that features are invariant
