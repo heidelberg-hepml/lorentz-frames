@@ -1113,8 +1113,7 @@ class ParticleTransformer(nn.Module):
 class ParticleTransformerTagger(nn.Module):
     def __init__(
         self,
-        pf_input_dim,
-        sv_input_dim,
+        input_dim,
         num_classes=None,
         # network configurations
         pair_input_type="pp",
@@ -1145,11 +1144,9 @@ class ParticleTransformerTagger(nn.Module):
 
         self.use_amp = use_amp
 
-        self.pf_trimmer = SequenceTrimmer(enabled=trim and not for_inference)
-        self.sv_trimmer = SequenceTrimmer(enabled=trim and not for_inference)
+        self.trimmer = SequenceTrimmer(enabled=trim and not for_inference)
 
-        self.pf_embed = Embed(pf_input_dim, embed_dims, activation=activation)
-        self.sv_embed = Embed(sv_input_dim, embed_dims, activation=activation)
+        self.embed = Embed(input_dim, embed_dims, activation=activation)
 
         self.part = ParticleTransformer(
             input_dim=embed_dims[-1],
@@ -1185,23 +1182,16 @@ class ParticleTransformerTagger(nn.Module):
             "part.cls_token",
         }
 
-    def forward(
-        self, pf_x, pf_v=None, pf_mask=None, sv_x=None, sv_v=None, sv_mask=None
-    ):
+    def forward(self, x, v=None, mask=None):
         # x: (N, C, P)
         # v: (N, 4, P) [px,py,pz,energy]
         # mask: (N, 1, P) -- real particle = 1, padded = 0
 
         with torch.no_grad():
-            pf_x, pf_v, pf_mask, _ = self.pf_trimmer(pf_x, pf_v, pf_mask)
-            sv_x, sv_v, sv_mask, _ = self.sv_trimmer(sv_x, sv_v, sv_mask)
-            v = torch.cat([pf_v, sv_v], dim=2)
-            mask = torch.cat([pf_mask, sv_mask], dim=2)
+            x, v, mask, _ = self.trimmer(x, v, mask)
 
         with torch.autocast("cuda", enabled=self.use_amp):
-            pf_x = self.pf_embed(pf_x)  # after embed: (batch, seq_len, embed_dim)
-            sv_x = self.sv_embed(sv_x)
-            x = torch.cat([pf_x, sv_x], dim=1)
+            x = self.embed(x)  # after embed: (batch, seq_len, embed_dim)
 
             return self.part(x, v, mask)
 
@@ -1209,8 +1199,7 @@ class ParticleTransformerTagger(nn.Module):
 class ParticleTransformerTaggerWithExtraPairFeatures(nn.Module):
     def __init__(
         self,
-        pf_input_dim,
-        sv_input_dim,
+        input_dim,
         num_classes=None,
         # network configurations
         pair_input_type="pp",
@@ -1242,11 +1231,9 @@ class ParticleTransformerTaggerWithExtraPairFeatures(nn.Module):
         self.use_amp = use_amp
         self.for_inference = for_inference
 
-        self.pf_trimmer = SequenceTrimmer(enabled=trim and not for_inference)
-        self.sv_trimmer = SequenceTrimmer(enabled=trim and not for_inference)
+        self.trimmer = SequenceTrimmer(enabled=trim and not for_inference)
 
-        self.pf_embed = Embed(pf_input_dim, embed_dims, activation=activation)
-        self.sv_embed = Embed(sv_input_dim, embed_dims, activation=activation)
+        self.embed = Embed(input_dim, embed_dims, activation=activation)
 
         self.part = ParticleTransformer(
             input_dim=embed_dims[-1],
@@ -1284,14 +1271,11 @@ class ParticleTransformerTaggerWithExtraPairFeatures(nn.Module):
 
     def forward(
         self,
-        pf_x,
-        pf_v=None,
-        pf_mask=None,
-        sv_x=None,
-        sv_v=None,
-        sv_mask=None,
-        pf_uu=None,
-        pf_uu_idx=None,
+        x,
+        v=None,
+        mask=None,
+        uu=None,
+        uu_idx=None,
     ):
         # x: (N, C, P)
         # v: (N, 4, P) [px,py,pz,energy]
@@ -1299,29 +1283,24 @@ class ParticleTransformerTaggerWithExtraPairFeatures(nn.Module):
 
         with torch.no_grad():
             if not self.for_inference:
-                if pf_uu_idx is not None:
-                    pf_uu = build_sparse_tensor(pf_uu, pf_uu_idx, pf_x.size(-1))
+                if uu_idx is not None:
+                    uu = build_sparse_tensor(uu, uu_idx, x.size(-1))
 
-            pf_x, pf_v, pf_mask, pf_uu = self.pf_trimmer(pf_x, pf_v, pf_mask, pf_uu)
-            sv_x, sv_v, sv_mask, _ = self.sv_trimmer(sv_x, sv_v, sv_mask)
-            v = torch.cat([pf_v, sv_v], dim=2)
-            mask = torch.cat([pf_mask, sv_mask], dim=2)
-            uu = torch.zeros(
+            x, v, mask, uu = self.trimmer(x, v, mask, uu)
+            uu_new = torch.zeros(
                 v.size(0),
-                pf_uu.size(1),
+                uu.size(1),
                 v.size(2),
                 v.size(2),
                 dtype=v.dtype,
                 device=v.device,
             )
-            uu[:, :, : pf_x.size(2), : pf_x.size(2)] = pf_uu
+            uu_new[:, :, : x.size(2), : x.size(2)] = uu
 
         with torch.autocast("cuda", enabled=self.use_amp):
-            pf_x = self.pf_embed(pf_x)  # after embed: (batch, seq_len, embed_dim)
-            sv_x = self.sv_embed(sv_x)
-            x = torch.cat([pf_x, sv_x], dim=1)
+            x = self.embed(x)  # after embed: (batch, seq_len, embed_dim)
 
-            return self.part(x, v, mask, uu)
+            return self.part(x, v, mask, uu_new)
 
 
 ### weight initialization methods ###
