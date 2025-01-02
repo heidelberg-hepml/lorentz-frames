@@ -63,9 +63,10 @@ def test_feature_invariance(LFramesPredictor, batch_dims, logm2_std, logm2_mean)
     elif LFramesPredictor in [ReflectLearnedLFrames, MatrixExpLearnedLFrames]:
         assert len(batch_dims) == 1
         predictor = LFramesPredictor(hidden_channels=[16], in_nodes=0).to(dtype=dtype)
+        batch = torch.zeros(batch_dims, dtype=torch.long)
         edge_index = dense_to_sparse(torch.ones(batch_dims[0], batch_dims[0]))[0]
         scalars = torch.zeros(*batch_dims, 0, dtype=dtype)
-        call_predictor = lambda fm: predictor(fm, scalars, edge_index)
+        call_predictor = lambda fm: predictor(fm, scalars, edge_index, batch)
 
     reps = TensorReps("1x1n")
     trafo = TensorReps(reps).get_transform_class()
@@ -88,8 +89,5 @@ def test_feature_invariance(LFramesPredictor, batch_dims, logm2_std, logm2_mean)
     lframes_prime = call_predictor(fm_prime)
     fm_local_prime = trafo(fm_prime, lframes_prime)
 
-    # test something (dont understand this properly yet...)
-    if LFramesPredictor == RestLFrames:
-        torch.testing.assert_close(fm_local, fm_local_prime, **TOLERANCES)
-    elif LFramesPredictor in [ReflectLearnedLFrames, MatrixExpLearnedLFrames]:
-        torch.testing.assert_close(fm_local_prime, fm_local_prime2, **TOLERANCES)
+    # test that features are invariant
+    torch.testing.assert_close(fm_local, fm_local_prime, **TOLERANCES)

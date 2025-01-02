@@ -1,10 +1,15 @@
 import torch
+from torch_geometric.utils import scatter
 
 from tensorframes.lframes.lframes import LFrames
 from tensorframes.lframes.nonequi_lframes import LFramesPredictor
 from tensorframes.utils.transforms import restframe_transform
 from tensorframes.nnhep.equivectors import EquivariantVectors
-from tensorframes.utils.lorentz import lorentz_inner
+from tensorframes.utils.lorentz import (
+    lorentz_inner,
+    lorentz_squarednorm,
+    lorentz_metric,
+)
 from tensorframes.utils.reflect import reflect_list
 from tensorframes.utils.matrixexp import matrix_exponential
 
@@ -74,11 +79,14 @@ class ReflectLearnedLFrames(LearnedLFrames):
         self.n_vectors = n_vectors
         super().__init__(*args, n_vectors=self.n_vectors, **kwargs)
 
-    def forward(self, *args, **kwargs):
-        vecs = super().forward(*args, **kwargs)
+    def forward(self, fourmomenta, scalars, edge_index, batch):
+        vecs = super().forward(fourmomenta, scalars, edge_index)
         vecs = [vecs[..., i, :] for i in range(self.n_vectors)]
 
         trafo = reflect_list(vecs)
+
+        counter = pseudo_trafo(fourmomenta, batch)
+        trafo = counter @ trafo
         return LFrames(trafo)
 
 
@@ -100,10 +108,33 @@ class MatrixExpLearnedLFrames(LearnedLFrames):
         # to avoid numerical instabilities from large values in matrix_exponential
         self.stability_factor = stability_factor
 
-    def forward(self, *args, **kwargs):
-        vecs = super().forward(*args, **kwargs)
+    def forward(self, fourmomenta, scalars, edge_index, batch):
+        vecs = super().forward(fourmomenta, scalars, edge_index)
         vecs /= self.stability_factor
         vecs = [vecs[..., i, :] for i in range(self.n_vectors)]
 
         trafo = matrix_exponential(*vecs)
+
+        counter = pseudo_trafo(fourmomenta, batch)
+        trafo = counter @ trafo
         return LFrames(trafo)
+
+
+def pseudo_trafo(fourmomenta, batch):
+    """
+    Construct a counter matrix
+    """
+    assert len(fourmomenta.shape) == 2
+    summed = scatter(fourmomenta, index=batch, dim=0, reduce="sum").index_select(
+        0, batch
+    )
+
+    norm = lorentz_squarednorm(summed).sqrt().unsqueeze(-1)
+    summed /= norm
+
+    pseudo = summed.unsqueeze(-2).repeat(1, 4, 1)
+    metric = lorentz_metric(
+        fourmomenta.shape[:-1], device=fourmomenta.device, dtype=fourmomenta.dtype
+    )
+    pseudo = pseudo @ metric
+    return pseudo
