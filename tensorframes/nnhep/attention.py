@@ -7,8 +7,6 @@ from xformers.ops import AttentionBias, memory_efficient_attention
 # Masked out attention logits are set to this constant (a finite replacement for -inf):
 _MASKED_OUT = float("-inf")
 
-# Force the use of xformers attention, even when no xformers attention mask is provided:
-FORCE_XFORMERS = False
 
 def scaled_dot_product_attention(
     query: Tensor,
@@ -20,7 +18,6 @@ def scaled_dot_product_attention(
     """Execute (vanilla) scaled dot-product attention.
 
     Dynamically dispatch to xFormers if attn_mask is an instance of xformers.ops.AttentionBias
-    or FORCE_XFORMERS is set, use torch otherwise.
 
     Parameters
     ----------
@@ -39,7 +36,7 @@ def scaled_dot_product_attention(
     Tensor
         of shape [batch, head, item, d]
     """
-    if FORCE_XFORMERS or isinstance(attn_mask, AttentionBias):
+    if isinstance(attn_mask, AttentionBias):
         assert (
             not is_causal
         ), "is_causal=True not implemented yet for xformers attention"
