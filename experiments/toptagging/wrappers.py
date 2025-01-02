@@ -366,3 +366,35 @@ class BaselineParTWrapper(TaggerWrapper2):
             mask=mask,
         )
         return score[:, 0]
+
+
+class GraphNetWrapper(AggregatedTaggerWrapper):
+    def __init__(
+        self,
+        net,
+        *args,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+        self.net = net(in_channels=self.in_reps.dim)
+
+    def forward(self, embedding):
+        (
+            fourmomenta_local,
+            scalars,
+            lframes,
+            edge_index,
+            batch,
+            is_global,
+        ) = super().forward(embedding)
+        jetmomenta_local = EPPP_to_PtPhiEtaM2(fourmomenta_local)
+
+        jetmomenta_local = jetmomenta_local.reshape(jetmomenta_local.shape[0], -1)
+        features_local = torch.cat([jetmomenta_local, scalars], dim=-1)
+
+        # network
+        outputs = self.net(x=features_local, lframes=lframes, edge_index=edge_index)
+
+        # aggregation
+        score = self.extract_score(outputs, batch, is_global)
+        return score
