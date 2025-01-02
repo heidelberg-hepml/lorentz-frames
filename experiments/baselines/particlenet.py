@@ -278,28 +278,20 @@ class FeatureConv(nn.Module):
 class ParticleNetTagger(nn.Module):
     def __init__(
         self,
-        pf_features_dims,
-        sv_features_dims,
+        features_dims,
         num_classes,
         conv_params=[(7, (32, 32, 32)), (7, (64, 64, 64))],
         fc_params=[(128, 0.1)],
         use_fusion=True,
         use_fts_bn=True,
         use_counts=True,
-        pf_input_dropout=None,
-        sv_input_dropout=None,
+        input_dropout=None,
         for_inference=False,
         **kwargs
     ):
         super(ParticleNetTagger, self).__init__(**kwargs)
-        self.pf_input_dropout = (
-            nn.Dropout(pf_input_dropout) if pf_input_dropout else None
-        )
-        self.sv_input_dropout = (
-            nn.Dropout(sv_input_dropout) if sv_input_dropout else None
-        )
-        self.pf_conv = FeatureConv(pf_features_dims, 32)
-        self.sv_conv = FeatureConv(sv_features_dims, 32)
+        self.input_dropout = nn.Dropout(input_dropout) if input_dropout else None
+        self.conv = FeatureConv(features_dims, 32)
         self.pn = ParticleNet(
             input_dims=32,
             num_classes=num_classes,
@@ -311,23 +303,11 @@ class ParticleNetTagger(nn.Module):
             for_inference=for_inference,
         )
 
-    def forward(self, pf_points, pf_features, pf_mask, sv_points, sv_features, sv_mask):
-        if self.pf_input_dropout:
-            pf_mask = (self.pf_input_dropout(pf_mask) != 0).float()
-            pf_points *= pf_mask
-            pf_features *= pf_mask
-        if self.sv_input_dropout:
-            sv_mask = (self.sv_input_dropout(sv_mask) != 0).float()
-            sv_points *= sv_mask
-            sv_features *= sv_mask
+    def forward(self, points, features, mask):
+        if self.input_dropout:
+            mask = (self.input_dropout(mask) != 0).float()
+            points *= mask
+            features *= mask
 
-        points = torch.cat((pf_points, sv_points), dim=2)
-        features = torch.cat(
-            (
-                self.pf_conv(pf_features * pf_mask) * pf_mask,
-                self.sv_conv(sv_features * sv_mask) * sv_mask,
-            ),
-            dim=2,
-        )
-        mask = torch.cat((pf_mask, sv_mask), dim=2)
+        features = self.conv(features * mask) * mask
         return self.pn(points, features, mask)
