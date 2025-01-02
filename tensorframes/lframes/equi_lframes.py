@@ -122,7 +122,12 @@ class MatrixExpLearnedLFrames(LearnedLFrames):
 
 def pseudo_trafo(fourmomenta, batch):
     """
-    Construct a counter matrix
+    Construct a pseudo matrix P^a_mu
+    with transformation behaviour P -> P L^-1 under a lorentz transform L.
+
+    This is required to restore the correct transformation behaviour
+    in LFrames approaches that start with properly constructed local
+    lorentz transforms T^mu_nu and turns them into T^a_nu
     """
     assert len(fourmomenta.shape) == 2
     summed = scatter(fourmomenta, index=batch, dim=0, reduce="sum").index_select(
