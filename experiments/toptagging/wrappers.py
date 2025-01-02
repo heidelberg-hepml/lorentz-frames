@@ -136,3 +136,124 @@ class NonEquiNetWrapper(TaggerWrapper):
         # aggregation
         score = self.extract_score(outputs, batch, is_global)
         return score
+
+
+##########################################################
+############### alternative implementation ###############
+##########################################################
+
+from xformers.ops.fmha import BlockDiagonalMask
+
+from tensorframes.reps.tensorreps import TensorReps
+from tensorframes.nnhep.embedding import EPPP_to_PtPhiEtaM2
+
+
+def attention_mask(batch, materialize=False):
+    """
+    Construct attention mask that makes sure that objects only attend to each other
+    within the same batch element, and not across batch elements
+
+    Parameters
+    ----------
+    batch: torch.tensor
+        batch object in the torch_geometric.data naming convention
+        contains batch index for each event in a sparse tensor
+    materialize: bool
+        Decides whether a xformers or ('materialized') torch.tensor mask should be returned
+        The xformers mask allows to use the optimized xformers attention kernel, but only runs on gpu
+
+    Returns
+    -------
+    mask: xformers.ops.fmha.attn_bias.BlockDiagonalMask or torch.tensor
+        attention mask, to be used in xformers.ops.memory_efficient_attention
+        or torch.nn.functional.scaled_dot_product_attention
+    """
+    bincounts = torch.bincount(batch).tolist()
+    mask = BlockDiagonalMask.from_seqlens(bincounts)
+    if materialize:
+        # materialize mask to torch.tensor (only for testing purposes)
+        mask = mask.materialize(shape=(len(batch), len(batch))).to(batch.device)
+    return mask
+
+
+class TaggerWrapper2(nn.Module):
+    def __init__(
+        self,
+        in_reps,
+        lframesnet,
+    ):
+        super().__init__()
+
+        self.in_reps = TensorReps(in_reps)
+        self.lframesnet = lframesnet
+        self.trafo_fourmomenta = TensorReps("1x1n").get_transform_class()
+
+    def forward(self, embedding):
+        # extract embedding
+        fourmomenta = embedding["fourmomenta"]
+        scalars = embedding["scalars"]
+        edge_index = embedding["edge_index"]
+        batch = embedding["batch"]
+        is_global = embedding["is_global"]
+
+        # construct lframes
+        if self.lframesnet.is_global:
+            lframes = self.lframesnet(fourmomenta)
+        else:
+            lframes = self.lframesnet(fourmomenta, scalars, edge_index, batch)
+
+        # transform features into local frames
+        fourmomenta_local = self.trafo_fourmomenta(fourmomenta, lframes)
+
+        return fourmomenta_local, scalars, lframes, edge_index, batch, is_global
+
+
+class AggregatedTaggerWrapper(TaggerWrapper2):
+    def __init__(
+        self,
+        mean_aggregation,
+        *args,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+        self.aggregator = MeanAggregation() if mean_aggregation else None
+
+    def extract_score(self, features, batch, is_global):
+        if self.aggregator is not None:
+            score = self.aggregator(features, index=batch)[:, 0]
+        else:
+            score = features[is_global][:, 0]
+        return score
+
+
+class BaselineTransformerWrapper(AggregatedTaggerWrapper):
+    def __init__(
+        self,
+        net,
+        *args,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+        self.net = net(in_channels=self.in_reps.dim)
+        assert (
+            self.lframesnet.is_global
+        ), "Non-equivariant model can only handle global lframes"
+
+    def forward(self, embedding):
+        fourmomenta_local, scalars, _, _, batch, is_global = super().forward(embedding)
+        jetmomenta_local = EPPP_to_PtPhiEtaM2(fourmomenta_local)
+
+        jetmomenta_local = jetmomenta_local.reshape(jetmomenta_local.shape[0], -1)
+        features = torch.cat([jetmomenta_local, scalars], dim=-1)
+
+        mask = attention_mask(batch, materialize=features.device == torch.device("cpu"))
+
+        # network
+        outputs = self.net(
+            inputs=features,
+            attention_mask=mask,
+        )
+
+        # aggregation
+        score = self.extract_score(outputs, batch, is_global)
+        return score

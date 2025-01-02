@@ -32,19 +32,19 @@ class TaggingExperiment(BaseExperiment):
     def init_physics(self):
         # dynamically extend dict
         with open_dict(self.cfg):
-            protonet_name = "experiments.toptagging.wrappers.ProtoNetWrapper"
-            nonequinet_name = "experiments.toptagging.wrappers.NonEquiNetWrapper"
-            assert self.cfg.model._target_ in [
-                protonet_name,
-                nonequinet_name,
-            ]
+            # protonet_name = "experiments.toptagging.wrappers.ProtoNetWrapper"
+            # nonequinet_name = "experiments.toptagging.wrappers.NonEquiNetWrapper"
+            # assert self.cfg.model._target_ in [
+            #    protonet_name,
+            #    nonequinet_name,
+            # ]
 
             # global token?
-            if self.cfg.model._target_ in [
-                protonet_name,
-                nonequinet_name,
-            ]:
-                self.cfg.data.include_global_token = not self.cfg.model.mean_aggregation
+            # if self.cfg.model._target_ in [
+            #    protonet_name,
+            #    nonequinet_name,
+            # ]:
+            self.cfg.data.include_global_token = not self.cfg.model.mean_aggregation
 
     def init_data(self):
         raise NotImplementedError

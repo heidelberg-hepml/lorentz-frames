@@ -6,6 +6,13 @@ def stable_arctanh(x, eps=1e-10):
     return 0.5 * (torch.log((1 + x).clamp(min=eps)) - torch.log((1 - x).clamp(min=eps)))
 
 
+def to_nd(tensor, d):
+    """Make tensor n-dimensional, group extra dimensions in first."""
+    return tensor.view(
+        -1, *(1,) * (max(0, d - 1 - tensor.dim())), *tensor.shape[-(d - 1) :]
+    )
+
+
 def repeat_in_list(
     x: any, repeats: int, repeat_even_if_list: bool = False, repeat_if_none: bool = True
 ) -> list:

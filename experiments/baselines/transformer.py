@@ -6,7 +6,7 @@ from einops import rearrange
 from torch import nn
 from torch.utils.checkpoint import checkpoint
 from tensorframes.nnhep.attention import scaled_dot_product_attention
-from experiments.misc import to_nd
+from tensorframes.utils.utils import to_nd
 
 
 class BaselineLayerNorm(nn.Module):
@@ -185,12 +185,6 @@ class BaselineSelfAttention(nn.Module):
         q, k, v = self.qkv_linear(
             inputs
         )  # each: (..., num_heads, num_items, num_channels, 16)
-
-        # Rotary positional encoding
-        if self.pos_encoding is not None:
-            q = self.pos_encoding(q)
-            k = self.pos_encoding(k)
-
         # Attention layer
         h = self._attend(q, k, v, attention_mask, is_causal=is_causal)
 
@@ -262,9 +256,6 @@ class BaselineTransformerBlock(nn.Module):
         super().__init__()
 
         self.norm = BaselineLayerNorm()
-
-        # When using positional encoding, the number of scalar hidden channels needs to be even.
-        # It also should not be too small.
         hidden_channels = channels // num_heads * increase_hidden_channels
 
         self.attention = BaselineSelfAttention(
