@@ -1,0 +1,12 @@
+_target_: experiments.toptagging.wrappers.BaselineParTWrapper
+mean_aggregation: true
+in_reps: null
+
+net:
+ _target_: experiments.baselines.particletransformerv2.ParticleTransformerTagger
+ _partial_: true
+ num_classes: 1
+
+lframesnet:
+ _target_: tensorframes.lframes.nonequi_lframes.IdentityLFrames
+
