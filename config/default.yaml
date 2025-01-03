@@ -2,6 +2,7 @@ exp_name: ???
 exp_type: ???
 run_name: null
 
+jobid: null
 seed: null
 debug: false
 
