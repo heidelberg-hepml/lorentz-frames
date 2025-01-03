@@ -16,11 +16,6 @@ from experiments.toptagging.plots import plot_mixer
 from experiments.logger import LOGGER
 from experiments.mlflow import log_mlflow
 
-MODEL_TITLE_DICT = {
-    "ProtoNet": "ProtoNet",
-    "NonEquiNet": "NoneEquiNet",
-}
-
 UNITS = 20  # We use units of 20 GeV for all tagging experiments
 
 
@@ -210,7 +205,7 @@ class TaggingExperiment(BaseExperiment):
     def plot(self):
         plot_path = os.path.join(self.cfg.run_dir, f"plots_{self.cfg.run_idx}")
         os.makedirs(plot_path)
-        title = MODEL_TITLE_DICT[type(self.model.net).__name__]
+        title = type(self.model.net).__name__
         LOGGER.info(f"Creating plots in {plot_path}")
 
         if self.cfg.evaluate and self.cfg.evaluation.save_roc:
