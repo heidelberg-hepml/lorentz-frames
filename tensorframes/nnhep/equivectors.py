@@ -1,7 +1,7 @@
 import torch
 from torch_geometric.nn import MessagePassing
 
-from tensorframes.nn.mlp import MLPWrapped
+from tensorframes.nnhep.mlp import MLP
 
 
 class EquivariantVectors(MessagePassing):
@@ -19,28 +19,30 @@ class EquivariantVectors(MessagePassing):
         in_nodes,
         in_edges,
         hidden_channels,
-        **mlp_kwargs,
+        num_layers,
+        dropout_prob=None,
     ):
         super().__init__()
         self.n_vectors = n_vectors
-        hidden_channels.append(n_vectors)
         in_channels = 2 * in_nodes + in_edges
 
-        self.mlp = MLPWrapped(
-            in_channels=in_channels,
+        self.mlp = MLP(
+            in_shape=[in_channels],
+            out_shape=n_vectors,
             hidden_channels=hidden_channels,
-            **mlp_kwargs,
+            hidden_layers=num_layers,
+            dropout_prob=dropout_prob,
         )
 
-    def forward(self, x, fm, edge_attr, edge_index, batch=None):
-        vecs = self.propagate(edge_index, x=x, fm=fm, edge_attr=edge_attr, batch=batch)
+    def forward(self, x, fm, edge_attr, edge_index):
+        vecs = self.propagate(edge_index, x=x, fm=fm, edge_attr=edge_attr)
         vecs = vecs.reshape(-1, self.n_vectors, 4)
         return vecs
 
-    def message(self, x_i, x_j, fm_i, fm_j, edge_attr, batch_j):
+    def message(self, x_i, x_j, fm_i, fm_j, edge_attr):
         prefactor = torch.cat([x_i, x_j], dim=-1)
         prefactor = torch.cat([prefactor, edge_attr], dim=-1)
-        prefactor = self.mlp(x=prefactor, batch=batch_j)
+        prefactor = self.mlp(prefactor)
 
         fm_rel = fm_i - fm_j
         out = torch.einsum("...j,...k->...jk", prefactor, fm_rel)

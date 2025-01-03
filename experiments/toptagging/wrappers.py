@@ -142,11 +142,13 @@ class NonEquiNetWrapper(TaggerWrapper):
 ############### alternative implementation ###############
 ##########################################################
 
+from functools import partial
 from torch_geometric.utils import to_dense_batch
 from xformers.ops.fmha import BlockDiagonalMask
 
 from tensorframes.reps.tensorreps import TensorReps
 from tensorframes.nnhep.embedding import EPPP_to_PtPhiEtaM2
+from tensorframes.lframes.equi_lframes import RestLFrames
 
 
 def attention_mask(batch, materialize=False):
@@ -198,13 +200,19 @@ class TaggerWrapper2(nn.Module):
         is_global = embedding["is_global"]
 
         # construct lframes
-        if self.lframesnet.is_global:
+        fourmomenta = fourmomenta.reshape(fourmomenta.shape[0], -1)
+        if self.lframesnet.is_global or isinstance(self.lframesnet, RestLFrames):
             lframes = self.lframesnet(fourmomenta)
         else:
             lframes = self.lframesnet(fourmomenta, scalars, edge_index, batch)
 
         # transform features into local frames
         fourmomenta_local = self.trafo_fourmomenta(fourmomenta, lframes)
+        fourmomenta_local = fourmomenta_local.reshape(
+            fourmomenta_local.shape[0],
+            -1,
+            4,
+        )
 
         return fourmomenta_local, scalars, lframes, edge_index, batch, is_global
 
@@ -377,6 +385,14 @@ class GraphNetWrapper(AggregatedTaggerWrapper):
     ):
         super().__init__(*args, **kwargs)
         self.net = net(in_channels=self.in_reps.dim)
+
+        # lframesnet might not be instantiated yet
+        if isinstance(self.lframesnet, partial):
+            # learnable lframesnet takes only scalar inputs
+            num_scalars = sum(
+                rep.mul for rep in self.in_reps if str(rep.rep) in ["0n", "0p"]
+            )
+            self.lframesnet = self.lframesnet(in_nodes=num_scalars)
 
     def forward(self, embedding):
         (

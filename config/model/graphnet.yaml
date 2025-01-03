@@ -15,4 +15,8 @@ net:
  num_layers_mlp2: 0
 
 lframesnet:
- _target_: tensorframes.lframes.nonequi_lframes.IdentityLFrames
+ _target_: tensorframes.lframes.equi_lframes.CrossLearnedLFrames
+ _partial_: true
+ in_nodes: null
+ hidden_channels: 32
+ num_layers: 2

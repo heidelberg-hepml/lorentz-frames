@@ -33,9 +33,9 @@ class LearnedLFrames(LFramesPredictor):
     def __init__(
         self,
         n_vectors,
-        hidden_channels,
         in_nodes,
-        **mlp_kwargs,
+        *args,
+        **kwargs,
     ):
         super().__init__()
         self.in_nodes = in_nodes
@@ -43,8 +43,8 @@ class LearnedLFrames(LFramesPredictor):
             n_vectors=n_vectors,
             in_nodes=in_nodes,
             in_edges=1,
-            hidden_channels=hidden_channels,
-            **mlp_kwargs,
+            *args,
+            **kwargs,
         )
 
     def forward(self, fourmomenta, scalars, edge_index):
