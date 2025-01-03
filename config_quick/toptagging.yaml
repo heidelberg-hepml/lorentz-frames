@@ -4,7 +4,7 @@ base_dir: .
 
 data:
  data_dir : data
- dataset: full
+ dataset: mini
  rescale_data: true
  beam_reference: null
  two_beams: true
@@ -24,12 +24,12 @@ data:
 
 train: true
 training:
- iterations: 200000
+ iterations: 10
  batchsize: 128
  lr: 1e-3
 
 evaluation:
- batchsize: 512
+ batchsize: 128
  save_roc: false
 
 plotting:

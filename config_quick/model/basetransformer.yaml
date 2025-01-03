@@ -8,9 +8,9 @@ net:
 
  in_channels: null
  out_channels: 1
- hidden_channels: 128
+ hidden_channels: 64
 
- num_blocks: 4
+ num_blocks: 2
  num_heads: 4
 
 defaults:
