@@ -14,5 +14,5 @@ net:
  num_layers_mlp1: 2
  num_layers_mlp2: 0
 
-lframesnet:
- _target_: tensorframes.lframes.nonequi_lframes.IdentityLFrames
+defaults:
+ - lframesnet: identity

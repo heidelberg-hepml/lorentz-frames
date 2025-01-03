@@ -7,6 +7,5 @@ net:
  _partial_: true
  num_classes: 1
 
-lframesnet:
- _target_: tensorframes.lframes.nonequi_lframes.IdentityLFrames
-
+defaults:
+ - lframesnet: identity

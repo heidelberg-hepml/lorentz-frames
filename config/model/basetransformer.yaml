@@ -13,5 +13,5 @@ net:
  num_blocks: 2
  num_heads: 4
 
-lframesnet:
- _target_: tensorframes.lframes.nonequi_lframes.IdentityLFrames
+defaults:
+ - lframesnet: identity
