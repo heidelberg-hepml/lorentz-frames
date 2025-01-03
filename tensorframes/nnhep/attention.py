@@ -1,11 +1,46 @@
 from typing import Optional, Union
 
+import torch
 from torch import Tensor
 from torch.nn.functional import scaled_dot_product_attention as torch_sdpa
 from xformers.ops import AttentionBias, memory_efficient_attention
 
+from tensorframes.lframes import ChangeOfLFrames, LFrames
+from tensorframes.reps import TensorReps
+
 # Masked out attention logits are set to this constant (a finite replacement for -inf):
 _MASKED_OUT = float("-inf")
+
+
+class InvariantParticleAttention(torch.nn.Module):
+    def __init__(self, hidden_reps):
+        super().__init__()
+        self.transform = TensorReps(hidden_reps).get_transform_class()
+
+    def forward(
+        self, q_local, k_local, v_local, lframes, attn_mask=None, is_causal=False
+    ):
+        lframes_inv = lframes.inverse_lframes()
+
+        q_global = self.transform(q_local, lframes_inv)
+        k_global = self.transform(k_local, lframes_inv)
+        v_global = self.transform(v_local, lframes_inv)
+
+        # TODO: Correctly construct attention (this is lacking some metrics)
+
+        # metric = lframes.metric.unsqueeze(0).repeat(k_global.shape[0], 1, 1)
+        # k_global = torch.einsum("...ij,...j->...i", metric, k_global)
+
+        # metric = lframes.metric.unsqueeze(0).repeat(q_global.shape[0], 1, 1)
+        # q_global = torch.einsum("...ij,...j->...i", metric, q_global)
+
+        out_global = scaled_dot_product_attention(
+            q_global, k_global, v_global, attn_mask=attn_mask, is_causal=is_causal
+        )
+        # out_global = v_global # this is equivariant
+
+        out_local = self.transform(out_global, lframes)
+        return out_local
 
 
 def scaled_dot_product_attention(

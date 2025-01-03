@@ -414,3 +414,47 @@ class GraphNetWrapper(AggregatedTaggerWrapper):
         # aggregation
         score = self.extract_score(outputs, batch, is_global)
         return score
+
+
+class TransformerWrapper(AggregatedTaggerWrapper):
+    def __init__(
+        self,
+        net,
+        *args,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+        self.net = net(in_channels=self.in_reps.dim)
+
+        # lframesnet might not be instantiated yet
+        if isinstance(self.lframesnet, partial):
+            # learnable lframesnet takes only scalar inputs
+            num_scalars = sum(
+                rep.mul for rep in self.in_reps if str(rep.rep) in ["0n", "0p"]
+            )
+            self.lframesnet = self.lframesnet(in_nodes=num_scalars)
+
+    def forward(self, embedding):
+        (
+            fourmomenta_local,
+            scalars,
+            lframes,
+            edge_index,
+            batch,
+            is_global,
+        ) = super().forward(embedding)
+        jetmomenta_local = EPPP_to_PtPhiEtaM2(fourmomenta_local)
+
+        jetmomenta_local = jetmomenta_local.reshape(jetmomenta_local.shape[0], -1)
+        features_local = torch.cat([jetmomenta_local, scalars], dim=-1)
+
+        mask = attention_mask(
+            batch, materialize=features_local.device == torch.device("cpu")
+        )
+
+        # network
+        outputs = self.net(inputs=features_local, lframes=lframes, attention_mask=mask)
+
+        # aggregation
+        score = self.extract_score(outputs, batch, is_global)
+        return score

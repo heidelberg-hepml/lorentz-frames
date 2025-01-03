@@ -1,0 +1,20 @@
+_target_: experiments.toptagging.wrappers.TransformerWrapper
+mean_aggregation: true
+in_reps: null
+
+net:
+ _target_: tensorframes.nnhep.transformer.TFTransformer
+ _partial_: true
+
+ in_channels: null
+ out_channels: 1
+ hidden_reps: "16x0n+8x1n+1x2n"
+
+ num_blocks: 2
+ num_heads: 4
+ 
+ increase_hidden_channels: 1
+ multi_query: false
+
+defaults:
+ - lframesnet: cross
