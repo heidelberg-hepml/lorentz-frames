@@ -38,7 +38,7 @@ plotting:
  score: true
 
 defaults:
- - model: protonet
+ - model: graphnet
  - default
  - hydra
  - _self_
