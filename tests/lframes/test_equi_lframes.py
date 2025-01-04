@@ -38,7 +38,9 @@ def test_lframes_transformation(LFramesPredictor, batch_dims, logm2_std, logm2_m
         MatrixExpLearnedLFrames,
     ]:
         assert len(batch_dims) == 1
-        predictor = LFramesPredictor(hidden_channels=[16], in_nodes=0).to(dtype=dtype)
+        predictor = LFramesPredictor(hidden_channels=16, num_layers=1, in_nodes=0).to(
+            dtype=dtype
+        )
         batch = torch.zeros(batch_dims, dtype=torch.long)
         edge_index = dense_to_sparse(torch.ones(batch_dims[0], batch_dims[0]))[0]
         scalars = torch.zeros(*batch_dims, 0, dtype=dtype)
@@ -92,7 +94,9 @@ def test_feature_invariance(LFramesPredictor, batch_dims, logm2_std, logm2_mean)
         MatrixExpLearnedLFrames,
     ]:
         assert len(batch_dims) == 1
-        predictor = LFramesPredictor(hidden_channels=[16], in_nodes=0).to(dtype=dtype)
+        predictor = LFramesPredictor(hidden_channels=16, num_layers=1, in_nodes=0).to(
+            dtype=dtype
+        )
         batch = torch.zeros(batch_dims, dtype=torch.long)
         edge_index = dense_to_sparse(torch.ones(batch_dims[0], batch_dims[0]))[0]
         scalars = torch.zeros(*batch_dims, 0, dtype=dtype)

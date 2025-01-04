@@ -12,11 +12,12 @@ from tensorframes.utils.transforms import rand_transform
 @pytest.mark.parametrize("batch_dims", [[100]])
 @pytest.mark.parametrize("jet_size", [10])
 @pytest.mark.parametrize("n_vectors", range(1, 5))
-@pytest.mark.parametrize("hidden_channels", [[16, 16]])
+@pytest.mark.parametrize("hidden_channels", [16])
+@pytest.mark.parametrize("num_layers", [1])
 @pytest.mark.parametrize("logm2_std", LOGM2_STD)
 @pytest.mark.parametrize("logm2_mean", LOGM2_MEAN)
 def test_equivariance(
-    batch_dims, jet_size, n_vectors, hidden_channels, logm2_std, logm2_mean
+    batch_dims, jet_size, n_vectors, hidden_channels, num_layers, logm2_std, logm2_mean
 ):
     assert len(batch_dims) == 1
     dtype = torch.float64
@@ -39,9 +40,9 @@ def test_equivariance(
     calc_edge_attr = lambda fm: lorentz_inner(
         fm[edge_index[1]], fm[edge_index[0]]
     ).unsqueeze(-1)
-    equivectors = EquivariantVectors(n_vectors, in_nodes, in_edges, hidden_channels).to(
-        dtype=dtype
-    )
+    equivectors = EquivariantVectors(
+        n_vectors, in_nodes, in_edges, hidden_channels, num_layers
+    ).to(dtype=dtype)
 
     fm = sample_vector(
         batch_dims + [jet_size], logm2_std, logm2_mean, dtype=dtype
