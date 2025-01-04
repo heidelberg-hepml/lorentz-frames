@@ -21,13 +21,6 @@ data:
  - [0.2, 4] # dr
  num_global_tokens: 1
 
-
-train: true
-training:
- iterations: 10
- batchsize: 128
- lr: 1e-3
-
 evaluation:
  batchsize: 128
  save_roc: false
@@ -38,7 +31,8 @@ plotting:
  score: true
 
 defaults:
- - model: graphnet
  - default
+ - training: default
+ - model: graphnet
  - hydra
  - _self_
