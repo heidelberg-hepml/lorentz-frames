@@ -3,7 +3,6 @@ import numpy as np
 from random import randint
 from typing import List
 
-from tensorframes.utils.utils import stable_arctanh
 from tensorframes.utils.lorentz import lorentz_eye
 
 
@@ -267,38 +266,3 @@ def rand_phirotation(
     axis = axis.view(2, *([1] * len(shape))).repeat(1, *shape)
     angle = torch.rand(*shape, device=device, dtype=dtype) * 2 * torch.pi
     return transform([axis], [angle])
-
-
-def restframe_transform(fourmomenta):
-    """
-    Create rest frame transformation matrices for given fourmomenta
-
-    Strategy:
-    1) Rotate around z-axis to set p_y=0
-    2) Rotate around the y-axis to set p_z=0
-    3) Boost along the x-axis to set p_x=0
-
-    Args:
-        fourmomenta: torch.tensor of shape (n_batch, 4)
-            Fourmomenta of particles
-
-    Returns:
-        final_trafo: torch.tensor of shape (n_batch, 4, 4)
-    """
-    axes = torch.tensor(
-        [[1, 2], [1, 3], [0, 1]], device=fourmomenta.device, dtype=torch.long
-    )
-    axes = axes.view(*axes.shape, *([1] * len(fourmomenta.shape[:-1])))
-    axes = axes.repeat(1, 1, *fourmomenta.shape[:-1])
-    axes = [ax for ax in axes]
-
-    fm = fourmomenta
-    angles0 = -torch.arctan(fm[..., 2] / fm[..., 1])
-    angles1 = -torch.arctan(
-        fm[..., 3] / (fm[..., 1] * torch.cos(angles0) - fm[..., 2] * torch.sin(angles0))
-    )
-    angles2 = -stable_arctanh(torch.linalg.norm(fm[..., 1:], dim=-1) / fm[..., 0])
-    angles2 *= torch.sign(fm[..., 1])
-    angles = [angles0, angles1, angles2]
-
-    return transform(axes, angles)
