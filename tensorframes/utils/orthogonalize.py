@@ -1,5 +1,7 @@
 import torch
 
+from tensorframes.utils.lorentz import lorentz_squarednorm
+
 
 def lorentz_cross(v1, v2, v3):
     """
@@ -27,3 +29,24 @@ def lorentz_cross(v1, v2, v3):
     # raise indices with metric tensor
     v4 *= torch.tensor([1.0, -1.0, -1.0, -1.0], device=v1.device, dtype=v1.dtype)
     return v4
+
+
+def orthogonalize_cross(vecs, eps):
+    n_vectors = len(vecs)
+
+    def normalize(v):
+        norm = lorentz_squarednorm(v).unsqueeze(-1)
+        norm = torch.where(norm > 0, norm.sqrt(), -(-norm).sqrt())
+        norm = torch.where(norm > 0, norm + eps, norm - eps)  # avoid division by zero
+        return v / norm
+
+    vecs = [normalize(v) for v in vecs]
+
+    # orthogonalize vectors with repeated cross products
+    orthogonal_vecs = [vecs[0]]
+    for i in range(1, n_vectors + 1):
+        v_next = lorentz_cross(*orthogonal_vecs, *vecs[i:])
+        assert torch.isfinite(v_next).all()
+        orthogonal_vecs.append(normalize(v_next))
+
+    return orthogonal_vecs

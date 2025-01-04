@@ -12,7 +12,7 @@ from tensorframes.utils.lorentz import (
 )
 from tensorframes.utils.reflect import reflect_list
 from tensorframes.utils.matrixexp import matrix_exponential
-from tensorframes.utils.orthogonalize import lorentz_cross
+from tensorframes.utils.orthogonalize import orthogonalize_cross
 
 
 class RestLFrames(LFramesPredictor):
@@ -83,23 +83,7 @@ class CrossLearnedLFrames(LearnedLFrames):
         vecs = super().forward(fourmomenta, scalars, edge_index)
         vecs = [vecs[..., i, :] for i in range(self.n_vectors)]
 
-        def normalize(v):
-            norm = lorentz_squarednorm(v).unsqueeze(-1)
-            norm = torch.where(norm > 0, norm.sqrt(), -(-norm).sqrt())
-            norm = torch.where(
-                norm > 0, norm + self.eps, norm - self.eps
-            )  # avoid division by zero
-            return v / norm
-
-        vecs = [normalize(v) for v in vecs]
-
-        # orthogonalize vectors with repeated cross products
-        orthogonal_vecs = [vecs[0]]
-        for i in range(1, self.n_vectors + 1):
-            v_next = lorentz_cross(*orthogonal_vecs, *vecs[i:])
-            assert torch.isfinite(v_next).all()
-            orthogonal_vecs.append(normalize(v_next))
-
+        orthogonal_vecs = orthogonalize_cross(vecs, self.eps)
         trafo = torch.stack(orthogonal_vecs, dim=-2)
 
         # turn into transformation matrix
@@ -110,7 +94,7 @@ class CrossLearnedLFrames(LearnedLFrames):
 
         # sort vectors by norm -> first vector has >0 norm
         # This works because apparently there is always only one vector with norm > 0
-        # I dont know why this happens
+        # I dont know why this works -> To be figured out
         vecs = [trafo[..., i, :] for i in range(4)]
         pos_norm = torch.stack([lorentz_squarednorm(v) > 0 for v in vecs], dim=-1)
         old_trafo = trafo.clone()
