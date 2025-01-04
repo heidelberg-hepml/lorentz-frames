@@ -59,7 +59,7 @@ class TFGraphNet(nn.Module):
     def __init__(
         self,
         in_channels,
-        hidden_reps,
+        hidden_channels,
         out_channels,
         num_blocks,
         num_layers_mlp1=2,
@@ -69,7 +69,7 @@ class TFGraphNet(nn.Module):
         **mlp_kwargs,
     ):
         super().__init__()
-        hidden_reps = TensorReps(hidden_reps)
+        hidden_reps = TensorReps(hidden_channels)
         self.checkpoint_blocks = checkpoint_blocks
 
         self.linear_in = nn.Linear(in_channels, hidden_reps.dim)

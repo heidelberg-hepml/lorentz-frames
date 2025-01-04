@@ -360,7 +360,7 @@ class TFTransformer(nn.Module):
         self,
         in_channels: int,
         out_channels: int,
-        hidden_reps,
+        hidden_channels,
         num_blocks: int = 10,
         num_heads: int = 8,
         checkpoint_blocks: bool = False,
@@ -369,7 +369,7 @@ class TFTransformer(nn.Module):
         dropout_prob=None,
     ) -> None:
         super().__init__()
-        hidden_reps = TensorReps(hidden_reps)
+        hidden_reps = TensorReps(hidden_channels)
         hidden_channels = hidden_reps.dim
         self.checkpoint_blocks = checkpoint_blocks
         self.linear_in = nn.Linear(in_channels, hidden_channels)
