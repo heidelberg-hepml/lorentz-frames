@@ -214,7 +214,7 @@ class BaselineSelfAttention(nn.Module):
         outputs = scaled_dot_product_attention(
             q.contiguous(),
             k.expand_as(q).contiguous(),
-            v.expand_as(q),
+            v.expand_as(q).contiguous(),
             attn_mask=attention_mask,
             is_causal=is_causal,
         )
