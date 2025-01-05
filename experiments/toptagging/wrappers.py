@@ -367,6 +367,14 @@ class BaselineParTWrapper(TaggerWrapper2):
         features_local = features_local.transpose(1, 2)
         mask = mask.unsqueeze(1)
 
+        # turn bool mask into float mask
+        # bool mask gives nan values for some reason
+        # I dont understand why this is necessary,
+        # according to the documentation both should work
+        mask = torch.where(
+            mask, torch.zeros_like(mask), torch.ones_like(mask) * float("-inf")
+        )
+
         # network
         score = self.net(
             v=fourmomenta_local,
