@@ -1,21 +1,33 @@
 import torch
-from e3nn.o3 import rand_matrix
+from tensorframes.utils.lorentz_sampling import sampleLorentz
 from torch import Tensor
 from torch_geometric.nn import knn
 
 from tensorframes.lframes.gram_schmidt import gram_schmidt
 from tensorframes.lframes.lframes import LFrames
+from tensorframes.utils.utils import stable_arctanh
+from torch_geometric.nn.aggr import MeanAggregation
+from experiments.logger import LOGGER
 
 
-class ThreeNNLFrames(torch.nn.Module):
+class LFramesPredictionModule(torch.nn.Module):
+    def __init__(self) -> None:
+        super().__init__()
+
+    def forward(self, *args, **kwargs) -> LFrames:
+        raise NotImplementedError("Subclasses must implement this method.")
+
+
+class NNLFrames(LFramesPredictionModule):
     """Computes local frames using the 3-nearest neighbors.
 
-    The Frames are O(3) equivariant.
+    The Frames are SO(1,3) equivariant.
     """
 
-    def __init__(self) -> None:
-        """Initializes an instance of the ThreeNNLFrames class."""
+    def __init__(self, normalized_last: bool = True) -> None:
+        """Initializes an instance of the NNLFrames class."""
         super().__init__()
+        self.normalized_last = normalized_last
 
     def forward(
         self, pos: Tensor, idx: Tensor | None = None, batch: Tensor | None = None
@@ -43,7 +55,7 @@ class ThreeNNLFrames(torch.nn.Module):
                 pos.shape[0], dtype=torch.bool, device=pos.device
             ).scatter_(0, idx, True)
 
-        # find 2 closest neighbors:
+        # find 3+1 closest neighbors:
         row, col = knn(pos, pos[idx], k=4, batch_x=batch, batch_y=batch[idx])
         mask_self_loops = (
             torch.arange(pos.shape[0], dtype=int, device=idx.device)[idx][row] == col
@@ -62,20 +74,18 @@ class ThreeNNLFrames(torch.nn.Module):
         y_axis = pos[col[:, 1]] - pos[row]
         z_axis = pos[col[:, 2]] - pos[row]
 
-        matrices = gram_schmidt(x_axis, y_axis, z_axis)
+        vectors = torch.stack((x_axis, y_axis, z_axis), axis=-2)
+        matrices = gram_schmidt(vectors, normalized_last=self.normalized_last)
 
         return LFrames(matrices)
 
 
-class RandomLFrames(torch.nn.Module):
+class RandomLFrames(LFramesPredictionModule):
     """Randomly generates local frames for each node."""
 
-    def __init__(self, flip_probability=0.5) -> None:
-        """Initialize an instance of the RandomLFrames class.
-
-        Args:
-            flip_probability (float, optional): The probability of flipping the frames. Defaults to 0.5.
-        """
+    def __init__(self, flip_probability: float = 0.5) -> None:
+        """Initialize an instance of the RandomLFrames class."""
+        raise NotImplementedError
         super().__init__()
         self.flip_probability = flip_probability
 
@@ -94,7 +104,7 @@ class RandomLFrames(torch.nn.Module):
         """
         if idx is None:
             idx = torch.ones(pos.shape[0], dtype=torch.bool, device=pos.device)
-        lframes = rand_matrix(pos[idx].shape[0], device=pos.device)
+        lframes = sampleLorentz(pos[idx].shape[0], device=pos.device)
         if self.flip_probability > 0:
             flip_mask = (
                 torch.rand(lframes.shape[0], device=lframes.device)
@@ -105,12 +115,13 @@ class RandomLFrames(torch.nn.Module):
         return LFrames(lframes)
 
 
-class RandomGlobalLFrames(torch.nn.Module):
+class RandomGlobalLFrames(LFramesPredictionModule):
     """Randomly generates a global frame."""
 
-    def __init__(self) -> None:
+    def __init__(self, std_eta) -> None:
         """Initializes an instance of the RandomGlobalLFrames class."""
         super().__init__()
+        self.sampler = sampleLorentz(std_eta=std_eta)
 
     def forward(
         self, pos: Tensor, idx: Tensor | None = None, batch: Tensor | None = None
@@ -129,16 +140,18 @@ class RandomGlobalLFrames(torch.nn.Module):
             idx = torch.ones(pos.shape[0], dtype=torch.bool, device=pos.device)
 
         # randomly generate one local frame
-        matrix = rand_matrix(1, device=pos.device)
+        matrix = self.sampler.rand_matrix(1, device=pos.device)
 
         # if random number is less than 0.5, flip the x-axis
         if torch.rand(1, device=pos.device) < 0.5:
             matrix[0] = -matrix[0]
 
-        return LFrames(matrix.repeat(pos[idx].shape[0], 1, 1))
+        return LFrames.global_trafo(
+            device=pos.device, trafo=matrix, n_batch=pos.shape[0]
+        )
 
 
-class IdentityLFrames(torch.nn.Module):
+class IdentityLFrames(LFramesPredictionModule):
     """Identity local frames."""
 
     def __init__(self) -> None:
@@ -151,7 +164,7 @@ class IdentityLFrames(torch.nn.Module):
         """Forward pass of the LFrames module.
 
         Args:
-            pos (Tensor): The input tensor of shape (N, 3) representing the positions.
+            pos (Tensor): The input tensor of shape (N, 4) representing the positions.
             idx (Tensor | None): The index tensor of shape (N,) representing the indices to select from `pos`.
                 If None, all indices are selected.
             batch (Tensor | None): The batch tensor of shape (N,) representing the batch indices.
@@ -162,4 +175,196 @@ class IdentityLFrames(torch.nn.Module):
         if idx is None:
             idx = torch.ones(pos.shape[0], dtype=torch.bool, device=pos.device)
 
-        return LFrames(torch.eye(3, device=pos.device).repeat(pos[idx].shape[0], 1, 1))
+        return LFrames.global_trafo(pos.device, n_batch=pos.shape[0])
+
+
+class COMLFrames(LFramesPredictionModule):
+    """
+    Creates a center-of-momentum frame for each jet, introducing a additional symmetry
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.sampler = sampleLorentz(
+            trafo_types=["rot", "rot", "boost"], axes=[[1, 2], [1, 3], [0, 1]]
+        )
+        self.mean_aggr = MeanAggregation()
+
+    def forward(
+        self, pos: torch.Tensor, idx: torch.Tensor = None, batch: torch.Tensor = None
+    ) -> LFrames:
+        """
+         Creates LFrames through transformation matrix into COM frame
+
+        Args:
+             pos (torch.Tensor): Tensor with all the positions of the nodes, shape=(batch, 4)
+             idx (torch.Tensor): Index Tensor
+             batch (torch.tensor): Batch tensor, shape=(batch)
+
+         Return:
+             Lframes of the graphs
+        """
+
+        if idx is not None:
+            pos = pos[idx].clone()
+            batch = batch[idx].clone()
+
+        device = pos.device
+        mean_pos = self.mean_aggr(pos, batch)
+
+        angles = []
+        angles.append(-torch.arctan(mean_pos[:, 2] / mean_pos[:, 1]).to(device))
+        angles.append(
+            -torch.arctan(
+                mean_pos[:, 3]
+                / (
+                    mean_pos[:, 1] * torch.cos(angles[0])
+                    - mean_pos[:, 2] * torch.sin(angles[0])
+                )
+            ).to(device)
+        )
+        angles.append(
+            -stable_arctanh(
+                torch.linalg.norm(mean_pos[:, 1:], dim=1) / mean_pos[:, 0]
+            ).to(device)
+        )
+
+        trafo = self.sampler.matrix(
+            N=mean_pos.shape[0], angles=angles, device=pos.device
+        )
+        # npos = torch.einsum("nmp,np->nm", trafo[batch], pos)
+
+        return LFrames(trafo[batch])
+
+
+class PartialCOMLFrames(LFramesPredictionModule):
+    """
+    Creates a center-of-momentum frame for each jet, however, restricting ourself to rotation the x-y momentum to be full aligned with the x axis and boosting the jet to remove the z-component
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.sampler = sampleLorentz(
+            trafo_types=["rot", "boost"], axes=[[1, 2], [0, 3]]
+        )
+        self.mean_aggr = MeanAggregation()
+
+    def forward(
+        self, pos: torch.Tensor, idx: torch.Tensor = None, batch: torch.Tensor = None
+    ) -> LFrames:
+        """
+        Creates LFrames through transformation matrix into partial COM frame
+
+        Args:
+            pos (torch.Tensor): Tensor with all the positions of the nodes, shape=(batch, 4)
+            idx (torch.Tensor): Index Tensor
+            batch (torch.tensor): Batch tensor, shape=(batch)
+
+        Return:
+            Lframes of the graphs
+        """
+        device = pos.device
+        if idx is not None:
+            pos = pos[idx].clone()
+            batch = batch[idx].clone()
+
+        mean_pos = self.mean_aggr(pos, batch)
+
+        angles = []
+        angles.append(-torch.arctan(mean_pos[:, 2] / mean_pos[:, 1]).to(device))
+        angles.append(-stable_arctanh(mean_pos[:, 3] / mean_pos[:, 0]).to(device))
+
+        trafo = self.sampler.matrix(
+            N=mean_pos.shape[0], angles=angles, device=pos.device
+        )
+        # npos = torch.einsum("nmp,np->nm", trafo[batch], pos)
+
+        return LFrames(trafo[batch])
+
+
+class RestLFrames(LFramesPredictionModule):
+    """
+    Creates a Rest frame for each particle in the batch, introducing an additional symmetry
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.sampler = sampleLorentz(
+            trafo_types=["rot", "rot", "boost"], axes=[[1, 2], [1, 3], [0, 1]]
+        )
+
+    def forward(
+        self, pos: torch.Tensor, idx: torch.Tensor = None, batch: torch.Tensor = None
+    ) -> LFrames:
+        """
+        Creates LFrames through transformation matrix into particle rest frame
+
+        Args:
+            pos (torch.Tensor): Tensor with all the positions of the nodes, shape=(batch, 4)
+            idx (torch.Tensor): Index Tensor
+            batch (torch.tensor): Batch tensor, shape=(batch)
+
+        Return:
+            Lframes of the graphs
+        """
+        device = pos.device
+        if idx is not None:
+            pos = pos[idx].clone()
+            batch = batch[idx].clone()
+
+        angles = []
+        angles.append(-torch.arctan(pos[:, 2] / pos[:, 1]).to(device))
+        angles.append(
+            -torch.arctan(
+                pos[:, 3]
+                / (pos[:, 1] * torch.cos(angles[0]) - pos[:, 2] * torch.sin(angles[0]))
+            ).to(device)
+        )
+        angles.append(
+            -stable_arctanh(torch.linalg.norm(pos[:, 1:], dim=1) / pos[:, 0]).to(device)
+        )
+
+        trafo = self.sampler.matrix(N=len(pos), angles=angles, device=pos.device)
+        # npos = torch.einsum("nmp,np->nm", trafo[batch], pos)
+
+        return LFrames(trafo)
+
+
+class PartialRestLFrames(LFramesPredictionModule):
+    """
+    Creates a Rest Frame for each particle, however, restricting ourself to rotation the x-y momentum to be full aligned with the x axis and boosting the jet to remove the z-component
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.sampler = sampleLorentz(
+            trafo_types=["rot", "boost"], axes=[[1, 2], [0, 3]]
+        )
+
+    def forward(
+        self, pos: torch.Tensor, idx: torch.Tensor = None, batch: torch.Tensor = None
+    ) -> LFrames:
+        """
+        Creates LFrames through transformation matrix into partial particle rest frame
+
+        Args:
+            pos (torch.Tensor): Tensor with all the positions of the nodes, shape=(batch, 4)
+            idx (torch.Tensor): Index Tensor
+            batch (torch.tensor): Batch tensor, shape=(batch)
+
+        Return:
+            Lframes of the graphs
+        """
+        device = pos.device
+        if idx is not None:
+            pos = pos[idx].clone()
+            batch = batch[idx].clone()
+
+        angles = []
+        angles.append(-torch.arctan(pos[:, 2] / pos[:, 1]).to(device))
+        angles.append(-stable_arctanh(pos[:, 3] / pos[:, 0]).to(device))
+
+        trafo = self.sampler.matrix(N=len(pos), angles=angles, device=pos.device)
+        # npos = torch.einsum("nmp,np->nm", trafo[batch], pos)
+
+        return LFrames(trafo)

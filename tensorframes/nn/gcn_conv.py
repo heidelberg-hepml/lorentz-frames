@@ -5,7 +5,6 @@ from torch_geometric.utils import add_remaining_self_loops, degree
 
 from tensorframes.lframes.lframes import LFrames
 from tensorframes.nn.tfmessage_passing import TFMessagePassing
-from tensorframes.reps.irreps import Irreps
 from tensorframes.reps.tensorreps import TensorReps
 
 
@@ -13,14 +12,12 @@ class GCNConv(TFMessagePassing):
     """GCNConv class represents a Graph Convolutional Network layer in the tensorframes
     formalism."""
 
-    def __init__(
-        self, in_reps: Union[TensorReps, Irreps], out_reps: Union[TensorReps, Irreps]
-    ) -> None:
+    def __init__(self, in_reps: TensorReps, out_reps: TensorReps) -> None:
         """Initialize the GCNConv layer.
 
         Args:
-            in_reps (Union[TensorReps, Irreps]): The input representations.
-            out_reps (Union[TensorReps, Irreps]): The output representations.
+            in_reps (TensorReps): The input representations.
+            out_reps (TensorReps): The output representations.
         """
         super().__init__(
             params_dict={
@@ -70,6 +67,7 @@ class GCNConv(TFMessagePassing):
 
 
 if __name__ == "__main__":
+    raise NotImplementedError
     in_reps = Irreps("1x0n+1x1n")
 
     layer = GCNConv(in_reps, in_reps)

@@ -6,7 +6,7 @@ in_reps: ???
 net:
  _partial_: true
  _target_: experiments.toptagging.protonet.ProtoNet
- hidden_reps: ["8x0n+8x1n", "16x0n+16x1n"] 
+ hidden_reps: ["8x0n+8x1n"] 
  hidden_layer_number: [2, 1]
  out_reps: 1x0n
 
@@ -24,6 +24,8 @@ lframesnet:
  approach: identity
  layers: 2
  hidden_channels: 16
+ mean_eta: 0
+ std_eta: 0.95
 
 angular_module:
  _target_: tensorframes.nn.embedding.axial.AxisWiseBesselEmbedding

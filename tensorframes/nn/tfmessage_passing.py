@@ -1,5 +1,5 @@
 from typing import Any, Dict
-
+import torch
 from torch_geometric.nn import MessagePassing
 
 from tensorframes.lframes import ChangeOfLFrames, LFrames
@@ -22,18 +22,22 @@ class TFMessagePassing(MessagePassing):
                     "rep": TensorReps("1x0n")
                 },
                 "feat_1": {
-                    "type": "global"
-                    "rep": Irreps("1x0n")
+                    "type": "local"
+                    "rep": TensorReps("1x0n")
                 },
             }
         """
+        super().__init__(aggr=aggr)
+
         self.params_dict = params_dict
+
+        tmp_dict = {}
 
         for key, value in self.params_dict.items():
             if value["type"] is not None:
-                self.params_dict[key]["transform"] = value["rep"].get_transform_class()
+                tmp_dict[key] = value["rep"].get_transform_class()
 
-        super().__init__(aggr=aggr)
+        self.transform_dict = torch.nn.ModuleDict(tmp_dict)
 
         # Register hooks to call before propagating and before sending messages
         self.register_propagate_forward_pre_hook(self.pre_propagate_hook)
@@ -54,7 +58,7 @@ class TFMessagePassing(MessagePassing):
             inputs[-1].get("lframes") is not None
         ), "lframes are not in the propagate inputs"
 
-        self._lframes = inputs[-1].pop("lframes")
+        self._lframes = inputs[-1]["lframes"]
         self._edge_index = inputs[0]
 
         return inputs
@@ -90,20 +94,20 @@ class TFMessagePassing(MessagePassing):
             if param_info["type"] == "local":
                 assert param + "_j" in inputs[-1], f"Key {param}_j not in inputs"
                 # transform the features according to the representation
-                inputs[-1][param + "_j"] = param_info["transform"](
+                inputs[-1][param + "_j"] = self.transform_dict[param](
                     inputs[-1][param + "_j"], U
                 )
             elif param_info["type"] == "global":
                 if inputs[-1].get(param) is not None:
-                    inputs[-1][param] = param_info["transform"](
+                    inputs[-1][param] = self.transform_dict[param](
                         inputs[-1][param], lframes_i
                     )
                 if inputs[-1].get(param + "_j") is not None:
-                    inputs[-1][param + "_j"] = param_info["transform"](
+                    inputs[-1][param + "_j"] = self.transform_dict[param](
                         inputs[-1][param + "_j"], lframes_i
                     )
                 if inputs[-1].get(param + "_i") is not None:
-                    inputs[-1][param + "_i"] = param_info["transform"](
+                    inputs[-1][param + "_i"] = self.transform_dict[param](
                         inputs[-1][param + "_i"], lframes_i
                     )
 

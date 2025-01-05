@@ -4,14 +4,27 @@ from torch import nn
 from tensorframes.lframes.classical_lframes import (
     IdentityLFrames,
     RandomGlobalLFrames,
-    ThreeNNLFrames,
+    NNLFrames,
+    COMLFrames,
+    PartialCOMLFrames,
+    RestLFrames,
+    PartialRestLFrames,
 )
 from tensorframes.lframes.learning_lframes import WrappedLearnedLFrames
 from tensorframes.reps import TensorReps
 
 
 class LFramesNet(nn.Module):
-    def __init__(self, approach, layers, hidden_channels, radial_module, in_reps):
+    def __init__(
+        self,
+        approach,
+        layers,
+        hidden_channels,
+        radial_module,
+        in_reps,
+        normalized_last: bool = True,
+        **kwargs,
+    ):
         super().__init__()
         self.in_reps = in_reps
 
@@ -19,9 +32,10 @@ class LFramesNet(nn.Module):
         if approach == "identity":  # non-equivariant
             self.net = IdentityLFrames()
         elif approach == "random_global":  # data augmentation
-            self.net = RandomGlobalLFrames()
-        elif approach == "3nn":  # interpretation: equivariant
-            self.net = ThreeNNLFrames()
+            std_eta = kwargs.get("std_eta", 1)
+            self.net = RandomGlobalLFrames(std_eta=std_eta)
+        elif approach == "nn":  # interpretation: equivariant
+            self.net = NNLFrames(normalized_last=normalized_last)
         elif approach == "learned_gramschmidt":  # interpretation: equivariant
             assert radial_module is not None
             hidden_channels = [hidden_channels] * layers
@@ -30,12 +44,31 @@ class LFramesNet(nn.Module):
                 in_reps=in_reps,
                 hidden_channels=hidden_channels,
                 radial_module=radial_module,
+                predict_4=False,
+                normalized_last=normalized_last,
+                normalize_contributions=False,
             )
+        elif approach == "COM":
+            self.net = COMLFrames()
+        elif approach == "partialCOM":
+            self.net = PartialCOMLFrames()
+        elif approach == "Rest":
+            self.net = RestLFrames()
+        elif approach == "partialRest":
+            self.net = PartialRestLFrames()
         else:
             raise ValueError(f"approach={self.approach} not implemented")
 
     def forward(self, x, pos, edge_index, batch):
-        if self.approach in ["identity", "random_global", "3nn"]:
+        if self.approach in [
+            "identity",
+            "random_global",
+            "nn",
+            "COM",
+            "partialCOM",
+            "Rest",
+            "partialRest",
+        ]:
             lframes = self.net(pos, idx=None, batch=batch)
             trafo = TensorReps(self.in_reps).get_transform_class()
             x_transformed = trafo(x, lframes)

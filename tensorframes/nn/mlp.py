@@ -7,7 +7,6 @@ from torch_geometric.nn import MLP as GeometricMLP
 from torch_geometric.typing import NoneType
 from torchvision.ops import MLP as TorchMLP
 
-from tensorframes.reps.irreps import Irreps
 from tensorframes.reps.tensorreps import TensorReps
 
 
@@ -97,17 +96,13 @@ class MLP(torch.nn.Module):
     """An MLP module which uses reps for the input and output dimensions."""
 
     def __init__(
-        self,
-        in_reps: Union[TensorReps, Irreps],
-        out_reps: Union[TensorReps, Irreps],
-        hidden_layers,
-        **mlp_kwargs
+        self, in_reps: TensorReps, out_reps: TensorReps, hidden_layers, **mlp_kwargs
     ) -> None:
         """Initialize the MLP class.
 
         Args:
-            in_reps (Union[TensorReps, Irreps]): The input representations.
-            out_reps (Union[TensorReps, Irreps]): The output representations.
+            in_reps (TensorReps): The input representations.
+            out_reps (TensorReps): The output representations.
             hidden_layers (list): A list of integers representing the sizes of the hidden layers.
             **mlp_kwargs: Additional keyword arguments to be passed to the MLP constructor.
         """

@@ -5,18 +5,17 @@ from torch import Tensor
 from torch.nn import Module
 
 from tensorframes.lframes.lframes import ChangeOfLFrames, LFrames
-from tensorframes.reps.irreps import Irreps
 from tensorframes.reps.tensorreps import TensorReps
 
 
 class FromGlobalToLocalFrame(Module):
     """Transforms a tensor with a given representation from a global frame to a local frame."""
 
-    def __init__(self, reps: Union[TensorReps, Irreps]) -> None:
+    def __init__(self, reps: TensorReps) -> None:
         """Initialize the FromGlobalToLocalFrame Module.
 
         Args:
-            reps (Union[TensorReps, Irreps]): The representation which is used to transform the features.
+            reps (TensorReps): The representation which is used to transform the features.
         """
         super().__init__()
         self.reps = reps
@@ -38,11 +37,11 @@ class FromGlobalToLocalFrame(Module):
 class FromLocalToGlobalFrame(Module):
     """Transforms a tensor with a given representation from a local frame to a global frame."""
 
-    def __init__(self, reps: Union[TensorReps, Irreps]) -> None:
+    def __init__(self, reps: TensorReps) -> None:
         """Initialize the FromLocalToGlobalFrame Module.
 
         Args:
-            reps (Union[TensorReps, Irreps]): The representation which is used to transform the features.
+            reps (TensorReps): The representation which is used to transform the features.
         """
         super().__init__()
         self.reps = reps

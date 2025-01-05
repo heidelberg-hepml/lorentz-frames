@@ -38,30 +38,31 @@ class ProtoNet(nn.Module):
         super().__init__()
         self.checkpoint_blocks = checkpoint_blocks
         num_blocks = len(hidden_reps)
-        assert num_blocks >= 2
+        assert num_blocks >= 1
 
         if hidden_layer_number is None:
-            hidden_layer_number = [2 for i in hidden_reps]
+            hidden_layer_number = [2] * (num_blocks + 1)
         elif isinstance(hidden_layer_number, int):
             temp = hidden_layer_number
-            hidden_layer_number = [temp for i in hidden_reps]
+            hidden_layer_number = [temp] * (num_blocks + 1)
 
         # convert x_reps from string to proper TensorReps objects
         in_reps = TensorReps(in_reps)
         hidden_reps = [TensorReps(hr) for hr in hidden_reps]
         if second_hidden_reps is None:
             hidden_channels = [
-                [hr.dim] * hidden_layer_number[i] for i, hr in enumerate(hidden_reps)
+                [hr.dim] * hidden_layer_number[i + 1]
+                for i, hr in enumerate(hidden_reps)
             ]
             second_hidden_channels = [None for hr in hidden_reps]
         else:  # this accounts for the last hidden -> output layer being transfered to the second network
             hidden_channels = [
-                [hr.dim] * hidden_layer_number[i] + 1
+                [hr.dim] * hidden_layer_number[i + 1]
                 for i, hr in enumerate(hidden_reps)
             ]
             second_hidden_reps = [TensorReps(shr) for shr in second_hidden_reps]
             second_hidden_channels = [[shr.dim] for shr in second_hidden_reps]
-            assert len(hidden_channels) == len(
+            assert len(hidden_channels) + 1 == len(
                 second_hidden_channels
             ), "either none or all of the EdgeConv layers need their own second layer channels"
         out_reps = TensorReps(out_reps)
@@ -80,14 +81,14 @@ class ProtoNet(nn.Module):
         # build edgeConv blocks
         first_block = EdgeConv(
             in_reps=in_reps,
-            hidden_channels=hidden_channels[0],
+            hidden_channels=[in_reps.dim * hidden_layer_number[0]],
             out_channels=hidden_reps[0].dim,
             second_hidden_channels=second_hidden_channels[0],
             **edgeconv_kwargs,
         )
 
         middle_blocks = []
-        for layerID in range(num_blocks - 2):
+        for layerID in range(num_blocks - 1):
             middle_blocks.append(
                 EdgeConv(
                     in_reps=hidden_reps[layerID],
@@ -98,7 +99,7 @@ class ProtoNet(nn.Module):
                 )
             )
         last_block = EdgeConv(
-            in_reps=hidden_reps[-2],
+            in_reps=hidden_reps[-1],
             hidden_channels=hidden_channels[-1],
             out_channels=out_reps.dim,
             second_hidden_channels=second_hidden_channels[-1],
