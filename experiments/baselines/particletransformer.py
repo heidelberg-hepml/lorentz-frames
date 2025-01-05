@@ -1,6 +1,7 @@
 """ Particle Transformer (ParT)
 
 Paper: "Particle Transformer for Jet Tagging" - https://arxiv.org/abs/2202.03772
+Code: https://github.com/hqucms/weaver-core/blob/main/weaver/nn/model/ParticleTransformer.py
 """
 import math
 import random

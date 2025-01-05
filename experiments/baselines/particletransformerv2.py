@@ -1,6 +1,10 @@
 """ Particle Transformer (ParT)
 
 Paper: "Particle Transformer for Jet Tagging" - https://arxiv.org/abs/2202.03772
+Code: https://github.com/hqucms/weaver-core/blob/dev/custom_train_eval/weaver/nn/model/ParticleTransformer.py
+
+This is the newer version from the /dev/custom_train_eval branch of the weaver-core repository
+It has changes in October 2024, whereas the main branch was unchanged since 2022
 """
 import math
 import random
