@@ -51,6 +51,9 @@ class TensorRep(Tuple):
 
         assert isinstance(order, int) and order >= 0, order
         assert p in [-1, 1], p
+        assert (
+            p == 1
+        ), "p=-1 / 'Np' representations (parity-odd) not consistently implemented yet"
         return super().__new__(cls, (order, p))
 
     @property
