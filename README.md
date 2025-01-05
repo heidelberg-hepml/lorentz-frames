@@ -36,21 +36,28 @@ pytest tests/utils/test_orthogonalize.py::test_lorentz_cross -s
 
 ## 3. Running experiments
 
-You can run experiments with the following commands:
+You can run a quick test experiment with the following command
+
 ```bash
-python run.py -cn toptagging model=gcnconv exp_name=toptagging run_name=hello_world_toptagging
+python run.py -cp config_quick -cn toptagging model=graphnet
 ```
 
-We use hydra for configuration management, allowing to quickly override parameters in e.g. config/toptagging.yaml. Further, we use mlflow for tracking. You can start a mlflow server based on the saved results in runs/tracking/mlflow.db on port 4242 of your machine with the following command
+We use hydra for configuration management, allowing to quickly override parameters in e.g. config_quick/toptagging.yaml. Configuration files for small test runs are in `config_quick`, if you want to run the big runs you should use `-cn config`. There we have paired models and training configs, e.g.
+
+```bash
+python run.py -cp config -cn toptagging model=particlenet training=particlenet
+```
+
+Further, we use mlflow for tracking. You can start a mlflow server based on the saved results in runs/tracking/mlflow.db on port 4242 of your machine with the following command
 
 ```bash
 mlflow ui --port 4242 --backend-store-uri sqlite:///runs/tracking/mlflow.db
 ```
 
-An existing run can be reloaded to perform additional tests with the trained model. For a previous run with exp_name=toptagging and run_name=hello_world_toptagging, one can run for example. 
+An existing run can be reloaded to perform additional tests with the trained model. For a previous run with exp_name=toptagging and run_name=hello_world_toptagging, one can run for example
+
 ```bash
 python run.py -cn config -cp runs/toptagging/hello_world_toptagging train=false warm_start_idx=0
 ```
-The warm_start_idx specifies which model in the models folder should be loaded and defaults to 0. 
 
-The default configuration files in the `config` folder define small models to allow quick test runs.
+The warm_start_idx specifies which model in the models folder should be loaded and defaults to 0. 
