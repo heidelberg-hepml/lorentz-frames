@@ -3,7 +3,7 @@ from torch_geometric.utils import scatter
 
 from tensorframes.lframes.lframes import LFrames
 from tensorframes.lframes.nonequi_lframes import LFramesPredictor
-from tensorframes.utils.restframe import restframe_transform_2
+from tensorframes.utils.restframe import restframe_transform_v2
 from tensorframes.nnhep.equivectors import EquivariantVectors
 from tensorframes.utils.lorentz import (
     lorentz_inner,
@@ -22,7 +22,7 @@ class RestLFrames(LFramesPredictor):
         super().__init__()
 
     def forward(self, fourmomenta):
-        transform = restframe_transform_2(fourmomenta)
+        transform = restframe_transform_v2(fourmomenta)
         return LFrames(transform)
 
 

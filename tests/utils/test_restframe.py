@@ -5,14 +5,14 @@ from tests.helpers import sample_vector, lorentz_test
 
 from tensorframes.utils.restframe import (
     restframe_transform,
-    restframe_transform_2,
+    restframe_transform_v2,
 )
 from tensorframes.utils.lorentz import lorentz_squarednorm
 
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
 @pytest.mark.parametrize(
-    "restframe_transform", [restframe_transform, restframe_transform_2]
+    "restframe_transform", [restframe_transform, restframe_transform_v2]
 )
 @pytest.mark.parametrize("logm2_std", LOGM2_STD)
 @pytest.mark.parametrize("logm2_mean", LOGM2_MEAN)
