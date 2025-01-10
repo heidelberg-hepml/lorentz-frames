@@ -22,8 +22,9 @@ class RestLFrames(LFramesPredictor):
         super().__init__()
 
     def forward(self, fourmomenta):
-        transform = restframe_transform_v2(fourmomenta)
-        return LFrames(transform)
+        fm = fourmomenta.to(dtype=torch.float64)
+        transform = restframe_transform_v2(fm)
+        return LFrames(transform.to(dtype=fm.dtype))
 
 
 class LearnedLFrames(LFramesPredictor):
@@ -81,6 +82,7 @@ class CrossLearnedLFrames(LearnedLFrames):
 
     def forward(self, fourmomenta, scalars, edge_index, batch):
         vecs = super().forward(fourmomenta, scalars, edge_index)
+        vecs = vecs.to(dtype=torch.float64)
         vecs = [vecs[..., i, :] for i in range(self.n_vectors)]
 
         orthogonal_vecs = orthogonalize_cross(vecs, self.eps)
@@ -101,7 +103,7 @@ class CrossLearnedLFrames(LearnedLFrames):
         trafo[..., 0, :] = old_trafo[pos_norm]
         trafo[..., 1:, :] = old_trafo[~pos_norm].view(-1, 3, 4)
 
-        return LFrames(trafo)
+        return LFrames(trafo.to(dtype=fourmomenta.dtype))
 
 
 class ReflectLearnedLFrames(LearnedLFrames):
@@ -125,13 +127,14 @@ class ReflectLearnedLFrames(LearnedLFrames):
 
     def forward(self, fourmomenta, scalars, edge_index, batch):
         vecs = super().forward(fourmomenta, scalars, edge_index)
+        vecs = vecs.to(dtype=torch.float64)
         vecs = [vecs[..., i, :] for i in range(self.n_vectors)]
 
         trafo = reflect_list(vecs)
 
         counter = pseudo_trafo(fourmomenta, batch)
         trafo = counter @ trafo
-        return LFrames(trafo)
+        return LFrames(trafo.to(dtype=fourmomenta.dtype))
 
 
 class MatrixExpLearnedLFrames(LearnedLFrames):
@@ -154,6 +157,7 @@ class MatrixExpLearnedLFrames(LearnedLFrames):
 
     def forward(self, fourmomenta, scalars, edge_index, batch):
         vecs = super().forward(fourmomenta, scalars, edge_index)
+        vecs = vecs.to(dtype=torch.float64)
         vecs /= self.stability_factor
         vecs = [vecs[..., i, :] for i in range(self.n_vectors)]
 
@@ -161,7 +165,7 @@ class MatrixExpLearnedLFrames(LearnedLFrames):
 
         counter = pseudo_trafo(fourmomenta, batch)
         trafo = counter @ trafo
-        return LFrames(trafo)
+        return LFrames(trafo.to(dtype=fourmomenta.dtype))
 
 
 def pseudo_trafo(fourmomenta, batch):
