@@ -4,9 +4,9 @@ lr: 1e-3
 weight_decay: 0.01
 iterations: 46875 # 20 epochs
 validate_every_n_steps: 2343 # after each epoch
+optimizer: Ranger
 
 # rest differently for convenience
-optimizer: AdamW
 scheduler: CosineAnnealingLR
 
 defaults:
