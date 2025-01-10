@@ -4,10 +4,8 @@ optimizer: AdamW
 weight_decay: 0.0001
 iterations: 62500 # 20 epochs
 validate_every_n_steps: 3125 # after each epoch
-
-# rest differently for convenience
-lr: 1e-3
-scheduler: CosineAnnealingLR
+scheduler: particlenet-scheduler
+lr: 3e-4
 
 defaults:
  - default

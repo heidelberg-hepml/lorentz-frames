@@ -387,6 +387,44 @@ class BaseExperiment:
                 factor=self.cfg.training.reduceplateau_factor,
                 patience=self.cfg.training.reduceplateau_patience,
             )
+        elif self.cfg.training.scheduler == "flat+decay":
+            # default scheduler used in the weaver package
+            # see https://github.com/hqucms/weaver-core/blob/main/weaver/train.py#L509
+            # note: have to modify this if we ever do finetunings / len(names_lr_mult) > 0 in weaver
+            num_epochs = int(self.cfg.training.iterations / len(self.train_loader))
+            num_decay_epochs = max(1, int(num_epochs * 0.3))
+            milestones = list(range(num_epochs - num_decay_epochs, num_epochs))
+            gamma = 0.01 ** (1.0 / num_decay_epochs)
+            self.scheduler = torch.optim.lr_scheduler.MultiStepLR(
+                self.optimizer,
+                milestones=milestones,
+                gamma=gamma,
+            )
+        elif self.cfg.training.scheduler == "particlenet-scheduler":
+            # original ParticleNet scheduler described in
+            # Section III of https://arxiv.org/abs/1902.08570
+            lr_init = self.cfg.training.lr
+            lr_peak = lr_init * 10
+            lr_final = (
+                lr_init * 5e-7 / 3e-4
+            )  # particlenet-lite lr has small deviation from paper to simplify things
+            start_factors = [lr_init / lr_peak, 1.0, lr_init / lr_peak]
+            end_factors = [1.0, lr_init / lr_peak, lr_final / lr_peak]
+            iters = [8, 8, 4]
+            schedulers = [
+                torch.optim.lr_scheduler.LinearLR(
+                    self.optimizer,
+                    start_factor=start_factor,
+                    end_factor=end_factor,
+                    total_iters=iter,
+                )
+                for start_factor, end_factor, iter in zip(
+                    start_factors, end_factors, iters
+                )
+            ]
+            self.scheduler = torch.optim.lr_scheduler.SequentialLR(
+                self.optimizer, schedulers=schedulers, milestones=[8, 16]
+            )
         else:
             raise ValueError(
                 f"Learning rate scheduler {self.cfg.training.scheduler} not implemented"
@@ -482,6 +520,14 @@ class BaseExperiment:
                     f"training time estimate: {dt_estimate/60:.2f}min "
                     f"= {dt_estimate/60**2:.2f}h"
                 )
+
+            if step % len(self.train_loader) == 0:
+                # schedulers that step after each epoch
+                if self.cfg.training.scheduler in [
+                    "flat+decay",
+                    "particlenet-scheduler",
+                ]:
+                    self.scheduler.step()
 
         dt = time.time() - self.training_start_time
         LOGGER.info(
