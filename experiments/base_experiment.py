@@ -574,7 +574,7 @@ class BaseExperiment:
                 self.cfg.training.clip_grad_norm
                 if self.cfg.training.clip_grad_norm is not None
                 else float("inf"),
-                error_if_nonfinite=True,
+                error_if_nonfinite=False,
             )
             .cpu()
             .item()
