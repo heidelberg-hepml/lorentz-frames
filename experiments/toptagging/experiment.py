@@ -28,9 +28,10 @@ class TaggingExperiment(BaseExperiment):
         # dynamically extend dict
         with open_dict(self.cfg):
             self.cfg.data.include_global_token = not self.cfg.model.mean_aggregation
-            assert (
-                not self.cfg.data.incude_global_token
-            ), "Global token not properly supported"
+
+        assert (
+            not self.cfg.data.include_global_token
+        ), "Global token not properly supported"
 
     def init_data(self):
         raise NotImplementedError
