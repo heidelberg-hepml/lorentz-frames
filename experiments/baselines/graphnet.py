@@ -42,8 +42,6 @@ class EdgeConv(MessagePassing):
 
     def forward(self, x, edge_index):
         # batch = (batch, batch)
-
-        print(edge_index.shape, x.shape)
         x_aggr = self.propagate(
             edge_index,
             x=x,
