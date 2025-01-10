@@ -12,22 +12,26 @@ from tensorframes.lframes.equi_lframes import (
     MatrixExpLearnedLFrames,
 )
 from tensorframes.reps.tensorreps import TensorReps
-from tensorframes.lframes import LFrames
 from tensorframes.utils.transforms import rand_transform
 
 
 @pytest.mark.parametrize("LFramesPredictor", [CrossLearnedLFrames])
-@pytest.mark.parametrize("num_layers_mlp1", range(1,3))
-@pytest.mark.parametrize("num_layers_mlp2", range(1,3))
+@pytest.mark.parametrize("num_layers_mlp1", range(1, 3))
+@pytest.mark.parametrize("num_layers_mlp2", range(1, 3))
 @pytest.mark.parametrize("logm2_std", LOGM2_STD)
-@pytest.mark.parametrize("logm2_mean", LOGM2_MEAN) # LOGM2_MEAN=3 might fail the equivariance test
+@pytest.mark.parametrize("logm2_mean", LOGM2_MEAN)
 def test_edgeconv_feature_invariance(
-    LFramesPredictor, num_layers_mlp1, num_layers_mlp2, logm2_std, logm2_mean, aggr="add",
+    LFramesPredictor,
+    num_layers_mlp1,
+    num_layers_mlp2,
+    logm2_std,
+    logm2_mean,
+    aggr="add",
 ):
     # test construction of the messages in EdgeConv by probing the feature invariance
     # preparations as in test_attention
     # only use 1 "jet"
-    dtype = torch.float64 # is this needed?
+    dtype = torch.float64  # is this needed?
     batch_dims = [10]
     if LFramesPredictor == RestLFrames:
         predictor = LFramesPredictor()
@@ -72,19 +76,24 @@ def test_edgeconv_feature_invariance(
 
     torch.testing.assert_close(fm_local_prime, fm_tr_local_prime, **TOLERANCES)
 
-    
+
 @pytest.mark.parametrize("LFramesPredictor", [CrossLearnedLFrames])
-@pytest.mark.parametrize("num_layers_mlp1", range(1,2))
-@pytest.mark.parametrize("num_layers_mlp2", range(0,2))
+@pytest.mark.parametrize("num_layers_mlp1", range(1, 2))
+@pytest.mark.parametrize("num_layers_mlp2", range(0, 2))
 @pytest.mark.parametrize("logm2_std", LOGM2_STD)
 @pytest.mark.parametrize("logm2_mean", LOGM2_MEAN)
 def test_edgeconv_equivariance(
-    LFramesPredictor, num_layers_mlp1, num_layers_mlp2, logm2_std, logm2_mean, aggr="add",
+    LFramesPredictor,
+    num_layers_mlp1,
+    num_layers_mlp2,
+    logm2_std,
+    logm2_mean,
+    aggr="add",
 ):
     # test construction of the messages in EdgeConv by probing the equivariance
     # preparations as in test_attention
     # only use 1 "jet"
-    dtype = torch.float64 # is this needed?
+    dtype = torch.float64  # is this needed?
     batch_dims = [10]
     if LFramesPredictor == RestLFrames:
         predictor = LFramesPredictor()
@@ -115,7 +124,7 @@ def test_edgeconv_equivariance(
     # sample Lorentz vectors
     fm = sample_vector(batch_dims, logm2_std, logm2_mean, dtype=dtype)
     lframes = call_predictor(fm)
-    fm_local = trafo(fm ,lframes)
+    fm_local = trafo(fm, lframes)
 
     # global - edgeconv
     fm_transformed = torch.einsum("...ij,...j->...i", random, fm)
