@@ -36,7 +36,7 @@ def orthogonalize_cross(vecs, eps):
 
     def normalize(v):
         norm = lorentz_squarednorm(v).unsqueeze(-1)
-        norm = torch.where(norm > 0, norm.sqrt(), -(-norm).sqrt())
+        norm = torch.sign(norm) * norm.abs().sqrt()
         norm = torch.where(norm > 0, norm + eps, norm - eps)  # avoid division by zero
         return v / norm
 
