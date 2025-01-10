@@ -300,35 +300,36 @@ class BaseExperiment:
         self.dtype = torch.float32
         LOGGER.debug("Using dtype float32")
 
-    def _init_optimizer(self):
+    def _init_optimizer(self, param_groups=None):
+        if param_groups is None:
+            param_groups = [
+                {"params": self.model.parameters(), "lr": self.cfg.training.lr}
+            ]
+
         if self.cfg.training.optimizer == "Adam":
             self.optimizer = torch.optim.Adam(
-                self.model.parameters(),
-                lr=self.cfg.training.lr,
+                param_groups,
                 betas=self.cfg.training.betas,
                 eps=self.cfg.training.eps,
                 weight_decay=self.cfg.training.weight_decay,
             )
         elif self.cfg.training.optimizer == "AdamW":
             self.optimizer = torch.optim.AdamW(
-                self.model.parameters(),
-                lr=self.cfg.training.lr,
+                param_groups,
                 betas=self.cfg.training.betas,
                 eps=self.cfg.training.eps,
                 weight_decay=self.cfg.training.weight_decay,
             )
         elif self.cfg.training.optimizer == "RAdam":
             self.optimizer = torch.optim.RAdam(
-                self.model.parameters(),
-                lr=self.cfg.training.lr,
+                param_groups,
                 betas=self.cfg.training.betas,
                 eps=self.cfg.training.eps,
                 weight_decay=self.cfg.training.weight_decay,
             )
         elif self.cfg.training.optimizer == "Lion":
             self.optimizer = pytorch_optimizer.Lion(
-                self.model.parameters(),
-                lr=self.cfg.training.lr,
+                param_groups,
                 betas=self.cfg.training.betas,
                 weight_decay=self.cfg.training.weight_decay,
             )
@@ -336,8 +337,7 @@ class BaseExperiment:
             # default optimizer used in the weaver package
             # see https://github.com/hqucms/weaver-core/blob/main/weaver/utils/nn/optimizer/ranger.py
             radam = torch.optim.RAdam(
-                self.model.parameters(),
-                lr=self.cfg.training.lr,
+                param_groups,
                 betas=(0.95, 0.999),
                 eps=1e-5,
                 weight_decay=self.cfg.training.weight_decay,
