@@ -7,6 +7,7 @@ from xformers.ops import AttentionBias, memory_efficient_attention
 
 from tensorframes.lframes import ChangeOfLFrames, LFrames
 from tensorframes.reps import TensorReps
+from tensorframes.utils.utils import to_nd
 
 # Masked out attention logits are set to this constant (a finite replacement for -inf):
 _MASKED_OUT = float("-inf")
@@ -20,6 +21,7 @@ class InvariantParticleAttention(torch.nn.Module):
     def forward(
         self, q_local, k_local, v_local, lframes, attn_mask=None, is_causal=False
     ):
+        # TODO: Clean this up
         lframes_inv = lframes.inverse_lframes()
 
         # transformation matrices with lowered indices (multiply with metric)
@@ -28,15 +30,43 @@ class InvariantParticleAttention(torch.nn.Module):
         )
         lframes_inv_lower = LFrames(lframes_inv_lower_matrices)
 
+        # collapse batch dimension (required for tensorreps.py)
+        bh_shape1 = q_local.shape
+        q_local = to_nd(q_local, 2)
+        k_local = to_nd(k_local, 2)
+        v_local = to_nd(v_local, 2)
+
+        # transform into global frame
         q_global = self.transform(q_local, lframes_inv)
         k_global = self.transform(k_local, lframes_inv_lower)
         v_global = self.transform(v_local, lframes_inv)
+
+        # undo collapse
+        q_global = q_global.view(*bh_shape1)
+        k_global = k_global.view(*bh_shape1)
+        v_global = v_global.view(*bh_shape1)
+
+        # add batch dimension if needed
+        bh_shape2 = q_global.shape[:-2]
+        q_global = to_nd(q_global, 4)
+        k_global = to_nd(k_global, 4)
+        v_global = to_nd(v_global, 4)
 
         out_global = scaled_dot_product_attention(
             q_global, k_global, v_global, attn_mask=attn_mask, is_causal=is_causal
         )
 
+        # Return batch dimensions to inputs
+        out_global = out_global.view(*bh_shape2, *out_global.shape[-2:])
+
+        # collapse batch dimension
+        out_global = to_nd(out_global, 2)
+
+        # transform into local frame
         out_local = self.transform(out_global, lframes)
+
+        # undo collapse
+        out_local = out_local.view(*bh_shape1)
         return out_local
 
 

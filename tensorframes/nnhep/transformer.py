@@ -219,14 +219,6 @@ class BaselineSelfAttention(nn.Module):
 
     def _attend(self, q, k, v, lframes, attention_mask=None, is_causal=False):
         """Scaled dot-product attention."""
-
-        # Add batch dimension if needed
-        bh_shape = q.shape[:-2]
-        q = to_nd(q, 4)
-        k = to_nd(k, 4)
-        v = to_nd(v, 4)
-
-        # SDPA
         outputs = self.attention(
             q.contiguous(),
             k.expand_as(q).contiguous(),
@@ -235,9 +227,6 @@ class BaselineSelfAttention(nn.Module):
             attn_mask=attention_mask,
             is_causal=is_causal,
         )
-
-        # Return batch dimensions to inputs
-        outputs = outputs.view(*bh_shape, *outputs.shape[-2:])
 
         return outputs
 
