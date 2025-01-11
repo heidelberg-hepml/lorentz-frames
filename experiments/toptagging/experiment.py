@@ -1,9 +1,6 @@
 import numpy as np
 import torch
-
-torch.autograd.set_detect_anomaly(False)
 from torch_geometric.loader import DataLoader
-
 import os, time
 from omegaconf import open_dict
 

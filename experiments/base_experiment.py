@@ -10,13 +10,15 @@ from hydra.core.config_store import ConfigStore
 from hydra.utils import instantiate
 import mlflow
 from torch_ema import ExponentialMovingAverage
-from tqdm import trange
 import pytorch_optimizer
 
 from experiments.misc import get_device, flatten_dict
 import experiments.logger
 from experiments.logger import LOGGER, MEMORY_HANDLER, FORMATTER
 from experiments.mlflow import log_mlflow
+
+# set to 'True' to debug autograd issues (slows down code)
+torch.autograd.set_detect_anomaly(False)
 
 
 class BaseExperiment:
@@ -120,15 +122,14 @@ class BaseExperiment:
             )
             try:
                 state_dict = torch.load(model_path, map_location="cpu")["model"]
+                LOGGER.info(f"Loading model from {model_path}")
+                self.model.load_state_dict(state_dict)
+                if self.ema is not None:
+                    LOGGER.info(f"Loading EMA from {model_path}")
+                    state_dict = torch.load(model_path, map_location="cpu")["ema"]
+                    self.ema.load_state_dict(state_dict)
             except FileNotFoundError:
                 raise ValueError(f"Cannot load model from {model_path}")
-            LOGGER.info(f"Loading model from {model_path}")
-            self.model.load_state_dict(state_dict)
-
-            if self.ema is not None:
-                LOGGER.info(f"Loading EMA from {model_path}")
-                state_dict = torch.load(model_path, map_location="cpu")["ema"]
-                self.ema.load_state_dict(state_dict)
 
         self.model.to(self.device, dtype=self.dtype)
         if self.ema is not None:
@@ -154,10 +155,7 @@ class BaseExperiment:
 
         if not self.warm_start:
             if self.cfg.run_name is None:
-                try:
-                    modelname = self.cfg.model.net._target_.rsplit(".", 1)[-1]
-                except:
-                    modelname = "Toy"
+                modelname = self.cfg.model.net._target_.rsplit(".", 1)[-1]
                 rnd_number = np.random.randint(low=0, high=9999)
                 run_name = f"{modelname}_{rnd_number:04}"
             else:
@@ -356,10 +354,10 @@ class BaseExperiment:
             )
             try:
                 state_dict = torch.load(model_path, map_location="cpu")["optimizer"]
+                LOGGER.info(f"Loading optimizer from {model_path}")
+                self.optimizer.load_state_dict(state_dict)
             except FileNotFoundError:
                 raise ValueError(f"Cannot load optimizer from {model_path}")
-            LOGGER.info(f"Loading optimizer from {model_path}")
-            self.optimizer.load_state_dict(state_dict)
 
     def _init_scheduler(self):
         if self.cfg.training.scheduler is None:
@@ -439,10 +437,10 @@ class BaseExperiment:
             )
             try:
                 state_dict = torch.load(model_path, map_location="cpu")["scheduler"]
+                LOGGER.info(f"Loading scheduler from {model_path}")
+                self.scheduler.load_state_dict(state_dict)
             except FileNotFoundError:
                 raise ValueError(f"Cannot load scheduler from {model_path}")
-            LOGGER.info(f"Loading scheduler from {model_path}")
-            self.scheduler.load_state_dict(state_dict)
 
     def train(self):
         # performance metrics
@@ -475,8 +473,6 @@ class BaseExperiment:
         for step in range(self.cfg.training.iterations):
             # training
             self.model.train()
-            if self.cfg.training.optimizer == "ScheduleFree":
-                self.optimizer.train()
             data = next(iterator)
             t0 = time.time()
             self._step(data, step)
@@ -552,7 +548,7 @@ class BaseExperiment:
                 LOGGER.info(f"Loading model from {model_path}")
                 self.model.load_state_dict(state_dict)
             except FileNotFoundError:
-                LOGGER.warning(
+                raise ValueError(
                     f"Cannot load best model (epoch {smallest_val_loss_step}) from {model_path}"
                 )
 
@@ -615,8 +611,6 @@ class BaseExperiment:
         metrics = self._init_metrics()
 
         self.model.eval()
-        if self.cfg.training.optimizer == "ScheduleFree":
-            self.optimizer.eval()
         with torch.no_grad():
             for data in self.val_loader:
                 # use EMA for validation if available
