@@ -7,7 +7,6 @@ from torch import nn
 from torch.utils.checkpoint import checkpoint
 
 from tensorframes.nnhep.attention import InvariantParticleAttention
-from tensorframes.utils.utils import to_nd
 from tensorframes.reps.tensorreps import TensorReps
 
 """

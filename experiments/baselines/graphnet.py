@@ -67,7 +67,7 @@ class GraphNet(nn.Module):
         num_layers_mlp2=0,
         aggr="add",
         checkpoint_blocks=False,
-        dropout_prob=None
+        dropout_prob=None,
     ):
         super().__init__()
         self.checkpoint_blocks = checkpoint_blocks
