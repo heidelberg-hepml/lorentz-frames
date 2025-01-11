@@ -22,22 +22,19 @@ class InvariantParticleAttention(torch.nn.Module):
     ):
         lframes_inv = lframes.inverse_lframes()
 
+        # transformation matrices with lowered indices (multiply with metric)
+        lframes_inv_lower_matrices = torch.einsum(
+            "...ij,...jk->...ik", lframes.metric, lframes_inv.matrices
+        )
+        lframes_inv_lower = LFrames(lframes_inv_lower_matrices)
+
         q_global = self.transform(q_local, lframes_inv)
-        k_global = self.transform(k_local, lframes_inv)
+        k_global = self.transform(k_local, lframes_inv_lower)
         v_global = self.transform(v_local, lframes_inv)
-
-        # TODO: Correctly construct attention (this is lacking some metrics)
-
-        # metric = lframes.metric.unsqueeze(0).repeat(k_global.shape[0], 1, 1)
-        # k_global = torch.einsum("...ij,...j->...i", metric, k_global)
-
-        # metric = lframes.metric.unsqueeze(0).repeat(q_global.shape[0], 1, 1)
-        # q_global = torch.einsum("...ij,...j->...i", metric, q_global)
 
         out_global = scaled_dot_product_attention(
             q_global, k_global, v_global, attn_mask=attn_mask, is_causal=is_causal
         )
-        # out_global = v_global # this is equivariant
 
         out_local = self.transform(out_global, lframes)
         return out_local
