@@ -16,6 +16,7 @@ from tensorframes.utils.transforms import rand_transform
 
 
 @pytest.mark.parametrize("LFramesPredictor", [CrossLearnedLFrames])
+@pytest.mark.parametrize("batch_dims", [[10]])
 @pytest.mark.parametrize("num_layers_mlp1", range(1, 2))
 @pytest.mark.parametrize("num_layers_mlp2", range(0, 2))
 @pytest.mark.parametrize("logm2_std", LOGM2_STD)
@@ -23,18 +24,19 @@ from tensorframes.utils.transforms import rand_transform
 @pytest.mark.parametrize("reps", REPS)
 def test_edgeconv_invariance_equivariance(
     LFramesPredictor,
+    batch_dims,
     num_layers_mlp1,
     num_layers_mlp2,
     logm2_std,
     logm2_mean,
     reps,
-    aggr="add",
 ):
     # test construction of the messages in EdgeConv by probing the equivariance
     # preparations as in test_attention
     # only use 1 "jet"
     dtype = torch.float64  # is this needed?
-    batch_dims = [10]
+
+    edge_index = dense_to_sparse(torch.ones(batch_dims[0], batch_dims[0]))[0]
     if LFramesPredictor == RestLFrames:
         predictor = LFramesPredictor()
         call_predictor = lambda fm: predictor(fm)
@@ -48,7 +50,6 @@ def test_edgeconv_invariance_equivariance(
             dtype=dtype
         )
         batch = torch.zeros(batch_dims, dtype=torch.long)
-        edge_index = dense_to_sparse(torch.ones(batch_dims[0], batch_dims[0]))[0]
         scalars = torch.zeros(*batch_dims, 0, dtype=dtype)
         call_predictor = lambda fm: predictor(fm, scalars, edge_index, batch)
 
@@ -58,9 +59,7 @@ def test_edgeconv_invariance_equivariance(
     trafo = TensorReps(in_reps).get_transform_class()
     linear_in = torch.nn.Linear(in_reps.dim, hidden_reps.dim).to(dtype=dtype)
     linear_out = torch.nn.Linear(hidden_reps.dim, in_reps.dim).to(dtype=dtype)
-    edgeconv = EdgeConv(hidden_reps, num_layers_mlp1, num_layers_mlp2, aggr=aggr).to(
-        dtype
-    )
+    edgeconv = EdgeConv(hidden_reps, num_layers_mlp1, num_layers_mlp2).to(dtype)
 
     # get global transformation
     random = rand_transform([1], dtype=dtype)
@@ -100,6 +99,7 @@ def test_edgeconv_invariance_equivariance(
 
 
 @pytest.mark.parametrize("LFramesPredictor", [CrossLearnedLFrames])
+@pytest.mark.parametrize("batch_dims", [[10]])
 @pytest.mark.parametrize("num_layers_mlp1", range(1, 2))
 @pytest.mark.parametrize("num_layers_mlp2", range(0, 2))
 @pytest.mark.parametrize("num_blocks", [0, 1, 2])
@@ -108,19 +108,20 @@ def test_edgeconv_invariance_equivariance(
 @pytest.mark.parametrize("reps", REPS)
 def test_graphnet_invariance_equivariance(
     LFramesPredictor,
+    batch_dims,
     num_layers_mlp1,
     num_layers_mlp2,
     num_blocks,
     logm2_std,
     logm2_mean,
     reps,
-    aggr="add",
 ):
     # test construction of the messages in GraphNet by probing the equivariance
     # preparations as in test_attention
     # only use 1 "jet"
     dtype = torch.float64  # is this needed?
-    batch_dims = [10]
+
+    edge_index = dense_to_sparse(torch.ones(batch_dims[0], batch_dims[0]))[0]
     if LFramesPredictor == RestLFrames:
         predictor = LFramesPredictor()
         call_predictor = lambda fm: predictor(fm)
@@ -134,7 +135,6 @@ def test_graphnet_invariance_equivariance(
             dtype=dtype
         )
         batch = torch.zeros(batch_dims, dtype=torch.long)
-        edge_index = dense_to_sparse(torch.ones(batch_dims[0], batch_dims[0]))[0]
         scalars = torch.zeros(*batch_dims, 0, dtype=dtype)
         call_predictor = lambda fm: predictor(fm, scalars, edge_index, batch)
 
@@ -148,7 +148,6 @@ def test_graphnet_invariance_equivariance(
         num_blocks=num_blocks,
         num_layers_mlp1=num_layers_mlp1,
         num_layers_mlp2=num_layers_mlp2,
-        aggr=aggr,
     ).to(dtype=dtype)
 
     # get global transformation
