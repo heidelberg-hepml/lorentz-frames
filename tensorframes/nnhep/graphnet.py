@@ -66,7 +66,7 @@ class TFGraphNet(nn.Module):
         num_layers_mlp2=0,
         aggr="add",
         checkpoint_blocks=False,
-        **mlp_kwargs,
+        dropout_prob=None,
     ):
         super().__init__()
         hidden_reps = TensorReps(hidden_channels)
@@ -81,7 +81,7 @@ class TFGraphNet(nn.Module):
                     num_layers_mlp1,
                     num_layers_mlp2,
                     aggr=aggr,
-                    **mlp_kwargs,
+                    dropout_prob=dropout_prob,
                 )
                 for _ in range(num_blocks)
             ]
