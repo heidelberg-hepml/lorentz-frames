@@ -354,30 +354,18 @@ class BaselineParTWrapper(TaggerWrapper2):
         self.net = net(input_dim=self.in_reps.dim)
 
     def forward(self, embedding):
-        fourmomenta_local, scalars, _, _, batch, is_global = super().forward(embedding)
+        fourmomenta_local, scalars, _, _, batch, _ = super().forward(embedding)
         jetmomenta_local = EPPP_to_PtPhiEtaM2(fourmomenta_local)
 
-        fourmomenta_local = fourmomenta_local.reshape(fourmomenta_local.shape[0], -1)
         jetmomenta_local = jetmomenta_local.reshape(jetmomenta_local.shape[0], -1)
         features_local = torch.cat([jetmomenta_local, scalars], dim=-1)
 
-        fourmomenta_local, mask = to_dense_batch(fourmomenta_local, batch)
-        features_local, _ = to_dense_batch(features_local, batch)
-        fourmomenta_local = fourmomenta_local.transpose(1, 2)
+        features_local, mask = to_dense_batch(features_local, batch)
         features_local = features_local.transpose(1, 2)
         mask = mask.unsqueeze(1)
 
-        # turn bool mask into float mask
-        # bool mask gives nan values for some reason
-        # I dont understand why this is necessary,
-        # according to the documentation both should work
-        mask = torch.where(
-            mask, torch.zeros_like(mask), torch.ones_like(mask) * float("-inf")
-        )
-
         # network
         score = self.net(
-            v=fourmomenta_local,
             x=features_local,
             mask=mask,
         )
