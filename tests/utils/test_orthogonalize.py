@@ -3,7 +3,11 @@ import pytest
 from tests.constants import TOLERANCES, BATCH_DIMS
 
 from tensorframes.utils.lorentz import lorentz_inner
-from tensorframes.utils.orthogonalize import lorentz_cross
+from tensorframes.utils.orthogonalize import (
+    lorentz_cross,
+    orthogonalize_cross,
+    orthogonalize_cross_o3,
+)
 
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
@@ -24,3 +28,33 @@ def test_lorentz_cross(batch_dims):
     torch.testing.assert_close(inner14, zeros, **TOLERANCES)
     torch.testing.assert_close(inner24, zeros, **TOLERANCES)
     torch.testing.assert_close(inner34, zeros, **TOLERANCES)
+
+
+@pytest.mark.parametrize("batch_dims", BATCH_DIMS)
+def test_orthogonalize(batch_dims):
+    # cross product of 3 random vectors
+    v1 = torch.randn(batch_dims + [4])
+    v2 = torch.randn(batch_dims + [4])
+    v3 = torch.randn(batch_dims + [4])
+
+    orthogonal_vecs = orthogonalize_cross([v1, v2, v3])
+
+    for i1, v1 in enumerate(orthogonal_vecs):
+        for i2, v2 in enumerate(orthogonal_vecs):
+            inner = lorentz_inner(v1, v2)
+            target = torch.ones_like(inner) if i1 == i2 else torch.zeros_like(inner)
+            torch.testing.assert_close(inner.abs(), target, **TOLERANCES)
+
+
+@pytest.mark.parametrize("batch_dims", BATCH_DIMS)
+def test_orthogonalize_o3(batch_dims):
+    v1 = torch.randn(batch_dims + [3])
+    v2 = torch.randn(batch_dims + [3])
+
+    orthogonal_vecs = orthogonalize_cross_o3([v1, v2])
+
+    for i1, v1 in enumerate(orthogonal_vecs):
+        for i2, v2 in enumerate(orthogonal_vecs):
+            inner = (v1 * v2).sum(dim=-1)
+            target = torch.ones_like(inner) if i1 == i2 else torch.zeros_like(inner)
+            torch.testing.assert_close(inner, target, **TOLERANCES)
