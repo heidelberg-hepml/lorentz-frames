@@ -2,9 +2,10 @@ import torch
 
 from tensorframes.utils.utils import stable_arctanh
 from tensorframes.utils.transforms import transform
+from tensorframes.utils.orthogonalize import orthogonalize_cross_o3
 
 
-def restframe_transform(fourmomenta):
+def restframe_transform_v1(fourmomenta):
     """
     Create rest frame transformation matrices for given fourmomenta
     as a combination of rotations and boosts
@@ -80,4 +81,42 @@ def restframe_transform_v2(fourmomenta):
     trafo[..., 1:, 1:] = rot
     trafo[..., 0, 1:] = boost
     trafo[..., 1:, 0] = boost
+    return trafo
+
+
+def restframe_transform_v3(fourmomenta, eps=1e-10):
+    """
+    Create rest frame transformation matrices for given fourmomenta
+    such that it has the correct transformation properties
+
+    Strategy:
+    1) Construct 1st part using restframe_transform_v2
+    2) Construct 2nd part from orthogonalized 3-vectors
+       (effectively a O(3) local frame)
+    3) Combine both parts
+
+    Args:
+        fourmomenta: torch.tensor of shape (*dims, 4)
+
+    Returns:
+        final_trafo: torch.tensor of shape (*dims, 4, 4)
+    """
+    trafo1 = restframe_transform_v2(fourmomenta)
+
+    # for now, construct reference from fourmomenta directly
+    reference = fourmomenta.sum(dim=-2, keepdim=True)
+
+    # construct rotation
+    # note: cross product orthogonalization is stable here,
+    # because we have 3-vectors and they are nonzero
+    vecs = [fourmomenta[..., 1:], reference[..., 1:]]
+    orthogonal_vecs = orthogonalize_cross_o3(vecs, eps=eps)
+    rotation = torch.stack(orthogonal_vecs, dim=-2)
+
+    # embed rotation into lorentz transformation
+    trafo2 = torch.zeros_like(trafo1)
+    trafo2[..., 0, 0] = 1
+    trafo2[..., 1:, 1:] = rotation
+
+    trafo = torch.einsum("...ij,...jk->...ik", trafo2, trafo1)
     return trafo
