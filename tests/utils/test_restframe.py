@@ -10,7 +10,12 @@ from tensorframes.utils.restframe import (
 )
 from tensorframes.lframes.lframes import LFrames
 from tensorframes.utils.lorentz import lorentz_squarednorm
-from tensorframes.utils.transforms import rand_lorentz, rand_rotation, rand_boost
+from tensorframes.utils.transforms import (
+    rand_lorentz,
+    rand_rotation,
+    rand_boost,
+    rand_tz_boost,
+)
 
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
@@ -57,23 +62,33 @@ Status
   rotations: rest -> rest * random^-1 (this is new!)
   combined rotations and boosts: should be rest -> rest * random^-1
 -> restframe_transform_v3 should do what we want!
-  
+- Added a test which only performs a boost along the z direction
+  and sets to zero the xy components of the fm.
+  This means that rest * random^-1 are collinear boosts which outputs a boost.
+  restframe_transform_v2 passes the test, while restframe_transform_v3 is messing up a few angles (not sure why)
+
 Questions
 - Why does the test not pass for rand_boost? (it should, I did the analytics)
 - Why does the test not pass for rand_lorentz? 
   (I dont see why it should not pass if we can do boosts and rotations seperately)
+Partial answers:
+- Key aspect: composition of boosts is not a subgroup of Lorentz.
+    -> Two boosts generally correspond to a boost + rotation. (See Wigner rotation)
+- This is fine if the boosts are collinear for which we get rest -> rest * random^-1
+  not 100% sure, maybe this is a too simple special case
 """
 
 
 @pytest.mark.parametrize("batch_dims", [[10]])  # BATCH_DIMS)
 @pytest.mark.parametrize(
     "restframe_transform",
-    [restframe_transform_v1, restframe_transform_v2, restframe_transform_v3],
+    [restframe_transform_v2],  # v1 and v3 still don't pass the test
 )
-@pytest.mark.parametrize("random_transform", [rand_lorentz, rand_rotation, rand_boost])
+@pytest.mark.parametrize(
+    "random_transform", [rand_tz_boost]
+)  # rand_lorentz, rand_rotation, rand_boost don't pass all the tests
 @pytest.mark.parametrize("logm2_std", [1])  # LOGM2_STD)
 @pytest.mark.parametrize("logm2_mean", [0])  # LOGM2_MEAN)
-@pytest.mark.skip
 def test_restframe_transformation(
     batch_dims, restframe_transform, random_transform, logm2_std, logm2_mean
 ):
@@ -83,6 +98,8 @@ def test_restframe_transformation(
     fm = sample_vector(batch_dims, logm2_std, logm2_mean, dtype=dtype)
 
     # determine transformation into rest frame
+    if random_transform == rand_tz_boost:
+        fm[..., 1:3] = 0
     rest_trafo = restframe_transform(fm)
     fm_rest = torch.einsum("...ij,...j->...i", rest_trafo, fm)
 
@@ -103,6 +120,7 @@ def test_restframe_transformation(
     rest_trafo_prime_expected = torch.einsum(
         "...ij,...jk->...ik", rest_trafo, inv_random
     )
+    lorentz_test(random, **TOLERANCES)
 
     torch.testing.assert_close(
         rest_trafo_prime, rest_trafo_prime_expected, **TOLERANCES

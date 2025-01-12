@@ -309,3 +309,27 @@ def rand_boost(
         angle = torch.rand(*shape, device=device, dtype=dtype) * std_eta
         angles.append(angle)
     return transform(axes, angles)
+
+
+def rand_tz_boost(
+    shape: List[int],
+    device: str = "cpu",
+    dtype: torch.dtype = torch.float32,
+):
+    """
+    Create N boost matrices in the z direction embedded in the Lorentz group
+    This function is a special case of rand_boost
+
+    Args:
+        shape: List[int]
+            Shape of the transformation matrices
+        device: str
+        dtype: torch.dtype
+
+    Returns:
+        final_trafo: torch.tensor of shape (*shape, 4, 4)
+    """
+    axis = torch.tensor([0, 3], dtype=torch.long, device=device)
+    axis = axis.view(2, *([1] * len(shape))).repeat(1, *shape)
+    angle = torch.rand(*shape, device=device, dtype=dtype) * 2 * torch.pi
+    return transform([axis], [angle])
