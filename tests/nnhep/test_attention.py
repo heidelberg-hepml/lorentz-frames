@@ -13,7 +13,7 @@ from tensorframes.lframes.equi_lframes import (
     ReflectLearnedLFrames,
     MatrixExpLearnedLFrames,
 )
-from tensorframes.utils.transforms import rand_transform
+from tensorframes.utils.transforms import rand_lorentz
 
 
 @pytest.mark.parametrize(
@@ -57,7 +57,7 @@ def test_invariance_equivariance(
     linear_out = Linear(hidden_reps.dim, in_reps.dim).to(dtype=dtype)
 
     # random global transformation
-    random = rand_transform([1], dtype=dtype)
+    random = rand_lorentz([1], dtype=dtype)
     random = random.repeat(*batch_dims, 1, 1)
 
     # sample Lorentz vectors

@@ -12,7 +12,7 @@ from tensorframes.lframes.equi_lframes import (
     MatrixExpLearnedLFrames,
 )
 from tensorframes.reps.tensorreps import TensorReps
-from tensorframes.utils.transforms import rand_transform
+from tensorframes.utils.transforms import rand_lorentz
 
 
 @pytest.mark.parametrize("LFramesPredictor", [CrossLearnedLFrames])
@@ -62,7 +62,7 @@ def test_edgeconv_invariance_equivariance(
     edgeconv = EdgeConv(hidden_reps, num_layers_mlp1, num_layers_mlp2).to(dtype)
 
     # get global transformation
-    random = rand_transform([1], dtype=dtype)
+    random = rand_lorentz([1], dtype=dtype)
     random = random.repeat(*batch_dims, 1, 1)
 
     # sample Lorentz vectors
@@ -151,7 +151,7 @@ def test_graphnet_invariance_equivariance(
     ).to(dtype=dtype)
 
     # get global transformation
-    random = rand_transform([1], dtype=dtype)
+    random = rand_lorentz([1], dtype=dtype)
     random = random.repeat(*batch_dims, 1, 1)
 
     # sample Lorentz vectors

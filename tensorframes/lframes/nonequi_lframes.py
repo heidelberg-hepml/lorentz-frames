@@ -1,6 +1,6 @@
 import torch
 from tensorframes.lframes.lframes import LFrames
-from tensorframes.utils.transforms import transform, rand_transform, rand_phirotation
+from tensorframes.utils.transforms import transform, rand_lorentz, rand_phirotation
 
 
 class LFramesPredictor(torch.nn.Module):
@@ -32,7 +32,7 @@ class RandomLFrames(LFramesPredictor):
 
     def forward(self, fourmomenta):
         # general random transformation
-        matrix = rand_transform([1], std_eta=self.std_eta, device=fourmomenta.device)
+        matrix = rand_lorentz([1], std_eta=self.std_eta, device=fourmomenta.device)
 
         return LFrames.global_trafo(
             device=fourmomenta.device, trafo=matrix, n_batch=fourmomenta.shape[0]

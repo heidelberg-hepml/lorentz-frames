@@ -12,7 +12,7 @@ from tensorframes.lframes.equi_lframes import (
     MatrixExpLearnedLFrames,
     pseudo_trafo,
 )
-from tensorframes.utils.transforms import rand_transform
+from tensorframes.utils.transforms import rand_lorentz
 from tensorframes.lframes.lframes import LFrames
 
 
@@ -53,7 +53,7 @@ def test_lframes_transformation(LFramesPredictor, batch_dims, logm2_std, logm2_m
     lframes = call_predictor(fm)
 
     # random global transformation
-    random = rand_transform([1], dtype=dtype)
+    random = rand_lorentz([1], dtype=dtype)
     random = random.repeat(*batch_dims, 1, 1)
 
     # lframes for transformed fm
@@ -114,7 +114,7 @@ def test_feature_invariance(LFramesPredictor, batch_dims, logm2_std, logm2_mean)
         # lorentz_test(pseudo, **TOLERANCES)
 
     # random global transformation
-    random = rand_transform([1], dtype=dtype)
+    random = rand_lorentz([1], dtype=dtype)
     random = random.repeat(*batch_dims, 1, 1)
 
     # path 1: LFrames transform (+ random transform)

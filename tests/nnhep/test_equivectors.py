@@ -6,7 +6,7 @@ from tests.helpers import sample_vector
 
 from tensorframes.nnhep.equivectors import EquivariantVectors
 from tensorframes.utils.lorentz import lorentz_inner
-from tensorframes.utils.transforms import rand_transform
+from tensorframes.utils.transforms import rand_lorentz
 
 
 @pytest.mark.parametrize("batch_dims", [[100]])
@@ -49,7 +49,7 @@ def test_equivariance(
     ).flatten(0, 1)
 
     # careful: same global transformation for each jet
-    random = rand_transform(batch_dims, dtype=dtype)
+    random = rand_lorentz(batch_dims, dtype=dtype)
     random = random.unsqueeze(1).repeat(1, jet_size, 1, 1).view(*fm.shape, 4)
 
     # path 1: global transform + predict vectors

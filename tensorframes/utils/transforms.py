@@ -153,7 +153,7 @@ def transform(
     return final_trafo
 
 
-def rand_transform(
+def rand_lorentz(
     shape: List[int],
     n_range: List[int] = [3, 5],
     std_eta: float = 1,
@@ -210,7 +210,7 @@ def rand_rotation(
 ):
     """
     Create N rotation matrices embedded in the Lorentz group
-    This function is very similar to rand_transform,
+    This function is very similar to rand_lorentz,
     differing only in how axis and angle are created
 
     Args:
@@ -277,7 +277,7 @@ def rand_boost(
 ):
     """
     Create N boost matrices embedded in the Lorentz group
-    This function is very similar to rand_transform,
+    This function is very similar to rand_lorentz,
     differing only in how axis and angle are created
 
     Args:

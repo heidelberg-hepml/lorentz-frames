@@ -1,7 +1,7 @@
 import torch
 from tests.constants import TOLERANCES
 
-from tensorframes.utils.transforms import rand_transform
+from tensorframes.utils.transforms import rand_lorentz
 from tensorframes.lframes.lframes import ChangeOfLFrames, LFrames
 from tensorframes.reps.tensorreps import TensorReps, TensorRepsTransform
 
@@ -13,13 +13,13 @@ def test_tensorreps():
     rep_1 = "5x0n+3x1n+3x2n+5x3n"
     tensor_reps_1 = TensorReps(rep_1)
 
-    random_rot = rand_transform([10])
+    random_rot = rand_lorentz([10])
 
     coeffs = torch.randn(10, tensor_reps_1.dim)
     tensor_reps_transform = TensorRepsTransform(tensor_reps_1)
     lframes = LFrames(random_rot)
 
-    random_rot = rand_transform([20])
+    random_rot = rand_lorentz([20])
     flip_mask = torch.randint(0, 2, (20,), dtype=torch.bool)
     random_rot[flip_mask] *= -1
     basis_change = ChangeOfLFrames(LFrames(random_rot[:10]), LFrames(random_rot[10:]))

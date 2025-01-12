@@ -10,7 +10,7 @@ from tensorframes.utils.restframe import (
 )
 from tensorframes.lframes.lframes import LFrames
 from tensorframes.utils.lorentz import lorentz_squarednorm
-from tensorframes.utils.transforms import rand_transform, rand_rotation, rand_boost
+from tensorframes.utils.transforms import rand_lorentz, rand_rotation, rand_boost
 
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
@@ -60,7 +60,7 @@ Status
   
 Questions
 - Why does the test not pass for rand_boost? (it should, I did the analytics)
-- Why does the test not pass for rand_transform? 
+- Why does the test not pass for rand_lorentz? 
   (I dont see why it should not pass if we can do boosts and rotations seperately)
 """
 
@@ -70,9 +70,7 @@ Questions
     "restframe_transform",
     [restframe_transform_v1, restframe_transform_v2, restframe_transform_v3],
 )
-@pytest.mark.parametrize(
-    "random_transform", [rand_transform, rand_rotation, rand_boost]
-)
+@pytest.mark.parametrize("random_transform", [rand_lorentz, rand_rotation, rand_boost])
 @pytest.mark.parametrize("logm2_std", [1])  # LOGM2_STD)
 @pytest.mark.parametrize("logm2_mean", [0])  # LOGM2_MEAN)
 @pytest.mark.skip
