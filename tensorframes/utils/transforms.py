@@ -266,3 +266,46 @@ def rand_phirotation(
     axis = axis.view(2, *([1] * len(shape))).repeat(1, *shape)
     angle = torch.rand(*shape, device=device, dtype=dtype) * 2 * torch.pi
     return transform([axis], [angle])
+
+
+def rand_boost(
+    shape: List[int],
+    n_range: List[int] = [3, 5],
+    std_eta: float = 1,
+    device: str = "cpu",
+    dtype: torch.dtype = torch.float32,
+):
+    """
+    Create N boost matrices embedded in the Lorentz group
+    This function is very similar to rand_transform,
+    differing only in how axis and angle are created
+
+    Args:
+        shape: List[int]
+            Shape of the transformation matrices
+        n_range: List[int] = [3, 5]
+            Range of number of transformations
+            Warning: For too many transformations, the matrix might not be orthogonal
+            because numerical errors add up
+        std_eta: float
+            Standard deviation of rapidity
+        device: str
+        dtype: torch.dtype
+
+    Returns:
+        final_trafo: torch.tensor of shape (*shape, 4, 4)
+    """
+    n_transforms = randint(*n_range)
+    assert n_transforms > 0
+
+    axes, angles = [], []
+    for _ in range(n_transforms):
+        axis0 = torch.zeros(shape, device=device, dtype=torch.long)
+        axis1 = torch.randint(1, 4, shape, device=device)
+        assert (axis0 != axis1).all()
+        axis = torch.stack([axis0, axis1], dim=0)
+        axes.append(axis)
+
+        angle = torch.rand(*shape, device=device, dtype=dtype) * std_eta
+        angles.append(angle)
+    return transform(axes, angles)
