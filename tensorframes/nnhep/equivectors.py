@@ -37,6 +37,7 @@ class EquivariantVectors(MessagePassing):
     def forward(self, x, fm, edge_attr, edge_index):
         vecs = self.propagate(edge_index, x=x, fm=fm, edge_attr=edge_attr)
         vecs = vecs.reshape(-1, self.n_vectors, 4)
+        assert torch.isfinite(vecs).all()
         return vecs
 
     def message(self, x_i, x_j, fm_i, fm_j, edge_attr):
