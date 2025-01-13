@@ -19,6 +19,7 @@ from experiments.mlflow import log_mlflow
 
 # set to 'True' to debug autograd issues (slows down code)
 torch.autograd.set_detect_anomaly(False)
+MIN_STEP_SKIP = 1000
 
 
 class BaseExperiment:
@@ -580,6 +581,12 @@ class BaseExperiment:
             .cpu()
             .item()
         )
+        if step > MIN_STEP_SKIP and self.cfg.training.max_grad_norm is not None:
+            if grad_norm > self.cfg.training.max_grad_norm:
+                LOGGER.warning(
+                    f"Skipping update, gradient norm {grad_norm} exceeds maximum {self.cfg.training.max_grad_norm}"
+                )
+                return
         self.optimizer.step()
         if self.ema is not None:
             self.ema.update()
