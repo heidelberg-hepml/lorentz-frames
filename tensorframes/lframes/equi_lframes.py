@@ -95,10 +95,13 @@ class CrossLearnedLFrames(LearnedLFrames):
         trafo = trafo @ metric
 
         # sort vectors by norm -> first vector has >0 norm
-        # This works because apparently there is always only one vector with norm > 0
-        # I dont know why this works -> To be figured out
+        # this is necessary to get valid Lorentz transforms
+        # see paper for why at most one vector can have >0 norm
         vecs = [trafo[..., i, :] for i in range(4)]
-        pos_norm = torch.stack([lorentz_squarednorm(v) > 0 for v in vecs], dim=-1)
+        norm = torch.stack([lorentz_squarednorm(v) for v in vecs], dim=-1)
+        pos_norm = norm > 0
+        num_pos_norm = pos_norm.sum(dim=-1)
+        assert torch.unique(num_pos_norm).item() == 1
         old_trafo = trafo.clone()
         trafo[..., 0, :] = old_trafo[pos_norm]
         trafo[..., 1:, :] = old_trafo[~pos_norm].view(-1, 3, 4)
