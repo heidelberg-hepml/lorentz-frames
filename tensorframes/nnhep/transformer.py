@@ -14,7 +14,7 @@ Comment: This is a standard pre-layernorm transformer, copied from
 experiments/baselines/transformer.py
 with a few adaptations:
 - pass 'lframes' argument through forward functions
-- pass 'hidden_reps' through __init__'s
+- pass 'attn_reps' through __init__'s
 - use custom attention class
 """
 
@@ -141,7 +141,7 @@ class BaselineSelfAttention(nn.Module):
         Number of input channels.
     hidden_channels : int
         Number of hidden channels = size of query, key, and value.
-    hidden_reps
+    attn_reps
     num_heads : int
         Number of attention heads.
     multi_query : bool
@@ -153,7 +153,7 @@ class BaselineSelfAttention(nn.Module):
         in_channels: int,
         out_channels: int,
         hidden_channels: int,
-        hidden_reps,
+        attn_reps,
         num_heads: int = 8,
         multi_query: bool = True,
         dropout_prob=None,
@@ -164,7 +164,7 @@ class BaselineSelfAttention(nn.Module):
         self.num_heads = num_heads
         self.hidden_channels = hidden_channels
 
-        self.attention = InvariantParticleAttention(hidden_reps)
+        self.attention = InvariantParticleAttention(attn_reps)
 
         # Linear maps
         qkv_class = MultiQueryQKVLinear if multi_query else MultiHeadQKVLinear
@@ -241,7 +241,7 @@ class BaselineTransformerBlock(nn.Module):
     ----------
     channels : int
         Number of input and output channels.
-    hidden_reps
+    attn_reps
     num_heads : int
         Number of attention heads.
     increase_hidden_channels : int
@@ -254,7 +254,7 @@ class BaselineTransformerBlock(nn.Module):
     def __init__(
         self,
         channels,
-        hidden_reps,
+        attn_reps,
         num_heads: int = 8,
         increase_hidden_channels=1,
         multi_query: bool = True,
@@ -270,7 +270,7 @@ class BaselineTransformerBlock(nn.Module):
             channels,
             channels,
             hidden_channels,
-            hidden_reps,
+            attn_reps,
             num_heads=num_heads,
             multi_query=multi_query,
             dropout_prob=dropout_prob,
@@ -332,7 +332,7 @@ class TFTransformer(nn.Module):
         Number of output channels.
     hidden_channels : int
         Number of hidden channels.
-    hidden_reps
+    attn_reps
     num_blocks : int
         Number of transformer blocks.
     num_heads : int
@@ -357,15 +357,15 @@ class TFTransformer(nn.Module):
         dropout_prob=None,
     ) -> None:
         super().__init__()
-        hidden_reps = TensorReps(hidden_channels)
-        hidden_channels = hidden_reps.dim
+        attn_reps = TensorReps(hidden_channels)
+        hidden_channels = attn_reps.dim * num_heads
         self.checkpoint_blocks = checkpoint_blocks
         self.linear_in = nn.Linear(in_channels, hidden_channels)
         self.blocks = nn.ModuleList(
             [
                 BaselineTransformerBlock(
                     hidden_channels,
-                    hidden_reps,
+                    attn_reps,
                     num_heads=num_heads,
                     increase_hidden_channels=increase_hidden_channels,
                     multi_query=multi_query,

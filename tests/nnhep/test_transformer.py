@@ -17,7 +17,7 @@ from tensorframes.utils.transforms import rand_lorentz
 
 @pytest.mark.parametrize("LFramesPredictor", [CrossLearnedLFrames])
 @pytest.mark.parametrize("batch_dims", [[10]])
-@pytest.mark.parametrize("num_heads", [1])  # TODO: extend to multiple heads
+@pytest.mark.parametrize("num_heads", [1, 4])
 @pytest.mark.parametrize("num_blocks", [0, 1, 2])
 @pytest.mark.parametrize("logm2_std", LOGM2_STD)
 @pytest.mark.parametrize("logm2_mean", LOGM2_MEAN)

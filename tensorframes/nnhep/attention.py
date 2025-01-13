@@ -14,14 +14,20 @@ _MASKED_OUT = float("-inf")
 
 
 class InvariantParticleAttention(torch.nn.Module):
-    def __init__(self, hidden_reps):
+    def __init__(self, attn_reps):
         super().__init__()
-        self.transform = TensorReps(hidden_reps).get_transform_class()
+        self.transform = TensorReps(attn_reps).get_transform_class()
 
     def forward(
         self, q_local, k_local, v_local, lframes, attn_mask=None, is_causal=False
     ):
         # TODO: Clean this up
+        matrices = lframes.matrices
+        matrices = matrices.unsqueeze(0).repeat(
+            q_local.shape[0], *(1,) * len(matrices.shape)
+        )
+        matrices = to_nd(matrices, 3)
+        lframes = LFrames(matrices)
         lframes_inv = lframes.inverse_lframes()
 
         # transformation matrices with lowered indices (multiply with metric)

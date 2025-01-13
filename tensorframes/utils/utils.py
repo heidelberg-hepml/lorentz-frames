@@ -8,7 +8,7 @@ def stable_arctanh(x, eps=1e-10):
 
 def to_nd(tensor, d):
     """Make tensor n-dimensional, group extra dimensions in first."""
-    return tensor.view(
+    return tensor.reshape(
         -1, *(1,) * (max(0, d - 1 - tensor.dim())), *tensor.shape[-(d - 1) :]
     )
 
