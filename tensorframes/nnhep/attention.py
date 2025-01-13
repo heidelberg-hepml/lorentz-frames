@@ -22,6 +22,9 @@ class InvariantParticleAttention(torch.nn.Module):
         self, q_local, k_local, v_local, lframes, attn_mask=None, is_causal=False
     ):
         # TODO: Clean this up
+
+        # assume that the first dimension is the head dimension
+        # -> expand lframes across this dimension
         matrices = lframes.matrices
         matrices = matrices.unsqueeze(0).repeat(
             q_local.shape[0], *(1,) * len(matrices.shape)
