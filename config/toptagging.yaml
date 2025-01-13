@@ -20,6 +20,7 @@ data:
  - [0, 1] # deta
  - [0.2, 4] # dr
  num_global_tokens: 1
+ mass_reg: 0
 
 evaluation:
  batchsize: 512

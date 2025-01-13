@@ -37,6 +37,11 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
     batchsize = len(ptr) - 1
     arange = torch.arange(batchsize, device=fourmomenta.device)
 
+    # add mass regulator
+    fourmomenta[..., 0] = (
+        (fourmomenta[..., 1:] ** 2).sum(dim=-1) + cfg_data.mass_reg**2
+    ).sqrt()
+
     # add extra scalar channels
     if cfg_data.add_scalar_features:
         log_pt = get_pt(fourmomenta).unsqueeze(-1).log()
