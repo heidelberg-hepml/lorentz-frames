@@ -33,8 +33,9 @@ def test_lorentz_cross(batch_dims):
     torch.testing.assert_close(inner34, zeros, **TOLERANCES)
 
 
-@pytest.mark.parametrize("batch_dims", BATCH_DIMS)
+@pytest.mark.parametrize("batch_dims", [[1000000]])
 def test_orthogonalize(batch_dims):
+    failures = []
     v1 = torch.randn(batch_dims + [4])
     v2 = torch.randn(batch_dims + [4])
     v3 = torch.randn(batch_dims + [4])
@@ -44,18 +45,29 @@ def test_orthogonalize(batch_dims):
     # test if there is only one time-like vector in each set of orthogonalized vectors
     norm = torch.stack([lorentz_squarednorm(v) for v in orthogonal_vecs], dim=-1)
     pos_norm = norm > 0
-    torch.testing.assert_close(
-        torch.sum(pos_norm, dim=-1),
-        torch.ones(batch_dims).to(torch.int64),
-        atol=0,
-        rtol=0,
-    )
+    try:
+        torch.testing.assert_close(
+            torch.sum(pos_norm, dim=-1),
+            torch.ones(batch_dims).to(torch.int64),
+            atol=0,
+            rtol=0,
+        )
+    except AssertionError as e:
+        failures.append(f"More that one time-like vector: {str(e)}")
 
     for i1, v1 in enumerate(orthogonal_vecs):
         for i2, v2 in enumerate(orthogonal_vecs):
             inner = lorentz_inner(v1, v2)
             target = torch.ones_like(inner) if i1 == i2 else torch.zeros_like(inner)
-            torch.testing.assert_close(inner.abs(), target, **TOLERANCES)
+            try:
+                torch.testing.assert_close(inner.abs(), target, **TOLERANCES)
+            except AssertionError as e:
+                failures.append(f"orthogonality error: {str(e)}")
+
+    if failures:
+        raise AssertionError(
+            "Multiple assertion errors occurred:\n" + "\n".join(failures)
+        )
 
 
 @pytest.mark.parametrize("batch_dims", [[10000]])
