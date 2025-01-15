@@ -6,7 +6,6 @@ import zipfile
 import logging
 from pathlib import Path
 from omegaconf import OmegaConf, open_dict, errors
-from hydra.core.config_store import ConfigStore
 from hydra.utils import instantiate
 import mlflow
 from torch_ema import ExponentialMovingAverage
@@ -481,7 +480,11 @@ class BaseExperiment:
             self.model.train()
             data = next(iterator)
             t0 = time.time()
-            self._step(data, step)
+            try:
+                self._step(data, step)
+            except Exception as e:  # shame on me
+                LOGGER.exception(f"Skipping iteration {step} due to error")
+                continue
             train_time += time.time() - t0
 
             # validation (and early stopping)
@@ -576,7 +579,7 @@ class BaseExperiment:
                 self.cfg.training.clip_grad_norm
                 if self.cfg.training.clip_grad_norm is not None
                 else float("inf"),
-                error_if_nonfinite=False,
+                error_if_nonfinite=True,
             )
             .cpu()
             .item()
