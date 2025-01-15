@@ -76,10 +76,12 @@ def test_orthogonalize(batch_dims):
 @pytest.mark.parametrize("batch_dims", [[10000]])
 @pytest.mark.parametrize("eps", [1e-10, 1e-5, 1e-2])
 def test_orthogonalize_collinear(batch_dims, eps):
+    dtype = torch.float64
+
     # test for collinear (and also coplanar) vectors
-    v1 = torch.randn(batch_dims + [4])
-    v2 = torch.randn(batch_dims + [4])
-    v3 = v1.clone() + eps * torch.randn(batch_dims + [4])
+    v1 = torch.randn(batch_dims + [4], dtype=dtype)
+    v2 = torch.randn(batch_dims + [4], dtype=dtype)
+    v3 = v1.clone() + eps * torch.randn(batch_dims + [4], dtype=dtype)
 
     orthogonal_vecs = orthogonalize_cross([v1, v2, v3])
 
@@ -93,14 +95,16 @@ def test_orthogonalize_collinear(batch_dims, eps):
 @pytest.mark.parametrize("batch_dims", [[10000]])
 @pytest.mark.parametrize("eps", [1e-10, 1e-5, 1e-2])
 def test_orthogonalize_lightlike(batch_dims, eps):
+    dtype = torch.float64
+
     # test for a lightlike vector
-    temp = torch.randn(batch_dims + [3])
+    temp = torch.randn(batch_dims + [3], dtype=dtype)
     temp2 = torch.linalg.norm(temp, dim=-1, keepdim=True) + eps * torch.randn(
-        batch_dims + [1]
+        batch_dims + [1], dtype=dtype
     )
     v1 = torch.cat((temp2, temp), dim=-1)
-    v2 = torch.randn(batch_dims + [4])
-    v3 = torch.randn(batch_dims + [4])
+    v2 = torch.randn(batch_dims + [4], dtype=dtype)
+    v3 = torch.randn(batch_dims + [4], dtype=dtype)
 
     orthogonal_vecs = orthogonalize_cross([v1, v2, v3])
 
