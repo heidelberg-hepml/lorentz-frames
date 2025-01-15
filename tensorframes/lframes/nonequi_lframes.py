@@ -19,7 +19,12 @@ class IdentityLFrames(LFramesPredictor):
         super().__init__(is_global=True)
 
     def forward(self, fourmomenta):
-        return LFrames.global_trafo(fourmomenta.device, n_batch=fourmomenta.shape[0])
+        return LFrames(
+            is_global=True,
+            is_identity=True,
+            device=fourmomenta.device,
+            n_batch=fourmomenta.shape[0],
+        )
 
 
 class RandomLFrames(LFramesPredictor):
@@ -34,8 +39,8 @@ class RandomLFrames(LFramesPredictor):
         # general random transformation
         matrix = rand_lorentz([1], std_eta=self.std_eta, device=fourmomenta.device)
 
-        return LFrames.global_trafo(
-            device=fourmomenta.device, trafo=matrix, n_batch=fourmomenta.shape[0]
+        return LFrames(
+            is_global=True, matrices=matrix.repeat(fourmomenta.shape[0], 1, 1)
         )
 
 
@@ -50,6 +55,6 @@ class RandomPhiLFrames(LFramesPredictor):
         # random rotation around z axis
         matrix = rand_phirotation([1], device=fourmomenta.device)
 
-        return LFrames.global_trafo(
-            device=fourmomenta.device, trafo=matrix, n_batch=fourmomenta.shape[0]
+        return LFrames(
+            is_global=True, matrices=matrix.repeat(fourmomenta.shape[0], 1, 1)
         )

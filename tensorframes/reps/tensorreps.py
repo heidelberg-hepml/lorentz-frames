@@ -610,7 +610,7 @@ class TensorRepsTransform(Module):
             ), "No coeffs are provided for non-trivial transform"
             return None
 
-        if isinstance(basis_change.matrices, torch.nn.Identity):  # shortcut
+        if basis_change.is_identity:  # shortcut
             if inplace:
                 return coeffs
             else:
