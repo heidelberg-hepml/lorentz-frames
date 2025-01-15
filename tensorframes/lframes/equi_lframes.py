@@ -14,6 +14,8 @@ from tensorframes.utils.reflect import reflect_list
 from tensorframes.utils.matrixexp import matrix_exponential
 from tensorframes.utils.orthogonalize import orthogonalize_cross
 
+from experiments.logger import LOGGER
+
 
 class RestLFrames(LFramesPredictor):
     """Local frames corresponding to the rest frames of the particles"""
@@ -101,10 +103,18 @@ class CrossLearnedLFrames(LearnedLFrames):
         norm = torch.stack([lorentz_squarednorm(v) for v in vecs], dim=-1)
         pos_norm = norm > 0
         num_pos_norm = pos_norm.sum(dim=-1)
-        assert torch.unique(num_pos_norm).item() == 1
+        if len(torch.unique(num_pos_norm)) > 1:
+            LOGGER.warning(
+                f"Warning: find different number of norm>0 vectors: {torch.unique(num_pos_norm)}"
+            )
         old_trafo = trafo.clone()
-        trafo[..., 0, :] = old_trafo[pos_norm]
-        trafo[..., 1:, :] = old_trafo[~pos_norm].view(-1, 3, 4)
+        # note: have to be careful with double masks ('mask' and 'pos_norm')
+        mask = (num_pos_norm == 1).unsqueeze(-1).repeat(1, 4)
+        trafo[..., 0, :] = torch.where(mask, old_trafo[pos_norm], old_trafo[..., 0, :])
+        mask = mask.unsqueeze(-2).repeat(1, 3, 1)
+        trafo[..., 1:, :] = torch.where(
+            mask, old_trafo[~pos_norm].view(-1, 3, 4), old_trafo[..., 1:, :]
+        )
 
         return LFrames(trafo.to(dtype=fourmomenta.dtype))
 
