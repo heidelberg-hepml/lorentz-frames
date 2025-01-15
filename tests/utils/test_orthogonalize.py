@@ -31,9 +31,55 @@ def test_lorentz_cross(batch_dims):
 
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
-def test_orthogonalize(batch_dims):
-    # cross product of 3 random vectors
+def test_orthogonalize_random_vectors(batch_dims):
     v1 = torch.randn(batch_dims + [4])
+    v2 = torch.randn(batch_dims + [4])
+    v3 = torch.randn(batch_dims + [4])
+
+    orthogonal_vecs = orthogonalize_cross([v1, v2, v3])
+
+    for i1, v1 in enumerate(orthogonal_vecs):
+        for i2, v2 in enumerate(orthogonal_vecs):
+            inner = lorentz_inner(v1, v2)
+            target = torch.ones_like(inner) if i1 == i2 else torch.zeros_like(inner)
+            torch.testing.assert_close(inner.abs(), target, **TOLERANCES)
+
+
+@pytest.mark.parametrize("batch_dims", BATCH_DIMS)
+def test_orthogonalize_identical_vectors(batch_dims):
+    v1 = torch.randn(batch_dims + [4])
+    v2 = torch.randn(batch_dims + [4])
+    v3 = v1.clone()
+
+    orthogonal_vecs = orthogonalize_cross([v1, v2, v3])
+
+    for i1, v1 in enumerate(orthogonal_vecs):
+        for i2, v2 in enumerate(orthogonal_vecs):
+            inner = lorentz_inner(v1, v2)
+            target = torch.ones_like(inner) if i1 == i2 else torch.zeros_like(inner)
+            torch.testing.assert_close(inner.abs(), target, **TOLERANCES)
+
+
+@pytest.mark.parametrize("batch_dims", BATCH_DIMS)
+def test_orthogonalize_collinear_vectors(batch_dims):
+    v1 = torch.randn(batch_dims + [4])
+    v2 = torch.randn(batch_dims + [4])
+    v3 = torch.randn(batch_dims + [1]) * v1 + torch.randn(batch_dims + [1]) * v2
+
+    orthogonal_vecs = orthogonalize_cross([v1, v2, v3])
+
+    for i1, v1 in enumerate(orthogonal_vecs):
+        for i2, v2 in enumerate(orthogonal_vecs):
+            inner = lorentz_inner(v1, v2)
+            target = torch.ones_like(inner) if i1 == i2 else torch.zeros_like(inner)
+            torch.testing.assert_close(inner.abs(), target, **TOLERANCES)
+
+
+@pytest.mark.parametrize("batch_dims", BATCH_DIMS)
+def test_orthogonalize_lightlike_vector(batch_dims):
+    temp = torch.randn(batch_dims + [3])
+    temp2 = torch.linalg.norm(temp, dim=-1, keepdim=True)
+    v1 = torch.cat((temp2, temp), dim=-1)
     v2 = torch.randn(batch_dims + [4])
     v3 = torch.randn(batch_dims + [4])
 
