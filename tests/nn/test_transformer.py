@@ -4,7 +4,7 @@ from tests.constants import TOLERANCES, LOGM2_MEAN, LOGM2_STD, REPS
 from tests.helpers import sample_vector
 from torch_geometric.utils import dense_to_sparse
 
-from tensorframes.nnhep.transformer import TFTransformer
+from tensorframes.nn.transformer import TFTransformer
 from tensorframes.lframes.equi_lframes import (
     RestLFrames,
     CrossLearnedLFrames,

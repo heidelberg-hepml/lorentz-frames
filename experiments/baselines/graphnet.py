@@ -4,7 +4,7 @@ from torch.utils.checkpoint import checkpoint
 
 
 from torch_geometric.nn import MessagePassing
-from tensorframes.nnhep.mlp import MLP
+from tensorframes.nn.mlp import MLP
 
 
 class EdgeConv(MessagePassing):

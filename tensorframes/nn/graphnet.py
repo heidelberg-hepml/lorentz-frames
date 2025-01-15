@@ -4,7 +4,7 @@ from torch.utils.checkpoint import checkpoint
 
 
 from tensorframes.nn.tfmessage_passing import TFMessagePassing
-from tensorframes.nnhep.mlp import MLP
+from tensorframes.nn.mlp import MLP
 from tensorframes.reps.tensorreps import TensorReps
 
 

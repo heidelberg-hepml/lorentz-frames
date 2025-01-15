@@ -1,7 +1,7 @@
 _target_: experiments.toptagging.wrappers.GraphNetWrapper
 
 net:
- _target_: tensorframes.nnhep.graphnet.TFGraphNet
+ _target_: tensorframes.nn.graphnet.TFGraphNet
  hidden_channels: "16x0n+8x1n+1x2n"
 
 defaults:

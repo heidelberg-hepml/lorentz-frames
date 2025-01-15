@@ -6,7 +6,7 @@ from tests.constants import TOLERANCES, LOGM2_MEAN, LOGM2_STD, REPS
 from tests.helpers import sample_vector
 
 from tensorframes.reps.tensorreps import TensorReps
-from tensorframes.nnhep.attention import InvariantParticleAttention
+from tensorframes.nn.attention import InvariantParticleAttention
 from tensorframes.lframes.equi_lframes import (
     RestLFrames,
     CrossLearnedLFrames,

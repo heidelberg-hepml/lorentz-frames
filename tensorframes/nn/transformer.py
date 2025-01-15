@@ -6,7 +6,7 @@ from einops import rearrange
 from torch import nn
 from torch.utils.checkpoint import checkpoint
 
-from tensorframes.nnhep.attention import InvariantParticleAttention
+from tensorframes.nn.attention import InvariantParticleAttention
 from tensorframes.reps.tensorreps import TensorReps
 
 """

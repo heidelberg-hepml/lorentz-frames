@@ -4,7 +4,7 @@ from torch_geometric.utils import dense_to_sparse
 from tests.constants import TOLERANCES, LOGM2_MEAN, LOGM2_STD
 from tests.helpers import sample_vector
 
-from tensorframes.nnhep.equivectors import EquivariantVectors
+from tensorframes.nn.equivectors import EquivariantVectors
 from tensorframes.utils.lorentz import lorentz_inner
 from tensorframes.utils.transforms import rand_lorentz
 

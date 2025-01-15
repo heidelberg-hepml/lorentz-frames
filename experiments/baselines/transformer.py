@@ -5,7 +5,7 @@ import torch
 from einops import rearrange
 from torch import nn
 from torch.utils.checkpoint import checkpoint
-from tensorframes.nnhep.attention import scaled_dot_product_attention
+from tensorframes.nn.attention import scaled_dot_product_attention
 from tensorframes.utils.utils import to_nd
 
 
