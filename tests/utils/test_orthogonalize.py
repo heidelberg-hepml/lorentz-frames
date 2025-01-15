@@ -35,12 +35,13 @@ def test_lorentz_cross(batch_dims):
 
 @pytest.mark.parametrize("batch_dims", [[1000000]])
 def test_orthogonalize(batch_dims):
+    dtype = torch.float64
 
     # check orthogonality after using the function
     failures = []
-    v1 = torch.randn(batch_dims + [4])
-    v2 = torch.randn(batch_dims + [4])
-    v3 = torch.randn(batch_dims + [4])
+    v1 = torch.randn(batch_dims + [4], dtype=dtype)
+    v2 = torch.randn(batch_dims + [4], dtype=dtype)
+    v3 = torch.randn(batch_dims + [4], dtype=dtype)
 
     orthogonal_vecs = orthogonalize_cross([v1, v2, v3])
 
