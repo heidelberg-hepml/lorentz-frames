@@ -78,7 +78,10 @@ class BaseExperiment:
             self._save_model()
 
         if self.cfg.evaluate:
-            self.evaluate()
+            try:
+                self.evaluate()
+            except Exception as e:
+                LOGGER.exception("Skipping evaluation {e}")
 
         if self.cfg.plot and self.cfg.save:
             self.plot()
@@ -483,14 +486,18 @@ class BaseExperiment:
             try:
                 self._step(data, step)
             except Exception as e:  # shame on me
-                LOGGER.exception(f"Skipping iteration {step} due to error")
+                LOGGER.exception(f"Skipping iteration {step}")
                 continue
             train_time += time.time() - t0
 
             # validation (and early stopping)
             if (step + 1) % self.cfg.training.validate_every_n_steps == 0:
                 t0 = time.time()
-                val_loss = self._validate(step)
+                try:
+                    val_loss = self._validate(step)
+                except Exception as e:
+                    LOGGER.exception(f"Skipping validation in iteration {step}")
+                    continue
                 val_time += time.time() - t0
                 if val_loss < smallest_val_loss:
                     smallest_val_loss = val_loss
