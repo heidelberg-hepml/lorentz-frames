@@ -1,3 +1,4 @@
+from itertools import pairwise
 import torch
 import pytest
 from tests.constants import TOLERANCES, BATCH_DIMS
@@ -11,6 +12,7 @@ from tensorframes.utils.orthogonalize import (
     orthogonalize_cross,
     orthogonalize_cross_o3,
 )
+from tensorframes.utils.physics import deltaR
 
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
@@ -72,17 +74,46 @@ def test_orthogonalize_timelike(batch_dims):
     )
 
 
-@pytest.mark.parametrize("batch_dims", [[10000]])
+"""
+Circumnvent the collinear numerical issues by resampling 
+the almost-collinear vector with a random one.
+This is not the ideal solution but it is should allow us 
+to train without assertion errors.
+The exception option should probably go inside the orthogonalization function. 
+The exception criterion is the deltaR between vectors.
+
+- exception_eps defines the threshold applied to the criterion
+- sampling_eps is a tunable parameter which modulates the deviation from the original vector.
+
+With the current settings the percentage of modified vectors is:
+- 100% for exception_eps of 1.e-10
+- ~99% for exception_eps of 1.e-5
+- <1% for exception_eps of 1.e-2
+"""
+
+
+@pytest.mark.parametrize("exception", [True])
+@pytest.mark.parametrize("exception_eps", [1e-3])
+@pytest.mark.parametrize("sample_eps", [1, 1e-2])
+@pytest.mark.parametrize("batch_dims", [[100000]])
 @pytest.mark.parametrize("eps", [1e-10, 1e-5, 1e-2])
-def test_orthogonalize_collinear(batch_dims, eps):
+def test_orthogonalize_collinear(batch_dims, eps, exception, exception_eps, sample_eps):
     dtype = torch.float64
 
     # test for collinear (and also coplanar) vectors
     v1 = torch.randn(batch_dims + [4], dtype=dtype)
     v2 = torch.randn(batch_dims + [4], dtype=dtype)
     v3 = v1.clone() + eps * torch.randn(batch_dims + [4], dtype=dtype)
+    vs = torch.stack([v1, v2, v3])
 
-    orthogonal_vecs = orthogonalize_cross([v1, v2, v3])
+    if exception:
+        deltaRs = torch.stack([deltaR(v, vp) for v, vp in pairwise([v1, v2, v3, v1])])
+        mask = deltaRs < exception_eps
+        idxs = torch.argwhere(mask)
+        sample = sample_eps * torch.randn([len(idxs)] + [4], dtype=dtype)
+        for n, idx in enumerate(idxs):
+            vs[idx[0]][idx[1]] += sample[n]
+    orthogonal_vecs = orthogonalize_cross(vs)
 
     for i1, v1 in enumerate(orthogonal_vecs):
         for i2, v2 in enumerate(orthogonal_vecs):
@@ -92,21 +123,29 @@ def test_orthogonalize_collinear(batch_dims, eps):
 
 
 """
-Circumnvent the lightlike numerical issues by resampling the almost-lightlike vector with a random one.
-This is not the ideal solution but it is should allow us to train without assertion errors.
+Circumnvent the lightlike numerical issues by resampling 
+the almost-lightlike vector with a random one.
+This is not the ideal solution but it is should allow us 
+to train without assertion errors.
 The exception option should probably go inside the orthogonalization function. 
+The exception riterion is the norm of the vectors
 
-Alternative:
-Instead of sampling a random vector, introduce a regularization parameter for the almost-lightlike one
+- exception_eps defines the threshold applied to the criterion
+- sampling_eps is a tunable parameter which modulates the deviation from the original vector.
 
+With the current settings the percentage of modified vectors is:
+- 100% for exception_eps of 1.e-10
+- <1% for exception_eps of 1.e-5
+- 0% for exception_eps of 1.e-2
 """
 
 
 @pytest.mark.parametrize("exception", [True])
 @pytest.mark.parametrize("exception_eps", [1e-8])
+@pytest.mark.parametrize("sample_eps", [1, 1e-7])
 @pytest.mark.parametrize("batch_dims", [[100000]])
 @pytest.mark.parametrize("eps", [1e-10, 1e-5, 1e-2])
-def test_orthogonalize_lightlike(batch_dims, eps, exception, exception_eps):
+def test_orthogonalize_lightlike(batch_dims, eps, exception, exception_eps, sample_eps):
     dtype = torch.float64
 
     # test for a lightlike vector
@@ -123,8 +162,9 @@ def test_orthogonalize_lightlike(batch_dims, eps, exception, exception_eps):
         inners = torch.stack([lorentz_inner(v, v) for v in vs])
         mask = inners.abs() < exception_eps
         idxs = torch.argwhere(mask)
-        for idx in idxs:
-            vs[idx[0]][idx[1]] = torch.randn([1, 4], dtype=dtype)
+        sample = sample_eps * torch.randn([len(idxs)] + [4], dtype=dtype)
+        for n, idx in enumerate(idxs):
+            vs[idx[0]][idx[1]] += sample[n]
 
     orthogonal_vecs = orthogonalize_cross(vs)
 
