@@ -67,14 +67,6 @@ class TaggerWrapper(nn.Module):
         scalars = embedding["scalars"]
         edge_index = embedding["edge_index"]
         batch = embedding["batch"]
-        self.trafo_fourmomenta = TensorReps("1x1n").get_transform_class()
-
-    def forward(self, embedding):
-        # extract embedding
-        fourmomenta = embedding["fourmomenta"]
-        scalars = embedding["scalars"]
-        edge_index = embedding["edge_index"]
-        batch = embedding["batch"]
         is_global = embedding["is_global"]
 
         # construct lframes
