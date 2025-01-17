@@ -7,7 +7,7 @@ from torch_geometric.utils import to_dense_batch
 from xformers.ops.fmha import BlockDiagonalMask
 
 from tensorframes.reps.tensorreps import TensorReps
-from tensorframes.nn.embedding import EPPP_to_PtPhiEtaM2
+from tensorframes.utils.hep import EPPP_to_PtPhiEtaM2
 from tensorframes.lframes.equi_lframes import RestLFrames
 from tensorframes.lframes.equi_lframes import LearnedLFrames
 
