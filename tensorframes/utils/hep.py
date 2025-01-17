@@ -52,11 +52,5 @@ def get_deltaR(v1, v2):
     phi2 = get_phi(v2)
 
     delta_y = eta1 - eta2
-    delta_phi = phi1 - phi2
-
-    dphi1 = delta_phi > torch.pi
-    delta_phi[dphi1] -= 2 * torch.pi
-
-    dphi2 = delta_phi < -torch.pi
-    delta_phi[dphi2] += 2 * torch.pi
+    delta_phi = (phi1 - phi2 + torch.pi) % (2 * torch.pi) - torch.pi
     return torch.sqrt(delta_y**2 + delta_phi**2)
