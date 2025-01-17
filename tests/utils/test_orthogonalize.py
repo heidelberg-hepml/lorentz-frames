@@ -122,6 +122,34 @@ def test_orthogonalize_collinear(batch_dims, eps, exception, exception_eps, samp
             torch.testing.assert_close(inner.abs(), target, **TOLERANCES)
 
 
+@pytest.mark.parametrize("exception", [True])
+@pytest.mark.parametrize("exception_eps", [1e-3])
+@pytest.mark.parametrize("sample_eps", [1, 1e-2])
+@pytest.mark.parametrize("batch_dims", [[100000]])
+@pytest.mark.parametrize("eps", [1e-10, 1e-5, 1e-2])
+def test_orthogonalize_coplanar(batch_dims, eps, exception, exception_eps, sample_eps):
+    dtype = torch.float64
+
+    # test for collinear (and also coplanar) vectors
+    v1 = torch.randn(batch_dims + [4], dtype=dtype)
+    v2 = torch.randn(batch_dims + [4], dtype=dtype)
+    v3 = v1.clone() + v2.clone() + eps * torch.randn(batch_dims + [4], dtype=dtype)
+    vs = torch.stack([v1, v2, v3])
+
+    if exception:
+        deltaRs = torch.stack([deltaR(v, vp) for v, vp in pairwise([v1, v2, v3, v1])])
+        sample = sample_eps * torch.randn(vs.shape, dtype=dtype)
+        mask = (deltaRs < exception_eps)[..., None].expand_as(sample)
+        vs = vs + sample * mask
+    orthogonal_vecs = orthogonalize_cross(vs)
+
+    for i1, v1 in enumerate(orthogonal_vecs):
+        for i2, v2 in enumerate(orthogonal_vecs):
+            inner = lorentz_inner(v1, v2)
+            target = torch.ones_like(inner) if i1 == i2 else torch.zeros_like(inner)
+            torch.testing.assert_close(inner.abs(), target, **TOLERANCES)
+
+
 """
 Circumnvent the lightlike numerical issues by resampling 
 the almost-lightlike vector with a random one.
