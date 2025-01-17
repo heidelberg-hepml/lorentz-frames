@@ -137,7 +137,7 @@ def test_orthogonalize_coplanar(batch_dims, eps, exception, exception_eps, sampl
     vs = torch.stack([v1, v2, v3])
 
     if exception:
-        deltaRs = torch.stack([deltaR(v, vp) for v, vp in pairwise([v1, v2, v3, v1])])
+        deltaRs = torch.stack([get_deltaR(v, vp) for v, vp in pairwise([v1, v2, v3, v1])])
         sample = sample_eps * torch.randn(vs.shape, dtype=dtype)
         mask = (deltaRs < exception_eps)[..., None].expand_as(sample)
         vs = vs + sample * mask
