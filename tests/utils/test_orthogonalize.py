@@ -123,7 +123,7 @@ def test_orthogonalize_collinear(batch_dims, eps, exception, exception_eps, samp
 
 
 @pytest.mark.parametrize("exception", [True])
-@pytest.mark.parametrize("exception_eps", [1e-3])
+@pytest.mark.parametrize("exception_eps", [1e-9])
 @pytest.mark.parametrize("sample_eps", [1, 1e-2])
 @pytest.mark.parametrize("batch_dims", [[100000]])
 @pytest.mark.parametrize("eps", [1e-10, 1e-5, 1e-2])
@@ -137,9 +137,9 @@ def test_orthogonalize_coplanar(batch_dims, eps, exception, exception_eps, sampl
     vs = torch.stack([v1, v2, v3])
 
     if exception:
-        deltaRs = torch.stack([get_deltaR(v, vp) for v, vp in pairwise([v1, v2, v3, v1])])
+        cross_norm = lorentz_squarednorm(lorentz_cross(v1, v2, v3))
         sample = sample_eps * torch.randn(vs.shape, dtype=dtype)
-        mask = (deltaRs < exception_eps)[..., None].expand_as(sample)
+        mask = (cross_norm < exception_eps)[None, :, None].expand_as(sample)
         vs = vs + sample * mask
     orthogonal_vecs = orthogonalize_cross(vs)
 
