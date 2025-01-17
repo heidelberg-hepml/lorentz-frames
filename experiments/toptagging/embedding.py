@@ -2,6 +2,7 @@ import torch
 from torch.nn.functional import one_hot
 from torch_geometric.utils import scatter, dense_to_sparse
 
+from tensorframes.utils.hep import get_eta, get_phi, get_pt
 from experiments.toptagging.dataset import EPS
 
 
@@ -296,19 +297,3 @@ def get_spurion(
 
     spurion = torch.cat((beam, time), dim=-2)
     return spurion
-
-
-def get_pt(p):
-    # transverse momentum
-    return torch.sqrt(p[..., 1] ** 2 + p[..., 2] ** 2)
-
-
-def get_phi(p):
-    # azimuthal angle
-    return torch.arctan2(p[..., 2], p[..., 1])
-
-
-def get_eta(p):
-    # rapidity
-    p_abs = torch.sqrt(torch.sum(p[..., 1:] ** 2, dim=-1))
-    return torch.arctanh(p[..., 3] / p_abs)

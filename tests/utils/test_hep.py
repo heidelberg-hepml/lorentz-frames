@@ -3,7 +3,7 @@ import pytest
 from tests.constants import TOLERANCES, BATCH_DIMS, LOGM2_MEAN, LOGM2_STD
 from tests.helpers import sample_vector
 
-from tensorframes.nn.embedding import EPPP_to_PtPhiEtaM2, PtPhiEtaM2_to_EPPP
+from tensorframes.utils.hep import EPPP_to_PtPhiEtaM2, PtPhiEtaM2_to_EPPP
 
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)

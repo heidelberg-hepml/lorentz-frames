@@ -73,7 +73,7 @@ def orthogonalize_cross_o3(vecs, eps=1e-10):
 
 def gram_schmidt(
     vectors,
-    eps: float = 2.0e-1,
+    eps: float = 1.0e-6,
     normalized_last: bool = True,
     exceptional_choice: str = "random",
 ) -> torch.Tensor:

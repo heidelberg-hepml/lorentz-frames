@@ -12,7 +12,7 @@ from tensorframes.utils.orthogonalize import (
     orthogonalize_cross,
     orthogonalize_cross_o3,
 )
-from tensorframes.utils.physics import deltaR
+from tensorframes.utils.hep import get_deltaR
 
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
@@ -107,10 +107,12 @@ def test_orthogonalize_collinear(batch_dims, eps, exception, exception_eps, samp
     vs = torch.stack([v1, v2, v3])
 
     if exception:
-        deltaRs = torch.stack([deltaR(v, vp) for v, vp in pairwise([v1, v2, v3, v1])])
-        sample = sample_eps * torch.randn( vs.shape, dtype=dtype)
+        deltaRs = torch.stack(
+            [get_deltaR(v, vp) for v, vp in pairwise([v1, v2, v3, v1])]
+        )
+        sample = sample_eps * torch.randn(vs.shape, dtype=dtype)
         mask = (deltaRs < exception_eps)[..., None].expand_as(sample)
-        vs = vs + sample*mask
+        vs = vs + sample * mask
     orthogonal_vecs = orthogonalize_cross(vs)
 
     for i1, v1 in enumerate(orthogonal_vecs):
@@ -160,7 +162,7 @@ def test_orthogonalize_lightlike(batch_dims, eps, exception, exception_eps, samp
         inners = torch.stack([lorentz_inner(v, v) for v in vs])
         sample = sample_eps * torch.randn(vs.shape, dtype=dtype)
         mask = (inners.abs() < exception_eps)[..., None].expand_as(sample)
-        vs = vs + sample*mask
+        vs = vs + sample * mask
     orthogonal_vecs = orthogonalize_cross(vs)
 
     for i1, v1 in enumerate(orthogonal_vecs):

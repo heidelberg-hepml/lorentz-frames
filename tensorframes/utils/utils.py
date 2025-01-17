@@ -1,6 +1,12 @@
 import torch
 
 
+def unpack_last(x):
+    # unpack along the last dimension
+    n = len(x.shape)
+    return torch.permute(x, (n - 1, *list(range(n - 1))))
+
+
 def stable_arctanh(x, eps=1e-10):
     # implementation of arctanh that avoids log(0) issues
     return 0.5 * (torch.log((1 + x).clamp(min=eps)) - torch.log((1 - x).clamp(min=eps)))
