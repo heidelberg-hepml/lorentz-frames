@@ -48,7 +48,7 @@ class TaggerWrapper(nn.Module):
         super().__init__()
 
         self.in_reps = TensorReps(in_reps)
-        self.lframesnet = lframesnet
+        self.lframesnet = lframesnet(in_nodes = self.in_reps.mul_scalars)
         self.trafo_fourmomenta = TensorReps("1x1n").get_transform_class()
 
     def forward(self, embedding):
@@ -242,14 +242,6 @@ class GraphNetWrapper(AggregatedTaggerWrapper):
         super().__init__(*args, **kwargs)
         self.net = net(in_channels=self.in_reps.dim)
 
-        # lframesnet might not be instantiated yet
-        if isinstance(self.lframesnet, partial):
-            # learnable lframesnet takes only scalar inputs
-            num_scalars = sum(
-                rep.mul for rep in self.in_reps if str(rep.rep) in ["0n", "0p"]
-            )
-            self.lframesnet = self.lframesnet(in_nodes=num_scalars)
-
     def forward(self, embedding):
         (
             fourmomenta_local,
@@ -281,14 +273,6 @@ class TransformerWrapper(AggregatedTaggerWrapper):
     ):
         super().__init__(*args, **kwargs)
         self.net = net(in_channels=self.in_reps.dim)
-
-        # lframesnet might not be instantiated yet
-        if isinstance(self.lframesnet, partial):
-            # learnable lframesnet takes only scalar inputs
-            num_scalars = sum(
-                rep.mul for rep in self.in_reps if str(rep.rep) in ["0n", "0p"]
-            )
-            self.lframesnet = self.lframesnet(in_nodes=num_scalars)
 
     def forward(self, embedding):
         (

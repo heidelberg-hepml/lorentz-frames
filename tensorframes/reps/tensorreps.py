@@ -227,7 +227,14 @@ class TensorReps(Tuple):
         """
         int: The total multiplier of the tensor reps without the scalars.
         """
-        return sum(mul_ir.mul for mul_ir in self if mul_ir.rep != 0)
+        return sum(mul_ir.mul for mul_ir in self if str(mul_ir.rep) not in ["0n", "0p"])
+
+    @property
+    def mul_scalars(self) -> int:
+        """
+        int: The total multiplier of the tensor reps scalars
+        """
+        return sum(mul_ir.mul for mul_ir in self if str(mul_ir.rep) in ["0n", "0p"])
 
     @property
     def mul(self) -> int:
