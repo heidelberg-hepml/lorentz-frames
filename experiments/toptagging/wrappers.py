@@ -9,6 +9,7 @@ from xformers.ops.fmha import BlockDiagonalMask
 from tensorframes.reps.tensorreps import TensorReps
 from tensorframes.nn.embedding import EPPP_to_PtPhiEtaM2
 from tensorframes.lframes.equi_lframes import RestLFrames
+from tensorframes.lframes.equi_lframes import LearnedLFrames
 
 
 def attention_mask(batch, materialize=False):
@@ -48,7 +49,16 @@ class TaggerWrapper(nn.Module):
         super().__init__()
 
         self.in_reps = TensorReps(in_reps)
-        self.lframesnet = lframesnet(in_nodes = self.in_reps.mul_scalars)
+
+        if isinstance(lframesnet, partial):
+            # lframesnet with learnable elements need the in_nodes (number of scalars in input) for the networks
+            if issubclass(lframesnet.func, LearnedLFrames):
+                self.lframesnet = lframesnet(in_nodes=self.in_reps.mul_scalars)
+            else:
+                self.lframesnet = lframesnet
+        else:
+            self.lframesnet = lframesnet
+
         self.trafo_fourmomenta = TensorReps("1x1n").get_transform_class()
 
     def forward(self, embedding):
