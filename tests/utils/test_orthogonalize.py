@@ -86,9 +86,9 @@ The exception criterion is the deltaR between vectors.
 - sampling_eps is a tunable parameter which modulates the deviation from the original vector.
 
 With the current settings the percentage of modified vectors is:
-- 100% for exception_eps of 1.e-10
-- ~99% for exception_eps of 1.e-5
-- <1% for exception_eps of 1.e-2
+- 100% for eps of 1.e-10
+- ~99% for eps of 1.e-5
+- <1% for eps of 1.e-2
 """
 
 
@@ -108,11 +108,9 @@ def test_orthogonalize_collinear(batch_dims, eps, exception, exception_eps, samp
 
     if exception:
         deltaRs = torch.stack([deltaR(v, vp) for v, vp in pairwise([v1, v2, v3, v1])])
-        mask = deltaRs < exception_eps
-        idxs = torch.argwhere(mask)
-        sample = sample_eps * torch.randn([len(idxs)] + [4], dtype=dtype)
-        for n, idx in enumerate(idxs):
-            vs[idx[0]][idx[1]] += sample[n]
+        sample = sample_eps * torch.randn( vs.shape, dtype=dtype)
+        mask = (deltaRs < exception_eps)[..., None].expand_as(sample)
+        vs = vs + sample*mask
     orthogonal_vecs = orthogonalize_cross(vs)
 
     for i1, v1 in enumerate(orthogonal_vecs):
@@ -134,9 +132,9 @@ The exception riterion is the norm of the vectors
 - sampling_eps is a tunable parameter which modulates the deviation from the original vector.
 
 With the current settings the percentage of modified vectors is:
-- 100% for exception_eps of 1.e-10
-- <1% for exception_eps of 1.e-5
-- 0% for exception_eps of 1.e-2
+- 100% for eps of 1.e-10
+- <1% for eps of 1.e-5
+- 0% for eps of 1.e-2
 """
 
 
@@ -156,16 +154,13 @@ def test_orthogonalize_lightlike(batch_dims, eps, exception, exception_eps, samp
     v1 = torch.cat((temp2, temp), dim=-1)
     v2 = torch.randn(batch_dims + [4], dtype=dtype)
     v3 = torch.randn(batch_dims + [4], dtype=dtype)
-    vs = [v1, v2, v3]
+    vs = torch.stack([v1, v2, v3])
 
     if exception:
         inners = torch.stack([lorentz_inner(v, v) for v in vs])
-        mask = inners.abs() < exception_eps
-        idxs = torch.argwhere(mask)
-        sample = sample_eps * torch.randn([len(idxs)] + [4], dtype=dtype)
-        for n, idx in enumerate(idxs):
-            vs[idx[0]][idx[1]] += sample[n]
-
+        sample = sample_eps * torch.randn(vs.shape, dtype=dtype)
+        mask = (inners.abs() < exception_eps)[..., None].expand_as(sample)
+        vs = vs + sample*mask
     orthogonal_vecs = orthogonalize_cross(vs)
 
     for i1, v1 in enumerate(orthogonal_vecs):
