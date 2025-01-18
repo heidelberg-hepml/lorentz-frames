@@ -1,6 +1,8 @@
+from itertools import pairwise
 import torch
 
-from tensorframes.utils.lorentz import lorentz_squarednorm, leinsum
+from tensorframes.utils.lorentz import lorentz_inner, lorentz_squarednorm, leinsum
+from tensorframes.utils.hep import get_deltaR
 
 
 def lorentz_cross(v1, v2, v3):
@@ -201,3 +203,70 @@ def gram_schmidt(
             orthogonalized_vectors[:, -1] /= norm.unsqueeze(-1) + 1e-6
 
     return orthogonalized_vectors
+
+
+def regularize_lightlike(
+    vecs: torch.tensor, exception_eps: float = 1e-8, sample_eps: float = 1.0e-7
+):
+    """
+    Regularize the inputs to avoid lightlike vectors
+    Args:
+        vecs (Tensor): torch tensor of shape (3, N, 4) with N the batch dimension
+        exception_eps (float): threshold applied to the criterion
+        sample_eps (float): rescaling applied to the sampled four vectors
+    Returns:
+        tensor: regularized four vectors
+    """
+    assert vecs.shape[0] == 3
+
+    inners = torch.stack([lorentz_inner(v, v) for v in vecs])
+    sample = sample_eps * torch.randn(vecs.shape, dtype=vecs.dtype, device=vecs.device)
+    mask = (inners.abs() < exception_eps)[..., None].expand_as(sample)
+    vecs = vecs + sample * mask
+
+    return vecs
+
+
+def regularize_collinear(
+    vecs: torch.tensor, exception_eps: float = 1e-3, sample_eps: float = 1.0e-2
+):
+    """
+    Regularize the inputs to avoid collinear vectors
+    Args:
+        vecs (Tensor): torch tensor of shape (3, N, 4) with N the batch dimension
+        exception_eps (float): threshold applied to the criterion
+        sample_eps (float): rescaling applied to the sampled four vectors
+    Returns:
+        tensor: regularized four vectors
+    """
+    assert vecs.shape[0] == 3
+
+    v_pairs = torch.cat((vecs, vecs[-1][None, ...]))
+    deltaRs = torch.stack([get_deltaR(v, vp) for v, vp in pairwise(v_pairs)])
+    sample = sample_eps * torch.randn(vecs.shape, dtype=vecs.dtype, device=vecs.device)
+    mask = (deltaRs < exception_eps)[..., None].expand_as(sample)
+    vecs = vecs + sample * mask
+
+    return vecs
+
+
+def regularize_coplanar(
+    vecs: torch.tensor, exception_eps: float = 1e-6, sample_eps: float = 1.0e-3
+):
+    """
+    Regularize the inputs to avoid collinear vectors
+    Args:
+        vecs (Tensor): torch tensor of shape (3, N, 4) with N the batch dimension
+        exception_eps (float): threshold applied to the criterion
+        sample_eps (float): rescaling applied to the sampled four vectors
+    Returns:
+        tensor: regularized four vectors
+    """
+    assert vecs.shape[0] == 3
+
+    cross_norm = lorentz_squarednorm(lorentz_cross(vecs[0], vecs[1], vecs[2]))
+    sample = sample_eps * torch.randn(vecs.shape, dtype=vecs.dtype, device=vecs.device)
+    mask = (cross_norm < exception_eps)[None, :, None].expand_as(sample)
+    vecs = vecs + sample * mask
+
+    return vecs

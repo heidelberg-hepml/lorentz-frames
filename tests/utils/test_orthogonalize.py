@@ -11,6 +11,9 @@ from tensorframes.utils.orthogonalize import (
     lorentz_cross,
     orthogonalize_cross,
     orthogonalize_cross_o3,
+    regularize_lightlike,
+    regularize_collinear,
+    regularize_coplanar,
 )
 from tensorframes.utils.hep import get_deltaR
 
@@ -107,12 +110,7 @@ def test_orthogonalize_collinear(batch_dims, eps, exception, exception_eps, samp
     vs = torch.stack([v1, v2, v3])
 
     if exception:
-        deltaRs = torch.stack(
-            [get_deltaR(v, vp) for v, vp in pairwise([v1, v2, v3, v1])]
-        )
-        sample = sample_eps * torch.randn(vs.shape, dtype=dtype)
-        mask = (deltaRs < exception_eps)[..., None].expand_as(sample)
-        vs = vs + sample * mask
+        vs = regularize_collinear(vs)
     orthogonal_vecs = orthogonalize_cross(vs)
 
     for i1, v1 in enumerate(orthogonal_vecs):
@@ -123,8 +121,8 @@ def test_orthogonalize_collinear(batch_dims, eps, exception, exception_eps, samp
 
 
 @pytest.mark.parametrize("exception", [True])
-@pytest.mark.parametrize("exception_eps", [1e-9])
-@pytest.mark.parametrize("sample_eps", [1, 1e-2])
+@pytest.mark.parametrize("exception_eps", [1e-6])
+@pytest.mark.parametrize("sample_eps", [1, 1e-3])
 @pytest.mark.parametrize("batch_dims", [[100000]])
 @pytest.mark.parametrize("eps", [1e-10, 1e-5, 1e-2])
 def test_orthogonalize_coplanar(batch_dims, eps, exception, exception_eps, sample_eps):
@@ -137,10 +135,7 @@ def test_orthogonalize_coplanar(batch_dims, eps, exception, exception_eps, sampl
     vs = torch.stack([v1, v2, v3])
 
     if exception:
-        cross_norm = lorentz_squarednorm(lorentz_cross(v1, v2, v3))
-        sample = sample_eps * torch.randn(vs.shape, dtype=dtype)
-        mask = (cross_norm < exception_eps)[None, :, None].expand_as(sample)
-        vs = vs + sample * mask
+        vs = regularize_coplanar(vs)
     orthogonal_vecs = orthogonalize_cross(vs)
 
     for i1, v1 in enumerate(orthogonal_vecs):
@@ -187,10 +182,7 @@ def test_orthogonalize_lightlike(batch_dims, eps, exception, exception_eps, samp
     vs = torch.stack([v1, v2, v3])
 
     if exception:
-        inners = torch.stack([lorentz_inner(v, v) for v in vs])
-        sample = sample_eps * torch.randn(vs.shape, dtype=dtype)
-        mask = (inners.abs() < exception_eps)[..., None].expand_as(sample)
-        vs = vs + sample * mask
+        vs = regularize_lightlike(vs)
     orthogonal_vecs = orthogonalize_cross(vs)
 
     for i1, v1 in enumerate(orthogonal_vecs):

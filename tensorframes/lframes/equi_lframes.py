@@ -12,7 +12,12 @@ from tensorframes.utils.lorentz import (
 )
 from tensorframes.utils.reflect import reflect_list
 from tensorframes.utils.matrixexp import matrix_exponential
-from tensorframes.utils.orthogonalize import orthogonalize_cross
+from tensorframes.utils.orthogonalize import (
+    orthogonalize_cross,
+    regularize_lightlike,
+    regularize_collinear,
+    regularize_coplanar,
+)
 
 from experiments.logger import LOGGER
 
@@ -75,17 +80,25 @@ class CrossLearnedLFrames(LearnedLFrames):
         *args,
         n_vectors=3,
         eps=1e-10,
+        regularize=True,  # The current regularization breaks the feature invariance in the local frames. This has to be addressed
         **kwargs,
     ):
         self.n_vectors = n_vectors
         super().__init__(*args, n_vectors=self.n_vectors, **kwargs)
 
         self.eps = eps
+        self.regularize = regularize
 
     def forward(self, fourmomenta, scalars, edge_index, batch):
         vecs = super().forward(fourmomenta, scalars, edge_index)
         vecs = vecs.to(dtype=torch.float64)
         vecs = [vecs[..., i, :] for i in range(self.n_vectors)]
+        vecs = torch.stack(vecs)
+
+        if self.regularize:
+            vecs = regularize_lightlike(vecs)
+            vecs = regularize_collinear(vecs)
+            vecs = regularize_coplanar(vecs)
 
         orthogonal_vecs = orthogonalize_cross(vecs, self.eps)
         trafo = torch.stack(orthogonal_vecs, dim=-2)
