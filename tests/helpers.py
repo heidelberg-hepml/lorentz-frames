@@ -1,4 +1,7 @@
 import torch
+import os
+import numpy as np
+from functools import lru_cache
 
 from tensorframes.utils.lorentz import lorentz_metric
 
@@ -25,3 +28,24 @@ def lorentz_test(trafo, **kwargs):
         "...ij,...jk,...kl->...il", trafo, metric, trafo.transpose(-1, -2)
     )
     torch.testing.assert_close(test, metric, **kwargs)
+
+
+@lru_cache()
+def load_data():
+    # load particles from the toptagging_mini.npz dataset
+    # this function is cached to avoid loading the data multiple times
+    filename = os.path.join("data", "toptagging_mini.npz")
+    assert os.path.exists(filename), f"File not found: {filename}"
+    data = np.load(filename)
+    fourmomenta = data["kinematics_train"] / 20  # rescaled fourmomenta
+    fourmomenta = torch.tensor(fourmomenta)
+    mask = (fourmomenta.abs() > 1e-5).all(dim=-1)
+    fourmomenta = fourmomenta[mask]
+    return fourmomenta
+
+
+def sample_vector_realistic(shape, device=torch.device("cpu"), dtype=torch.float32):
+    # sample from the cached toptagging_mini.npz dataset
+    full = load_data()
+    idx = torch.randint(0, full.shape[0], shape)
+    return full[idx].to(dtype=dtype, device=device)
