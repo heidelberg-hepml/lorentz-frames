@@ -6,7 +6,6 @@ from tensorframes.lframes.nonequi_lframes import LFramesPredictor
 from tensorframes.utils.restframe import restframe_transform_v2
 from tensorframes.nn.equivectors import EquivariantVectors
 from tensorframes.utils.lorentz import (
-    lorentz_inner,
     lorentz_squarednorm,
     lorentz_metric,
 )
@@ -55,11 +54,25 @@ class LearnedLFrames(LFramesPredictor):
             **kwargs,
         )
 
+        # standardization parameters for edge attributes
+        self.register_buffer("inv_inited", torch.tensor(False, dtype=torch.bool))
+        self.register_buffer("inv_mean", torch.zeros(1))
+        self.register_buffer("inv_std", torch.ones(1))
+
     def forward(self, fourmomenta, scalars, edge_index):
         assert scalars.shape[-1] == self.in_nodes
-        edge_attr = lorentz_inner(
-            fourmomenta[edge_index[1]], fourmomenta[edge_index[0]]
+
+        # calculate and standardize edge attributes
+        mij2 = lorentz_squarednorm(
+            fourmomenta[edge_index[0]] + fourmomenta[edge_index[1]]
         ).unsqueeze(-1)
+        edge_attr = mij2.clamp(min=1e-5).log()
+        if not self.inv_inited:
+            self.inv_mean = edge_attr.mean()
+            self.inv_std = edge_attr.std().clamp(min=1e-5)
+        edge_attr = (edge_attr - self.inv_mean) / self.inv_std
+
+        # call networks
         vecs = self.equivectors(
             x=scalars,
             fm=fourmomenta,
