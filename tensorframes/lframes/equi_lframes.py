@@ -80,7 +80,7 @@ class CrossLearnedLFrames(LearnedLFrames):
         *args,
         n_vectors=3,
         eps=1e-10,
-        regularize=True,  # The current regularization breaks the feature invariance in the local frames. This has to be addressed
+        regularize=False,  # The current regularization breaks the feature invariance in the local frames. This has to be addressed
         **kwargs,
     ):
         self.n_vectors = n_vectors
