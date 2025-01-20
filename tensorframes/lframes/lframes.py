@@ -1,6 +1,4 @@
 import torch
-from experiments.logger import LOGGER
-import types
 
 
 class LFrames:
@@ -9,7 +7,6 @@ class LFrames:
     def __init__(
         self,
         matrices: torch.Tensor = None,
-        spatial_dim: int = 4,
         is_global: bool = False,
         is_identity: bool = False,
         device: str = None,
@@ -18,8 +15,7 @@ class LFrames:
         """Initialize the LFrames class.
 
         Args:
-            matrices (torch.Tensor): Tensor of shape (..., spatial_dim, spatial_dim) representing the rotation matrices.
-            spatial_dim (int, optional): Dimension of the spatial vectors. Defaults to 4.
+            matrices (torch.Tensor): Tensor of shape (..., 4, 4) representing the rotation matrices.
             is_global (bool): signify global transformations
             is_identity (bool): whether to use identity lframes, implies is_global, this is also assumed if matrices is torch.nn.Identity()
             device (str): device to store the lframe on, only required when is_identity
@@ -38,18 +34,15 @@ class LFrames:
             ), "No transformation matrices has been passed to the LFrames constructor."
 
             assert matrices.shape[-2:] == (
-                spatial_dim,
-                spatial_dim,
-            ), f"Rotations must be of shape (..., spatial_dim, spatial_dim) or (spatial_dim, spatial_dim), but found dim {matrices.shape[-2:]} instead"
+                4,
+                4,
+            ), f"Transformations must be of shape (..., 4, 4) or (4, 4), but found dim {matrices.shape[-2:]} instead"
 
             self._is_identity = False
             self._device = matrices.device
             self._dtype = matrices.dtype or None
             self._matrices = matrices
 
-        assert spatial_dim == 4, "Currently only implemented for spatial_dim=4"
-
-        self.spatial_dim = spatial_dim
         self._is_global = is_global
 
         self.metric = torch.diag(
@@ -96,7 +89,7 @@ class LFrames:
             torch.Size: Size of Lorentz transformation.
         """
         if self.is_identity:
-            return (self._n_batch, self.spatial_dim, self.spatial_dim)
+            return (self._n_batch, 4, 4)
         return self.matrices.shape
 
     @property
@@ -180,7 +173,6 @@ class InvLFrames(LFrames):
             None
         """
         self._lframes = lframes
-        self.spatial_dim = lframes.spatial_dim
         self._is_global = lframes.is_global
         self._is_identity = lframes.is_identity
 
@@ -258,7 +250,6 @@ class IndexSelectLFrames(LFrames):
 
         self._lframes = lframes
         self._indices = indices
-        self.spatial_dim = lframes.spatial_dim
         self._is_global = lframes.is_global
         self._is_identity = lframes.is_identity
         self._n_batch = indices.shape[0]
@@ -357,7 +348,6 @@ class ChangeOfLFrames:
         else:
             self._matrices = torch.bmm(lframes_end.matrices, lframes_start.inv)
             self._is_identity = False
-        self.spatial_dim = lframes_start.spatial_dim
 
         self.metric = torch.diag(
             torch.tensor(
