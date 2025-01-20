@@ -241,7 +241,7 @@ def regularize_collinear(
     """
     assert vecs.shape[0] == 3
 
-    v_pairs = torch.cat((vecs, vecs[-1][None, ...]))
+    v_pairs = torch.cat((vecs, vecs[0][None, ...]))
     deltaRs = torch.stack([get_deltaR(v, vp) for v, vp in pairwise(v_pairs)])
     sample = sample_eps * torch.randn(vecs.shape, dtype=vecs.dtype, device=vecs.device)
     mask = (deltaRs < exception_eps)[..., None].expand_as(sample)
@@ -266,7 +266,7 @@ def regularize_coplanar(
 
     cross_norm = lorentz_squarednorm(lorentz_cross(vecs[0], vecs[1], vecs[2]))
     sample = sample_eps * torch.randn(vecs.shape, dtype=vecs.dtype, device=vecs.device)
-    mask = (cross_norm < exception_eps)[None, :, None].expand_as(sample)
+    mask = (cross_norm.abs() < exception_eps)[None, :, None].expand_as(sample)
     vecs = vecs + sample * mask
-
+    
     return vecs
