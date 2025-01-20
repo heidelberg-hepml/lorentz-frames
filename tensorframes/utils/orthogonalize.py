@@ -1,7 +1,12 @@
 from itertools import pairwise
 import torch
 
-from tensorframes.utils.lorentz import lorentz_inner, lorentz_squarednorm, leinsum
+from tensorframes.utils.lorentz import (
+    lorentz_inner,
+    lorentz_squarednorm,
+    leinsum,
+    lorentz_metric,
+)
 from tensorframes.utils.hep import get_deltaR
 
 
@@ -270,3 +275,40 @@ def regularize_coplanar(
     vecs = vecs + sample * mask
 
     return vecs
+
+
+def order_vectors(
+    trafo,
+):
+    # sort vectors by norm -> first vector has >0 norm
+    # this is necessary to get valid Lorentz transforms
+    # see paper for why at most one vector can have >0 norm
+    vecs = [trafo[..., i, :] for i in range(4)]
+    norm = torch.stack([lorentz_squarednorm(v) for v in vecs], dim=-1)
+    pos_norm = norm > 0
+    num_pos_norm = pos_norm.sum(dim=-1)
+    assert (
+        num_pos_norm == 1
+    ).all(), f"Warning: find different number of norm>0 vectors: {torch.unique(num_pos_norm)}"
+    old_trafo = trafo.clone()
+    trafo[..., 0, :] = old_trafo[pos_norm]
+    trafo[..., 1:, :] = old_trafo[~pos_norm].view(-1, 3, 4)
+
+    return trafo
+
+
+def cross_trafo(vecs, regularize=True, eps=1e-10):
+    if regularize:
+        vecs = regularize_lightlike(vecs)
+        vecs = regularize_collinear(vecs)
+        vecs = regularize_coplanar(vecs)
+
+    orthogonal_vecs = orthogonalize_cross(vecs, eps)
+    trafo = torch.stack(orthogonal_vecs, dim=-2)
+
+    # turn into transformation matrix
+    metric = lorentz_metric(trafo.shape[:-2], device=trafo.device, dtype=trafo.dtype)
+    trafo = trafo @ metric
+    trafo = order_vectors(trafo)
+
+    return trafo

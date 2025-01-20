@@ -11,14 +11,7 @@ from tensorframes.utils.lorentz import (
 )
 from tensorframes.utils.reflect import reflect_list
 from tensorframes.utils.matrixexp import matrix_exponential
-from tensorframes.utils.orthogonalize import (
-    orthogonalize_cross,
-    regularize_lightlike,
-    regularize_collinear,
-    regularize_coplanar,
-)
-
-from experiments.logger import LOGGER
+from tensorframes.utils.orthogonalize import cross_trafo
 
 
 class RestLFrames(LFramesPredictor):
@@ -108,39 +101,7 @@ class CrossLearnedLFrames(LearnedLFrames):
         vecs = [vecs[..., i, :] for i in range(self.n_vectors)]
         vecs = torch.stack(vecs)
 
-        if self.regularize:
-            vecs = regularize_lightlike(vecs)
-            vecs = regularize_collinear(vecs)
-            vecs = regularize_coplanar(vecs)
-
-        orthogonal_vecs = orthogonalize_cross(vecs, self.eps)
-        trafo = torch.stack(orthogonal_vecs, dim=-2)
-
-        # turn into transformation matrix
-        metric = lorentz_metric(
-            trafo.shape[:-2], device=trafo.device, dtype=trafo.dtype
-        )
-        trafo = trafo @ metric
-
-        # sort vectors by norm -> first vector has >0 norm
-        # this is necessary to get valid Lorentz transforms
-        # see paper for why at most one vector can have >0 norm
-        vecs = [trafo[..., i, :] for i in range(4)]
-        norm = torch.stack([lorentz_squarednorm(v) for v in vecs], dim=-1)
-        pos_norm = norm > 0
-        num_pos_norm = pos_norm.sum(dim=-1)
-        if len(torch.unique(num_pos_norm)) > 1:
-            LOGGER.warning(
-                f"Warning: find different number of norm>0 vectors: {torch.unique(num_pos_norm)}"
-            )
-        old_trafo = trafo.clone()
-        # note: have to be careful with double masks ('mask' and 'pos_norm')
-        mask = (num_pos_norm == 1).unsqueeze(-1).repeat(1, 4)
-        trafo[..., 0, :] = torch.where(mask, old_trafo[pos_norm], old_trafo[..., 0, :])
-        mask = mask.unsqueeze(-2).repeat(1, 3, 1)
-        trafo[..., 1:, :] = torch.where(
-            mask, old_trafo[~pos_norm].view(-1, 3, 4), old_trafo[..., 1:, :]
-        )
+        trafo = cross_trafo(vecs, eps=self.eps, regularize=self.regularize)
 
         return LFrames(trafo.to(dtype=fourmomenta.dtype))
 
