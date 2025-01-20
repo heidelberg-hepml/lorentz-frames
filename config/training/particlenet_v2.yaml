@@ -1,0 +1,8 @@
+# training config of the ParticleNet model used in the ParT paper
+# hyperparameters from https://arxiv.org/pdf/2202.03772 section 5.1 and 5.2
+# alternatively https://github.com/jet-universe/particle_transformer/blob/main/train_TopLandscape.sh
+lr: 1e-2
+weight_decay: 0
+
+defaults:
+ - ParT

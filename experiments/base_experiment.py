@@ -6,19 +6,19 @@ import zipfile
 import logging
 from pathlib import Path
 from omegaconf import OmegaConf, open_dict, errors
-from hydra.core.config_store import ConfigStore
 from hydra.utils import instantiate
 import mlflow
 from torch_ema import ExponentialMovingAverage
-from tqdm import trange
+import pytorch_optimizer
 
 from experiments.misc import get_device, flatten_dict
 import experiments.logger
 from experiments.logger import LOGGER, MEMORY_HANDLER, FORMATTER
 from experiments.mlflow import log_mlflow
 
-from lion_pytorch import Lion
-import schedulefree
+# set to 'True' to debug autograd issues (slows down code)
+torch.autograd.set_detect_anomaly(False)
+MIN_STEP_SKIP = 1000
 
 
 class BaseExperiment:
@@ -45,8 +45,9 @@ class BaseExperiment:
 
     def run_mlflow(self):
         experiment_id, run_name = self._init()
+        git_hash = os.popen("git rev-parse HEAD").read().strip()
         LOGGER.info(
-            f"### Starting experiment {self.cfg.exp_name}/{run_name} (id={experiment_id}) ###"
+            f"### Starting experiment {self.cfg.exp_name}/{run_name} (mlflowid={experiment_id}) (jobid={self.cfg.jobid}) (git_hash={git_hash}) ###"
         )
         if self.cfg.use_mlflow:
             with mlflow.start_run(experiment_id=experiment_id, run_name=run_name):
@@ -77,7 +78,10 @@ class BaseExperiment:
             self._save_model()
 
         if self.cfg.evaluate:
-            self.evaluate()
+            try:
+                self.evaluate()
+            except Exception as e:
+                LOGGER.exception("Skipping evaluation {e}")
 
         if self.cfg.plot and self.cfg.save:
             self.plot()
@@ -105,9 +109,6 @@ class BaseExperiment:
             f"Instantiated model {type(self.model.net).__name__} with {num_parameters} learnable parameters"
         )
 
-        for i, l in enumerate(self.model.net.blocks):
-            LOGGER.debug(f"layer{i}: {l}")
-
         if self.cfg.ema:
             LOGGER.info(f"Using EMA for validation and eval")
             self.ema = ExponentialMovingAverage(
@@ -124,15 +125,14 @@ class BaseExperiment:
             )
             try:
                 state_dict = torch.load(model_path, map_location="cpu")["model"]
+                LOGGER.info(f"Loading model from {model_path}")
+                self.model.load_state_dict(state_dict)
+                if self.ema is not None:
+                    LOGGER.info(f"Loading EMA from {model_path}")
+                    state_dict = torch.load(model_path, map_location="cpu")["ema"]
+                    self.ema.load_state_dict(state_dict)
             except FileNotFoundError:
                 raise ValueError(f"Cannot load model from {model_path}")
-            LOGGER.info(f"Loading model from {model_path}")
-            self.model.load_state_dict(state_dict)
-
-            if self.ema is not None:
-                LOGGER.info(f"Loading EMA from {model_path}")
-                state_dict = torch.load(model_path, map_location="cpu")["ema"]
-                self.ema.load_state_dict(state_dict)
 
         self.model.to(self.device, dtype=self.dtype)
         if self.ema is not None:
@@ -158,10 +158,7 @@ class BaseExperiment:
 
         if not self.warm_start:
             if self.cfg.run_name is None:
-                try:
-                    modelname = self.cfg.model.net._target_.rsplit(".", 1)[-1]
-                except:
-                    modelname = "Toy"
+                modelname = self.cfg.model.net._target_.rsplit(".", 1)[-1]
                 rnd_number = np.random.randint(low=0, high=9999)
                 run_name = f"{modelname}_{rnd_number:04}"
             else:
@@ -304,45 +301,49 @@ class BaseExperiment:
         self.dtype = torch.float32
         LOGGER.debug("Using dtype float32")
 
-    def _init_optimizer(self):
+    def _init_optimizer(self, param_groups=None):
+        if param_groups is None:
+            param_groups = [
+                {"params": self.model.parameters(), "lr": self.cfg.training.lr}
+            ]
+
         if self.cfg.training.optimizer == "Adam":
             self.optimizer = torch.optim.Adam(
-                self.model.parameters(),
-                lr=self.cfg.training.lr,
+                param_groups,
                 betas=self.cfg.training.betas,
                 eps=self.cfg.training.eps,
                 weight_decay=self.cfg.training.weight_decay,
             )
         elif self.cfg.training.optimizer == "AdamW":
             self.optimizer = torch.optim.AdamW(
-                self.model.parameters(),
-                lr=self.cfg.training.lr,
+                param_groups,
                 betas=self.cfg.training.betas,
                 eps=self.cfg.training.eps,
                 weight_decay=self.cfg.training.weight_decay,
             )
         elif self.cfg.training.optimizer == "RAdam":
             self.optimizer = torch.optim.RAdam(
-                self.model.parameters(),
-                lr=self.cfg.training.lr,
+                param_groups,
                 betas=self.cfg.training.betas,
                 eps=self.cfg.training.eps,
                 weight_decay=self.cfg.training.weight_decay,
             )
         elif self.cfg.training.optimizer == "Lion":
-            self.optimizer = Lion(
-                self.model.parameters(),
-                lr=self.cfg.training.lr,
+            self.optimizer = pytorch_optimizer.Lion(
+                param_groups,
                 betas=self.cfg.training.betas,
                 weight_decay=self.cfg.training.weight_decay,
             )
-        elif self.cfg.training.optimizer == "ScheduleFree":
-            self.optimizer = schedulefree.AdamWScheduleFree(
-                self.model.parameters(),
-                lr=self.cfg.training.lr,
-                betas=self.cfg.training.betas,
+        elif self.cfg.training.optimizer == "Ranger":
+            # default optimizer used in the weaver package
+            # see https://github.com/hqucms/weaver-core/blob/main/weaver/utils/nn/optimizer/ranger.py
+            radam = torch.optim.RAdam(
+                param_groups,
+                betas=(0.95, 0.999),
+                eps=1e-5,
                 weight_decay=self.cfg.training.weight_decay,
             )
+            self.optimizer = pytorch_optimizer.Lookahead(radam, k=6, alpha=0.5)
         else:
             raise ValueError(f"Optimizer {self.cfg.training.optimizer} not implemented")
         LOGGER.debug(
@@ -356,10 +357,10 @@ class BaseExperiment:
             )
             try:
                 state_dict = torch.load(model_path, map_location="cpu")["optimizer"]
+                LOGGER.info(f"Loading optimizer from {model_path}")
+                self.optimizer.load_state_dict(state_dict)
             except FileNotFoundError:
                 raise ValueError(f"Cannot load optimizer from {model_path}")
-            LOGGER.info(f"Loading optimizer from {model_path}")
-            self.optimizer.load_state_dict(state_dict)
 
     def _init_scheduler(self):
         if self.cfg.training.scheduler is None:
@@ -387,6 +388,44 @@ class BaseExperiment:
                 factor=self.cfg.training.reduceplateau_factor,
                 patience=self.cfg.training.reduceplateau_patience,
             )
+        elif self.cfg.training.scheduler == "flat+decay":
+            # default scheduler used in the weaver package
+            # see https://github.com/hqucms/weaver-core/blob/main/weaver/train.py#L509
+            # note: have to modify this if we ever do finetunings / len(names_lr_mult) > 0 in weaver
+            num_epochs = int(self.cfg.training.iterations / len(self.train_loader))
+            num_decay_epochs = max(1, int(num_epochs * 0.3))
+            milestones = list(range(num_epochs - num_decay_epochs, num_epochs))
+            gamma = 0.01 ** (1.0 / num_decay_epochs)
+            self.scheduler = torch.optim.lr_scheduler.MultiStepLR(
+                self.optimizer,
+                milestones=milestones,
+                gamma=gamma,
+            )
+        elif self.cfg.training.scheduler == "particlenet-scheduler":
+            # original ParticleNet scheduler described in
+            # Section III of https://arxiv.org/abs/1902.08570
+            lr_init = self.cfg.training.lr
+            lr_peak = lr_init * 10
+            lr_final = (
+                lr_init * 5e-7 / 3e-4
+            )  # particlenet-lite lr has small deviation from paper to simplify things
+            start_factors = [lr_init / lr_peak, 1.0, lr_init / lr_peak]
+            end_factors = [1.0, lr_init / lr_peak, lr_final / lr_peak]
+            iters = [8, 8, 4]
+            schedulers = [
+                torch.optim.lr_scheduler.LinearLR(
+                    self.optimizer,
+                    start_factor=start_factor,
+                    end_factor=end_factor,
+                    total_iters=iter,
+                )
+                for start_factor, end_factor, iter in zip(
+                    start_factors, end_factors, iters
+                )
+            ]
+            self.scheduler = torch.optim.lr_scheduler.SequentialLR(
+                self.optimizer, schedulers=schedulers, milestones=[8, 16]
+            )
         else:
             raise ValueError(
                 f"Learning rate scheduler {self.cfg.training.scheduler} not implemented"
@@ -401,14 +440,19 @@ class BaseExperiment:
             )
             try:
                 state_dict = torch.load(model_path, map_location="cpu")["scheduler"]
+                LOGGER.info(f"Loading scheduler from {model_path}")
+                self.scheduler.load_state_dict(state_dict)
             except FileNotFoundError:
                 raise ValueError(f"Cannot load scheduler from {model_path}")
-            LOGGER.info(f"Loading scheduler from {model_path}")
-            self.scheduler.load_state_dict(state_dict)
 
     def train(self):
         # performance metrics
-        self.train_lr, self.train_loss, self.val_loss = [], [], []
+        self.train_lr, self.train_loss, self.val_loss, self.train_grad_norm = (
+            [],
+            [],
+            [],
+            [],
+        )
         self.train_metrics = self._init_metrics()
         self.val_metrics = self._init_metrics()
 
@@ -437,17 +481,23 @@ class BaseExperiment:
         for step in range(self.cfg.training.iterations):
             # training
             self.model.train()
-            if self.cfg.training.optimizer == "ScheduleFree":
-                self.optimizer.train()
             data = next(iterator)
             t0 = time.time()
-            self._step(data, step)
+            try:
+                self._step(data, step)
+            except Exception as e:  # shame on me
+                LOGGER.exception(f"Skipping iteration {step}")
+                continue
             train_time += time.time() - t0
 
             # validation (and early stopping)
             if (step + 1) % self.cfg.training.validate_every_n_steps == 0:
                 t0 = time.time()
-                val_loss = self._validate(step)
+                try:
+                    val_loss = self._validate(step)
+                except Exception as e:
+                    LOGGER.exception(f"Skipping validation in iteration {step}")
+                    continue
                 val_time += time.time() - t0
                 if val_loss < smallest_val_loss:
                     smallest_val_loss = val_loss
@@ -473,7 +523,7 @@ class BaseExperiment:
             # output
             dt = time.time() - self.training_start_time
             if (
-                step in [99, 999]
+                step in [0, 9, 999]
                 or (step + 1) % self.cfg.training.validate_every_n_steps == 0
             ):
                 dt_estimate = dt * self.cfg.training.iterations / (step + 1)
@@ -482,6 +532,14 @@ class BaseExperiment:
                     f"training time estimate: {dt_estimate/60:.2f}min "
                     f"= {dt_estimate/60**2:.2f}h"
                 )
+
+            if step % len(self.train_loader) == 0:
+                # schedulers that step after each epoch
+                if self.cfg.training.scheduler in [
+                    "flat+decay",
+                    "particlenet-scheduler",
+                ]:
+                    self.scheduler.step()
 
         dt = time.time() - self.training_start_time
         LOGGER.info(
@@ -525,12 +583,20 @@ class BaseExperiment:
         grad_norm = (
             torch.nn.utils.clip_grad_norm_(
                 self.model.parameters(),
-                self.cfg.training.clip_grad_norm,
+                self.cfg.training.clip_grad_norm
+                if self.cfg.training.clip_grad_norm is not None
+                else float("inf"),
                 error_if_nonfinite=True,
             )
             .cpu()
             .item()
         )
+        if step > MIN_STEP_SKIP and self.cfg.training.max_grad_norm is not None:
+            if grad_norm > self.cfg.training.max_grad_norm:
+                LOGGER.warning(
+                    f"Skipping update, gradient norm {grad_norm} exceeds maximum {self.cfg.training.max_grad_norm}"
+                )
+                return
         self.optimizer.step()
         if self.ema is not None:
             self.ema.update()
@@ -541,6 +607,7 @@ class BaseExperiment:
         # collect metrics
         self.train_loss.append(loss.item())
         self.train_lr.append(self.optimizer.param_groups[0]["lr"])
+        self.train_grad_norm.append(grad_norm)
         for key, value in metrics.items():
             self.train_metrics[key].append(value)
 
@@ -567,8 +634,6 @@ class BaseExperiment:
         metrics = self._init_metrics()
 
         self.model.eval()
-        if self.cfg.training.optimizer == "ScheduleFree":
-            self.optimizer.eval()
         with torch.no_grad():
             for data in self.val_loader:
                 # use EMA for validation if available

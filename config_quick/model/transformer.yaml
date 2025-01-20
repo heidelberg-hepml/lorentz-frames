@@ -1,0 +1,8 @@
+_target_: experiments.toptagging.wrappers.TransformerWrapper
+
+net:
+ _target_: tensorframes.nn.transformer.TFTransformer
+ hidden_channels: "8x0n+4x1n"
+ 
+defaults:
+ - basetransformer

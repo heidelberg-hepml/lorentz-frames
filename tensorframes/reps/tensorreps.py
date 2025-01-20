@@ -51,6 +51,9 @@ class TensorRep(Tuple):
 
         assert isinstance(order, int) and order >= 0, order
         assert p in [-1, 1], p
+        assert (
+            p == 1
+        ), "p=-1 / 'Np' representations (parity-odd) not consistently implemented yet"
         return super().__new__(cls, (order, p))
 
     @property
@@ -132,7 +135,7 @@ class _TensorMulRep(Tuple):
 class TensorReps(Tuple):
     """Represents a collection of tensor representations."""
 
-    def __new__(cls, tensor_reps, spatial_dim=4):
+    def __new__(cls, tensor_reps):
         """Initializes a new TensorReps object.
 
         Args:
@@ -140,8 +143,6 @@ class TensorReps(Tuple):
                 If `tensor_reps` is an instance of `TensorReps`, a copy of `tensor_reps` is created.
                 If `tensor_reps` is a string, it is parsed to extract the reps.
                 If `tensor_reps` is a list of tuples, each tuple represents a tensor irrep, where the first element is the multiplicity and the second element is the `TensorRep` object.
-
-            spatial_dim (int, optional): The spatial dimension of the tensor. Defaults to 4.
         """
         if isinstance(tensor_reps, TensorReps):
             tensor_rep = super().__new__(cls, tensor_reps)
@@ -192,9 +193,8 @@ class TensorReps(Tuple):
 
         return tensor_rep
 
-    def __init__(self, tensor_reps, spatial_dim=4) -> None:
+    def __init__(self, tensor_reps) -> None:
         super().__init__()
-        self.spatial_dim = spatial_dim
         self._dim = None
 
     def __repr__(self):
@@ -224,7 +224,14 @@ class TensorReps(Tuple):
         """
         int: The total multiplier of the tensor reps without the scalars.
         """
-        return sum(mul_ir.mul for mul_ir in self if mul_ir.rep != 0)
+        return sum(mul_ir.mul for mul_ir in self if str(mul_ir.rep) not in ["0n", "0p"])
+
+    @property
+    def mul_scalars(self) -> int:
+        """
+        int: The total multiplier of the tensor reps scalars
+        """
+        return sum(mul_ir.mul for mul_ir in self if str(mul_ir.rep) in ["0n", "0p"])
 
     @property
     def mul(self) -> int:
@@ -330,7 +337,6 @@ class TensorRepsTransform(Module):
         self.tensor_reps = tensor_reps
         self.use_parallel = use_parallel
         self.avoid_einsum = avoid_einsum
-        self.spatial_dim = tensor_reps.spatial_dim
 
         # prepare for fast transform
         n_start_index_dict = {
@@ -467,14 +473,10 @@ class TensorRepsTransform(Module):
         for i, l in enumerate(self.sorted_n):
             if self.is_sorted:
                 start_idx, end_idx = self.start_end_indices[i]
-                smaller_tensor = coeffs[:, start_idx:end_idx].view(
-                    N, -1, *(l * (self.spatial_dim,))
-                )
+                smaller_tensor = coeffs[:, start_idx:end_idx].view(N, -1, *(l * (4,)))
             else:
                 n_mask = self.n_masks[i]
-                smaller_tensor = coeffs[:, n_mask].view(
-                    N, -1, *(l * (self.spatial_dim,))
-                )
+                smaller_tensor = coeffs[:, n_mask].view(N, -1, *(l * (4,)))
 
             if i == 0:
                 # highest n
@@ -489,7 +491,7 @@ class TensorRepsTransform(Module):
                 largest_tensor = largest_tensor.moveaxis(2, -1)
                 largest_shape = largest_tensor.shape
                 largest_tensor = torch.matmul(
-                    largest_tensor.reshape(N, -1, self.spatial_dim), rot_matrix_t
+                    largest_tensor.reshape(N, -1, 4), rot_matrix_t
                 )
                 largest_tensor = largest_tensor.reshape(*largest_shape)
                 largest_tensor = largest_tensor.moveaxis(-1, 2)
@@ -607,7 +609,7 @@ class TensorRepsTransform(Module):
             ), "No coeffs are provided for non-trivial transform"
             return None
 
-        if isinstance(basis_change.matrices, torch.nn.Identity):  # shortcut
+        if basis_change.is_identity:  # shortcut
             if inplace:
                 return coeffs
             else:

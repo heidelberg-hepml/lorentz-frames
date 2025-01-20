@@ -12,13 +12,6 @@ def get_device() -> torch.device:
     return torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
 
-def to_nd(tensor, d):
-    """Make tensor n-dimensional, group extra dimensions in first."""
-    return tensor.view(
-        -1, *(1,) * (max(0, d - 1 - tensor.dim())), *tensor.shape[-(d - 1) :]
-    )
-
-
 def flatten_dict(d, parent_key="", sep="."):
     """Flattens a nested dictionary with str keys."""
     items = []

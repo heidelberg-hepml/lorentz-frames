@@ -1,0 +1,4 @@
+weight_decay: 0.1
+
+defaults:
+ - default

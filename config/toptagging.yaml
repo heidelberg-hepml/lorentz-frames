@@ -4,7 +4,7 @@ base_dir: .
 
 data:
  data_dir : data
- dataset: mini
+ dataset: full
  rescale_data: true
  beam_reference: null
  two_beams: true
@@ -20,16 +20,10 @@ data:
  - [0, 1] # deta
  - [0.2, 4] # dr
  num_global_tokens: 1
-
-
-train: true
-training:
- iterations: 10
- batchsize: 128
- lr: 1e-3
+ mass_reg: 0
 
 evaluation:
- batchsize: 128
+ batchsize: 512
  save_roc: false
 
 plotting:
@@ -38,7 +32,8 @@ plotting:
  score: true
 
 defaults:
- - model: protonet
  - default
+ - training: default
+ - model: graphnet
  - hydra
  - _self_

@@ -1,0 +1,17 @@
+_target_: experiments.toptagging.wrappers.BaselineTransformerWrapper
+mean_aggregation: true
+in_reps: null
+
+net:
+ _target_: experiments.baselines.transformer.Transformer
+ _partial_: true
+
+ in_channels: null
+ out_channels: 1
+ hidden_channels: 64
+
+ num_blocks: 2
+ num_heads: 4
+
+defaults:
+ - lframesnet: identity

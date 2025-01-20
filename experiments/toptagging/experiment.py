@@ -1,9 +1,6 @@
 import numpy as np
 import torch
-
-torch.autograd.set_detect_anomaly(False)
 from torch_geometric.loader import DataLoader
-
 import os, time
 from omegaconf import open_dict
 
@@ -16,11 +13,6 @@ from experiments.toptagging.plots import plot_mixer
 from experiments.logger import LOGGER
 from experiments.mlflow import log_mlflow
 
-MODEL_TITLE_DICT = {
-    "ProtoNet": "ProtoNet",
-    "NonEquiNet": "NoneEquiNet",
-}
-
 UNITS = 20  # We use units of 20 GeV for all tagging experiments
 
 
@@ -32,19 +24,11 @@ class TaggingExperiment(BaseExperiment):
     def init_physics(self):
         # dynamically extend dict
         with open_dict(self.cfg):
-            protonet_name = "experiments.toptagging.wrappers.ProtoNetWrapper"
-            nonequinet_name = "experiments.toptagging.wrappers.NonEquiNetWrapper"
-            assert self.cfg.model._target_ in [
-                protonet_name,
-                nonequinet_name,
-            ]
+            self.cfg.data.include_global_token = not self.cfg.model.mean_aggregation
 
-            # global token?
-            if self.cfg.model._target_ in [
-                protonet_name,
-                nonequinet_name,
-            ]:
-                self.cfg.data.include_global_token = not self.cfg.model.mean_aggregation
+        assert (
+            not self.cfg.data.include_global_token
+        ), "Global token not properly supported"
 
     def init_data(self):
         raise NotImplementedError
@@ -197,44 +181,20 @@ class TaggingExperiment(BaseExperiment):
                 if self.cfg.model.mean_aggregation == True
                 else "global token"
             )
-            match self.cfg.model.lframesnet.approach:
-                case "learned_gramschmidt":
-                    lframeString = "Gram-Schmidt"
-                case "identity":
-                    lframeString = "Identity"
-                case "random_global":
-                    lframeString = "Random Global"
-                case "random_local":
-                    lframeString = "Random Local"
-                case "3nn":
-                    lframeString = "3nn"
-                case _:
-                    lframeString = self.cfg.model.lframesnet.approach
+            lframeString = type(self.model.lframesnet).__name__
             num_parameters = sum(
                 p.numel() for p in self.model.parameters() if p.requires_grad
             )
 
-            if (
-                self.cfg.model.radial_module._target_
-                == "tensorframes.nn.embedding.radial.TrivialRadialEmbedding"
-            ):
-                learnableString = "no embedding"
-            elif self.cfg.model.radial_module.is_learnable == True:
-                learnableString = "learned"
-            elif self.cfg.model.radial_module.is_learnable == False:
-                learnableString = "\mathbb{1}"
-            else:
-                learnableString = "other"
-
             LOGGER.info(
-                f"table {title}: {lframeString} with {aggregator} ({self.cfg.training.iterations} epochs)&{num_parameters}&{metrics['accuracy']:.4f}&{metrics['auc']:.4f}&{metrics['rej03']:.0f}&{metrics['rej05']:.0f}&{metrics['rej08']:.0f}&{learnableString}\\"
+                f"table {title}: {lframeString} with {aggregator} ({self.cfg.training.iterations} epochs)&{num_parameters}&{metrics['accuracy']:.4f}&{metrics['auc']:.4f}&{metrics['rej03']:.0f}&{metrics['rej05']:.0f}&{metrics['rej08']:.0f}\\"
             )
         return metrics
 
     def plot(self):
         plot_path = os.path.join(self.cfg.run_dir, f"plots_{self.cfg.run_idx}")
         os.makedirs(plot_path)
-        title = MODEL_TITLE_DICT[type(self.model.net).__name__]
+        title = type(self.model.net).__name__
         LOGGER.info(f"Creating plots in {plot_path}")
 
         if self.cfg.evaluate and self.cfg.evaluation.save_roc:
@@ -253,6 +213,7 @@ class TaggingExperiment(BaseExperiment):
             plot_dict["train_lr"] = self.train_lr
             plot_dict["train_metrics"] = self.train_metrics
             plot_dict["val_metrics"] = self.val_metrics
+            plot_dict["grad_norm"] = self.train_grad_norm
         plot_mixer(self.cfg, plot_path, title, plot_dict)
 
     def _init_loss(self):

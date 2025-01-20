@@ -1,81 +1,54 @@
 import torch
-from experiments.logger import LOGGER
-import types
 
 
 class LFrames:
     """Class representing a collection of Lorentz transformations."""
 
-    @classmethod
-    def global_trafo(
-        cls,
-        device: str,
-        trafo: torch.Tensor = torch.nn.Identity(),
-        n_batch: int = 1,
-        spatial_dim: int = 4,
-    ):
-        """
-        Constructor to create global transformations
-
-        args:
-            device (str): device of the transformation matrices
-            trafo (torch.Tensor): tranformation matrix or torch.nn.Identity (shape [spatial_dim, spatial_dim])
-            n_batch (int): number of batches / graphs / jets
-        """
-
-        if isinstance(trafo, torch.nn.Identity):
-            trafo.shape = (n_batch, spatial_dim, spatial_dim)
-            trafo.device = device
-            trafo.index_select = types.MethodType(
-                (
-                    lambda self, _, indeces: setattr(
-                        indexed := torch.nn.Identity(),
-                        "shape",
-                        (len(indeces), *self.shape[-2:]),
-                    )
-                    or setattr(indexed, "device", self.device)
-                    or indexed
-                ),
-                trafo,
-            )  # dark magic
-        else:
-            assert trafo.shape == (spatial_dim, spatial_dim,) or trafo.shape == (
-                1,
-                spatial_dim,
-                spatial_dim,
-            ), f"Global transformation matrices need the shape (spatial_dim, spatial_dim) or (1, spatial_dim, spatial_dim), but got {trafo.shape} instead!"
-            trafo = trafo.repeat(n_batch, 1, 1)
-
-        return cls(matrices=trafo, spatial_dim=spatial_dim, is_global=True)
-
     def __init__(
-        self, matrices: torch.Tensor, spatial_dim: int = 4, is_global: bool = False
+        self,
+        matrices: torch.Tensor = None,
+        is_global: bool = False,
+        is_identity: bool = False,
+        device: str = None,
+        n_batch: int = None,
     ) -> None:
         """Initialize the LFrames class.
 
         Args:
-            matrices (torch.Tensor): Tensor of shape (..., spatial_dim, spatial_dim) representing the rotation matrices.
-            spatial_dim (int, optional): Dimension of the spatial vectors. Defaults to 4.
+            matrices (torch.Tensor): Tensor of shape (..., 4, 4) representing the rotation matrices.
             is_global (bool): signify global transformations
+            is_identity (bool): whether to use identity lframes, implies is_global, this is also assumed if matrices is torch.nn.Identity()
+            device (str): device to store the lframe on, only required when is_identity
+            n_batch (int): number of batches, only required when is_identity
         """
-        assert (
-            matrices is not None
-        ), "No transformation matrices has been passed to the LFrames constructor."
+        if is_identity:
+            assert is_global and is_identity and device and n_batch
+            self._is_identity = True
+            self._device = device
+            self._n_batch = n_batch
+            self._dtype = None
+            self._matrices = None
+        else:
+            assert (
+                matrices is not None
+            ), "No transformation matrices has been passed to the LFrames constructor."
 
-        assert spatial_dim == 4, "Currently only implemented for spatial_dim=4"
+            assert matrices.shape[-2:] == (
+                4,
+                4,
+            ), f"Transformations must be of shape (..., 4, 4) or (4, 4), but found dim {matrices.shape[-2:]} instead"
 
-        assert matrices.shape[-2:] == (
-            spatial_dim,
-            spatial_dim,
-        ), f"Rotations must be of shape (..., spatial_dim, spatial_dim) or (spatial_dim, spatial_dim), but found dim {matrices.shape[-2:]} instead"
+            self._is_identity = False
+            self._device = matrices.device
+            self._dtype = matrices.dtype or None
+            self._matrices = matrices
 
-        self._device = matrices.device
-        self._matrices = matrices
-        self.spatial_dim = spatial_dim
         self._is_global = is_global
 
         self.metric = torch.diag(
-            torch.tensor([1.0, -1.0, -1.0, -1.0], device=self._device)
+            torch.tensor(
+                [1.0, -1.0, -1.0, -1.0], device=self._device, dtype=self._dtype
+            )
         )
         self._det = None
         self._inv = None
@@ -88,8 +61,8 @@ class LFrames:
             torch.Tensor: Tensor containing the determinants.
         """
         if self._det is None:
-            if isinstance(self._matrices, torch.nn.Identity):
-                self._det = torch.tensor(1).repeat(self.shape[0])
+            if self.is_identity:
+                self._det = torch.tensor(1).repeat(self._n_batch)
             else:
                 self._det = torch.linalg.det(self._matrices)
         return self._det
@@ -102,8 +75,8 @@ class LFrames:
             torch.Tensor: Tensor containing the inverses.
         """
         if self._inv is None:
-            if isinstance(self._matrices, torch.nn.Identity):
-                return self.matrices
+            if self.is_identity:
+                return None
             else:
                 self._inv = self.metric @ self._matrices.transpose(-1, -2) @ self.metric
         return self._inv
@@ -115,6 +88,8 @@ class LFrames:
         Returns:
             torch.Size: Size of Lorentz transformation.
         """
+        if self.is_identity:
+            return (self._n_batch, 4, 4)
         return self.matrices.shape
 
     @property
@@ -127,13 +102,28 @@ class LFrames:
         return self._device
 
     @property
+    def dtype(self) -> torch.dtype:
+        """Dtype of the Lorentz transformation.
+
+        Returns:
+            torch.dtype: Dtype of the Lorentz transformation.
+        """
+        return self._dtype
+
+    @property
     def matrices(self) -> torch.Tensor:
         """return the transformation matrices"""
+        if self.is_identity:
+            return None
         return self._matrices
 
     @matrices.setter
     def matrices(self, new_matrices: torch.Tensor):
         """clear cached values dependent on the matrices for safety, this is still not recommended"""
+        if self.is_identity:
+            raise RuntimeError(
+                "Can not change the matrices when is_identity is set in the definition."
+            )
         self._inv = None
         self._det = None
         self._device = new_matrices.device
@@ -142,8 +132,13 @@ class LFrames:
 
     @property
     def is_global(self):
-        """check whether this is a identity transformation"""
+        """check whether this is a global transformation"""
         return self._is_global
+
+    @property
+    def is_identity(self):
+        """check whether this is a identity transformation"""
+        return self._is_identity
 
     def inverse_lframes(self) -> "LFrames":
         """Returns the inverse of the LFrames object.
@@ -166,7 +161,7 @@ class LFrames:
 
 
 class InvLFrames(LFrames):
-    """Represents the inverse of a collection of o3 matrices."""
+    """Represents the inverse of a collection of Lorentz transformations."""
 
     def __init__(self, lframes: LFrames) -> None:
         """Initialize the InvLFrames class.
@@ -178,7 +173,8 @@ class InvLFrames(LFrames):
             None
         """
         self._lframes = lframes
-        self.spatial_dim = lframes.spatial_dim
+        self._is_global = lframes.is_global
+        self._is_identity = lframes.is_identity
 
         self._det = None
         self._inv = None
@@ -203,7 +199,7 @@ class InvLFrames(LFrames):
 
     @property
     def det(self) -> torch.Tensor:
-        """Determinant of the o3 matrices.
+        """Determinant of the Lorentz transformation.
 
         Returns:
             torch.Tensor: Tensor containing the determinants.
@@ -214,7 +210,7 @@ class InvLFrames(LFrames):
 
     @property
     def inv(self) -> torch.Tensor:
-        """Inverse of the o3 matrices.
+        """Inverse of the Lorentz transformation.
 
         Returns:
             torch.Tensor: Tensor containing the inverses.
@@ -254,8 +250,9 @@ class IndexSelectLFrames(LFrames):
 
         self._lframes = lframes
         self._indices = indices
-        self.spatial_dim = lframes.spatial_dim
-        self._is_global = lframes._is_global
+        self._is_global = lframes.is_global
+        self._is_identity = lframes.is_identity
+        self._n_batch = indices.shape[0]
 
         self._matrices = None
         self._det = None
@@ -271,6 +268,8 @@ class IndexSelectLFrames(LFrames):
         Returns:
             torch.Tensor: The matrices stored in the lframes object.
         """
+        if self._is_identity:
+            return None
         if self._matrices is None:
             self._matrices = self._lframes.matrices.index_select(0, self._indices)
         return self._matrices
@@ -283,7 +282,7 @@ class IndexSelectLFrames(LFrames):
 
     @property
     def det(self) -> torch.Tensor:
-        """Determinant of the o3 matrices.
+        """Determinant of the Lorentz transformation.
 
         Returns:
             torch.Tensor: Tensor containing the determinants.
@@ -294,11 +293,13 @@ class IndexSelectLFrames(LFrames):
 
     @property
     def inv(self) -> torch.Tensor:
-        """Inverse of the o3 matrices.
+        """Inverse of the Lorentz transformation.
 
         Returns:
             torch.Tensor: Tensor containing the inverses.
         """
+        if self._is_identity:
+            return None
         if self._inv is None:
             self._inv = self._lframes.inv.index_select(0, self._indices)
         return self._inv
@@ -306,6 +307,10 @@ class IndexSelectLFrames(LFrames):
     @property
     def device(self):
         return self._lframes.device
+
+    @property
+    def dtype(self):
+        return self._lframes.dtype
 
     def index_select(self, indices: torch.Tensor) -> LFrames:
         """Selects the rotation matrices corresponding to the given indices."""
@@ -330,28 +335,33 @@ class ChangeOfLFrames:
         assert (
             lframes_start.shape == lframes_end.shape
         ), "Both LFrames objects must have the same shape."
+        assert (
+            lframes_start.device == lframes_end.device
+        ), f"Both lframes need to be on the same device, but found {lframes_start.device} and {lframes_end.device}."
         self._lframes_start = lframes_start
         self._lframes_end = lframes_end
+        self._device = lframes_start.device
         if self._lframes_start.is_global:
             # this makes it so that transformations in a global frame setting become identities, which are then skipped in tensorreps.py (TensorRepsTransform)
-            self._matrices = torch.nn.Identity()
-            self._matrices.shape = self._lframes_start.shape
-            self._matrices.device = (
-                self._lframes_start.device
-            )  # this is abusing overwriting a bit
-
-            self._inv = torch.nn.Identity()
-            self._inv.shape = self._lframes_start.shape
-            self._inv.device = self._lframes_start.device
+            self._matrices = None
+            self._is_identity = True
         else:
             self._matrices = torch.bmm(lframes_end.matrices, lframes_start.inv)
-        self.spatial_dim = lframes_start.spatial_dim
+            self._is_identity = False
 
         self.metric = torch.diag(
-            torch.tensor([1.0, -1.0, -1.0, -1.0], device=self.device)
+            torch.tensor(
+                [1.0, -1.0, -1.0, -1.0],
+                device=self.device,
+                dtype=lframes_start.dtype,
+            )
         )
         self._det = None
         self._inv = None
+
+    @property
+    def is_identity(self) -> bool:
+        return self._is_identity
 
     @property
     def det(self) -> torch.Tensor:
@@ -371,6 +381,8 @@ class ChangeOfLFrames:
         Returns:
             torch.Tensor: Tensor containing the inverses.
         """
+        if self._is_identity:
+            return None
         if self._inv is None:
             self._inv = self.metric @ self._matrices.transpose(-1, -2) @ self.metric
         return self._inv
@@ -391,7 +403,16 @@ class ChangeOfLFrames:
         Returns:
             torch.device: Device of the Lorentz transformation.
         """
-        return self.matrices.device
+        return self._device
+
+    @property
+    def dtype(self) -> torch.dtype:
+        """Dtype of the Lorentz transformation.
+
+        Returns:
+            torch.dtype: Dtype of the Lorentz transformation.
+        """
+        return self._lframes_start.dtype
 
     @property
     def matrices(self):
