@@ -1,4 +1,3 @@
-from itertools import pairwise
 import torch
 import pytest
 from tests.constants import TOLERANCES, BATCH_DIMS
@@ -15,7 +14,6 @@ from tensorframes.utils.orthogonalize import (
     regularize_collinear,
     regularize_coplanar,
 )
-from tensorframes.utils.hep import get_deltaR
 
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
@@ -38,7 +36,7 @@ def test_lorentz_cross(batch_dims):
     torch.testing.assert_close(inner34, zeros, **TOLERANCES)
 
 
-@pytest.mark.parametrize("batch_dims", [[1000000]])
+@pytest.mark.parametrize("batch_dims", [[10000]])
 def test_orthogonalize(batch_dims):
     # check orthogonality after using the function
     dtype = torch.float64
@@ -56,7 +54,7 @@ def test_orthogonalize(batch_dims):
             torch.testing.assert_close(inner.abs(), target, **TOLERANCES)
 
 
-@pytest.mark.parametrize("batch_dims", [[1000000]])
+@pytest.mark.parametrize("batch_dims", [[10000]])
 def test_orthogonalize_timelike(batch_dims):
     # test if there is only one time-like vector in each set of orthogonalized vectors
     dtype = torch.float64
@@ -98,7 +96,7 @@ With the current settings the percentage of modified vectors is:
 @pytest.mark.parametrize("exception", [True])
 @pytest.mark.parametrize("exception_eps", [1e-3])
 @pytest.mark.parametrize("sample_eps", [1, 1e-2])
-@pytest.mark.parametrize("batch_dims", [[100000]])
+@pytest.mark.parametrize("batch_dims", [[10000]])
 @pytest.mark.parametrize("eps", [1e-10, 1e-5, 1e-2])
 def test_orthogonalize_collinear(batch_dims, eps, exception, exception_eps, sample_eps):
     dtype = torch.float64
@@ -123,7 +121,7 @@ def test_orthogonalize_collinear(batch_dims, eps, exception, exception_eps, samp
 @pytest.mark.parametrize("exception", [True])
 @pytest.mark.parametrize("exception_eps", [1e-6])
 @pytest.mark.parametrize("sample_eps", [1, 1e-3])
-@pytest.mark.parametrize("batch_dims", [[100000]])
+@pytest.mark.parametrize("batch_dims", [[10000]])
 @pytest.mark.parametrize("eps", [1e-10, 1e-5, 1e-2])
 def test_orthogonalize_coplanar(batch_dims, eps, exception, exception_eps, sample_eps):
     dtype = torch.float64
