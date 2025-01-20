@@ -268,5 +268,5 @@ def regularize_coplanar(
     sample = sample_eps * torch.randn(vecs.shape, dtype=vecs.dtype, device=vecs.device)
     mask = (cross_norm.abs() < exception_eps)[None, :, None].expand_as(sample)
     vecs = vecs + sample * mask
-    
+
     return vecs
