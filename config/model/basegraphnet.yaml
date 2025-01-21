@@ -1,4 +1,4 @@
-_target_: experiments.toptagging.wrappers.BaselineGraphNetWrapper
+_target_: experiments.tagging.wrappers.BaselineGraphNetWrapper
 mean_aggregation: true
 in_reps: null
 

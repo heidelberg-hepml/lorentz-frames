@@ -1,4 +1,4 @@
-_target_: experiments.toptagging.wrappers.BaselineParTWrapper
+_target_: experiments.tagging.wrappers.BaselineParTWrapper
 mean_aggregation: true
 in_reps: null
 

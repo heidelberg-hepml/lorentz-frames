@@ -1,5 +1,5 @@
 import hydra
-from experiments.toptagging.experiment import TopTaggingExperiment
+from experiments.tagging.experiment import TopTaggingExperiment
 
 
 @hydra.main(config_path="config_quick", config_name="toptagging", version_base=None)

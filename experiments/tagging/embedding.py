@@ -3,7 +3,7 @@ from torch.nn.functional import one_hot
 from torch_geometric.utils import scatter, dense_to_sparse
 
 from tensorframes.utils.hep import get_eta, get_phi, get_pt
-from experiments.toptagging.dataset import EPS
+from experiments.tagging.dataset import EPS
 
 
 def get_batch_from_ptr(ptr):

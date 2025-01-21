@@ -1,0 +1,33 @@
+data:
+ rescale_data: true
+ beam_reference: null
+ two_beams: true
+ beam_token: true
+ add_time_reference: false
+ add_scalar_features: true
+ scalar_features_preprocessing: # following weaver defaults
+ - [-1.3, 0.7] # log_pt (include -log(20) from UNITS)
+ - [-1.0, 0.7] # log_energy (include -log(20) from UNITS)
+ - [-4.7, 0.7] # log_pt_rel
+ - [-4.7, 0.7] # log_energy_rel
+ - [0, 1] # dphi
+ - [0, 1] # deta
+ - [0.2, 4] # dr
+ num_global_tokens: 1
+ mass_reg: 0
+
+evaluation:
+ batchsize: 512
+ save_roc: false
+
+plotting:
+ roc: true
+ loss: true
+ score: true
+
+defaults:
+ - default
+ - training: default
+ - model: graphnet
+ - hydra
+ - _self_
