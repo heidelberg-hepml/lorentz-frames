@@ -1,0 +1,5 @@
+iterations: 1000000 # 1M iterations!
+batchsize: 512
+
+defaults:
+ - default

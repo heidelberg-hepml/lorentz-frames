@@ -144,7 +144,7 @@ def test_graphnet_invariance_equivariance(
     graphnet = TFGraphNet(
         in_channels=in_reps.dim,
         hidden_channels=reps,
-        out_channels=in_reps.dim,
+        num_classes=in_reps.dim,
         num_blocks=num_blocks,
         num_layers_mlp1=num_layers_mlp1,
         num_layers_mlp2=num_layers_mlp2,

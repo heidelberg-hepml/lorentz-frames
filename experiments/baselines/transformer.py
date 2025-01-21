@@ -334,7 +334,7 @@ class Transformer(nn.Module):
     def __init__(
         self,
         in_channels: int,
-        out_channels: int,
+        num_classes: int,
         hidden_channels: int,
         num_blocks: int = 10,
         num_heads: int = 8,
@@ -358,7 +358,7 @@ class Transformer(nn.Module):
                 for _ in range(num_blocks)
             ]
         )
-        self.linear_out = nn.Linear(hidden_channels, out_channels)
+        self.linear_out = nn.Linear(hidden_channels, num_classes)
 
     def forward(
         self, inputs: torch.Tensor, attention_mask=None, is_causal=False

@@ -3,7 +3,9 @@ from torch.nn.functional import one_hot
 from torch_geometric.utils import scatter, dense_to_sparse
 
 from tensorframes.utils.hep import get_eta, get_phi, get_pt
-from experiments.toptagging.dataset import EPS
+from experiments.tagging.dataset import EPS
+
+UNITS = 20  # We use units of 20 GeV for all tagging experiments
 
 
 def get_batch_from_ptr(ptr):
@@ -58,7 +60,7 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
         phi_4, phi_jet = get_phi(fourmomenta), get_phi(jet)
         dphi = ((phi_4 - phi_jet + torch.pi) % (2 * torch.pi) - torch.pi).unsqueeze(-1)
         eta_4, eta_jet = get_eta(fourmomenta), get_eta(jet)
-        deta = (eta_4 - eta_jet).unsqueeze(-1)
+        deta = -(eta_4 - eta_jet).unsqueeze(-1)
         dr = torch.sqrt(dphi**2 + deta**2)
         scalar_features = [
             log_pt,
@@ -76,6 +78,9 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
             (scalars, *scalar_features),
             dim=-1,
         )
+
+    if cfg_data.rescale_data:
+        fourmomenta /= UNITS
 
     # beam reference
     spurions = get_spurion(

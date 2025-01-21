@@ -1,11 +1,11 @@
-_target_: experiments.toptagging.wrappers.BaselineParticleNetWrapper
+_target_: experiments.tagging.wrappers.BaselineParticleNetWrapper
 mean_aggregation: true
 in_reps: null
 
 net:
  _target_: experiments.baselines.particlenet.ParticleNetTagger
  _partial_: true
- num_classes: 1
+ num_classes: null
 
 defaults:
  - lframesnet: identity

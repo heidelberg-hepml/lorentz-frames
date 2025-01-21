@@ -56,7 +56,7 @@ def test_transformer_invariance_equivariance(
     net = TFTransformer(
         in_channels=in_reps.dim,
         hidden_channels=reps,
-        out_channels=in_reps.dim,
+        num_classes=in_reps.dim,
         num_blocks=num_blocks,
         num_heads=num_heads,
     ).to(dtype=dtype)

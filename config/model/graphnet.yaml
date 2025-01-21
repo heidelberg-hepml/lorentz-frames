@@ -1,4 +1,4 @@
-_target_: experiments.toptagging.wrappers.GraphNetWrapper
+_target_: experiments.tagging.wrappers.GraphNetWrapper
 
 net:
  _target_: tensorframes.nn.graphnet.TFGraphNet
