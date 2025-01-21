@@ -3,6 +3,7 @@ import torch
 from torch_geometric.nn import MessagePassing
 
 from tensorframes.lframes import ChangeOfLFrames, LFrames
+from tensorframes.reps.tensorreps_transform import TensorRepsTransform
 
 
 class TFMessagePassing(MessagePassing):
@@ -35,7 +36,7 @@ class TFMessagePassing(MessagePassing):
 
         for key, value in self.params_dict.items():
             if value["type"] is not None:
-                tmp_dict[key] = value["rep"].get_transform_class()
+                tmp_dict[key] = TensorRepsTransform(value["rep"])
 
         self.transform_dict = torch.nn.ModuleDict(tmp_dict)
 

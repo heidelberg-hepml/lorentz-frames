@@ -4,6 +4,7 @@ from tests.constants import TOLERANCES, REPS
 
 from tensorframes.lframes import LFrames, ChangeOfLFrames
 from tensorframes.reps.tensorreps import TensorReps
+from tensorframes.reps.tensorreps_transform import TensorRepsTransform
 from tensorframes.utils.transforms import rand_lorentz
 
 
@@ -13,7 +14,7 @@ def test_equivariance(batch_dims, reps):
     dtype = torch.float64
 
     reps = TensorReps(reps)
-    trafo = TensorReps(reps).get_transform_class()
+    trafo = TensorRepsTransform(TensorReps(reps))
 
     transform = rand_lorentz(batch_dims, dtype=dtype)
     lframes = LFrames(transform)

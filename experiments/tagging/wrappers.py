@@ -7,6 +7,7 @@ from torch_geometric.utils import to_dense_batch
 from xformers.ops.fmha import BlockDiagonalMask
 
 from tensorframes.reps.tensorreps import TensorReps
+from tensorframes.reps.tensorreps_transform import TensorRepsTransform
 from tensorframes.utils.hep import EPPP_to_PtPhiEtaM2
 from tensorframes.lframes.equi_lframes import RestLFrames
 from tensorframes.lframes.equi_lframes import LearnedLFrames
@@ -59,7 +60,7 @@ class TaggerWrapper(nn.Module):
         else:
             self.lframesnet = lframesnet
 
-        self.trafo_fourmomenta = TensorReps("1x1n").get_transform_class()
+        self.trafo_fourmomenta = TensorRepsTransform(TensorReps("1x1n"))
 
     def forward(self, embedding):
         # extract embedding

@@ -6,6 +6,7 @@ from tests.constants import TOLERANCES, LOGM2_MEAN, LOGM2_STD, REPS
 from tests.helpers import sample_vector
 
 from tensorframes.reps.tensorreps import TensorReps
+from tensorframes.reps.tensorreps_transform import TensorRepsTransform
 from tensorframes.nn.attention import InvariantParticleAttention
 from tensorframes.lframes.equi_lframes import (
     RestLFrames,
@@ -51,7 +52,7 @@ def test_invariance_equivariance(
     # preparations
     in_reps = TensorReps("1x1n")
     hidden_reps = TensorReps(hidden_reps)
-    trafo = TensorReps(in_reps).get_transform_class()
+    trafo = TensorRepsTransform(TensorReps(in_reps))
     attention = InvariantParticleAttention(hidden_reps).to(dtype=dtype)
     linear_in = Linear(in_reps.dim, 3 * hidden_reps.dim).to(dtype=dtype)
     linear_out = Linear(hidden_reps.dim, in_reps.dim).to(dtype=dtype)

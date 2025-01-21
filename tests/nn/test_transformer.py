@@ -12,6 +12,7 @@ from tensorframes.lframes.equi_lframes import (
     MatrixExpLearnedLFrames,
 )
 from tensorframes.reps.tensorreps import TensorReps
+from tensorframes.reps.tensorreps_transform import TensorRepsTransform
 from tensorframes.utils.transforms import rand_lorentz
 
 
@@ -52,7 +53,7 @@ def test_transformer_invariance_equivariance(
 
     # define edgeconv
     in_reps = TensorReps("1x1n")
-    trafo = TensorReps(in_reps).get_transform_class()
+    trafo = TensorRepsTransform(TensorReps(in_reps))
     net = TFTransformer(
         in_channels=in_reps.dim,
         hidden_channels=reps,

@@ -4,6 +4,7 @@ from tests.constants import TOLERANCES, LOGM2_MEAN, LOGM2_STD
 from tests.helpers import sample_vector
 
 from tensorframes.reps import TensorReps
+from tensorframes.reps.tensorreps_transform import TensorRepsTransform
 from tensorframes.lframes.nonequi_lframes import (
     IdentityLFrames,
     RandomLFrames,
@@ -28,7 +29,7 @@ def test_vectors(LFramesPredictor, batch_dims, logm2_mean, logm2_std):
 
     # transform into local frames
     reps = TensorReps("1x1n")
-    trafo = TensorReps(reps).get_transform_class()
+    trafo = TensorRepsTransform(TensorReps(reps))
     fm_local = trafo(fm, lframes)
 
     if LFramesPredictor == IdentityLFrames:

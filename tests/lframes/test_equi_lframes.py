@@ -5,6 +5,7 @@ from tests.constants import TOLERANCES, LOGM2_MEAN, LOGM2_STD
 from tests.helpers import sample_vector, lorentz_test
 
 from tensorframes.reps import TensorReps
+from tensorframes.reps.tensorreps_transform import TensorRepsTransform
 from tensorframes.lframes.equi_lframes import (
     RestLFrames,
     CrossLearnedLFrames,
@@ -103,7 +104,7 @@ def test_feature_invariance(LFramesPredictor, batch_dims, logm2_std, logm2_mean)
         call_predictor = lambda fm: predictor(fm, scalars, edge_index, batch)
 
     reps = TensorReps("1x1n")
-    trafo = TensorReps(reps).get_transform_class()
+    trafo = TensorRepsTransform(TensorReps(reps))
 
     # sample Lorentz vectors
     fm = sample_vector(batch_dims, logm2_std, logm2_mean, dtype=dtype)

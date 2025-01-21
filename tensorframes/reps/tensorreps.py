@@ -213,9 +213,6 @@ class TensorReps(Tuple):
 
         return TensorReps(out)
 
-    def get_transform_class(self, **kwargs):
-        return TensorRepsTransform(self, **kwargs)
-
 
 def parse_tensorreps_string(input):
     out = []
@@ -237,8 +234,3 @@ def parse_tensorreps_string(input):
         mul, order = int(mul), int(order)
         out.append(_TensorMulRep(mul, TensorRep(order, parity)))
     return out
-
-
-# avoid cyclic import error
-# the alternative is to copy tensorreps_transform.py into this file
-from tensorframes.reps.tensorreps_transform import TensorRepsTransform

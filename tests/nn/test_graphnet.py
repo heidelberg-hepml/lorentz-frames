@@ -12,6 +12,7 @@ from tensorframes.lframes.equi_lframes import (
     MatrixExpLearnedLFrames,
 )
 from tensorframes.reps.tensorreps import TensorReps
+from tensorframes.reps.tensorreps_transform import TensorRepsTransform
 from tensorframes.utils.transforms import rand_lorentz
 
 
@@ -56,7 +57,7 @@ def test_edgeconv_invariance_equivariance(
     # define edgeconv
     in_reps = TensorReps("1x1n")
     hidden_reps = TensorReps(reps)
-    trafo = TensorReps(in_reps).get_transform_class()
+    trafo = TensorRepsTransform(TensorReps(in_reps))
     linear_in = torch.nn.Linear(in_reps.dim, hidden_reps.dim).to(dtype=dtype)
     linear_out = torch.nn.Linear(hidden_reps.dim, in_reps.dim).to(dtype=dtype)
     edgeconv = EdgeConv(hidden_reps, num_layers_mlp1, num_layers_mlp2).to(dtype)
@@ -140,7 +141,7 @@ def test_graphnet_invariance_equivariance(
 
     # define edgeconv
     in_reps = TensorReps("1x1n")
-    trafo = TensorReps(in_reps).get_transform_class()
+    trafo = TensorRepsTransform(TensorReps(in_reps))
     graphnet = TFGraphNet(
         in_channels=in_reps.dim,
         hidden_channels=reps,
