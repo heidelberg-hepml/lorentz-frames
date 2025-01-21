@@ -14,6 +14,7 @@ from tensorframes.lframes.equi_lframes import (
 from tensorframes.reps.tensorreps import TensorReps
 from tensorframes.reps.tensorreps_transform import TensorRepsTransform
 from tensorframes.utils.transforms import rand_lorentz
+from tensorframes.lframes.lframes import InverseLFrames
 
 
 @pytest.mark.parametrize("LFramesPredictor", [CrossLearnedLFrames])
@@ -79,14 +80,14 @@ def test_edgeconv_invariance_equivariance(
     x_tr_prime_local = edgeconv(x_tr_local, lframes_transformed, edge_index)
     fm_tr_prime_local = linear_out(x_tr_prime_local)
     # back to global frame
-    fm_tr_prime_global = trafo(fm_tr_prime_local, lframes_transformed.inverse_lframes())
+    fm_tr_prime_global = trafo(fm_tr_prime_local, InverseLFrames(lframes_transformed))
 
     # edgeconv - global
     x_local = linear_in(fm_local)
     x_prime_local = edgeconv(x_local, lframes, edge_index)
     fm_prime_local = linear_out(x_prime_local)
     # back to global
-    fm_prime_global = trafo(fm_prime_local, lframes.inverse_lframes())
+    fm_prime_global = trafo(fm_prime_local, InverseLFrames(lframes))
     fm_prime_tr_global = torch.einsum("...ij,...j->...i", random, fm_prime_global)
 
     # test feature invariance before the operation
@@ -166,12 +167,12 @@ def test_graphnet_invariance_equivariance(
     fm_tr_local = trafo(fm_transformed, lframes_transformed)
     fm_tr_prime_local = graphnet(fm_tr_local, lframes_transformed, edge_index)
     # back to global frame
-    fm_tr_prime_global = trafo(fm_tr_prime_local, lframes_transformed.inverse_lframes())
+    fm_tr_prime_global = trafo(fm_tr_prime_local, InverseLFrames(lframes_transformed))
 
     # edgeconv - global
     fm_prime_local = graphnet(fm_local, lframes, edge_index)
     # back to global
-    fm_prime_global = trafo(fm_prime_local, lframes.inverse_lframes())
+    fm_prime_global = trafo(fm_prime_local, InverseLFrames(lframes))
     fm_prime_tr_global = torch.einsum("...ij,...j->...i", random, fm_prime_global)
 
     # test equivariance of outputs

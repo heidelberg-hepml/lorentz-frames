@@ -14,6 +14,7 @@ from tensorframes.lframes.equi_lframes import (
 from tensorframes.reps.tensorreps import TensorReps
 from tensorframes.reps.tensorreps_transform import TensorRepsTransform
 from tensorframes.utils.transforms import rand_lorentz
+from tensorframes.lframes.lframes import InverseLFrames
 
 
 @pytest.mark.parametrize("LFramesPredictor", [CrossLearnedLFrames])
@@ -77,12 +78,12 @@ def test_transformer_invariance_equivariance(
     fm_tr_local = trafo(fm_transformed, lframes_transformed)
     fm_tr_prime_local = net(fm_tr_local, lframes_transformed)
     # back to global frame
-    fm_tr_prime_global = trafo(fm_tr_prime_local, lframes_transformed.inverse_lframes())
+    fm_tr_prime_global = trafo(fm_tr_prime_local, InverseLFrames(lframes_transformed))
 
     # edgeconv - global
     fm_prime_local = net(fm_local, lframes)
     # back to global
-    fm_prime_global = trafo(fm_prime_local, lframes.inverse_lframes())
+    fm_prime_global = trafo(fm_prime_local, InverseLFrames(lframes))
     fm_prime_tr_global = torch.einsum("...ij,...j->...i", random, fm_prime_global)
 
     # test equivariance of outputs

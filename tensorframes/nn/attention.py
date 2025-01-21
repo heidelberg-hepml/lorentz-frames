@@ -5,7 +5,7 @@ from torch import Tensor
 from torch.nn.functional import scaled_dot_product_attention as torch_sdpa
 from xformers.ops import AttentionBias, memory_efficient_attention
 
-from tensorframes.lframes import LFrames
+from tensorframes.lframes.lframes import LFrames, InverseLFrames
 from tensorframes.reps import TensorReps
 from tensorframes.reps.tensorreps_transform import TensorRepsTransform
 from tensorframes.utils.utils import to_nd
@@ -32,11 +32,11 @@ class InvariantParticleAttention(torch.nn.Module):
         )
         matrices = to_nd(matrices, 3)
         lframes = LFrames(matrices)
-        lframes_inv = lframes.inverse_lframes()
+        lframes_inv = InverseLFrames(lframes)
 
         # transformation matrices with lowered indices (multiply with metric)
         lframes_inv_lower_matrices = torch.einsum(
-            "...ij,...jk->...ik", lframes.metric, lframes_inv.matrices
+            "...ij,...jk->...ik", lframes._metric, lframes_inv.matrices
         )
         lframes_inv_lower = LFrames(lframes_inv_lower_matrices)
 

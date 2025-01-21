@@ -8,6 +8,7 @@ from tests.helpers import sample_vector
 from tensorframes.reps.tensorreps import TensorReps
 from tensorframes.reps.tensorreps_transform import TensorRepsTransform
 from tensorframes.nn.attention import InvariantParticleAttention
+from tensorframes.lframes.lframes import InverseLFrames
 from tensorframes.lframes.equi_lframes import (
     RestLFrames,
     CrossLearnedLFrames,
@@ -71,7 +72,7 @@ def test_invariance_equivariance(
     q_local, k_local, v_local = x_local.chunk(3, dim=-1)
     x_local2 = attention(q_local, k_local, v_local, lframes).squeeze(0)
     fm_local = linear_out(x_local2)
-    fm_global = trafo(fm_local, lframes.inverse_lframes())
+    fm_global = trafo(fm_local, InverseLFrames(lframes))
     fm_global_prime = torch.einsum("...ij,...j->...i", random, fm_global)
 
     # path 2: random transform + LFrames transform
@@ -84,7 +85,7 @@ def test_invariance_equivariance(
         q_prime_local, k_prime_local, v_prime_local, lframes_prime
     ).squeeze(0)
     fm_prime_local = linear_out(x_prime_local2)
-    fm_prime_global = trafo(fm_prime_local, lframes_prime.inverse_lframes())
+    fm_prime_global = trafo(fm_prime_local, InverseLFrames(lframes_prime))
 
     # test feature invariance before the operation
     torch.testing.assert_close(x_local, x_prime_local, **TOLERANCES)

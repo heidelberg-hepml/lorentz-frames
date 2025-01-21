@@ -2,7 +2,7 @@ from typing import Any, Dict
 import torch
 from torch_geometric.nn import MessagePassing
 
-from tensorframes.lframes import ChangeOfLFrames, LFrames
+from tensorframes.lframes.lframes import ChangeOfLFrames, LFrames, IndexSelectLFrames
 from tensorframes.reps.tensorreps_transform import TensorRepsTransform
 
 
@@ -78,11 +78,11 @@ class TFMessagePassing(MessagePassing):
 
         # calculate lframes_i, lframes_j and the U matrix
         if isinstance(self._lframes, tuple):
-            lframes_i = self._lframes[1].index_select(self._edge_index[1])
-            lframes_j = self._lframes[0].index_select(self._edge_index[0])
+            lframes_i = IndexSelectLFrames(self._lframes[1], self._edge_index[1])
+            lframes_j = IndexSelectLFrames(self._lframes[0], self._edge_index[0])
         elif isinstance(self._lframes, LFrames):
-            lframes_i = self._lframes.index_select(self._edge_index[1])
-            lframes_j = self._lframes.index_select(self._edge_index[0])
+            lframes_i = IndexSelectLFrames(self._lframes, self._edge_index[1])
+            lframes_j = IndexSelectLFrames(self._lframes, self._edge_index[0])
         else:
             raise ValueError(
                 f"lframes should be either a tuple or an LFrames object but is {type(self._lframes)}"

@@ -2,7 +2,7 @@ import torch
 import pytest
 from tests.constants import TOLERANCES, REPS
 
-from tensorframes.lframes import LFrames, ChangeOfLFrames
+from tensorframes.lframes.lframes import LFrames, InverseLFrames, ChangeOfLFrames
 from tensorframes.reps.tensorreps import TensorReps
 from tensorframes.reps.tensorreps_transform import TensorRepsTransform
 from tensorframes.utils.transforms import rand_lorentz
@@ -23,7 +23,7 @@ def test_equivariance(batch_dims, reps):
 
     # manual transform
     transform_direct = torch.einsum(
-        "...ij,...jk->...ik", lframes.matrices, lframes.inverse_lframes().matrices
+        "...ij,...jk->...ik", lframes.matrices, InverseLFrames(lframes).matrices
     )
     change_lframes1 = LFrames(transform_direct)
     x_prime1 = trafo(x, change_lframes1)
