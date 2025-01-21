@@ -5,7 +5,7 @@ in_reps: null
 net:
  _target_: experiments.baselines.particletransformerv2.ParticleTransformerTagger
  _partial_: true
- num_classes: 1
+ num_classes: null
 
 defaults:
  - lframesnet: identity

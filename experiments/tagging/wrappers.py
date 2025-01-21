@@ -99,9 +99,9 @@ class AggregatedTaggerWrapper(TaggerWrapper):
 
     def extract_score(self, features, batch, is_global):
         if self.aggregator is not None:
-            score = self.aggregator(features, index=batch)[:, 0]
+            score = self.aggregator(features, index=batch)
         else:
-            score = features[is_global][:, 0]
+            score = features[is_global]
         return score
 
 
@@ -205,7 +205,7 @@ class BaselineParticleNetWrapper(TaggerWrapper):
             features=features_local,
             mask=mask,
         )
-        return score[:, 0]
+        return score
 
 
 class BaselineParTWrapper(TaggerWrapper):
@@ -239,7 +239,7 @@ class BaselineParTWrapper(TaggerWrapper):
             x=features_local,
             mask=mask,
         )
-        return score[:, 0]
+        return score
 
 
 class GraphNetWrapper(AggregatedTaggerWrapper):

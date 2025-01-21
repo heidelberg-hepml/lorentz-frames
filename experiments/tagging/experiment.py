@@ -28,6 +28,24 @@ class TaggingExperiment(BaseExperiment):
             not self.cfg.data.include_global_token
         ), "Global token not properly supported"
 
+        with open_dict(self.cfg):
+            if self.cfg.data.add_scalar_features:
+                self.cfg.model.in_reps += "+7x0n"  # other scalar features
+
+            if not self.cfg.data.beam_token:
+                num_spurions = 0
+                num_spurions += (
+                    1
+                    if self.cfg.data.beam_reference
+                    in ["lightlike", "spacelike", "timelike"]
+                    else 0
+                )
+                num_spurions += 1 if self.cfg.data.two_beams else 0
+                num_spurions += 1 if self.cfg.data.add_time_reference else 0
+                self.cfg.model.in_reps += f"+{num_spurions}x1n"
+
+        LOGGER.info(f"Using the input representation: {self.cfg.model.in_reps}")
+
     def init_data(self):
         raise NotImplementedError
 
@@ -234,7 +252,7 @@ class TaggingExperiment(BaseExperiment):
     def _get_ypred_and_label(self, batch):
         batch = batch.to(self.device)
         embedding = embed_tagging_data(batch.x, batch.scalars, batch.ptr, self.cfg.data)
-        y_pred = self.model(embedding)
+        y_pred = self.model(embedding)[:, 0]
         return y_pred, batch.label.to(self.dtype)
 
     def _init_metrics(self):
@@ -244,31 +262,10 @@ class TaggingExperiment(BaseExperiment):
 class TopTaggingExperiment(TaggingExperiment):
     def __init__(self, cfg):
         super().__init__(cfg)
-
-        fourvector_reps = "1x1n"  # this is a representation of a fourvector with the current tensorframes
-        self.in_reps = fourvector_reps  # energy-momentum vector
-
-        if self.cfg.data.add_scalar_features:
-            self.in_reps = "7x0n+" + self.in_reps  # other scalar features
-            if self.cfg.model.mean_aggregation is False:
-                self.in_reps = (
-                    str(self.cfg.data.num_global_tokens) + "x0n+" + self.in_reps
-                )
-
-        if not self.cfg.data.beam_token:
-            if self.cfg.data.beam_reference in ["lightlike", "spacelike", "timelike"]:
-                self.in_reps = self.in_reps + "+" + fourvector_reps  # spurions
-
-                if self.cfg.data.two_beams:
-                    self.in_reps = (
-                        self.in_reps + "+" + fourvector_reps
-                    )  # two beam spurions
-
-            if self.cfg.data.add_time_reference:
-                self.in_reps = self.in_reps + "+" + fourvector_reps  # time spurion
-
-        LOGGER.info(f"Using the input representation: {self.in_reps}")
-        self.cfg.model.in_reps = self.in_reps
+        with open_dict(self.cfg):
+            self.cfg.data.num_global_tokens = 1
+            self.cfg.model.net.num_classes = 1
+            self.cfg.model.in_reps = "1x1n"  # energy-momentum vector
 
     def init_data(self):
         data_path = os.path.join(

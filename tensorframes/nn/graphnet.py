@@ -60,7 +60,7 @@ class TFGraphNet(nn.Module):
         self,
         in_channels,
         hidden_channels,
-        out_channels,
+        num_classes,
         num_blocks,
         num_layers_mlp1=2,
         num_layers_mlp2=0,
@@ -73,7 +73,7 @@ class TFGraphNet(nn.Module):
         self.checkpoint_blocks = checkpoint_blocks
 
         self.linear_in = nn.Linear(in_channels, hidden_reps.dim)
-        self.linear_out = nn.Linear(hidden_reps.dim, out_channels)
+        self.linear_out = nn.Linear(hidden_reps.dim, num_classes)
         self.blocks = nn.ModuleList(
             [
                 EdgeConv(

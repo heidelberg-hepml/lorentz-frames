@@ -7,7 +7,7 @@ net:
  _partial_: true
 
  in_channels: null
- out_channels: 1
+ num_classes: null
  hidden_channels: 64
 
  num_blocks: 2
