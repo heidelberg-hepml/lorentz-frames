@@ -13,6 +13,7 @@ runs/
 mlruns/
 outputs/
 scripts/
+data/jetclass/
 *~
 *.hdf5
 *.npy
