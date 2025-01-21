@@ -13,12 +13,10 @@ from experiments.tagging.plots import plot_mixer
 from experiments.logger import LOGGER
 from experiments.mlflow import log_mlflow
 
-UNITS = 20  # We use units of 20 GeV for all tagging experiments
-
 
 class TaggingExperiment(BaseExperiment):
     """
-    Generalization of all tagging experiments
+    Base class for jet tagging experiments, focusing on binary classification
     """
 
     def init_physics(self):
@@ -40,9 +38,9 @@ class TaggingExperiment(BaseExperiment):
         self.data_train = Dataset(**kwargs)
         self.data_test = Dataset(**kwargs)
         self.data_val = Dataset(**kwargs)
-        self.data_train.load_data(data_path, "train", data_scale=UNITS)
-        self.data_test.load_data(data_path, "test", data_scale=UNITS)
-        self.data_val.load_data(data_path, "val", data_scale=UNITS)
+        self.data_train.load_data(data_path, "train")
+        self.data_test.load_data(data_path, "test")
+        self.data_val.load_data(data_path, "val")
         dt = time.time() - t0
         LOGGER.info(f"Finished creating datasets after {dt:.2f} s = {dt/60:.2f} min")
 
@@ -71,48 +69,34 @@ class TaggingExperiment(BaseExperiment):
 
     def evaluate(self):
         self.results = {}
+        loader_dict = {
+            "train": self.train_loader,
+            "test": self.test_loader,
+            "val": self.val_loader,
+        }
+        for set_label in self.cfg.evaluation.eval_set:
+            if self.ema is not None:
+                with self.ema.average_parameters():
+                    self.results[set_label] = self._evaluate_single(
+                        loader_dict[set_label], set_label, mode="eval"
+                    )
 
-        # this is a bit ugly, but it does the job
-        if self.ema is not None:
-            with self.ema.average_parameters():
-                self.results["train"] = self._evaluate_single(
-                    self.train_loader, "train", mode="eval"
-                )
-                self.results["val"] = self._evaluate_single(
-                    self.val_loader, "val", mode="eval"
-                )
-                self.results["test"] = self._evaluate_single(
-                    self.test_loader, "test", mode="eval"
+                self._evaluate_single(
+                    loader_dict[set_label], f"{set_label}_noema", mode="eval"
                 )
 
-            self._evaluate_single(self.train_loader, "train_noema", mode="eval")
-            self._evaluate_single(self.val_loader, "val_noema", mode="eval")
-            self._evaluate_single(self.test_loader, "test_noema", mode="eval")
-
-        else:
-            self.results["train"] = self._evaluate_single(
-                self.train_loader, "train", mode="eval"
-            )
-            self.results["val"] = self._evaluate_single(
-                self.val_loader, "val", mode="eval"
-            )
-            self.results["test"] = self._evaluate_single(
-                self.test_loader, "test", mode="eval"
-            )
+            else:
+                self.results[set_label] = self._evaluate_single(
+                    loader_dict[set_label], set_label, mode="eval"
+                )
 
     def _evaluate_single(self, loader, title, mode, step=None):
         assert mode in ["val", "eval"]
-        # re-initialize dataloader to make sure it is using the evaluation batchsize (makes a difference for trainloader)
-        loader = DataLoader(
-            dataset=loader.dataset,
-            batch_size=self.cfg.evaluation.batchsize,
-            shuffle=False,
-        )
 
         if mode == "eval":
             LOGGER.info(
                 f"### Starting to evaluate model on {title} dataset with "
-                f"{len(loader.dataset.data_list)} elements, batchsize {loader.batch_size} ###"
+                f"{len(loader.dataset)} elements, batchsize {loader.batch_size} ###"
             )
         metrics = {}
 
@@ -135,7 +119,7 @@ class TaggingExperiment(BaseExperiment):
             )
 
         # bce loss
-        metrics["bce"] = torch.nn.functional.binary_cross_entropy(
+        metrics["loss"] = torch.nn.functional.binary_cross_entropy(
             labels_predict, labels_true
         ).item()
         labels_true, labels_predict = labels_true.numpy(), labels_predict.numpy()
@@ -197,7 +181,11 @@ class TaggingExperiment(BaseExperiment):
         title = type(self.model.net).__name__
         LOGGER.info(f"Creating plots in {plot_path}")
 
-        if self.cfg.evaluate and self.cfg.evaluation.save_roc:
+        if (
+            self.cfg.evaluation.save_roc
+            and self.cfg.evaluate
+            and ("test" in self.cfg.evaluation.eval_set)
+        ):
             file = f"{plot_path}/roc.txt"
             roc = np.stack(
                 (self.results["test"]["fpr"], self.results["test"]["tpr"]), axis=-1
@@ -205,7 +193,7 @@ class TaggingExperiment(BaseExperiment):
             np.savetxt(file, roc)
 
         plot_dict = {}
-        if self.cfg.evaluate:
+        if self.cfg.evaluate and ("test" in self.cfg.evaluation.eval_set):
             plot_dict = {"results_test": self.results["test"]}
         if self.cfg.train:
             plot_dict["train_loss"] = self.train_loss
@@ -230,8 +218,8 @@ class TaggingExperiment(BaseExperiment):
             metrics = self._evaluate_single(
                 self.val_loader, "val", mode="val", step=step
             )
-        self.val_loss.append(metrics["bce"])
-        return metrics["bce"]
+        self.val_loss.append(metrics["loss"])
+        return metrics["loss"]
 
     def _batch_loss(self, batch):
         y_pred, label = self._get_ypred_and_label(batch)
