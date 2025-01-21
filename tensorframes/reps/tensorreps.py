@@ -111,10 +111,6 @@ class TensorReps(Tuple):
 
         return super().__new__(cls, tensor_reps)
 
-    def __init__(self, tensor_reps) -> None:
-        super().__init__()
-        self._dim = None
-
     def __repr__(self):
         """
         str: Returns a string representation of the tensor reps.
@@ -126,9 +122,7 @@ class TensorReps(Tuple):
         """
         int: The total dimension of the tensor reps.
         """
-        if self._dim is None:
-            self._dim = sum(mul_ir.dim for mul_ir in self)
-        return self._dim
+        return sum(mul_ir.dim for mul_ir in self)
 
     @property
     def max_rep(self) -> TensorRep:
@@ -163,6 +157,19 @@ class TensorReps(Tuple):
         """Set[TensorRep]: The set of tensor reps."""
         return {rep for _, rep in self}
 
+    @property
+    def is_sorted(self) -> bool:
+        """
+        bool: Whether the tensor reps are sorted by the order of the reps.
+        """
+        if len(self) <= 1:
+            return True
+        else:
+            return all(
+                self[i].rep.order <= self[i + 1].rep.order
+                for i in range(len(self[:-1]))
+            )
+
     def __add__(self, tensor_reps) -> "TensorReps":
         """Adds tensor reps to the current tensor reps.
 
@@ -176,18 +183,13 @@ class TensorReps(Tuple):
         tensor_reps = TensorReps(tensor_reps)
         return TensorReps(super().__add__(tensor_reps))
 
-    @property
-    def is_sorted(self) -> bool:
+    def sort(self):
+        """Sorts the tensor reps by the order of the reps.
+
+        Returns:
+            TensorReps: The sorted tensor reps.
         """
-        bool: Whether the tensor reps are sorted by the order of the reps.
-        """
-        if len(self) <= 1:
-            return True
-        else:
-            return all(
-                self[i].rep.order <= self[i + 1].rep.order
-                for i in range(len(self[:-1]))
-            )
+        return TensorReps(sorted(self, key=lambda x: x.rep.order))
 
     def simplify(self) -> "TensorReps":
         """
@@ -211,26 +213,8 @@ class TensorReps(Tuple):
 
         return TensorReps(out)
 
-    def get_transform_class(
-        self, use_parallel: bool = True, avoid_einsum: bool = False
-    ):
-        """
-        Args:
-            use_parallel (bool, optional): Whether to use parallel computation for the transformation. Defaults to True.
-            avoid_einsum (bool, optional): Whether to avoid using `torch.einsum` for the transformation. Defaults to False.
-
-        Returns:
-            TensorRepsTransform: The tensor reps transform class.
-        """
-        return TensorRepsTransform(self, use_parallel, avoid_einsum)
-
-    def sort(self):
-        """Sorts the tensor reps by the order of the reps.
-
-        Returns:
-            TensorReps: The sorted tensor reps.
-        """
-        return TensorReps(sorted(self, key=lambda x: x.rep.order))
+    def get_transform_class(self, **kwargs):
+        return TensorRepsTransform(self, **kwargs)
 
 
 def parse_tensorreps_string(input):
