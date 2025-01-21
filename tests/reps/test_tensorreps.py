@@ -3,7 +3,8 @@ from tests.constants import TOLERANCES
 
 from tensorframes.utils.transforms import rand_lorentz
 from tensorframes.lframes.lframes import ChangeOfLFrames, LFrames
-from tensorframes.reps.tensorreps import TensorReps, TensorRepsTransform
+from tensorframes.reps.tensorreps import TensorReps
+from tensorframes.reps.tensorreps_transform import TensorRepsTransform
 
 # I quick-and-dirty-adapted this test from the original tensorframes repo
 # this deserves some attention at some point
