@@ -2,7 +2,7 @@ import torch
 import pytest
 from torch_geometric.utils import dense_to_sparse
 from tests.constants import TOLERANCES, LOGM2_MEAN, LOGM2_STD
-from tests.helpers import sample_vector, lorentz_test
+from tests.helpers import sample_vector, sample_vector_realistic, lorentz_test
 
 from tensorframes.reps import TensorReps
 from tensorframes.reps.tensorreps_transform import TensorRepsTransform
@@ -26,7 +26,10 @@ from tensorframes.lframes.lframes import LFrames
 @pytest.mark.parametrize(
     "logm2_mean", [-3]
 )  # CrossLearnedLFrames fails for larger values
-def test_lframes_transformation(LFramesPredictor, batch_dims, logm2_std, logm2_mean):
+@pytest.mark.parametrize("vector_type", [sample_vector, sample_vector_realistic])
+def test_lframes_transformation(
+    LFramesPredictor, batch_dims, logm2_std, logm2_mean, vector_type
+):
     dtype = torch.float64  # required to consistently pass tests
 
     # preparations
@@ -48,7 +51,7 @@ def test_lframes_transformation(LFramesPredictor, batch_dims, logm2_std, logm2_m
         call_predictor = lambda fm: predictor(fm, scalars, edge_index, batch)
 
     # sample Lorentz vectors
-    fm = sample_vector(batch_dims, logm2_std, logm2_mean, dtype=dtype)
+    fm = vector_type(batch_dims, logm2_std, logm2_mean, dtype=dtype)
 
     # lframes for un-transformed fm
     lframes = call_predictor(fm)
@@ -82,7 +85,12 @@ def test_lframes_transformation(LFramesPredictor, batch_dims, logm2_std, logm2_m
 @pytest.mark.parametrize(
     "logm2_mean", [-3]
 )  # CrossLearnedLFrames fails for larger values
-def test_feature_invariance(LFramesPredictor, batch_dims, logm2_std, logm2_mean):
+@pytest.mark.parametrize(
+    "vector_type", [sample_vector]
+)  # sample_vector_realistic + RestLFrames does not pass the test due to massless particles
+def test_feature_invariance(
+    LFramesPredictor, batch_dims, logm2_std, logm2_mean, vector_type
+):
     dtype = torch.float64  # required to consistently pass tests
 
     # preparations
@@ -107,7 +115,7 @@ def test_feature_invariance(LFramesPredictor, batch_dims, logm2_std, logm2_mean)
     trafo = TensorRepsTransform(TensorReps(reps))
 
     # sample Lorentz vectors
-    fm = sample_vector(batch_dims, logm2_std, logm2_mean, dtype=dtype)
+    fm = vector_type(batch_dims, logm2_std, logm2_mean, dtype=dtype)
 
     if LFramesPredictor in [ReflectLearnedLFrames, MatrixExpLearnedLFrames]:
         torch.zeros(batch_dims, dtype=torch.long)

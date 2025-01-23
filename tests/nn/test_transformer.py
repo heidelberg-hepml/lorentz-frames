@@ -1,7 +1,7 @@
 import torch
 import pytest
 from tests.constants import TOLERANCES, LOGM2_MEAN, LOGM2_STD, REPS
-from tests.helpers import sample_vector
+from tests.helpers import sample_vector, sample_vector_realistic
 from torch_geometric.utils import dense_to_sparse
 
 from tensorframes.nn.transformer import TFTransformer
@@ -24,6 +24,7 @@ from tensorframes.lframes.lframes import InverseLFrames
 @pytest.mark.parametrize("logm2_std", LOGM2_STD)
 @pytest.mark.parametrize("logm2_mean", LOGM2_MEAN)
 @pytest.mark.parametrize("reps", REPS)
+@pytest.mark.parametrize("vector_type", [sample_vector, sample_vector_realistic])
 def test_transformer_invariance_equivariance(
     LFramesPredictor,
     batch_dims,
@@ -32,6 +33,7 @@ def test_transformer_invariance_equivariance(
     logm2_std,
     logm2_mean,
     reps,
+    vector_type,
 ):
     dtype = torch.float64  # is this needed?
 
@@ -68,7 +70,7 @@ def test_transformer_invariance_equivariance(
     random = random.repeat(*batch_dims, 1, 1)
 
     # sample Lorentz vectors
-    fm = sample_vector(batch_dims, logm2_std, logm2_mean, dtype=dtype)
+    fm = vector_type(batch_dims, logm2_std, logm2_mean, dtype=dtype)
     lframes = call_predictor(fm)
     fm_local = trafo(fm, lframes)
 

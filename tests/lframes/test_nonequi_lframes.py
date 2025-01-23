@@ -1,7 +1,7 @@
 import torch
 import pytest
 from tests.constants import TOLERANCES, LOGM2_MEAN, LOGM2_STD
-from tests.helpers import sample_vector
+from tests.helpers import sample_vector, sample_vector_realistic
 
 from tensorframes.reps import TensorReps
 from tensorframes.reps.tensorreps_transform import TensorRepsTransform
@@ -18,10 +18,11 @@ from tensorframes.lframes.nonequi_lframes import (
 @pytest.mark.parametrize("batch_dims", [[1000]])
 @pytest.mark.parametrize("logm2_std", LOGM2_STD)
 @pytest.mark.parametrize("logm2_mean", LOGM2_MEAN)
-def test_vectors(LFramesPredictor, batch_dims, logm2_mean, logm2_std):
+@pytest.mark.parametrize("vector_type", [sample_vector, sample_vector_realistic])
+def test_vectors(LFramesPredictor, batch_dims, logm2_mean, logm2_std, vector_type):
     dtype = torch.float32
 
-    fm = sample_vector(batch_dims, logm2_std, logm2_mean, dtype=dtype)
+    fm = vector_type(batch_dims, logm2_std, logm2_mean, dtype=dtype)
 
     # predict local frames
     predictor = LFramesPredictor()
