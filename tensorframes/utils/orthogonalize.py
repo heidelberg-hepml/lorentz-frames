@@ -227,13 +227,14 @@ def regularize_lightlike(
     inners = torch.stack([lorentz_inner(v, v) for v in vecs])
     sample = sample_eps * torch.randn(vecs.shape, dtype=vecs.dtype, device=vecs.device)
     mask = (inners.abs() < exception_eps)[..., None].expand_as(sample)
+    print("lightlike mask:", mask[..., 0].sum())
     vecs = vecs + sample * mask
 
     return vecs
 
 
 def regularize_collinear(
-    vecs: torch.tensor, exception_eps: float = 1e-3, sample_eps: float = 1.0e-2
+    vecs: torch.tensor, exception_eps: float = 1e-6, sample_eps: float = 1.0e-5
 ):
     """
     Regularize the inputs to avoid collinear vectors
@@ -250,13 +251,14 @@ def regularize_collinear(
     deltaRs = torch.stack([get_deltaR(v, vp) for v, vp in pairwise(v_pairs)])
     sample = sample_eps * torch.randn(vecs.shape, dtype=vecs.dtype, device=vecs.device)
     mask = (deltaRs < exception_eps)[..., None].expand_as(sample)
+    print("collinear mask: ", mask[..., 0].sum())
     vecs = vecs + sample * mask
 
     return vecs
 
 
 def regularize_coplanar(
-    vecs: torch.tensor, exception_eps: float = 1e-6, sample_eps: float = 1.0e-3
+    vecs: torch.tensor, exception_eps: float = 1e-7, sample_eps: float = 1.0e-6
 ):
     """
     Regularize the inputs to avoid collinear vectors
@@ -272,6 +274,7 @@ def regularize_coplanar(
     cross_norm = lorentz_squarednorm(lorentz_cross(vecs[0], vecs[1], vecs[2]))
     sample = sample_eps * torch.randn(vecs.shape, dtype=vecs.dtype, device=vecs.device)
     mask = (cross_norm.abs() < exception_eps)[None, :, None].expand_as(sample)
+    print("coplanar mask: ", mask[0, :, 0].sum())
     vecs = vecs + sample * mask
 
     return vecs
