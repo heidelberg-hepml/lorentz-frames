@@ -11,7 +11,7 @@ from tensorframes.utils.lorentz import (
 )
 from tensorframes.utils.reflect import reflect_list
 from tensorframes.utils.matrixexp import matrix_exponential
-from tensorframes.utils.orthogonalize import cross_trafo
+from tensorframes.utils.orthogonalize import cross_trafo, gramschmidt_trafo
 
 
 class RestLFrames(LFramesPredictor):
@@ -109,6 +109,49 @@ class CrossLearnedLFrames(LearnedLFrames):
         vecs = torch.stack(vecs)
 
         trafo = cross_trafo(
+            vecs,
+            eps=self.eps,
+            regularize=self.regularize,
+            rejection_regularize=self.rejection_regularize,
+        )
+
+        return LFrames(trafo.to(dtype=fourmomenta.dtype))
+
+
+class GramSchmidtLearnedLFrames(LearnedLFrames):
+    """
+    Local frames constructed using repeated cross products
+    of on equivariantly predicted vectors
+    """
+
+    def __init__(
+        self,
+        *args,
+        n_vectors=3,
+        eps=1e-10,
+        regularize=False,  # The current regularization breaks the feature invariance in the local frames. This has to be addressed
+        rejection_regularize=False,
+        **kwargs,
+    ):
+        self.n_vectors = n_vectors
+        self.rejection_regularize = rejection_regularize
+        if rejection_regularize:
+            assert (
+                regularize
+            ), "For rejection regularize to work, regularize needs to be enabled"
+            self.n_vectors += 6  # hyperparameter
+        super().__init__(*args, n_vectors=self.n_vectors, **kwargs)
+
+        self.eps = eps
+        self.regularize = regularize
+
+    def forward(self, fourmomenta, scalars, edge_index, batch):
+        vecs = super().forward(fourmomenta, scalars, edge_index)
+        vecs = vecs.to(dtype=torch.float64)
+        vecs = [vecs[..., i, :] for i in range(self.n_vectors)]
+        vecs = torch.stack(vecs)
+
+        trafo = gramschmidt_trafo(
             vecs,
             eps=self.eps,
             regularize=self.regularize,
