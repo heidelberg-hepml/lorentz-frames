@@ -87,9 +87,16 @@ class CrossLearnedLFrames(LearnedLFrames):
         n_vectors=3,
         eps=1e-10,
         regularize=False,  # The current regularization breaks the feature invariance in the local frames. This has to be addressed
+        rejection_regularize=False,
         **kwargs,
     ):
         self.n_vectors = n_vectors
+        self.rejection_regularize = rejection_regularize
+        if rejection_regularize:
+            assert (
+                regularize
+            ), "For rejection regularize to work, regularize needs to be enabled"
+            self.n_vectors += 6  # hyperparameter
         super().__init__(*args, n_vectors=self.n_vectors, **kwargs)
 
         self.eps = eps
@@ -101,7 +108,12 @@ class CrossLearnedLFrames(LearnedLFrames):
         vecs = [vecs[..., i, :] for i in range(self.n_vectors)]
         vecs = torch.stack(vecs)
 
-        trafo = cross_trafo(vecs, eps=self.eps, regularize=self.regularize)
+        trafo = cross_trafo(
+            vecs,
+            eps=self.eps,
+            regularize=self.regularize,
+            rejection_regularize=self.rejection_regularize,
+        )
 
         return LFrames(trafo.to(dtype=fourmomenta.dtype))
 

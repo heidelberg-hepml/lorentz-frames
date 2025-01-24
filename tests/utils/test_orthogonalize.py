@@ -37,7 +37,7 @@ def test_lorentz_cross(batch_dims):
 
 
 @pytest.mark.parametrize("batch_dims", [[10000]])
-def test_orthogonalize(batch_dims):
+def test_orthogonalize_cross(batch_dims):
     # check orthogonality after using the function
     dtype = torch.float64
 
@@ -98,17 +98,28 @@ With the current settings the percentage of modified vectors is:
 @pytest.mark.parametrize("sample_eps", [1, 1e-2])
 @pytest.mark.parametrize("batch_dims", [[10000]])
 @pytest.mark.parametrize("eps", [1e-10, 1e-5, 1e-2])
-def test_orthogonalize_collinear(batch_dims, eps, exception, exception_eps, sample_eps):
+@pytest.mark.parametrize("rejection_regularize", [True, False])
+def test_orthogonalize_collinear(
+    batch_dims, eps, exception, exception_eps, sample_eps, rejection_regularize
+):
     dtype = torch.float64
 
     # test for collinear (and also coplanar) vectors
     v1 = torch.randn(batch_dims + [4], dtype=dtype)
     v2 = torch.randn(batch_dims + [4], dtype=dtype)
     v3 = v1.clone() + eps * torch.randn(batch_dims + [4], dtype=dtype)
-    vs = torch.stack([v1, v2, v3])
+    if rejection_regularize:
+        v4 = torch.randn(batch_dims + [4], dtype=dtype)
+        v5 = torch.randn(batch_dims + [4], dtype=dtype)
+        v6 = torch.randn(batch_dims + [4], dtype=dtype)
+        vs = torch.stack([v1, v2, v3, v4, v5, v6])
+    else:
+        vs = torch.stack([v1, v2, v3])
 
     if exception:
-        vs = regularize_collinear(vs)
+        vs = regularize_collinear(vs, rejection_regularize=rejection_regularize)
+    vs = vs[:3]
+
     orthogonal_vecs = orthogonalize_cross(vs)
 
     for i1, v1 in enumerate(orthogonal_vecs):
@@ -123,17 +134,28 @@ def test_orthogonalize_collinear(batch_dims, eps, exception, exception_eps, samp
 @pytest.mark.parametrize("sample_eps", [1, 1e-3])
 @pytest.mark.parametrize("batch_dims", [[10000]])
 @pytest.mark.parametrize("eps", [1e-10, 1e-5, 1e-2])
-def test_orthogonalize_coplanar(batch_dims, eps, exception, exception_eps, sample_eps):
+@pytest.mark.parametrize("rejection_regularize", [True, False])
+def test_orthogonalize_coplanar(
+    batch_dims, eps, exception, exception_eps, sample_eps, rejection_regularize
+):
     dtype = torch.float64
 
     # test for collinear (and also coplanar) vectors
     v1 = torch.randn(batch_dims + [4], dtype=dtype)
     v2 = torch.randn(batch_dims + [4], dtype=dtype)
     v3 = v1.clone() + v2.clone() + eps * torch.randn(batch_dims + [4], dtype=dtype)
-    vs = torch.stack([v1, v2, v3])
+    if rejection_regularize:
+        v4 = torch.randn(batch_dims + [4], dtype=dtype)
+        v5 = torch.randn(batch_dims + [4], dtype=dtype)
+        v6 = torch.randn(batch_dims + [4], dtype=dtype)
+        vs = torch.stack([v1, v2, v3, v4, v5, v6])
+    else:
+        vs = torch.stack([v1, v2, v3])
 
     if exception:
-        vs = regularize_coplanar(vs)
+        vs = regularize_coplanar(vs, rejection_regularize=rejection_regularize)
+    vs = vs[:3]
+
     orthogonal_vecs = orthogonalize_cross(vs)
 
     for i1, v1 in enumerate(orthogonal_vecs):
@@ -166,7 +188,10 @@ With the current settings the percentage of modified vectors is:
 @pytest.mark.parametrize("sample_eps", [1, 1e-7])
 @pytest.mark.parametrize("batch_dims", [[100000]])
 @pytest.mark.parametrize("eps", [1e-10, 1e-5, 1e-2])
-def test_orthogonalize_lightlike(batch_dims, eps, exception, exception_eps, sample_eps):
+@pytest.mark.parametrize("rejection_regularize", [True, False])
+def test_orthogonalize_lightlike(
+    batch_dims, eps, exception, exception_eps, sample_eps, rejection_regularize
+):
     dtype = torch.float64
 
     # test for a lightlike vector
@@ -177,10 +202,18 @@ def test_orthogonalize_lightlike(batch_dims, eps, exception, exception_eps, samp
     v1 = torch.cat((temp2, temp), dim=-1)
     v2 = torch.randn(batch_dims + [4], dtype=dtype)
     v3 = torch.randn(batch_dims + [4], dtype=dtype)
-    vs = torch.stack([v1, v2, v3])
+    if rejection_regularize:
+        v4 = torch.randn(batch_dims + [4], dtype=dtype)
+        v5 = torch.randn(batch_dims + [4], dtype=dtype)
+        v6 = torch.randn(batch_dims + [4], dtype=dtype)
+        vs = torch.stack([v1, v2, v3, v4, v5, v6])
+    else:
+        vs = torch.stack([v1, v2, v3])
 
     if exception:
-        vs = regularize_lightlike(vs)
+        vs = regularize_lightlike(vs, rejection_regularize=rejection_regularize)
+    vs = vs[:3]
+
     orthogonal_vecs = orthogonalize_cross(vs)
 
     for i1, v1 in enumerate(orthogonal_vecs):

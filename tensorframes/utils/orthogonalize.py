@@ -211,7 +211,10 @@ def gram_schmidt(
 
 
 def regularize_lightlike(
-    vecs: torch.tensor, exception_eps: float = 1e-8, sample_eps: float = 1.0e-7
+    vecs: torch.tensor,
+    exception_eps: float = 1e-8,
+    sample_eps: float = 1.0e-7,
+    rejection_regularize=False,
 ):
     """
     Regularize the inputs to avoid lightlike vectors
@@ -222,6 +225,11 @@ def regularize_lightlike(
     Returns:
         tensor: regularized four vectors
     """
+    if rejection_regularize:
+        inners = torch.stack([lorentz_inner(v, v) for v in vecs])
+        mask = (inners.abs() < exception_eps).to(vecs.device)[:, 0]
+        return vecs[torch.argsort(mask)]
+
     assert vecs.shape[0] == 3
 
     inners = torch.stack([lorentz_inner(v, v) for v in vecs])
@@ -233,7 +241,10 @@ def regularize_lightlike(
 
 
 def regularize_collinear(
-    vecs: torch.tensor, exception_eps: float = 1e-6, sample_eps: float = 1.0e-5
+    vecs: torch.tensor,
+    exception_eps: float = 1e-6,
+    sample_eps: float = 1.0e-5,
+    rejection_regularize=False,
 ):
     """
     Regularize the inputs to avoid collinear vectors
@@ -244,6 +255,32 @@ def regularize_collinear(
     Returns:
         tensor: regularized four vectors
     """
+    if rejection_regularize:
+        error = True
+        safety = 10
+        while error and (safety := safety - 1) > 0:
+            error = False
+            v_pairs = torch.cat((vecs[:3], vecs[0][None, ...]))
+            deltaRs = torch.stack([get_deltaR(v, vp) for v, vp in pairwise(v_pairs)])
+            mask = deltaRs < exception_eps
+            if mask.sum() != 0:
+                error = True
+            mask = torch.cat(
+                (
+                    mask,
+                    torch.full(
+                        (vecs.shape[0] - 3, *mask.shape[1:]), True, device=vecs.device
+                    ),
+                ),
+                dim=0,
+            )
+
+            indices = torch.argmax(mask.to(int), dim=0).tolist()
+            temp = vecs[indices, torch.arange(vecs.shape[-2])]
+            vecs[indices, torch.arange(vecs.shape[-2])] = vecs[3].clone()
+            vecs[3:] = torch.cat((vecs[4:], temp.unsqueeze(0)))
+        return vecs
+
     assert vecs.shape[0] == 3
 
     v_pairs = torch.cat((vecs, vecs[0][None, ...]))
@@ -256,7 +293,10 @@ def regularize_collinear(
 
 
 def regularize_coplanar(
-    vecs: torch.tensor, exception_eps: float = 1e-7, sample_eps: float = 1.0e-6
+    vecs: torch.tensor,
+    exception_eps: float = 1e-7,
+    sample_eps: float = 1.0e-6,
+    rejection_regularize=False,
 ):
     """
     Regularize the inputs to avoid collinear vectors
@@ -267,6 +307,21 @@ def regularize_coplanar(
     Returns:
         tensor: regularized four vectors
     """
+    if rejection_regularize:
+        error = True
+        safety = 10
+        while error and (safety := safety - 1) > 0:
+            error = False
+            cross_norm = lorentz_squarednorm(lorentz_cross(vecs[0], vecs[1], vecs[2]))
+            mask = cross_norm.abs() < exception_eps
+            vecs[2:, mask] = torch.cat(
+                (vecs[3:, mask], vecs[2, mask].unsqueeze(0)), dim=0
+            )
+
+            if mask.sum() != 0:
+                error = True
+        return vecs
+
     assert vecs.shape[0] == 3
 
     cross_norm = lorentz_squarednorm(lorentz_cross(vecs[0], vecs[1], vecs[2]))
@@ -297,11 +352,12 @@ def order_vectors(
     return trafo
 
 
-def cross_trafo(vecs, regularize=True, eps=1e-10):
+def cross_trafo(vecs, regularize=True, rejection_regularize=False, eps=1e-10):
     if regularize:
-        vecs = regularize_lightlike(vecs)
-        vecs = regularize_collinear(vecs)
-        vecs = regularize_coplanar(vecs)
+        vecs = regularize_collinear(vecs, rejection_regularize=rejection_regularize)
+        vecs = regularize_coplanar(vecs, rejection_regularize=rejection_regularize)
+        vecs = regularize_lightlike(vecs, rejection_regularize=rejection_regularize)
+    vecs = vecs[:3]
 
     orthogonal_vecs = orthogonalize_cross(vecs, eps)
     trafo = torch.stack(orthogonal_vecs, dim=-2)
