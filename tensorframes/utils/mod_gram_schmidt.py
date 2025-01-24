@@ -6,7 +6,6 @@ from tensorframes.utils.lorentz import (
     lorentz_squarednorm,
 )
 from tensorframes.utils.orthogonalize import lorentz_cross
-from tensorframes.utils.hep import get_deltaR
 
 
 def mod_gram_schmidt(
