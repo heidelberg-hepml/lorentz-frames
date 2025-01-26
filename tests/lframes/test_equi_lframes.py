@@ -9,6 +9,7 @@ from tensorframes.reps.tensorreps_transform import TensorRepsTransform
 from tensorframes.lframes.equi_lframes import (
     RestLFrames,
     CrossLearnedLFrames,
+    GramSchmidtLearnedLFrames,
     ReflectLearnedLFrames,
     MatrixExpLearnedLFrames,
     pseudo_trafo,
@@ -19,7 +20,12 @@ from tensorframes.lframes.lframes import LFrames
 
 @pytest.mark.parametrize(
     "LFramesPredictor",
-    [CrossLearnedLFrames, ReflectLearnedLFrames, MatrixExpLearnedLFrames],
+    [
+        GramSchmidtLearnedLFrames,
+        CrossLearnedLFrames,
+        ReflectLearnedLFrames,
+        MatrixExpLearnedLFrames,
+    ],
 )  # RestLFrames dont work yet - have to understand them better
 @pytest.mark.parametrize("batch_dims", [[10]])
 @pytest.mark.parametrize("logm2_std", LOGM2_STD)
@@ -38,6 +44,7 @@ def test_lframes_transformation(
         call_predictor = lambda fm: predictor(fm)
     elif LFramesPredictor in [
         CrossLearnedLFrames,
+        GramSchmidtLearnedLFrames,
         ReflectLearnedLFrames,
         MatrixExpLearnedLFrames,
     ]:
@@ -78,7 +85,13 @@ def test_lframes_transformation(
 # TODO: Modify pseudo_trafo to make the lorentz_test lines pass for ReflectLearnedLFrames, MatrixExpLearnedLFrames
 @pytest.mark.parametrize(
     "LFramesPredictor",
-    [RestLFrames, CrossLearnedLFrames, ReflectLearnedLFrames, MatrixExpLearnedLFrames],
+    [
+        RestLFrames,
+        CrossLearnedLFrames,
+        GramSchmidtLearnedLFrames,
+        ReflectLearnedLFrames,
+        MatrixExpLearnedLFrames,
+    ],
 )
 @pytest.mark.parametrize("batch_dims", [[10]])
 @pytest.mark.parametrize("logm2_std", LOGM2_STD)
@@ -97,6 +110,7 @@ def test_feature_invariance(
         call_predictor = lambda fm: predictor(fm)
     elif LFramesPredictor in [
         CrossLearnedLFrames,
+        GramSchmidtLearnedLFrames,
         ReflectLearnedLFrames,
         MatrixExpLearnedLFrames,
     ]:
