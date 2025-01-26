@@ -11,7 +11,8 @@ from tensorframes.utils.lorentz import (
 )
 from tensorframes.utils.reflect import reflect_list
 from tensorframes.utils.matrixexp import matrix_exponential
-from tensorframes.utils.orthogonalize import cross_trafo, gramschmidt_trafo
+from tensorframes.utils.orthogonalize import cross_trafo
+from tensorframes.utils.gram_schmidt import gramschmidt_trafo
 
 
 class RestLFrames(LFramesPredictor):

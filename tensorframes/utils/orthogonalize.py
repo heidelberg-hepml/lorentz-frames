@@ -8,7 +8,6 @@ from tensorframes.utils.lorentz import (
     lorentz_metric,
 )
 
-from tensorframes.utils.mod_gram_schmidt import mod_gram_schmidt
 from tensorframes.utils.hep import get_deltaR
 
 
@@ -362,24 +361,6 @@ def cross_trafo(vecs, regularize=True, rejection_regularize=False, eps=1e-10):
     vecs = vecs[:3]
 
     orthogonal_vecs = orthogonalize_cross(vecs, eps)
-    trafo = torch.stack(orthogonal_vecs, dim=-2)
-
-    # turn into transformation matrix
-    metric = lorentz_metric(trafo.shape[:-2], device=trafo.device, dtype=trafo.dtype)
-    trafo = trafo @ metric
-    trafo = order_vectors(trafo)
-
-    return trafo
-
-
-def gramschmidt_trafo(vecs, regularize=True, rejection_regularize=False, eps=1e-10):
-    if regularize:
-        vecs = regularize_collinear(vecs, rejection_regularize=rejection_regularize)
-        vecs = regularize_coplanar(vecs, rejection_regularize=rejection_regularize)
-        vecs = regularize_lightlike(vecs, rejection_regularize=rejection_regularize)
-    vecs = vecs[:3]
-
-    orthogonal_vecs = mod_gram_schmidt(vecs, eps)
     trafo = torch.stack(orthogonal_vecs, dim=-2)
 
     # turn into transformation matrix

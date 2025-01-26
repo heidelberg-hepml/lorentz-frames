@@ -1,14 +1,20 @@
-from itertools import pairwise
 import torch
 
 from tensorframes.utils.lorentz import (
     lorentz_inner,
     lorentz_squarednorm,
+    lorentz_metric,
 )
-from tensorframes.utils.orthogonalize import lorentz_cross
+from tensorframes.utils.orthogonalize import (
+    lorentz_cross,
+    regularize_lightlike,
+    regularize_collinear,
+    regularize_coplanar,
+    order_vectors,
+)
 
 
-def mod_gram_schmidt(
+def gramschmidt_orthogonalize(
     vecs: torch.tensor,
     eps: float = 1.0e-6,
 ) -> torch.tensor:
@@ -41,5 +47,22 @@ def mod_gram_schmidt(
         orthogonal_vecs.append(last_vec)
 
     orthogonal_vecs = [normalize(v) for v in orthogonal_vecs]
-    orthogonal_vecs = torch.stack(orthogonal_vecs)
     return orthogonal_vecs
+
+
+def gramschmidt_trafo(vecs, regularize=True, rejection_regularize=False, eps=1e-10):
+    if regularize:
+        vecs = regularize_collinear(vecs, rejection_regularize=rejection_regularize)
+        vecs = regularize_coplanar(vecs, rejection_regularize=rejection_regularize)
+        vecs = regularize_lightlike(vecs, rejection_regularize=rejection_regularize)
+    vecs = vecs[:3]
+
+    orthogonal_vecs = gramschmidt_orthogonalize(vecs, eps)
+    trafo = torch.stack(orthogonal_vecs, dim=-2)
+
+    # turn into transformation matrix
+    metric = lorentz_metric(trafo.shape[:-2], device=trafo.device, dtype=trafo.dtype)
+    trafo = trafo @ metric
+    trafo = order_vectors(trafo)
+
+    return trafo
