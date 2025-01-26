@@ -85,9 +85,7 @@ def test_lframes_transformation(
 @pytest.mark.parametrize(
     "logm2_mean", [-3]
 )  # CrossLearnedLFrames fails for larger values
-@pytest.mark.parametrize(
-    "vector_type", [sample_vector]
-)  # sample_vector_realistic + RestLFrames does not pass the test due to massless particles
+@pytest.mark.parametrize("vector_type", [sample_vector, sample_vector_realistic])
 def test_feature_invariance(
     LFramesPredictor, batch_dims, logm2_std, logm2_mean, vector_type
 ):

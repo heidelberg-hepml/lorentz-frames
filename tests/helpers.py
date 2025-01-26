@@ -64,13 +64,16 @@ def sample_vector_realistic(
     shape,
     logm2_std=None,
     logm2_mean=None,
+    mass_reg=0.001,  # mass regulator needed for RestLFrames
     device=torch.device("cpu"),
     dtype=torch.float32,
 ):
     # sample from the cached toptagging_mini.npz dataset
     full = load_data()
     idx = torch.randint(0, full.shape[0], shape)
-    return full[idx].to(dtype=dtype, device=device)
+    fm = full[idx].to(dtype=dtype, device=device)
+    fm[..., 0] = ((fm[..., 1:] ** 2).sum(dim=-1) + mass_reg**2).sqrt()
+    return fm
 
 
 def sample_jets(batch_size, device=torch.device("cpu"), dtype=torch.float32):
