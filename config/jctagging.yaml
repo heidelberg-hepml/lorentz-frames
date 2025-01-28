@@ -20,6 +20,10 @@ jc_params:
  steps_per_epoch: null
  steps_per_epoch_val: null
 
+evaluation:
+ batchsize: 1024
+ eval_set: [test]
+
 plotting:
  roc: false
  score: false
