@@ -81,7 +81,7 @@ class BaseExperiment:
             try:
                 self.evaluate()
             except Exception as e:
-                LOGGER.exception("Skipping evaluation {e}")
+                LOGGER.exception(f"Skipping evaluation {e}")
 
         if self.cfg.plot and self.cfg.save:
             self.plot()

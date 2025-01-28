@@ -162,8 +162,6 @@ class JetClassTaggingExperiment(TaggingExperiment):
                 y_pred, label = self._get_ypred_and_label(batch)
                 labels_true.append(label.cpu())
                 labels_predict.append(y_pred.cpu().float())
-                print(labels_true[-1].shape, labels_predict[-1].shape)
-                break
 
         labels_true, labels_predict = torch.cat(labels_true), torch.cat(labels_predict)
         if mode == "eval":
