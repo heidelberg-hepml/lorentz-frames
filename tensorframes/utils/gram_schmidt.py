@@ -34,7 +34,7 @@ def gramschmidt_orthogonalize(
         norm = norm.abs().sqrt()  # could also multiply by torch.sign(norm)
         return v / (norm + eps)
 
-    v_nexts = vecs.clone()
+    v_nexts = [v for v in vecs]
     orthogonal_vecs = [vecs[0]]
     for i in range(1, n_vectors):
         for k in range(i, n_vectors):
