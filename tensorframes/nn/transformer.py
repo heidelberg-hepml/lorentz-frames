@@ -199,10 +199,17 @@ class BaselineSelfAttention(nn.Module):
         """
         q, k, v = self.qkv_linear(
             inputs
-        )  # each: (..., num_heads, num_items, num_channels, 16)
+        )  # each: (..., num_heads, num_items, num_channels)
 
         # Attention layer
-        h = self._attend(q, k, v, lframes, attention_mask, is_causal=is_causal)
+        h = self.attention(
+            q.contiguous(),
+            k.expand_as(q).contiguous(),
+            v.expand_as(q),
+            lframes,
+            attn_mask=attention_mask,
+            is_causal=is_causal,
+        )
 
         # Concatenate heads and transform linearly
         h = rearrange(
@@ -213,19 +220,6 @@ class BaselineSelfAttention(nn.Module):
 
         if self.dropout is not None:
             outputs = self.dropout(outputs)
-
-        return outputs
-
-    def _attend(self, q, k, v, lframes, attention_mask=None, is_causal=False):
-        """Scaled dot-product attention."""
-        outputs = self.attention(
-            q.contiguous(),
-            k.expand_as(q).contiguous(),
-            v.expand_as(q),
-            lframes,
-            attn_mask=attention_mask,
-            is_causal=is_causal,
-        )
 
         return outputs
 
