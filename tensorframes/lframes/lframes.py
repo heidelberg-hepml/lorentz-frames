@@ -20,8 +20,7 @@ class LFrames:
         dtype: torch.dtype = None,
         shape: int = None,
     ) -> None:
-        """Initialize the LFrames class.
-
+        """
         Args:
             matrices (torch.Tensor): Tensor of shape (..., 4, 4) representing the rotation matrices.
             is_global (bool): signify global transformations
@@ -110,16 +109,12 @@ class LFrames:
 
 
 class InverseLFrames(LFrames):
-    """Represents the inverse of a collection of Lorentz transformations."""
+    """Inverse of a collection of Lorentz transformations."""
 
     def __init__(self, lframes: LFrames) -> None:
-        """Initialize the InvLFrames class.
-
+        """
         Args:
             lframes (LFrames): The LFrames object.
-
-        Returns:
-            None
         """
         super().__init__(
             matrices=lframes.matrices,
@@ -136,7 +131,7 @@ class InverseLFrames(LFrames):
 
 
 class IndexSelectLFrames(LFrames):
-    """Represents a selection of rotation matrices from an LFrames object."""
+    """Index-controlled selection of rotation matrices from an LFrames object."""
 
     def __init__(self, lframes: LFrames, indices: torch.Tensor):
         super().__init__(
@@ -156,11 +151,17 @@ class IndexSelectLFrames(LFrames):
 
 
 class ChangeOfLFrames(LFrames):
-    """Represents a change of frames between two LFrames objects."""
+    """
+    Change of frames between two LFrames objects
+    Formally, for L_start and L_end we have
+    L_change = L_end * L_start^-1
+
+    WARNING: This function does not mix the lframes of different point clouds
+    It is used in TFMessagePassing where this mixing is performed using the edge_index
+    """
 
     def __init__(self, lframes_start: LFrames, lframes_end: LFrames) -> None:
-        """Initialize the ChangeOfLFrames class.
-
+        """
         Args:
             lframes_start (LFrames): The LFrames object from where to start the transform.
             lframes_end (LFrames): The LFrames object in which to end the transform.
@@ -188,3 +189,25 @@ class ChangeOfLFrames(LFrames):
             self._matrices = lframes_end.matrices @ lframes_start.inv
             self._inv = lframes_start.matrices @ lframes_end.inv
             self._det = lframes_start.det * lframes_end.det
+
+
+class LowerIndices(LFrames):
+    """
+    LFrames with lower indices
+    Used in InvariantParticleAttention to lower the key indices
+    """
+
+    def __init__(self, lframes):
+        """
+        Args:
+            lframes (LFrames): LFrames with indices to be lowered
+        """
+        super().__init__(
+            matrices=lframes.matrices,
+            is_global=lframes.is_global,
+            is_identity=lframes.is_identity,
+            device=lframes._device,
+            dtype=lframes._dtype,
+            shape=lframes.shape,
+        )
+        self._matrices = self._metric @ self._matrices
