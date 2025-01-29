@@ -580,6 +580,14 @@ class BaseExperiment:
         loss, metrics = self._batch_loss(data)
         self.optimizer.zero_grad()
         loss.backward()
+
+        lframes_grad_norm = 0.0
+        for param in self.model.lframesnet.parameters():
+            if param.grad is not None:
+                param_norm = param.grad.data.norm(2)
+                lframes_grad_norm += param_norm.item() ** 2
+        self.lframes_grad_norm.append(lframes_grad_norm**0.5)
+
         if self.cfg.training.clip_grad_value is not None:
             # clip gradients at a certain value (this is dangerous!)
             torch.nn.utils.clip_grad_value_(
@@ -612,13 +620,6 @@ class BaseExperiment:
             self.scheduler.step()
 
         # collect metrics
-
-        lframes_grad_norm = 0.0
-        for param in self.model.lframesnet.parameters():
-            if param.grad is not None:
-                param_norm = param.grad.data.norm(2)
-                lframes_grad_norm += param_norm.item() ** 2
-        self.lframes_grad_norm.append(lframes_grad_norm**0.5)
 
         self.train_loss.append(loss.item())
         self.train_lr.append(self.optimizer.param_groups[0]["lr"])
