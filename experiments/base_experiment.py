@@ -447,7 +447,14 @@ class BaseExperiment:
 
     def train(self):
         # performance metrics
-        self.train_lr, self.train_loss, self.val_loss, self.train_grad_norm = (
+        (
+            self.train_lr,
+            self.train_loss,
+            self.val_loss,
+            self.train_grad_norm,
+            self.lframes_grad_norm,
+        ) = (
+            [],
             [],
             [],
             [],
@@ -605,6 +612,14 @@ class BaseExperiment:
             self.scheduler.step()
 
         # collect metrics
+
+        lframes_grad_norm = 0.0
+        for param in self.model.lframesnet.parameters():
+            if param.grad is not None:
+                param_norm = param.grad.data.norm(2)
+                lframes_grad_norm += param_norm.item() ** 2
+        self.lframes_grad_norm.append(lframes_grad_norm**0.5)
+
         self.train_loss.append(loss.item())
         self.train_lr.append(self.optimizer.param_groups[0]["lr"])
         self.train_grad_norm.append(grad_norm)
@@ -622,6 +637,7 @@ class BaseExperiment:
                 "lr": self.train_lr[-1],
                 "time_per_step": (time.time() - self.training_start_time) / (step + 1),
                 "grad_norm": grad_norm,
+                "lframes_grad_norm": lframes_grad_norm,
             }
             for key, values in log_dict.items():
                 log_mlflow(f"train.{key}", values, step=step)

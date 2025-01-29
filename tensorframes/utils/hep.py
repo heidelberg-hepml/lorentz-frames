@@ -3,11 +3,15 @@ import torch
 from tensorframes.utils.utils import stable_arctanh, unpack_last
 
 EPS = 1e-10
+EPS2 = 1e-10
 CUTOFF = 10
 
 
 def EPPP_to_PtPhiEtaM2(fourmomenta, sqrt_mass=False):
     E, px, py, pz = unpack_last(fourmomenta)
+    py_safe = torch.where(py.abs() < EPS2, torch.sign(py) * EPS2, py)
+    py = py_safe  # I am doing this here to keep things like the mass regularization etc consistent below, not just in the fraction
+
     pt = torch.sqrt(px**2 + py**2)
     phi = torch.arctan2(py, px)
     p_abs = torch.sqrt(pz**2 + pt**2)
@@ -34,7 +38,10 @@ def get_pt(p):
 
 def get_phi(p):
     # azimuthal angle
-    return torch.arctan2(p[..., 2], p[..., 1])
+    save_p = torch.where(
+        p[..., 1].abs() < EPS2, torch.sign(p[..., 1]) * EPS2, p[..., 1]
+    )
+    return torch.arctan2(p[..., 2], save_p)
 
 
 def get_eta(p):
