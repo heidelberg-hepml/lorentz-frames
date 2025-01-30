@@ -451,9 +451,11 @@ class BaseExperiment:
             self.train_lr,
             self.train_loss,
             self.val_loss,
-            self.train_grad_norm,
-            self.lframes_grad_norm,
+            self.grad_norm_train,
+            self.grad_norm_lframes,
+            self.grad_norm_net,
         ) = (
+            [],
             [],
             [],
             [],
@@ -581,12 +583,12 @@ class BaseExperiment:
         self.optimizer.zero_grad()
         loss.backward()
 
-        lframes_grad_norm = 0.0
-        for param in self.model.lframesnet.parameters():
-            if param.grad is not None:
-                param_norm = param.grad.data.norm(2)
-                lframes_grad_norm += param_norm.item() ** 2
-        self.lframes_grad_norm.append(lframes_grad_norm**0.5)
+        grad_norm_lframes = torch.nn.utils.clip_grad_norm_(
+            self.model.lframesnet.parameters(), float("inf")
+        )
+        grad_norm_net = torch.nn.utils.clip_grad_norm_(
+            self.model.net.parameters(), float("inf")
+        )
 
         if self.cfg.training.clip_grad_value is not None:
             # clip gradients at a certain value (this is dangerous!)
@@ -623,7 +625,9 @@ class BaseExperiment:
 
         self.train_loss.append(loss.item())
         self.train_lr.append(self.optimizer.param_groups[0]["lr"])
-        self.train_grad_norm.append(grad_norm)
+        self.grad_norm_train.append(grad_norm)
+        self.grad_norm_lframes.append(grad_norm_lframes)
+        self.grad_norm_net.append(grad_norm_net)
         for key, value in metrics.items():
             self.train_metrics[key].append(value)
 
@@ -638,7 +642,8 @@ class BaseExperiment:
                 "lr": self.train_lr[-1],
                 "time_per_step": (time.time() - self.training_start_time) / (step + 1),
                 "grad_norm": grad_norm,
-                "lframes_grad_norm": lframes_grad_norm,
+                "grad_norm_lframes": grad_norm_lframes,
+                "grad_norm_net": grad_norm_net,
             }
             for key, values in log_dict.items():
                 log_mlflow(f"train.{key}", values, step=step)
