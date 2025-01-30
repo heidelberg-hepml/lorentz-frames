@@ -3,7 +3,7 @@ data:
  beam_reference: null
  two_beams: true
  beam_token: true
- add_time_reference: false
+ add_time_reference: true
  add_scalar_features: true
  scalar_features_preprocessing: # following weaver defaults
  - [-1.3, 0.7] # log_pt (include -log(20) from UNITS)
@@ -13,7 +13,7 @@ data:
  - [0, 1] # dphi
  - [0, 1] # deta
  - [0.2, 4] # dr
- mass_reg: 0
+ mass_reg: 1e-2
 
 evaluation:
  batchsize: 128
