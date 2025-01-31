@@ -93,6 +93,7 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
 
     fourmomenta = fourmomenta.unsqueeze(1)
     n_spurions = spurions.shape[0]
+    assert cfg_data.beam_token, f"spurions as channels not consistently supported yet"
     if cfg_data.beam_token and n_spurions > 0:
         # prepend spurions to the token list (within each block)
         spurion_idxs = torch.stack(

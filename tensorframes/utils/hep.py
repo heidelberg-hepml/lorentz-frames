@@ -14,7 +14,7 @@ def EPPP_to_PtPhiEtaM2(fourmomenta, sqrt_mass=False):
 
     pt = torch.sqrt(px**2 + py**2)
     phi = torch.arctan2(py, px)
-    p_abs = torch.sqrt(pz**2 + pt**2)
+    p_abs = torch.sqrt(pz**2 + pt**2).clamp(min=EPS)
     eta = stable_arctanh(pz / p_abs).clamp(min=-CUTOFF, max=CUTOFF)
     m2 = E**2 - px**2 - py**2 - pz**2
     m2 = torch.sqrt(m2.clamp(min=EPS)) if sqrt_mass else m2
