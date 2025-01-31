@@ -3,7 +3,7 @@ from torch_geometric.utils import scatter
 
 from tensorframes.lframes.lframes import LFrames
 from tensorframes.lframes.nonequi_lframes import LFramesPredictor
-from tensorframes.utils.restframe import restframe_transform_v2
+from tensorframes.utils.restframe import restframe_equivariant
 from tensorframes.nn.equivectors import EquivariantVectors
 from tensorframes.utils.lorentz import (
     lorentz_squarednorm,
@@ -13,18 +13,6 @@ from tensorframes.utils.reflect import reflect_list
 from tensorframes.utils.matrixexp import matrix_exponential
 from tensorframes.utils.orthogonalize import cross_trafo
 from tensorframes.utils.gram_schmidt import gramschmidt_trafo
-
-
-class RestLFrames(LFramesPredictor):
-    """Local frames corresponding to the rest frames of the particles"""
-
-    def __init__(self):
-        super().__init__()
-
-    def forward(self, fourmomenta):
-        fm = fourmomenta.to(dtype=torch.float64)
-        transform = restframe_transform_v2(fm)
-        return LFrames(transform.to(dtype=fm.dtype))
 
 
 class LearnedLFrames(LFramesPredictor):
@@ -157,6 +145,36 @@ class GramSchmidtLearnedLFrames(LearnedLFrames):
             eps=self.eps,
             regularize=self.regularize,
             rejection_regularize=self.rejection_regularize,
+        )
+
+        return LFrames(trafo.to(dtype=fourmomenta.dtype))
+
+
+class RestLFrames(LearnedLFrames):
+    """Rest frame transformation with learnable aspect"""
+
+    def __init__(
+        self,
+        *args,
+        n_vectors=2,
+        eps=1e-10,
+        **kwargs,
+    ):
+        self.n_vectors = n_vectors
+        super().__init__(*args, n_vectors=self.n_vectors, **kwargs)
+
+        self.eps = eps
+
+    def forward(self, fourmomenta, scalars, edge_index, batch):
+        references = super().forward(fourmomenta, scalars, edge_index)
+        references = references.to(dtype=torch.float64)
+        references = [references[..., i, :] for i in range(self.n_vectors)]
+        fourmomenta = fourmomenta.to(dtype=torch.float64)
+
+        trafo = restframe_equivariant(
+            fourmomenta,
+            references,
+            self.eps,
         )
 
         return LFrames(trafo.to(dtype=fourmomenta.dtype))

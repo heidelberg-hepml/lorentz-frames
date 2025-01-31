@@ -7,9 +7,9 @@ from tests.helpers import sample_vector, sample_vector_realistic, lorentz_test
 from tensorframes.reps import TensorReps
 from tensorframes.reps.tensorreps_transform import TensorRepsTransform
 from tensorframes.lframes.equi_lframes import (
-    RestLFrames,
     CrossLearnedLFrames,
     GramSchmidtLearnedLFrames,
+    RestLFrames,
     ReflectLearnedLFrames,
     MatrixExpLearnedLFrames,
     pseudo_trafo,
@@ -23,10 +23,11 @@ from tensorframes.lframes.lframes import LFrames
     [
         GramSchmidtLearnedLFrames,
         CrossLearnedLFrames,
+        RestLFrames,
         ReflectLearnedLFrames,
         MatrixExpLearnedLFrames,
     ],
-)  # RestLFrames dont work yet - have to understand them better
+)
 @pytest.mark.parametrize("batch_dims", [[10]])
 @pytest.mark.parametrize("logm2_std", LOGM2_STD)
 @pytest.mark.parametrize(
@@ -39,12 +40,10 @@ def test_lframes_transformation(
     dtype = torch.float64  # required to consistently pass tests
 
     # preparations
-    if LFramesPredictor == RestLFrames:
-        predictor = LFramesPredictor()
-        call_predictor = lambda fm: predictor(fm)
-    elif LFramesPredictor in [
+    if LFramesPredictor in [
         CrossLearnedLFrames,
         GramSchmidtLearnedLFrames,
+        RestLFrames,
         ReflectLearnedLFrames,
         MatrixExpLearnedLFrames,
     ]:
@@ -56,6 +55,8 @@ def test_lframes_transformation(
         edge_index = dense_to_sparse(torch.ones(batch_dims[0], batch_dims[0]))[0]
         scalars = torch.zeros(*batch_dims, 0, dtype=dtype)
         call_predictor = lambda fm: predictor(fm, scalars, edge_index, batch)
+    else:
+        raise NotImplementedError
 
     # sample Lorentz vectors
     fm = vector_type(batch_dims, logm2_std, logm2_mean, dtype=dtype)
@@ -86,9 +87,9 @@ def test_lframes_transformation(
 @pytest.mark.parametrize(
     "LFramesPredictor",
     [
-        RestLFrames,
         CrossLearnedLFrames,
         GramSchmidtLearnedLFrames,
+        RestLFrames,
         ReflectLearnedLFrames,
         MatrixExpLearnedLFrames,
     ],
@@ -105,12 +106,10 @@ def test_feature_invariance(
     dtype = torch.float64  # required to consistently pass tests
 
     # preparations
-    if LFramesPredictor == RestLFrames:
-        predictor = LFramesPredictor()
-        call_predictor = lambda fm: predictor(fm)
-    elif LFramesPredictor in [
+    if LFramesPredictor in [
         CrossLearnedLFrames,
         GramSchmidtLearnedLFrames,
+        RestLFrames,
         ReflectLearnedLFrames,
         MatrixExpLearnedLFrames,
     ]:
@@ -122,6 +121,8 @@ def test_feature_invariance(
         edge_index = dense_to_sparse(torch.ones(batch_dims[0], batch_dims[0]))[0]
         scalars = torch.zeros(*batch_dims, 0, dtype=dtype)
         call_predictor = lambda fm: predictor(fm, scalars, edge_index, batch)
+    else:
+        raise NotImplementedError
 
     reps = TensorReps("1x1n")
     trafo = TensorRepsTransform(TensorReps(reps))
