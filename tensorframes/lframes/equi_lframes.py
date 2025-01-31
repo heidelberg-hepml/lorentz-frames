@@ -109,8 +109,8 @@ class CrossLearnedLFrames(LearnedLFrames):
 
 class GramSchmidtLearnedLFrames(LearnedLFrames):
     """
-    Local frames constructed using repeated cross products
-    of on equivariantly predicted vectors
+    Local frames constructed applying Gram-Schmidt to
+    equivariantly predicted vectors
     """
 
     def __init__(
