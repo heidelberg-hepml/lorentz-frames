@@ -183,6 +183,41 @@ class RestLFrames(LearnedLFrames):
         return LFrames(trafo.to(dtype=scalars.dtype))
 
 
+class LearnedRestLFrames(LearnedLFrames):
+    """Rest frame transformation with learnable aspect"""
+
+    def __init__(
+        self,
+        *args,
+        eps=1e-10,
+        **kwargs,
+    ):
+        self.n_vectors = 3
+        super().__init__(
+            *args,
+            n_vectors=self.n_vectors,
+            operation="single",
+            nonlinearity="exp",
+            **kwargs,
+        )
+
+        self.eps = eps
+
+    def forward(self, fourmomenta, scalars, edge_index, batch):
+        vecs = super().forward(fourmomenta, scalars, edge_index)
+        vecs = vecs.to(dtype=torch.float64)
+        fourmomenta = vecs[..., 0, :]
+        references = [vecs[..., i, :] for i in range(1, self.n_vectors)]
+
+        trafo = restframe_equivariant(
+            fourmomenta,
+            references,
+            self.eps,
+        )
+
+        return LFrames(trafo.to(dtype=scalars.dtype))
+
+
 class ReflectLearnedLFrames(LearnedLFrames):
     """
     Local frames constructed using reflections

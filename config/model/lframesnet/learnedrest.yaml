@@ -1,0 +1,5 @@
+_target_: tensorframes.lframes.equi_lframes.LearnedRestLFrames
+_partial_: true
+in_nodes: null
+hidden_channels: 32
+num_layers: 2
