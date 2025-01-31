@@ -214,7 +214,6 @@ def gram_schmidt(
 def regularize_lightlike(
     vecs: torch.tensor,
     exception_eps: float = 1e-8,
-    sample_eps: float = 1.0e-7,
     rejection_regularize=False,
 ):
     """
@@ -234,17 +233,18 @@ def regularize_lightlike(
     assert vecs.shape[0] == 3
 
     inners = torch.stack([lorentz_inner(v, v) for v in vecs])
-    sample = sample_eps * torch.randn(vecs.shape, dtype=vecs.dtype, device=vecs.device)
+    sample = torch.randn(vecs.shape, dtype=vecs.dtype, device=vecs.device)
     mask = (inners.abs() < exception_eps)[..., None].expand_as(sample)
     vecs = vecs + sample * mask
 
-    return vecs
+    n_reg = mask[..., 0].sum()
+
+    return vecs, n_reg
 
 
 def regularize_collinear(
     vecs: torch.tensor,
     exception_eps: float = 1e-6,
-    sample_eps: float = 1.0e-5,
     rejection_regularize=False,
 ):
     """
@@ -286,7 +286,7 @@ def regularize_collinear(
 
     v_pairs = torch.cat((vecs, vecs[0][None, ...]))
     deltaRs = torch.stack([get_deltaR(v, vp) for v, vp in pairwise(v_pairs)])
-    sample = sample_eps * torch.randn(vecs.shape, dtype=vecs.dtype, device=vecs.device)
+    sample = torch.randn(vecs.shape, dtype=vecs.dtype, device=vecs.device)
     mask = (deltaRs < exception_eps)[..., None].expand_as(sample)
     vecs = vecs + sample * mask
 
@@ -295,8 +295,7 @@ def regularize_collinear(
 
 def regularize_coplanar(
     vecs: torch.tensor,
-    exception_eps: float = 1e-7,
-    sample_eps: float = 1.0e-6,
+    exception_eps: float = 1e-1,
     rejection_regularize=False,
 ):
     """
@@ -326,11 +325,12 @@ def regularize_coplanar(
     assert vecs.shape[0] == 3
 
     cross_norm = lorentz_squarednorm(lorentz_cross(vecs[0], vecs[1], vecs[2]))
-    sample = sample_eps * torch.randn(vecs.shape, dtype=vecs.dtype, device=vecs.device)
+    sample = torch.randn(vecs.shape, dtype=vecs.dtype, device=vecs.device)
     mask = (cross_norm.abs() < exception_eps)[None, :, None].expand_as(sample)
     vecs = vecs + sample * mask
 
-    return vecs
+    n_reg = mask[0, :, 0].sum()
+    return vecs, n_reg
 
 
 def order_vectors(
@@ -355,7 +355,7 @@ def order_vectors(
 
 def cross_trafo(vecs, regularize=True, rejection_regularize=False, eps=1e-10):
     if regularize:
-        vecs = regularize_collinear(vecs, rejection_regularize=rejection_regularize)
+        # vecs = regularize_collinear(vecs, rejection_regularize=rejection_regularize)
         vecs = regularize_coplanar(vecs, rejection_regularize=rejection_regularize)
         vecs = regularize_lightlike(vecs, rejection_regularize=rejection_regularize)
     vecs = vecs[:3]

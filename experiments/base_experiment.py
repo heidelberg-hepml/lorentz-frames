@@ -639,6 +639,8 @@ class BaseExperiment:
                 "time_per_step": (time.time() - self.training_start_time) / (step + 1),
                 "grad_norm": grad_norm,
                 "lframes_grad_norm": lframes_grad_norm,
+                "cumsum_lightlike": self.model.lframesnet.cumsum_lightlike,
+                "cumsum_coplanar": self.model.lframesnet.cumsum_coplanar,
             }
             for key, values in log_dict.items():
                 log_mlflow(f"train.{key}", values, step=step)

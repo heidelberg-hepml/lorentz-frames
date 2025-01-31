@@ -53,6 +53,10 @@ class LearnedLFrames(LFramesPredictor):
         self.register_buffer("inv_mean", torch.zeros(1))
         self.register_buffer("inv_std", torch.ones(1))
 
+        # to keep track of regularized learned frames
+        self.cumsum_lightlike = 0.0
+        self.cumsum_coplanar = 0.0
+
     def forward(self, fourmomenta, scalars, edge_index):
         assert scalars.shape[-1] == self.in_nodes
 
@@ -109,12 +113,15 @@ class CrossLearnedLFrames(LearnedLFrames):
         vecs = [vecs[..., i, :] for i in range(self.n_vectors)]
         vecs = torch.stack(vecs)
 
-        trafo = cross_trafo(
+        trafo, n_light, n_space = cross_trafo(
             vecs,
             eps=self.eps,
             regularize=self.regularize,
             rejection_regularize=self.rejection_regularize,
         )
+
+        self.cumsum_lightlike += n_light
+        self.cumsum_coplanar += n_space
 
         return LFrames(trafo.to(dtype=fourmomenta.dtype))
 
@@ -152,12 +159,15 @@ class GramSchmidtLearnedLFrames(LearnedLFrames):
         vecs = [vecs[..., i, :] for i in range(self.n_vectors)]
         vecs = torch.stack(vecs)
 
-        trafo = gramschmidt_trafo(
+        trafo, n_light, n_space = gramschmidt_trafo(
             vecs,
             eps=self.eps,
             regularize=self.regularize,
             rejection_regularize=self.rejection_regularize,
         )
+
+        self.cumsum_lightlike += n_light
+        self.cumsum_coplanar += n_space
 
         return LFrames(trafo.to(dtype=fourmomenta.dtype))
 
