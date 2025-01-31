@@ -52,9 +52,15 @@ def gramschmidt_orthogonalize(
 
 def gramschmidt_trafo(vecs, regularize=True, rejection_regularize=False, eps=1e-10):
     if regularize:
-        vecs = regularize_collinear(vecs, rejection_regularize=rejection_regularize)
-        vecs = regularize_coplanar(vecs, rejection_regularize=rejection_regularize)
-        vecs = regularize_lightlike(vecs, rejection_regularize=rejection_regularize)
+        # vecs = regularize_collinear(vecs, rejection_regularize=rejection_regularize)
+        vecs, n_space = regularize_coplanar(
+            vecs, rejection_regularize=rejection_regularize
+        )
+        vecs, n_light = regularize_lightlike(
+            vecs, rejection_regularize=rejection_regularize
+        )
+    else:
+        n_light, n_space = 0, 0
     vecs = vecs[:3]
 
     orthogonal_vecs = gramschmidt_orthogonalize(vecs, eps)
@@ -65,4 +71,4 @@ def gramschmidt_trafo(vecs, regularize=True, rejection_regularize=False, eps=1e-
     trafo = trafo @ metric
     trafo = order_vectors(trafo)
 
-    return trafo
+    return trafo, n_light, n_space

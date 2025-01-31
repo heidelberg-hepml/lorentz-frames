@@ -651,6 +651,8 @@ class BaseExperiment:
                 "grad_norm": grad_norm,
                 "grad_norm_lframes": grad_norm_lframes,
                 "grad_norm_net": grad_norm_net,
+                "cumsum_lightlike": self.model.lframesnet.cumsum_lightlike,
+                "cumsum_coplanar": self.model.lframesnet.cumsum_coplanar,
             }
             for key, values in log_dict.items():
                 log_mlflow(f"train.{key}", values, step=step)

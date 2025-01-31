@@ -94,12 +94,11 @@ With the current settings the percentage of modified vectors is:
 
 @pytest.mark.parametrize("exception", [True])
 @pytest.mark.parametrize("exception_eps", [1e-4])
-@pytest.mark.parametrize("sample_eps", [1, 1e-3])
 @pytest.mark.parametrize("batch_dims", [[10000]])
 @pytest.mark.parametrize("eps", [1e-10, 1e-5, 1e-2])
 @pytest.mark.parametrize("rejection_regularize", [True, False])
 def test_orthogonalize_collinear(
-    batch_dims, eps, exception, exception_eps, sample_eps, rejection_regularize
+    batch_dims, eps, exception, exception_eps, rejection_regularize
 ):
     dtype = torch.float64
 
@@ -119,7 +118,6 @@ def test_orthogonalize_collinear(
         vs = regularize_collinear(
             vs,
             exception_eps=exception_eps,
-            sample_eps=sample_eps,
             rejection_regularize=rejection_regularize,
         )
     vs = vs[:3]
@@ -135,12 +133,11 @@ def test_orthogonalize_collinear(
 
 @pytest.mark.parametrize("exception", [True])
 @pytest.mark.parametrize("exception_eps", [1e-5])
-@pytest.mark.parametrize("sample_eps", [1, 1e-3])
 @pytest.mark.parametrize("batch_dims", [[10000]])
 @pytest.mark.parametrize("eps", [1e-10, 1e-5, 1e-2])
 @pytest.mark.parametrize("rejection_regularize", [True, False])
 def test_orthogonalize_collinear_v2(
-    batch_dims, eps, exception, exception_eps, sample_eps, rejection_regularize
+    batch_dims, eps, exception, exception_eps, rejection_regularize
 ):
     dtype = torch.float64
 
@@ -161,7 +158,6 @@ def test_orthogonalize_collinear_v2(
         vs = regularize_coplanar(
             vs,
             exception_eps=exception_eps,
-            sample_eps=sample_eps,
             rejection_regularize=rejection_regularize,
         )
     vs = vs[:3]
@@ -177,12 +173,11 @@ def test_orthogonalize_collinear_v2(
 
 @pytest.mark.parametrize("exception", [True])
 @pytest.mark.parametrize("exception_eps", [1e-6])
-@pytest.mark.parametrize("sample_eps", [1, 1e-3])
 @pytest.mark.parametrize("batch_dims", [[10000]])
 @pytest.mark.parametrize("eps", [1e-10, 1e-5, 1e-2])
 @pytest.mark.parametrize("rejection_regularize", [True, False])
 def test_orthogonalize_coplanar(
-    batch_dims, eps, exception, exception_eps, sample_eps, rejection_regularize
+    batch_dims, eps, exception, exception_eps, rejection_regularize
 ):
     dtype = torch.float64
 
@@ -202,7 +197,6 @@ def test_orthogonalize_coplanar(
         vs = regularize_coplanar(
             vs,
             exception_eps=exception_eps,
-            sample_eps=sample_eps,
             rejection_regularize=rejection_regularize,
         )
     vs = vs[:3]
@@ -236,12 +230,11 @@ With the current settings the percentage of modified vectors is:
 
 @pytest.mark.parametrize("exception", [True])
 @pytest.mark.parametrize("exception_eps", [1e-8])
-@pytest.mark.parametrize("sample_eps", [1, 1e-3])
 @pytest.mark.parametrize("batch_dims", [[100000]])
 @pytest.mark.parametrize("eps", [1e-10, 1e-5, 1e-2])
 @pytest.mark.parametrize("rejection_regularize", [True, False])
 def test_orthogonalize_lightlike(
-    batch_dims, eps, exception, exception_eps, sample_eps, rejection_regularize
+    batch_dims, eps, exception, exception_eps, rejection_regularize
 ):
     dtype = torch.float64
 
@@ -265,7 +258,6 @@ def test_orthogonalize_lightlike(
         vs = regularize_lightlike(
             vs,
             exception_eps=exception_eps,
-            sample_eps=sample_eps,
             rejection_regularize=rejection_regularize,
         )
     vs = vs[:3]

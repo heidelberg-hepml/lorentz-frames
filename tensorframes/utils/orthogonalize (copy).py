@@ -60,6 +60,25 @@ def orthogonalize_cross(vecs, eps=1e-10):
     return orthogonal_vecs
 
 
+def orthogonalize_cross_o3(vecs, eps=1e-10):
+    n_vectors = len(vecs)
+    assert n_vectors == 2
+
+    def normalize(v):
+        norm = torch.linalg.norm(v, dim=-1, keepdim=True)
+        return v / (norm + eps)
+
+    vecs = [normalize(v) for v in vecs]
+
+    orthogonal_vecs = [vecs[0]]
+    for i in range(1, n_vectors + 1):
+        v_next = torch.cross(*orthogonal_vecs, *vecs[i:], dim=-1)
+        assert torch.isfinite(v_next).all()
+        orthogonal_vecs.append(normalize(v_next))
+
+    return orthogonal_vecs
+
+
 def gram_schmidt(
     vectors,
     eps: float = 1.0e-6,
@@ -218,7 +237,7 @@ def regularize_lightlike(
     mask = (inners.abs() < exception_eps)[..., None].expand_as(sample)
     vecs = vecs + sample * mask
 
-    n_reg = mask[..., 0].sum()
+    n_reg = mask.any(dim=-1).sum()
 
     return vecs, n_reg
 
@@ -276,7 +295,7 @@ def regularize_collinear(
 
 def regularize_coplanar(
     vecs: torch.tensor,
-    exception_eps: float = 1e-1,
+    exception_eps: float = 1e-6,
     rejection_regularize=False,
 ):
     """
@@ -310,7 +329,7 @@ def regularize_coplanar(
     mask = (cross_norm.abs() < exception_eps)[None, :, None].expand_as(sample)
     vecs = vecs + sample * mask
 
-    n_reg = mask[0, :, 0].sum()
+    n_reg = mask.any(dim=-3).any(dim=-1).sum()
     return vecs, n_reg
 
 
