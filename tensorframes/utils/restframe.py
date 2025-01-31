@@ -17,7 +17,7 @@ def restframe_boost(fourmomenta):
     """
     beta = fourmomenta[..., 1:] / fourmomenta[..., [0]]
     beta2 = (beta**2).sum(dim=-1, keepdim=True)
-    gamma = 1 / (1 - beta2).sqrt()
+    gamma = 1 / (1 - beta2).clamp(min=1e-10).sqrt()
 
     # prepare entries of the trafo
     boost = -gamma * beta
@@ -26,7 +26,10 @@ def restframe_boost(fourmomenta):
         *fourmomenta.shape[:-1], 1, 1
     )
     rot = eye + (
-        (gamma[..., None] - 1) * beta[..., None] * beta[..., None, :] / beta2[..., None]
+        (gamma[..., None] - 1)
+        * beta[..., None]
+        * beta[..., None, :]
+        / beta2[..., None].clamp(min=1e-10)
     )
 
     # put trafo together
@@ -41,6 +44,7 @@ def restframe_boost(fourmomenta):
     trafo[..., 1:, 1:] = rot
     trafo[..., 0, 1:] = boost
     trafo[..., 1:, 0] = boost
+    assert torch.isfinite(trafo).all()
     return trafo
 
 
@@ -57,7 +61,6 @@ def restframe_equivariant(fourmomenta, references, eps=1e-10):
             Two reference four-momenta to construct the rotation
         eps: float
             Regularization parameter used to construct the rotation
-
 
     Returns:
         trafo: torch.tensor of shape (*dims, 4, 4)
@@ -80,4 +83,5 @@ def restframe_equivariant(fourmomenta, references, eps=1e-10):
 
     # combine rotation and boost
     trafo = torch.einsum("...ij,...jk->...ik", rotation, boost)
+    assert torch.isfinite(trafo).all()
     return trafo

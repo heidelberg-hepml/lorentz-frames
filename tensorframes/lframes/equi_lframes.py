@@ -156,12 +156,15 @@ class RestLFrames(LearnedLFrames):
     def __init__(
         self,
         *args,
-        n_vectors=2,
         eps=1e-10,
         **kwargs,
     ):
-        self.n_vectors = n_vectors
-        super().__init__(*args, n_vectors=self.n_vectors, **kwargs)
+        self.n_vectors = 2
+        super().__init__(
+            *args,
+            n_vectors=self.n_vectors,
+            **kwargs,
+        )
 
         self.eps = eps
 
@@ -177,7 +180,7 @@ class RestLFrames(LearnedLFrames):
             self.eps,
         )
 
-        return LFrames(trafo.to(dtype=fourmomenta.dtype))
+        return LFrames(trafo.to(dtype=scalars.dtype))
 
 
 class ReflectLearnedLFrames(LearnedLFrames):

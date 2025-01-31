@@ -9,7 +9,6 @@ from xformers.ops.fmha import BlockDiagonalMask
 from tensorframes.reps.tensorreps import TensorReps
 from tensorframes.reps.tensorreps_transform import TensorRepsTransform
 from tensorframes.utils.hep import EPPP_to_PtPhiEtaM2
-from tensorframes.lframes.equi_lframes import RestLFrames
 from tensorframes.lframes.equi_lframes import LearnedLFrames
 
 
@@ -72,7 +71,7 @@ class TaggerWrapper(nn.Module):
 
         # construct lframes
         fourmomenta = fourmomenta.reshape(fourmomenta.shape[0], -1)
-        if self.lframesnet.is_global or isinstance(self.lframesnet, RestLFrames):
+        if self.lframesnet.is_global:
             lframes = self.lframesnet(fourmomenta)
         else:
             lframes = self.lframesnet(fourmomenta, scalars, edge_index, batch)
