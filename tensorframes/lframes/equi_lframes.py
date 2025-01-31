@@ -73,13 +73,12 @@ class CrossLearnedLFrames(LearnedLFrames):
     def __init__(
         self,
         *args,
-        n_vectors=3,
         eps=1e-10,
         regularize=False,  # The current regularization breaks the feature invariance in the local frames. This has to be addressed
         rejection_regularize=False,
         **kwargs,
     ):
-        self.n_vectors = n_vectors
+        self.n_vectors = 3
         self.rejection_regularize = rejection_regularize
         if rejection_regularize:
             assert (
@@ -116,13 +115,12 @@ class GramSchmidtLearnedLFrames(LearnedLFrames):
     def __init__(
         self,
         *args,
-        n_vectors=3,
         eps=1e-10,
         regularize=False,  # The current regularization breaks the feature invariance in the local frames. This has to be addressed
         rejection_regularize=False,
         **kwargs,
     ):
-        self.n_vectors = n_vectors
+        self.n_vectors = 3
         self.rejection_regularize = rejection_regularize
         if rejection_regularize:
             assert (
