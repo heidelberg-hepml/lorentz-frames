@@ -119,6 +119,7 @@ class GramSchmidtLearnedLFrames(LearnedLFrames):
         eps=1e-10,
         regularize=False,  # The current regularization breaks the feature invariance in the local frames. This has to be addressed
         rejection_regularize=False,
+        regularize_coplanar_eps=1.0e-6,
         **kwargs,
     ):
         self.n_vectors = 3
@@ -131,6 +132,7 @@ class GramSchmidtLearnedLFrames(LearnedLFrames):
         super().__init__(*args, n_vectors=self.n_vectors, **kwargs)
 
         self.eps = eps
+        self.regularize_coplanar_eps = regularize_coplanar_eps
         self.regularize = regularize
 
     def forward(self, fourmomenta, scalars, edge_index, batch):
@@ -144,6 +146,7 @@ class GramSchmidtLearnedLFrames(LearnedLFrames):
             eps=self.eps,
             regularize=self.regularize,
             rejection_regularize=self.rejection_regularize,
+            regularize_coplanar_eps=self.regularize_coplanar_eps,
         )
 
         self.cumsum_lightlike += n_light

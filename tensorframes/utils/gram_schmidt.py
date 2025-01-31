@@ -50,11 +50,19 @@ def gramschmidt_orthogonalize(
     return orthogonal_vecs
 
 
-def gramschmidt_trafo(vecs, regularize=True, rejection_regularize=False, eps=1e-10):
+def gramschmidt_trafo(
+    vecs,
+    regularize=True,
+    rejection_regularize=False,
+    eps=1e-10,
+    regularize_coplanar_eps=1.0e-6,
+):
     if regularize:
         # vecs = regularize_collinear(vecs, rejection_regularize=rejection_regularize)
         vecs, n_space = regularize_coplanar(
-            vecs, rejection_regularize=rejection_regularize
+            vecs,
+            rejection_regularize=rejection_regularize,
+            exception_eps=regularize_coplanar_eps,
         )
         vecs, n_light = regularize_lightlike(
             vecs, rejection_regularize=rejection_regularize

@@ -276,7 +276,7 @@ def regularize_collinear(
 
 def regularize_coplanar(
     vecs: torch.tensor,
-    exception_eps: float = 1e-1,
+    exception_eps: float = 1e-6,
     rejection_regularize=False,
 ):
     """
