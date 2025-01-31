@@ -218,7 +218,7 @@ def regularize_lightlike(
     mask = (inners.abs() < exception_eps)[..., None].expand_as(sample)
     vecs = vecs + sample * mask
 
-    n_reg = mask[..., 0].sum()
+    n_reg = mask.any(dim=-1).sum()
 
     return vecs, n_reg
 
@@ -310,7 +310,7 @@ def regularize_coplanar(
     mask = (cross_norm.abs() < exception_eps)[None, :, None].expand_as(sample)
     vecs = vecs + sample * mask
 
-    n_reg = mask[0, :, 0].sum()
+    n_reg = mask.any(dim=-3).any(dim=-1).sum()
     return vecs, n_reg
 
 
