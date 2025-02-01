@@ -1,16 +1,10 @@
 import torch
-from torch_geometric.utils import scatter
 
 from tensorframes.lframes.lframes import LFrames
 from tensorframes.lframes.nonequi_lframes import LFramesPredictor
 from tensorframes.utils.restframe import restframe_equivariant
 from tensorframes.nn.equivectors import EquivariantVectors
-from tensorframes.utils.lorentz import (
-    lorentz_squarednorm,
-    lorentz_metric,
-)
-from tensorframes.utils.reflect import reflect_list
-from tensorframes.utils.matrixexp import matrix_exponential
+from tensorframes.utils.lorentz import lorentz_squarednorm
 from tensorframes.utils.orthogonalize import cross_trafo
 from tensorframes.utils.gram_schmidt import gramschmidt_trafo
 
@@ -214,93 +208,3 @@ class LearnedRestLFrames(LearnedLFrames):
         )
 
         return LFrames(trafo.to(dtype=scalars.dtype))
-
-
-class ReflectLearnedLFrames(LearnedLFrames):
-    """
-    Local frames constructed using reflections
-    based on equivariantly predicted vectors
-
-    For the Lorentz group one requires n_vectors>=4
-    to be able to represent any transformation using reflections,
-    according to the Cartan Dieudonne theorem
-    """
-
-    def __init__(
-        self,
-        *args,
-        n_vectors=4,
-        **kwargs,
-    ):
-        self.n_vectors = n_vectors
-        super().__init__(*args, n_vectors=self.n_vectors, **kwargs)
-
-    def forward(self, fourmomenta, scalars, edge_index, batch):
-        vecs = super().forward(fourmomenta, scalars, edge_index)
-        vecs = vecs.to(dtype=torch.float64)
-        vecs = [vecs[..., i, :] for i in range(self.n_vectors)]
-
-        trafo = reflect_list(vecs)
-
-        counter = pseudo_trafo(fourmomenta, batch)
-        trafo = counter @ trafo
-        return LFrames(trafo.to(dtype=fourmomenta.dtype))
-
-
-class MatrixExpLearnedLFrames(LearnedLFrames):
-    """
-    Local frames constructed using the matrix exponential
-    of a generator created based on equivariantly predicted vectors
-    """
-
-    def __init__(
-        self,
-        stability_factor=20,
-        *args,
-        **kwargs,
-    ):
-        self.n_vectors = 2
-        super().__init__(*args, n_vectors=self.n_vectors, **kwargs)
-
-        # to avoid numerical instabilities from large values in matrix_exponential
-        self.stability_factor = stability_factor
-
-    def forward(self, fourmomenta, scalars, edge_index, batch):
-        vecs = super().forward(fourmomenta, scalars, edge_index)
-        vecs = vecs.to(dtype=torch.float64)
-        vecs /= self.stability_factor
-        vecs = [vecs[..., i, :] for i in range(self.n_vectors)]
-
-        trafo = matrix_exponential(*vecs)
-
-        counter = pseudo_trafo(fourmomenta, batch)
-        trafo = counter @ trafo
-        return LFrames(trafo.to(dtype=fourmomenta.dtype))
-
-
-def pseudo_trafo(fourmomenta, batch):
-    """
-    Construct a pseudo matrix P^a_mu
-    with transformation behaviour P -> P L^-1 under a lorentz transform L.
-
-    This is required to restore the correct transformation behaviour
-    in LFrames approaches that start with properly constructed local
-    lorentz transforms T^mu_nu and turns them into T^a_nu
-
-    TODO: pseudo is not a proper Lorentz transformation
-    have to modify it to pass tests and turn the architecture equivariant
-    """
-    assert len(fourmomenta.shape) == 2
-    summed = scatter(fourmomenta, index=batch, dim=0, reduce="sum").index_select(
-        0, batch
-    )
-
-    norm = lorentz_squarednorm(summed).sqrt().unsqueeze(-1)
-    summed /= norm
-
-    pseudo = summed.unsqueeze(-2).repeat(1, 4, 1)
-    metric = lorentz_metric(
-        fourmomenta.shape[:-1], device=fourmomenta.device, dtype=fourmomenta.dtype
-    )
-    pseudo = pseudo @ metric
-    return pseudo

@@ -35,6 +35,7 @@ def test_lframes_transformation(
 
     # lframes for un-transformed fm
     lframes = call_predictor(fm)
+    lorentz_test(lframes.matrices, **TOLERANCES)
 
     # random global transformation
     random = rand_lorentz([1], dtype=dtype)
@@ -43,6 +44,7 @@ def test_lframes_transformation(
     # lframes for transformed fm
     fm_prime = torch.einsum("...ij,...j->...i", random, fm)
     lframes_prime = call_predictor(fm_prime)
+    lorentz_test(lframes_prime.matrices, **TOLERANCES)
 
     # check that lframes transform correctly
     # expect lframes_prime = lframes * random^-1
