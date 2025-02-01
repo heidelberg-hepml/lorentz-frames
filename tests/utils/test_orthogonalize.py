@@ -159,7 +159,7 @@ def test_orthogonalize_collinear_v2(
             vs,
             exception_eps=exception_eps,
             rejection_regularize=rejection_regularize,
-        )
+        )[0]
     vs = vs[:3]
 
     orthogonal_vecs = orthogonalize_cross(vs)
@@ -198,7 +198,7 @@ def test_orthogonalize_coplanar(
             vs,
             exception_eps=exception_eps,
             rejection_regularize=rejection_regularize,
-        )
+        )[0]
     vs = vs[:3]
 
     orthogonal_vecs = orthogonalize_cross(vs)
@@ -259,7 +259,7 @@ def test_orthogonalize_lightlike(
             vs,
             exception_eps=exception_eps,
             rejection_regularize=rejection_regularize,
-        )
+        )[0]
     vs = vs[:3]
 
     orthogonal_vecs = orthogonalize_cross(vs)
