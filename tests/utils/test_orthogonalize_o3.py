@@ -2,16 +2,30 @@ import torch
 import pytest
 from tests.constants import TOLERANCES, BATCH_DIMS
 
-from tensorframes.utils.orthogonalize_o3 import orthogonalize_cross_o3
+from tensorframes.utils.orthogonalize_o3 import orthogonalize_o3
 
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
-def test_orthogonalize_o3(batch_dims):
-    v1 = torch.randn(batch_dims + [3])
-    v2 = torch.randn(batch_dims + [3])
+@pytest.mark.parametrize("method", ["cross", "gramschmidt"])
+@pytest.mark.parametrize(
+    "vector_type,eps",
+    [("naive", None), ("collinear", 1e-3), ("collinear", 1e-5), ("collinear", 1e-10)],
+)
+def test_orthogonalize_o3(batch_dims, method, vector_type, eps):
+    dtype = torch.float64
 
-    orthogonal_vecs = orthogonalize_cross_o3([v1, v2])
+    if vector_type == "naive":
+        v1 = torch.randn(batch_dims + [3], dtype=dtype)
+        v2 = torch.randn_like(v1)
+    elif vector_type == "collinear":
+        v1 = torch.randn(batch_dims + [3], dtype=dtype)
+        v2 = v1 + eps * torch.randn_like(v1)
+    else:
+        raise ValueError(f"vector_type {vector_type} not implemented")
 
+    orthogonal_vecs = orthogonalize_o3([v1, v2], method=method)
+
+    # test orthonormality
     for i1, v1 in enumerate(orthogonal_vecs):
         for i2, v2 in enumerate(orthogonal_vecs):
             inner = (v1 * v2).sum(dim=-1)
