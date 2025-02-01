@@ -29,7 +29,7 @@ def test_transformer_invariance_equivariance(
     reps,
     vector_type,
 ):
-    dtype = torch.float64  # is this needed?
+    dtype = torch.float64
 
     assert len(batch_dims) == 1
     predictor = LFramesPredictor(hidden_channels=16, num_layers=1, in_nodes=0).to(

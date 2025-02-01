@@ -24,7 +24,7 @@ from tensorframes.utils.transforms import (
 @pytest.mark.parametrize("logm2_std", LOGM2_STD)
 @pytest.mark.parametrize("logm2_mean", LOGM2_MEAN)
 def test_restframe(batch_dims, restframe_transform, logm2_std, logm2_mean):
-    dtype = torch.float64  # some tests require higher precision
+    dtype = torch.float64
 
     # sample Lorentz vectors
     fm = sample_vector(batch_dims, logm2_std, logm2_mean, dtype=dtype)
@@ -56,7 +56,7 @@ def test_restframe(batch_dims, restframe_transform, logm2_std, logm2_mean):
 @pytest.mark.parametrize("logm2_std", LOGM2_STD)
 @pytest.mark.parametrize("logm2_mean", LOGM2_MEAN)
 def test_restframe_transformation(batch_dims, random_transform, logm2_std, logm2_mean):
-    dtype = torch.float64  # some tests require higher precision
+    dtype = torch.float64
 
     # sample Lorentz vectors
     fm = sample_vector(batch_dims, logm2_std, logm2_mean, dtype=dtype)

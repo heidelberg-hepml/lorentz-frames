@@ -29,10 +29,7 @@ def test_edgeconv_invariance_equivariance(
     reps,
     vector_type,
 ):
-    # test construction of the messages in EdgeConv by probing the equivariance
-    # preparations as in test_attention
-    # only use 1 "jet"
-    dtype = torch.float64  # is this needed?
+    dtype = torch.float64
 
     edge_index = dense_to_sparse(torch.ones(batch_dims[0], batch_dims[0]))[0]
 
@@ -109,10 +106,7 @@ def test_graphnet_invariance_equivariance(
     reps,
     vector_type,
 ):
-    # test construction of the messages in GraphNet by probing the equivariance
-    # preparations as in test_attention
-    # only use 1 "jet"
-    dtype = torch.float64  # is this needed?
+    dtype = torch.float64
 
     edge_index = dense_to_sparse(torch.ones(batch_dims[0], batch_dims[0]))[0]
 

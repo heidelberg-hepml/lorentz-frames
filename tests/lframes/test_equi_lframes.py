@@ -18,7 +18,7 @@ from tensorframes.lframes.lframes import LFrames
 def test_lframes_transformation(
     LFramesPredictor, batch_dims, logm2_std, logm2_mean, vector_type
 ):
-    dtype = torch.float64  # required to consistently pass tests
+    dtype = torch.float64
 
     # preparations
     assert len(batch_dims) == 1
@@ -65,7 +65,7 @@ def test_lframes_transformation(
 def test_feature_invariance(
     LFramesPredictor, batch_dims, logm2_std, logm2_mean, vector_type
 ):
-    dtype = torch.float64  # required to consistently pass tests
+    dtype = torch.float64
 
     # preparations
     assert len(batch_dims) == 1

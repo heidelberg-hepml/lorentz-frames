@@ -22,7 +22,7 @@ from tensorframes.lframes.equi_lframes_update import (
 def test_update_lframes_transformation(
     LFramesPredictor, batch_dims, logm2_std, logm2_mean, vector_type
 ):
-    dtype = torch.float64  # required to consistently pass tests
+    dtype = torch.float64
 
     # preparations
     assert len(batch_dims) == 1

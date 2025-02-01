@@ -18,7 +18,7 @@ from tensorframes.utils.transforms import (
     "transform_type", [rand_lorentz, rand_rotation, rand_phirotation, rand_boost]
 )
 def test_rand_lorentz(batch_dims, n_range, std_eta, transform_type):
-    dtype = torch.float64  # some tests require higher precision
+    dtype = torch.float64
 
     # collect N different kinds of transformations
     kwargs = {
