@@ -1,30 +1,16 @@
 import torch
 import pytest
 from torch_geometric.utils import dense_to_sparse
-from tests.constants import TOLERANCES, LOGM2_MEAN, LOGM2_STD
+from tests.constants import TOLERANCES, LOGM2_MEAN, LOGM2_STD, LFRAMES_PREDICTOR
 from tests.helpers import sample_vector, sample_vector_realistic, lorentz_test
 
 from tensorframes.reps import TensorReps
 from tensorframes.reps.tensorreps_transform import TensorRepsTransform
-from tensorframes.lframes.equi_lframes import (
-    CrossLearnedLFrames,
-    GramSchmidtLearnedLFrames,
-    RestLFrames,
-    LearnedRestLFrames,
-)
 from tensorframes.utils.transforms import rand_lorentz
 from tensorframes.lframes.lframes import LFrames
 
 
-@pytest.mark.parametrize(
-    "LFramesPredictor",
-    [
-        GramSchmidtLearnedLFrames,
-        CrossLearnedLFrames,
-        RestLFrames,
-        LearnedRestLFrames,
-    ],
-)
+@pytest.mark.parametrize("LFramesPredictor", LFRAMES_PREDICTOR)
 @pytest.mark.parametrize("batch_dims", [[10]])
 @pytest.mark.parametrize("logm2_std", LOGM2_STD)
 @pytest.mark.parametrize("logm2_mean", LOGM2_MEAN)
@@ -35,22 +21,14 @@ def test_lframes_transformation(
     dtype = torch.float64  # required to consistently pass tests
 
     # preparations
-    if LFramesPredictor in [
-        CrossLearnedLFrames,
-        GramSchmidtLearnedLFrames,
-        RestLFrames,
-        LearnedRestLFrames,
-    ]:
-        assert len(batch_dims) == 1
-        predictor = LFramesPredictor(hidden_channels=16, num_layers=1, in_nodes=0).to(
-            dtype=dtype
-        )
-        batch = torch.zeros(batch_dims, dtype=torch.long)
-        edge_index = dense_to_sparse(torch.ones(batch_dims[0], batch_dims[0]))[0]
-        scalars = torch.zeros(*batch_dims, 0, dtype=dtype)
-        call_predictor = lambda fm: predictor(fm, scalars, edge_index, batch)
-    else:
-        raise NotImplementedError
+    assert len(batch_dims) == 1
+    predictor = LFramesPredictor(hidden_channels=16, num_layers=1, in_nodes=0).to(
+        dtype=dtype
+    )
+    batch = torch.zeros(batch_dims, dtype=torch.long)
+    edge_index = dense_to_sparse(torch.ones(batch_dims[0], batch_dims[0]))[0]
+    scalars = torch.zeros(*batch_dims, 0, dtype=dtype)
+    call_predictor = lambda fm: predictor(fm, scalars, edge_index, batch)
 
     # sample Lorentz vectors
     fm = vector_type(batch_dims, logm2_std, logm2_mean, dtype=dtype)
@@ -77,15 +55,7 @@ def test_lframes_transformation(
     )
 
 
-@pytest.mark.parametrize(
-    "LFramesPredictor",
-    [
-        CrossLearnedLFrames,
-        GramSchmidtLearnedLFrames,
-        RestLFrames,
-        LearnedRestLFrames,
-    ],
-)
+@pytest.mark.parametrize("LFramesPredictor", LFRAMES_PREDICTOR)
 @pytest.mark.parametrize("batch_dims", [[10]])
 @pytest.mark.parametrize("logm2_std", LOGM2_STD)
 @pytest.mark.parametrize("logm2_mean", LOGM2_MEAN)
@@ -96,22 +66,14 @@ def test_feature_invariance(
     dtype = torch.float64  # required to consistently pass tests
 
     # preparations
-    if LFramesPredictor in [
-        CrossLearnedLFrames,
-        GramSchmidtLearnedLFrames,
-        RestLFrames,
-        LearnedRestLFrames,
-    ]:
-        assert len(batch_dims) == 1
-        predictor = LFramesPredictor(hidden_channels=16, num_layers=1, in_nodes=0).to(
-            dtype=dtype
-        )
-        batch = torch.zeros(batch_dims, dtype=torch.long)
-        edge_index = dense_to_sparse(torch.ones(batch_dims[0], batch_dims[0]))[0]
-        scalars = torch.zeros(*batch_dims, 0, dtype=dtype)
-        call_predictor = lambda fm: predictor(fm, scalars, edge_index, batch)
-    else:
-        raise NotImplementedError
+    assert len(batch_dims) == 1
+    predictor = LFramesPredictor(hidden_channels=16, num_layers=1, in_nodes=0).to(
+        dtype=dtype
+    )
+    batch = torch.zeros(batch_dims, dtype=torch.long)
+    edge_index = dense_to_sparse(torch.ones(batch_dims[0], batch_dims[0]))[0]
+    scalars = torch.zeros(*batch_dims, 0, dtype=dtype)
+    call_predictor = lambda fm: predictor(fm, scalars, edge_index, batch)
 
     reps = TensorReps("1x1n")
     trafo = TensorRepsTransform(TensorReps(reps))
