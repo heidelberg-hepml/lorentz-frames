@@ -1,6 +1,6 @@
 import torch
 
-from tensorframes.utils.orthogonalize_o3 import orthogonalize_cross_o3
+from tensorframes.utils.orthogonalize_o3 import orthogonalize_o3
 
 
 def restframe_boost(fourmomenta):
@@ -48,7 +48,7 @@ def restframe_boost(fourmomenta):
     return trafo
 
 
-def restframe_equivariant(fourmomenta, references, eps=1e-10):
+def restframe_equivariant(fourmomenta, references, **kwargs):
     """
     Lorentz transformation representing a boost into the rest frame and a
     properly constructed rotation that fixes the little group degree of freedom
@@ -59,8 +59,7 @@ def restframe_equivariant(fourmomenta, references, eps=1e-10):
             Four-momentum that defines the rest frames
         references: List with two torch.tensor of shape (*dims, 4)
             Two reference four-momenta to construct the rotation
-        eps: float
-            Regularization parameter used to construct the rotation
+        **kwargs: Additional arguments for orthogonalize_o3
 
     Returns:
         trafo: torch.tensor of shape (*dims, 4, 4)
@@ -76,7 +75,7 @@ def restframe_equivariant(fourmomenta, references, eps=1e-10):
 
     # construct rotation
     ref3_rest = [r[..., 1:] for r in ref_rest]
-    orthogonal_vec3 = orthogonalize_cross_o3(ref3_rest, eps=eps)
+    orthogonal_vec3 = orthogonalize_o3(ref3_rest, **kwargs)
     rotation = torch.zeros_like(boost)
     rotation[..., 0, 0] = 1
     rotation[..., 1:, 1:] = torch.stack(orthogonal_vec3, dim=-2)
