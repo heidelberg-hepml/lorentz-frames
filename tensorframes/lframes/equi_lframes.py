@@ -148,7 +148,7 @@ class RestLFrames(LearnedLFrames):
     def __init__(
         self,
         *args,
-        orthogonalization_kwargs={},
+        ortho_kwargs={},
         **kwargs,
     ):
         self.n_vectors = 2
@@ -158,7 +158,7 @@ class RestLFrames(LearnedLFrames):
             **kwargs,
         )
 
-        self.orthogonalization_kwargs = orthogonalization_kwargs
+        self.ortho_kwargs = ortho_kwargs
 
     def forward(self, fourmomenta, scalars, edge_index, batch):
         references = super().forward(fourmomenta, scalars, edge_index)
@@ -169,7 +169,7 @@ class RestLFrames(LearnedLFrames):
         trafo = restframe_equivariant(
             fourmomenta,
             references,
-            **self.orthogonalization_kwargs,
+            **self.ortho_kwargs,
         )
 
         return LFrames(trafo.to(dtype=scalars.dtype))
@@ -181,7 +181,7 @@ class LearnedRestLFrames(LearnedLFrames):
     def __init__(
         self,
         *args,
-        orthogonalization_kwargs={},
+        ortho_kwargs={},
         **kwargs,
     ):
         self.n_vectors = 3
@@ -193,7 +193,7 @@ class LearnedRestLFrames(LearnedLFrames):
             **kwargs,
         )
 
-        self.orthogonalization_kwargs = orthogonalization_kwargs
+        self.ortho_kwargs = ortho_kwargs
 
     def forward(self, fourmomenta, scalars, edge_index, batch):
         vecs = super().forward(fourmomenta, scalars, edge_index)
@@ -204,7 +204,7 @@ class LearnedRestLFrames(LearnedLFrames):
         trafo = restframe_equivariant(
             fourmomenta,
             references,
-            **self.orthogonalization_kwargs,
+            **self.ortho_kwargs,
         )
 
         return LFrames(trafo.to(dtype=scalars.dtype))
