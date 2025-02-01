@@ -59,7 +59,7 @@ def orthogonalize_gramschmidt_o3(vecs, eps=1e-10):
             v_inner = torch.sum(
                 v_nexts[k] * orthogonal_vecs[i - 1], dim=-1, keepdim=True
             )
-            v_nexts[k] = v_nexts[k] + orthogonal_vecs[i - 1] * v_inner
+            v_nexts[k] = v_nexts[k] - orthogonal_vecs[i - 1] * v_inner
         orthogonal_vecs.append(normalize_o3(v_nexts[i], eps))
 
     # last vector from cross product
