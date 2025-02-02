@@ -56,7 +56,7 @@ def orthogonalize_cross(vecs, eps=1e-10):
 
 def orthogonalize_gramschmidt(
     vecs: torch.tensor,
-    eps: float = 1.0e-10,
+    eps: float = 1e-10,
 ) -> torch.tensor:
     """
     Applies the numerically stable Gram-Schmidt
@@ -65,9 +65,10 @@ def orthogonalize_gramschmidt(
             If (3, N, 4) the last vector is calculated from the cross product.
         eps: nuerical regularization for the normalization of the vectors.
     """
-    assert vecs.shape[0] == 3 or vecs.shape[0] == 4
-
     n_vectors = len(vecs)
+    assert n_vectors == 3 or n_vectors == 4
+
+    vecs = [normalize(v, eps) for v in vecs]
 
     v_nexts = [v for v in vecs]
     orthogonal_vecs = [vecs[0]]
@@ -76,12 +77,12 @@ def orthogonalize_gramschmidt(
             v_inner = lorentz_inner(v_nexts[k], orthogonal_vecs[i - 1]).unsqueeze(-1)
             v_norm = lorentz_squarednorm(orthogonal_vecs[i - 1]).unsqueeze(-1)
             v_nexts[k] = v_nexts[k] - orthogonal_vecs[i - 1] * v_inner / (v_norm + eps)
-        orthogonal_vecs.append(v_nexts[i])
+        orthogonal_vecs.append(normalize(v_nexts[i], eps))
     if n_vectors == 3:
-        last_vec = lorentz_cross(*orthogonal_vecs)
+        last_vec = normalize(lorentz_cross(*orthogonal_vecs), eps)
         orthogonal_vecs.append(last_vec)
 
-    orthogonal_vecs = [normalize(v, eps) for v in orthogonal_vecs]
+    orthogonal_vecs = [v for v in orthogonal_vecs]
     return orthogonal_vecs
 
 
@@ -263,7 +264,7 @@ def gramschmidt_trafo(vecs, regularize=True, rejection_regularize=False, eps=1e-
     return trafo
 
 
-def normalize(v, eps=1.0e-10):
+def normalize(v, eps=1e-10):
     norm = lorentz_squarednorm(v).unsqueeze(-1)
     norm = norm.abs().sqrt()  # could also multiply by torch.sign(norm)
     return v / (norm + eps)
