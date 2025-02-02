@@ -5,8 +5,7 @@ from tensorframes.lframes.nonequi_lframes import LFramesPredictor
 from tensorframes.utils.restframe import restframe_equivariant
 from tensorframes.nn.equivectors import EquivariantVectors
 from tensorframes.utils.lorentz import lorentz_squarednorm
-from tensorframes.utils.orthogonalize import cross_trafo
-from tensorframes.utils.gram_schmidt import gramschmidt_trafo
+from tensorframes.utils.orthogonalize import cross_trafo, gramschmidt_trafo
 
 
 class LearnedLFrames(LFramesPredictor):

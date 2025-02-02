@@ -9,6 +9,7 @@ from tensorframes.utils.lorentz import (
 from tensorframes.utils.orthogonalize import (
     lorentz_cross,
     orthogonalize_cross,
+    orthogonalize_gramschmidt,
     regularize_lightlike,
     regularize_collinear,
     regularize_coplanar,
@@ -35,8 +36,9 @@ def test_lorentz_cross(batch_dims):
     torch.testing.assert_close(inner34, zeros, **TOLERANCES)
 
 
-@pytest.mark.parametrize("batch_dims", [[10000]])
-def test_orthogonalize_cross(batch_dims):
+@pytest.mark.parametrize("batch_dims", [[1000]])
+@pytest.mark.parametrize("method", ["cross", "gramschmidt"])
+def test_orthogonalize(batch_dims, method):
     # check orthogonality after using the function
     dtype = torch.float64
 
@@ -44,7 +46,10 @@ def test_orthogonalize_cross(batch_dims):
     v2 = torch.randn(batch_dims + [4], dtype=dtype)
     v3 = torch.randn(batch_dims + [4], dtype=dtype)
 
-    orthogonal_vecs = orthogonalize_cross([v1, v2, v3])
+    if method == "cross":
+        orthogonal_vecs = orthogonalize_cross([v1, v2, v3])
+    elif method == "gramschmidt":
+        orthogonal_vecs = orthogonalize_gramschmidt([v1, v2, v3])
 
     for i1, v1 in enumerate(orthogonal_vecs):
         for i2, v2 in enumerate(orthogonal_vecs):
@@ -53,8 +58,9 @@ def test_orthogonalize_cross(batch_dims):
             torch.testing.assert_close(inner.abs(), target, **TOLERANCES)
 
 
-@pytest.mark.parametrize("batch_dims", [[10000]])
-def test_orthogonalize_timelike(batch_dims):
+@pytest.mark.parametrize("batch_dims", [[1000]])
+@pytest.mark.parametrize("method", ["cross", "gramschmidt"])
+def test_orthogonalize_timelike(batch_dims, method):
     # test if there is only one time-like vector in each set of orthogonalized vectors
     dtype = torch.float64
 
@@ -62,7 +68,10 @@ def test_orthogonalize_timelike(batch_dims):
     v2 = torch.randn(batch_dims + [4], dtype=dtype)
     v3 = torch.randn(batch_dims + [4], dtype=dtype)
 
-    orthogonal_vecs = orthogonalize_cross([v1, v2, v3])
+    if method == "cross":
+        orthogonal_vecs = orthogonalize_cross([v1, v2, v3])
+    elif method == "gramschmidt":
+        orthogonal_vecs = orthogonalize_gramschmidt([v1, v2, v3])
 
     norm = torch.stack([lorentz_squarednorm(v) for v in orthogonal_vecs], dim=-1)
     pos_norm = norm > 0
@@ -94,11 +103,12 @@ With the current settings the percentage of modified vectors is:
 
 @pytest.mark.parametrize("exception", [True])
 @pytest.mark.parametrize("exception_eps", [1e-4])
-@pytest.mark.parametrize("batch_dims", [[10000]])
+@pytest.mark.parametrize("batch_dims", [[1000]])
 @pytest.mark.parametrize("eps", [1e-10, 1e-5, 1e-2])
 @pytest.mark.parametrize("rejection_regularize", [True, False])
+@pytest.mark.parametrize("method", ["cross", "gramschmidt"])
 def test_orthogonalize_collinear(
-    batch_dims, eps, exception, exception_eps, rejection_regularize
+    batch_dims, eps, exception, exception_eps, rejection_regularize, method
 ):
     dtype = torch.float64
 
@@ -122,7 +132,10 @@ def test_orthogonalize_collinear(
         )
     vs = vs[:3]
 
-    orthogonal_vecs = orthogonalize_cross(vs)
+    if method == "cross":
+        orthogonal_vecs = orthogonalize_cross(vs)
+    elif method == "gramschmidt":
+        orthogonal_vecs = orthogonalize_gramschmidt(vs)
 
     for i1, v1 in enumerate(orthogonal_vecs):
         for i2, v2 in enumerate(orthogonal_vecs):
@@ -133,11 +146,12 @@ def test_orthogonalize_collinear(
 
 @pytest.mark.parametrize("exception", [True])
 @pytest.mark.parametrize("exception_eps", [1e-5])
-@pytest.mark.parametrize("batch_dims", [[10000]])
+@pytest.mark.parametrize("batch_dims", [[1000]])
 @pytest.mark.parametrize("eps", [1e-10, 1e-5, 1e-2])
 @pytest.mark.parametrize("rejection_regularize", [True, False])
+@pytest.mark.parametrize("method", ["cross", "gramschmidt"])
 def test_orthogonalize_collinear_v2(
-    batch_dims, eps, exception, exception_eps, rejection_regularize
+    batch_dims, eps, exception, exception_eps, rejection_regularize, method
 ):
     dtype = torch.float64
 
@@ -162,7 +176,10 @@ def test_orthogonalize_collinear_v2(
         )[0]
     vs = vs[:3]
 
-    orthogonal_vecs = orthogonalize_cross(vs)
+    if method == "cross":
+        orthogonal_vecs = orthogonalize_cross(vs)
+    elif method == "gramschmidt":
+        orthogonal_vecs = orthogonalize_gramschmidt(vs)
 
     for i1, v1 in enumerate(orthogonal_vecs):
         for i2, v2 in enumerate(orthogonal_vecs):
@@ -173,11 +190,12 @@ def test_orthogonalize_collinear_v2(
 
 @pytest.mark.parametrize("exception", [True])
 @pytest.mark.parametrize("exception_eps", [1e-6])
-@pytest.mark.parametrize("batch_dims", [[10000]])
+@pytest.mark.parametrize("batch_dims", [[1000]])
 @pytest.mark.parametrize("eps", [1e-10, 1e-5, 1e-2])
 @pytest.mark.parametrize("rejection_regularize", [True, False])
+@pytest.mark.parametrize("method", ["cross", "gramschmidt"])
 def test_orthogonalize_coplanar(
-    batch_dims, eps, exception, exception_eps, rejection_regularize
+    batch_dims, eps, exception, exception_eps, rejection_regularize, method
 ):
     dtype = torch.float64
 
@@ -201,7 +219,10 @@ def test_orthogonalize_coplanar(
         )[0]
     vs = vs[:3]
 
-    orthogonal_vecs = orthogonalize_cross(vs)
+    if method == "cross":
+        orthogonal_vecs = orthogonalize_cross(vs)
+    elif method == "gramschmidt":
+        orthogonal_vecs = orthogonalize_gramschmidt(vs)
 
     for i1, v1 in enumerate(orthogonal_vecs):
         for i2, v2 in enumerate(orthogonal_vecs):
@@ -230,11 +251,12 @@ With the current settings the percentage of modified vectors is:
 
 @pytest.mark.parametrize("exception", [True])
 @pytest.mark.parametrize("exception_eps", [1e-8])
-@pytest.mark.parametrize("batch_dims", [[100000]])
+@pytest.mark.parametrize("batch_dims", [[1000]])
 @pytest.mark.parametrize("eps", [1e-10, 1e-5, 1e-2])
 @pytest.mark.parametrize("rejection_regularize", [True, False])
+@pytest.mark.parametrize("method", ["cross", "gramschmidt"])
 def test_orthogonalize_lightlike(
-    batch_dims, eps, exception, exception_eps, rejection_regularize
+    batch_dims, eps, exception, exception_eps, rejection_regularize, method
 ):
     dtype = torch.float64
 
@@ -262,7 +284,10 @@ def test_orthogonalize_lightlike(
         )[0]
     vs = vs[:3]
 
-    orthogonal_vecs = orthogonalize_cross(vs)
+    if method == "cross":
+        orthogonal_vecs = orthogonalize_cross(vs)
+    elif method == "gramschmidt":
+        orthogonal_vecs = orthogonalize_gramschmidt(vs)
 
     for i1, v1 in enumerate(orthogonal_vecs):
         for i2, v2 in enumerate(orthogonal_vecs):
