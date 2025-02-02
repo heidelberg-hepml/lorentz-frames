@@ -11,3 +11,17 @@ REPS = ["4x0n", "4x1n", "10x0n+5x1n+2x2n"]
 
 LOGM2_STD = [0.1, 1, 2]
 LOGM2_MEAN = [-3, 0, 3]
+
+from tensorframes.lframes.equi_lframes import (
+    CrossLearnedLFrames,
+    GramSchmidtLearnedLFrames,
+    RestLFrames,
+    LearnedRestLFrames,
+)
+
+LFRAMES_PREDICTOR = [
+    CrossLearnedLFrames,
+    GramSchmidtLearnedLFrames,
+    RestLFrames,
+    LearnedRestLFrames,
+]

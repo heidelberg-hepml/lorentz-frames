@@ -12,7 +12,7 @@ from tensorframes.utils.lorentz import lorentz_metric
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
 def test_lorentz(batch_dims):
-    dtype = torch.float64  # some tests require higher precision
+    dtype = torch.float64
 
     v1 = torch.randn(*batch_dims, 4, dtype=dtype)
     v2 = torch.randn(*batch_dims, 4, dtype=dtype)
@@ -27,7 +27,7 @@ def test_lorentz(batch_dims):
     reason="Test fails because trafo makes v1_prime, v2_prime very large objects such that matrix_exp becomes unstable"
 )
 def test_equivariance(batch_dims):
-    dtype = torch.float64  # some tests require higher precision
+    dtype = torch.float64
 
     v1 = torch.randn(*batch_dims, 4, dtype=dtype)
     v2 = torch.randn(*batch_dims, 4, dtype=dtype)

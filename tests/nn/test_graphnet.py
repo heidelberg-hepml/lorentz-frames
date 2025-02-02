@@ -1,23 +1,17 @@
 import torch
 import pytest
-from tests.constants import TOLERANCES, LOGM2_MEAN, LOGM2_STD, REPS
+from tests.constants import TOLERANCES, LOGM2_MEAN, LOGM2_STD, REPS, LFRAMES_PREDICTOR
 from tests.helpers import sample_vector, sample_vector_realistic
 from torch_geometric.utils import dense_to_sparse
 
 from tensorframes.nn.graphnet import EdgeConv, TFGraphNet
-from tensorframes.lframes.equi_lframes import (
-    RestLFrames,
-    CrossLearnedLFrames,
-    ReflectLearnedLFrames,
-    MatrixExpLearnedLFrames,
-)
 from tensorframes.reps.tensorreps import TensorReps
 from tensorframes.reps.tensorreps_transform import TensorRepsTransform
 from tensorframes.utils.transforms import rand_lorentz
 from tensorframes.lframes.lframes import InverseLFrames
 
 
-@pytest.mark.parametrize("LFramesPredictor", [CrossLearnedLFrames])
+@pytest.mark.parametrize("LFramesPredictor", LFRAMES_PREDICTOR)
 @pytest.mark.parametrize("batch_dims", [[10]])
 @pytest.mark.parametrize("num_layers_mlp1", range(1, 2))
 @pytest.mark.parametrize("num_layers_mlp2", range(0, 2))
@@ -35,27 +29,17 @@ def test_edgeconv_invariance_equivariance(
     reps,
     vector_type,
 ):
-    # test construction of the messages in EdgeConv by probing the equivariance
-    # preparations as in test_attention
-    # only use 1 "jet"
-    dtype = torch.float64  # is this needed?
+    dtype = torch.float64
 
     edge_index = dense_to_sparse(torch.ones(batch_dims[0], batch_dims[0]))[0]
-    if LFramesPredictor == RestLFrames:
-        predictor = LFramesPredictor()
-        call_predictor = lambda fm: predictor(fm)
-    elif LFramesPredictor in [
-        CrossLearnedLFrames,
-        ReflectLearnedLFrames,
-        MatrixExpLearnedLFrames,
-    ]:
-        assert len(batch_dims) == 1
-        predictor = LFramesPredictor(hidden_channels=16, num_layers=1, in_nodes=0).to(
-            dtype=dtype
-        )
-        batch = torch.zeros(batch_dims, dtype=torch.long)
-        scalars = torch.zeros(*batch_dims, 0, dtype=dtype)
-        call_predictor = lambda fm: predictor(fm, scalars, edge_index, batch)
+
+    assert len(batch_dims) == 1
+    predictor = LFramesPredictor(hidden_channels=16, num_layers=1, in_nodes=0).to(
+        dtype=dtype
+    )
+    batch = torch.zeros(batch_dims, dtype=torch.long)
+    scalars = torch.zeros(*batch_dims, 0, dtype=dtype)
+    call_predictor = lambda fm: predictor(fm, scalars, edge_index, batch)
 
     # define edgeconv
     in_reps = TensorReps("1x1n")
@@ -102,7 +86,7 @@ def test_edgeconv_invariance_equivariance(
     torch.testing.assert_close(fm_tr_prime_global, fm_prime_tr_global, **TOLERANCES)
 
 
-@pytest.mark.parametrize("LFramesPredictor", [CrossLearnedLFrames])
+@pytest.mark.parametrize("LFramesPredictor", LFRAMES_PREDICTOR)
 @pytest.mark.parametrize("batch_dims", [[10]])
 @pytest.mark.parametrize("num_layers_mlp1", range(1, 2))
 @pytest.mark.parametrize("num_layers_mlp2", range(0, 2))
@@ -122,27 +106,17 @@ def test_graphnet_invariance_equivariance(
     reps,
     vector_type,
 ):
-    # test construction of the messages in GraphNet by probing the equivariance
-    # preparations as in test_attention
-    # only use 1 "jet"
-    dtype = torch.float64  # is this needed?
+    dtype = torch.float64
 
     edge_index = dense_to_sparse(torch.ones(batch_dims[0], batch_dims[0]))[0]
-    if LFramesPredictor == RestLFrames:
-        predictor = LFramesPredictor()
-        call_predictor = lambda fm: predictor(fm)
-    elif LFramesPredictor in [
-        CrossLearnedLFrames,
-        ReflectLearnedLFrames,
-        MatrixExpLearnedLFrames,
-    ]:
-        assert len(batch_dims) == 1
-        predictor = LFramesPredictor(hidden_channels=16, num_layers=1, in_nodes=0).to(
-            dtype=dtype
-        )
-        batch = torch.zeros(batch_dims, dtype=torch.long)
-        scalars = torch.zeros(*batch_dims, 0, dtype=dtype)
-        call_predictor = lambda fm: predictor(fm, scalars, edge_index, batch)
+
+    assert len(batch_dims) == 1
+    predictor = LFramesPredictor(hidden_channels=16, num_layers=1, in_nodes=0).to(
+        dtype=dtype
+    )
+    batch = torch.zeros(batch_dims, dtype=torch.long)
+    scalars = torch.zeros(*batch_dims, 0, dtype=dtype)
+    call_predictor = lambda fm: predictor(fm, scalars, edge_index, batch)
 
     # define edgeconv
     in_reps = TensorReps("1x1n")

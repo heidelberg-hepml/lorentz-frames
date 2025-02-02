@@ -2,27 +2,17 @@ import torch
 import pytest
 from torch_geometric.utils import dense_to_sparse
 from torch.nn import Linear
-from tests.constants import TOLERANCES, LOGM2_MEAN, LOGM2_STD, REPS
+from tests.constants import TOLERANCES, LOGM2_MEAN, LOGM2_STD, REPS, LFRAMES_PREDICTOR
 from tests.helpers import sample_vector, sample_vector_realistic
 
 from tensorframes.reps.tensorreps import TensorReps
 from tensorframes.reps.tensorreps_transform import TensorRepsTransform
 from tensorframes.nn.attention import InvariantParticleAttention
 from tensorframes.lframes.lframes import InverseLFrames
-from tensorframes.lframes.equi_lframes import (
-    RestLFrames,
-    CrossLearnedLFrames,
-    ReflectLearnedLFrames,
-    MatrixExpLearnedLFrames,
-)
 from tensorframes.utils.transforms import rand_lorentz
 
 
-@pytest.mark.parametrize(
-    "LFramesPredictor",
-    # [RestLFrames, CrossLearnedLFrames, ReflectLearnedLFrames, MatrixExpLearnedLFrames],
-    [CrossLearnedLFrames],
-)
+@pytest.mark.parametrize("LFramesPredictor", LFRAMES_PREDICTOR)
 @pytest.mark.parametrize("batch_dims", [[10]])
 @pytest.mark.parametrize("hidden_reps", REPS)
 @pytest.mark.parametrize("logm2_std", LOGM2_STD)
@@ -39,22 +29,14 @@ def test_invariance_equivariance(
     dtype = torch.float64
 
     # preparations
-    if LFramesPredictor == RestLFrames:
-        predictor = LFramesPredictor()
-        call_predictor = lambda fm: predictor(fm)
-    elif LFramesPredictor in [
-        CrossLearnedLFrames,
-        ReflectLearnedLFrames,
-        MatrixExpLearnedLFrames,
-    ]:
-        assert len(batch_dims) == 1
-        predictor = LFramesPredictor(hidden_channels=16, num_layers=1, in_nodes=0).to(
-            dtype=dtype
-        )
-        batch = torch.zeros(batch_dims, dtype=torch.long)
-        edge_index = dense_to_sparse(torch.ones(batch_dims[0], batch_dims[0]))[0]
-        scalars = torch.zeros(*batch_dims, 0, dtype=dtype)
-        call_predictor = lambda fm: predictor(fm, scalars, edge_index, batch)
+    assert len(batch_dims) == 1
+    predictor = LFramesPredictor(hidden_channels=16, num_layers=1, in_nodes=0).to(
+        dtype=dtype
+    )
+    batch = torch.zeros(batch_dims, dtype=torch.long)
+    edge_index = dense_to_sparse(torch.ones(batch_dims[0], batch_dims[0]))[0]
+    scalars = torch.zeros(*batch_dims, 0, dtype=dtype)
+    call_predictor = lambda fm: predictor(fm, scalars, edge_index, batch)
 
     # preparations
     in_reps = TensorReps("1x1n")

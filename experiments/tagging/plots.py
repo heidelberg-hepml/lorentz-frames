@@ -35,6 +35,18 @@ def plot_mixer(cfg, plot_path, title, plot_dict):
                 "Gradient norm",
                 logy=True,
             )
+            plot_metric(
+                out,
+                [plot_dict["grad_norm_lframes"]],
+                "Gradient norm lframesnet",
+                logy=True,
+            )
+            plot_metric(
+                out,
+                [plot_dict["grad_norm_net"]],
+                "Gradient norm main network",
+                logy=True,
+            )
 
     if cfg.plotting.score and cfg.evaluate:
         file = f"{plot_path}/score.pdf"

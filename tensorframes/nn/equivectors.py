@@ -20,10 +20,16 @@ class EquivariantVectors(MessagePassing):
         in_edges,
         hidden_channels,
         num_layers,
+        operation="diff",
+        nonlinearity=None,
         dropout_prob=None,
     ):
         super().__init__()
         self.n_vectors = n_vectors
+        assert operation in ["single", "diff", "add"]
+        self.operation = operation
+        assert nonlinearity in [None, "exp"]
+        self.nonlinearity = nonlinearity
         in_channels = 2 * in_nodes + in_edges
 
         self.mlp = MLP(
@@ -45,6 +51,15 @@ class EquivariantVectors(MessagePassing):
         prefactor = torch.cat([prefactor, edge_attr], dim=-1)
         prefactor = self.mlp(prefactor)
 
-        fm_rel = fm_i - fm_j
+        if self.nonlinearity == "exp":
+            prefactor = prefactor.clamp(min=-10, max=10).exp()
+
+        if self.operation == "diff":
+            fm_rel = fm_i - fm_j
+        elif self.operation == "add":
+            fm_rel = fm_i + fm_j
+        elif self.operation == "single":
+            fm_rel = fm_j  # not equivariant if we use fm_i here
+
         out = torch.einsum("...j,...k->...jk", prefactor, fm_rel)
         return out.flatten(-2, -1)

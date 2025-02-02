@@ -9,7 +9,6 @@ from tensorframes.utils.lorentz import (
 from tensorframes.utils.orthogonalize import (
     lorentz_cross,
     orthogonalize_cross,
-    orthogonalize_cross_o3,
     regularize_lightlike,
     regularize_collinear,
     regularize_coplanar,
@@ -160,7 +159,7 @@ def test_orthogonalize_collinear_v2(
             vs,
             exception_eps=exception_eps,
             rejection_regularize=rejection_regularize,
-        )
+        )[0]
     vs = vs[:3]
 
     orthogonal_vecs = orthogonalize_cross(vs)
@@ -199,7 +198,7 @@ def test_orthogonalize_coplanar(
             vs,
             exception_eps=exception_eps,
             rejection_regularize=rejection_regularize,
-        )
+        )[0]
     vs = vs[:3]
 
     orthogonal_vecs = orthogonalize_cross(vs)
@@ -260,7 +259,7 @@ def test_orthogonalize_lightlike(
             vs,
             exception_eps=exception_eps,
             rejection_regularize=rejection_regularize,
-        )
+        )[0]
     vs = vs[:3]
 
     orthogonal_vecs = orthogonalize_cross(vs)
@@ -270,17 +269,3 @@ def test_orthogonalize_lightlike(
             inner = lorentz_inner(v1, v2)
             target = torch.ones_like(inner) if i1 == i2 else torch.zeros_like(inner)
             torch.testing.assert_close(inner.abs(), target, **TOLERANCES)
-
-
-@pytest.mark.parametrize("batch_dims", BATCH_DIMS)
-def test_orthogonalize_o3(batch_dims):
-    v1 = torch.randn(batch_dims + [3])
-    v2 = torch.randn(batch_dims + [3])
-
-    orthogonal_vecs = orthogonalize_cross_o3([v1, v2])
-
-    for i1, v1 in enumerate(orthogonal_vecs):
-        for i2, v2 in enumerate(orthogonal_vecs):
-            inner = (v1 * v2).sum(dim=-1)
-            target = torch.ones_like(inner) if i1 == i2 else torch.zeros_like(inner)
-            torch.testing.assert_close(inner, target, **TOLERANCES)

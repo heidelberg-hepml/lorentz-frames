@@ -1,6 +1,6 @@
 data:
  rescale_data: true
- beam_reference: null
+ beam_reference: timelike
  two_beams: true
  beam_token: true
  add_time_reference: true
