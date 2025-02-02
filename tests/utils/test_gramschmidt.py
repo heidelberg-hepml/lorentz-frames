@@ -5,7 +5,7 @@ from tests.constants import TOLERANCES
 from tensorframes.utils.lorentz import (
     lorentz_inner,
 )
-from tensorframes.utils.gram_schmidt import gramschmidt_orthogonalize
+from tensorframes.utils.orthogonalize import orthogonalize_gramschmidt
 
 
 @pytest.mark.parametrize("batch_dims", [[1000]])
@@ -23,7 +23,7 @@ def test_gram_schmidt(batch_dims, n_vectors):
     else:
         vecs = torch.stack([v1, v2, v3])
 
-    orthogonal_vecs = gramschmidt_orthogonalize(vecs)
+    orthogonal_vecs = orthogonalize_gramschmidt(vecs)
 
     for i1, v1 in enumerate(orthogonal_vecs):
         for i2, v2 in enumerate(orthogonal_vecs):
