@@ -109,6 +109,9 @@ class BaseExperiment:
             f"Instantiated model {type(self.model.net).__name__} with {num_parameters} learnable parameters"
         )
         LOGGER.info(f"LFrames approach: {type(self.model.lframesnet).__name__}")
+        LOGGER.info(
+            f"EquivariantVectors operation: {self.model.lframesnet.equivectors.operation}"
+        )
 
         if self.cfg.ema:
             LOGGER.info(f"Using EMA for validation and eval")
