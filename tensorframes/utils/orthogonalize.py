@@ -228,14 +228,19 @@ def order_vectors(
     return trafo
 
 
-def cross_trafo(vecs, regularize=True, rejection_regularize=False, eps=1e-10):
+def cross_trafo(
+    vecs, regularize=True, rejection_regularize=False, regularize_eps=1e-10, eps=1e-10
+):
     if regularize:
-        # vecs = regularize_collinear(vecs, rejection_regularize=rejection_regularize)
         vecs, n_light = regularize_coplanar(
-            vecs, rejection_regularize=rejection_regularize
+            vecs,
+            rejection_regularize=rejection_regularize,
+            exception_eps=regularize_eps,
         )
         vecs, n_space = regularize_lightlike(
-            vecs, rejection_regularize=rejection_regularize
+            vecs,
+            rejection_regularize=rejection_regularize,
+            exception_eps=regularize_eps,
         )
     else:
         n_light, n_space = 0, 0
@@ -252,14 +257,19 @@ def cross_trafo(vecs, regularize=True, rejection_regularize=False, eps=1e-10):
     return trafo, n_light, n_space
 
 
-def gramschmidt_trafo(vecs, regularize=True, rejection_regularize=False, eps=1e-10):
+def gramschmidt_trafo(
+    vecs, regularize=True, rejection_regularize=False, regularize_eps=1e-10, eps=1e-10
+):
     if regularize:
-        # vecs = regularize_collinear(vecs, rejection_regularize=rejection_regularize)
         vecs, n_light = regularize_coplanar(
-            vecs, rejection_regularize=rejection_regularize
+            vecs,
+            rejection_regularize=rejection_regularize,
+            exception_eps=regularize_eps,
         )
         vecs, n_space = regularize_lightlike(
-            vecs, rejection_regularize=rejection_regularize
+            vecs,
+            rejection_regularize=rejection_regularize,
+            exception_eps=regularize_eps,
         )
     else:
         n_light, n_space = 0, 0
