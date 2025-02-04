@@ -73,7 +73,8 @@ class CrossLearnedLFrames(LearnedLFrames):
         eps=1e-10,
         regularize=False,  # The current regularization breaks the feature invariance in the local frames. This has to be addressed
         rejection_regularize=False,
-        regularize_eps=1.0e-8**kwargs,
+        regularize_eps=1.0e-8,
+        **kwargs,
     ):
         self.n_vectors = 3
         self.rejection_regularize = rejection_regularize
