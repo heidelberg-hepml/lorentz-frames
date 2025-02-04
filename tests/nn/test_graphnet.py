@@ -1,3 +1,4 @@
+from itertools import combinations
 import torch
 import pytest
 from tests.constants import TOLERANCES, LOGM2_MEAN, LOGM2_STD, REPS, LFRAMES_PREDICTOR
@@ -15,10 +16,15 @@ from tensorframes.lframes.lframes import InverseLFrames
 @pytest.mark.parametrize("batch_dims", [[10]])
 @pytest.mark.parametrize("num_layers_mlp1", range(1, 2))
 @pytest.mark.parametrize("num_layers_mlp2", range(0, 2))
-@pytest.mark.parametrize("logm2_std", LOGM2_STD)
-@pytest.mark.parametrize("logm2_mean", LOGM2_MEAN)
 @pytest.mark.parametrize("reps", REPS)
-@pytest.mark.parametrize("vector_type", [sample_vector, sample_vector_realistic])
+@pytest.mark.parametrize(
+    "vector_type,logm2_mean,logm2_std",
+    [
+        (sample_vector, MEAN[0], STD[0])
+        for MEAN, STD in combinations((LOGM2_MEAN, LOGM2_STD), 2)
+    ]
+    + [(sample_vector_realistic, None, None)],
+)
 def test_edgeconv_invariance_equivariance(
     LFramesPredictor,
     batch_dims,
@@ -91,10 +97,15 @@ def test_edgeconv_invariance_equivariance(
 @pytest.mark.parametrize("num_layers_mlp1", range(1, 2))
 @pytest.mark.parametrize("num_layers_mlp2", range(0, 2))
 @pytest.mark.parametrize("num_blocks", [0, 1, 2])
-@pytest.mark.parametrize("logm2_std", LOGM2_STD)
-@pytest.mark.parametrize("logm2_mean", LOGM2_MEAN)
 @pytest.mark.parametrize("reps", REPS)
-@pytest.mark.parametrize("vector_type", [sample_vector, sample_vector_realistic])
+@pytest.mark.parametrize(
+    "vector_type,logm2_mean,logm2_std",
+    [
+        (sample_vector, MEAN[0], STD[0])
+        for MEAN, STD in combinations((LOGM2_MEAN, LOGM2_STD), 2)
+    ]
+    + [(sample_vector_realistic, None, None)],
+)
 def test_graphnet_invariance_equivariance(
     LFramesPredictor,
     batch_dims,

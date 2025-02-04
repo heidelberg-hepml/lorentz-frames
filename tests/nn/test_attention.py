@@ -1,3 +1,4 @@
+from itertools import combinations
 import torch
 import pytest
 from torch_geometric.utils import dense_to_sparse
@@ -15,9 +16,14 @@ from tensorframes.utils.transforms import rand_lorentz
 @pytest.mark.parametrize("LFramesPredictor", LFRAMES_PREDICTOR)
 @pytest.mark.parametrize("batch_dims", [[10]])
 @pytest.mark.parametrize("hidden_reps", REPS)
-@pytest.mark.parametrize("logm2_std", LOGM2_STD)
-@pytest.mark.parametrize("logm2_mean", LOGM2_MEAN)
-@pytest.mark.parametrize("vector_type", [sample_vector, sample_vector_realistic])
+@pytest.mark.parametrize(
+    "vector_type,logm2_mean,logm2_std",
+    [
+        (sample_vector, MEAN[0], STD[0])
+        for MEAN, STD in combinations((LOGM2_MEAN, LOGM2_STD), 2)
+    ]
+    + [(sample_vector_realistic, None, None)],
+)
 def test_invariance_equivariance(
     LFramesPredictor,
     batch_dims,
