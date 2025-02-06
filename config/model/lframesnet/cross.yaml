@@ -6,3 +6,6 @@ num_layers: 2
 regularize: true
 rejection_regularize: false
 regularize_eps: 1.e-8
+
+operation: single 
+nonlinearity: exp
