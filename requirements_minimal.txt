@@ -1,0 +1,15 @@
+# experiment management
+pytest
+black==22.3.0
+
+# deep learning
+torch>=2.0.0
+torch-geometric>=2.4.0
+torch-ema
+einops
+
+# standard science stack
+numpy
+
+# project-specific
+xformers
