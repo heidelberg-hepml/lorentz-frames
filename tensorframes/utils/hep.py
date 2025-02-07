@@ -34,7 +34,8 @@ def get_pt(p):
 
 
 def avoid_zero(x, eps=EPS):
-    return torch.where(x.abs() < eps, eps, x)  # * x.sign() does not work
+    # set small-abs values to eps for numerical stability
+    return torch.where(x.abs() < eps, eps, x)
 
 
 def get_phi(p):
