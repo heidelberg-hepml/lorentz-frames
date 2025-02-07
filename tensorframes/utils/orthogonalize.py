@@ -8,8 +8,6 @@ from tensorframes.utils.lorentz import (
     lorentz_cross,
 )
 
-from tensorframes.utils.hep import get_deltaR
-
 
 def orthogonalize_cross(vecs, eps=1e-10):
     n_vectors = len(vecs)
@@ -88,57 +86,6 @@ def regularize_lightlike(
     n_reg = mask.any(dim=-1).sum()
 
     return vecs, n_reg
-
-
-def regularize_collinear(
-    vecs: torch.tensor,
-    exception_eps: float = 1e-6,
-    rejection_regularize=False,
-):
-    """
-    Regularize the inputs to avoid collinear vectors
-    Args:
-        vecs (Tensor): torch tensor of shape (3, N, 4) with N the batch dimension
-        exception_eps (float): threshold applied to the criterion
-        sample_eps (float): rescaling applied to the sampled four vectors
-    Returns:
-        tensor: regularized four vectors
-    """
-    if rejection_regularize:
-        error = True
-        safety = 10
-        while error and (safety := safety - 1) > 0:
-            error = False
-            v_pairs = torch.cat((vecs[:3], vecs[0][None, ...]))
-            deltaRs = torch.stack([get_deltaR(v, vp) for v, vp in pairwise(v_pairs)])
-            mask = deltaRs < exception_eps
-            if mask.sum() != 0:
-                error = True
-            mask = torch.cat(
-                (
-                    mask,
-                    torch.full(
-                        (vecs.shape[0] - 3, *mask.shape[1:]), True, device=vecs.device
-                    ),
-                ),
-                dim=0,
-            )
-
-            indices = torch.argmax(mask.to(int), dim=0).tolist()
-            temp = vecs[indices, torch.arange(vecs.shape[-2])]
-            vecs[indices, torch.arange(vecs.shape[-2])] = vecs[3].clone()
-            vecs[3:] = torch.cat((vecs[4:], temp.unsqueeze(0)))
-        return vecs
-
-    assert vecs.shape[0] == 3
-
-    v_pairs = torch.cat((vecs, vecs[0][None, ...]))
-    deltaRs = torch.stack([get_deltaR(v, vp) for v, vp in pairwise(v_pairs)])
-    sample = torch.randn(vecs.shape, dtype=vecs.dtype, device=vecs.device)
-    mask = (deltaRs < exception_eps)[..., None].expand_as(sample)
-    vecs = vecs + sample * mask
-
-    return vecs
 
 
 def regularize_coplanar(

@@ -10,7 +10,6 @@ from tensorframes.utils.orthogonalize import (
     orthogonalize_cross,
     orthogonalize_gramschmidt,
     regularize_lightlike,
-    regularize_collinear,
     regularize_coplanar,
 )
 
@@ -60,67 +59,6 @@ def test_orthogonalize_timelike(batch_dims, method):
         atol=0,
         rtol=0,
     )
-
-
-"""
-Circumnvent the collinear numerical issues by resampling 
-the almost-collinear vector with a random one.
-This is not the ideal solution but it is should allow us 
-to train without assertion errors.
-The exception option should probably go inside the orthogonalization function. 
-The exception criterion is the deltaR between vectors.
-
-- exception_eps defines the threshold applied to the criterion
-- sampling_eps is a tunable parameter which modulates the deviation from the original vector.
-
-With the current settings the percentage of modified vectors is:
-- 100% for eps of 1.e-10
-- ~99% for eps of 1.e-5
-- <1% for eps of 1.e-2
-"""
-
-
-@pytest.mark.parametrize("exception", [True])
-@pytest.mark.parametrize("exception_eps", [1e-4])
-@pytest.mark.parametrize("batch_dims", [[1000]])
-@pytest.mark.parametrize("eps", [1e-10, 1e-5, 1e-2])
-@pytest.mark.parametrize("rejection_regularize", [True, False])
-@pytest.mark.parametrize("method", ["cross", "gramschmidt"])
-def test_orthogonalize_collinear(
-    batch_dims, eps, exception, exception_eps, rejection_regularize, method
-):
-    dtype = torch.float64
-
-    # test for collinear (and also coplanar) vectors
-    v1 = torch.randn(batch_dims + [4], dtype=dtype)
-    v2 = torch.randn(batch_dims + [4], dtype=dtype)
-    v3 = v1.clone() + eps * torch.randn(batch_dims + [4], dtype=dtype)
-    if rejection_regularize:
-        v4 = torch.randn(batch_dims + [4], dtype=dtype)
-        v5 = torch.randn(batch_dims + [4], dtype=dtype)
-        v6 = torch.randn(batch_dims + [4], dtype=dtype)
-        vs = torch.stack([v1, v2, v3, v4, v5, v6])
-    else:
-        vs = torch.stack([v1, v2, v3])
-
-    if exception:
-        vs = regularize_collinear(
-            vs,
-            exception_eps=exception_eps,
-            rejection_regularize=rejection_regularize,
-        )
-    vs = vs[:3]
-
-    if method == "cross":
-        orthogonal_vecs = orthogonalize_cross(vs)
-    elif method == "gramschmidt":
-        orthogonal_vecs = orthogonalize_gramschmidt(vs)
-
-    for i1, v1 in enumerate(orthogonal_vecs):
-        for i2, v2 in enumerate(orthogonal_vecs):
-            inner = lorentz_inner(v1, v2)
-            target = torch.ones_like(inner) if i1 == i2 else torch.zeros_like(inner)
-            torch.testing.assert_close(inner.abs(), target, **TOLERANCES)
 
 
 @pytest.mark.parametrize("exception", [True])
@@ -208,24 +146,6 @@ def test_orthogonalize_coplanar(
             inner = lorentz_inner(v1, v2)
             target = torch.ones_like(inner) if i1 == i2 else torch.zeros_like(inner)
             torch.testing.assert_close(inner.abs(), target, **TOLERANCES)
-
-
-"""
-Circumnvent the lightlike numerical issues by resampling 
-the almost-lightlike vector with a random one.
-This is not the ideal solution but it is should allow us 
-to train without assertion errors.
-The exception option should probably go inside the orthogonalization function. 
-The exception riterion is the norm of the vectors
-
-- exception_eps defines the threshold applied to the criterion
-- sampling_eps is a tunable parameter which modulates the deviation from the original vector.
-
-With the current settings the percentage of modified vectors is:
-- 100% for eps of 1.e-10
-- <1% for eps of 1.e-5
-- 0% for eps of 1.e-2
-"""
 
 
 @pytest.mark.parametrize("exception", [True])
