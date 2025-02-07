@@ -29,11 +29,26 @@ jobs:
       run: |
         pytest tests
 
-    - name: Run some experiments
+    - name: Run TFGraphNet + IdentityLFrames
       run: |
         python run.py save=false evaluate=false training.iterations=3
+
+    - name: Run TFGraphNet + OrthogonalLearnedLFrames
+      run: |
         python run.py model/lframesnet=orthogonal save=false evaluate=false training.iterations=3
+
+    - name: Run TFGraphNet + LearnedRestLFrames
+      run: |
         python run.py model/lframesnet=learnedrest save=false evaluate=false training.iterations=3
+
+    - name: Run TFGraphNet + RandomPhiLFrames
+      run: |
         python run.py model/lframesnet=randomphi save=false evaluate=false training.iterations=3
-        python run.py model=transformer save=false evaluate=false training.iterations=3
+
+    - name: Run TFTransformer + OrthogonalLearnedLFrames
+      run: |
+        python run.py model=transformer model/lframesnet=orthogonal save=false evaluate=false training.iterations=3
+
+    - name: Run ParticleNet + IdentityLFrames
+      run: |
         python run.py model=baseparticlenet-lite save=false evaluate=false training.iterations=3
