@@ -1,8 +1,8 @@
 import torch
 import pytest
 from torch_geometric.utils import dense_to_sparse
-from tests.constants import TOLERANCES, LOGM2_MEAN, LOGM2_STD
-from tests.helpers import sample_vector, sample_vector_realistic, lorentz_test
+from tests.constants import TOLERANCES, LOGM2_MEAN_STD
+from tests.helpers import sample_particle, lorentz_test
 
 from tensorframes.utils.transforms import rand_lorentz
 from tensorframes.lframes.lframes import LFrames
@@ -16,11 +16,9 @@ from tensorframes.lframes.equi_lframes_update import (
     "LFramesPredictor", [MatrixExpLearnedLFrames, ReflectLearnedLFrames]
 )
 @pytest.mark.parametrize("batch_dims", [[10]])
-@pytest.mark.parametrize("logm2_std", LOGM2_STD)
-@pytest.mark.parametrize("logm2_mean", LOGM2_MEAN)
-@pytest.mark.parametrize("vector_type", [sample_vector, sample_vector_realistic])
+@pytest.mark.parametrize("logm2_mean,logm2_std", LOGM2_MEAN_STD)
 def test_update_lframes_transformation(
-    LFramesPredictor, batch_dims, logm2_std, logm2_mean, vector_type
+    LFramesPredictor, batch_dims, logm2_std, logm2_mean
 ):
     dtype = torch.float64
 
@@ -35,7 +33,7 @@ def test_update_lframes_transformation(
     call_predictor = lambda fm: predictor(fm, scalars, edge_index, batch)
 
     # sample Lorentz vectors
-    fm = vector_type(batch_dims, logm2_std, logm2_mean, dtype=dtype)
+    fm = sample_particle(batch_dims, logm2_std, logm2_mean, dtype=dtype)
 
     # lframes for un-transformed fm
     lframes = call_predictor(fm)

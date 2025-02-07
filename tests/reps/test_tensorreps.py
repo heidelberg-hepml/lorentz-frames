@@ -18,7 +18,6 @@ def test_tensorreps():
 
     coeffs = torch.randn(10, tensor_reps_1.dim)
     tensor_reps_transform = TensorRepsTransform(tensor_reps_1)
-    lframes = LFrames(random_rot)
 
     random_rot = rand_lorentz([20])
     flip_mask = torch.randint(0, 2, (20,), dtype=torch.bool)

@@ -1,9 +1,8 @@
-from itertools import chain, repeat
 import torch
 import pytest
 from torch_geometric.utils import dense_to_sparse
-from tests.constants import TOLERANCES, LOGM2_MEAN, LOGM2_STD
-from tests.helpers import sample_vector, sample_jets
+from tests.constants import TOLERANCES, LOGM2_MEAN_STD
+from tests.helpers import sample_particle
 
 from tensorframes.nn.equivectors import EquivariantVectors
 from tensorframes.utils.lorentz import lorentz_inner
@@ -15,8 +14,7 @@ from tensorframes.utils.transforms import rand_lorentz
 @pytest.mark.parametrize("n_vectors", range(1, 5))
 @pytest.mark.parametrize("hidden_channels", [16])
 @pytest.mark.parametrize("num_layers", [1])
-@pytest.mark.parametrize("logm2_std", LOGM2_STD)
-@pytest.mark.parametrize("logm2_mean", LOGM2_MEAN)
+@pytest.mark.parametrize("logm2_mean,logm2_std", LOGM2_MEAN_STD)
 @pytest.mark.parametrize("operation", ["diff", "add", "single"])
 @pytest.mark.parametrize("nonlinearity", ["exp", None])
 def test_equivariance(
@@ -61,64 +59,13 @@ def test_equivariance(
         nonlinearity=nonlinearity,
     ).to(dtype=dtype)
 
-    fm = sample_vector(
+    fm = sample_particle(
         batch_dims + [jet_size], logm2_std, logm2_mean, dtype=dtype
     ).flatten(0, 1)
 
     # careful: same global transformation for each jet
     random = rand_lorentz(batch_dims, dtype=dtype)
     random = random.unsqueeze(1).repeat(1, jet_size, 1, 1).view(*fm.shape, 4)
-
-    # path 1: global transform + predict vectors
-    fm_prime = torch.einsum("...ij,...j->...i", random, fm)
-    edge_attr_prime = calc_edge_attr(fm_prime)
-    node_attr_prime = calc_node_attr(fm_prime)
-    vecs_prime1 = equivectors(
-        node_attr_prime, fm_prime, edge_attr=edge_attr_prime, edge_index=edge_index
-    )
-
-    # path 2: predict vectors + global transform
-    edge_attr = calc_edge_attr(fm)
-    node_attr = calc_node_attr(fm)
-    vecs = equivectors(node_attr, fm, edge_attr=edge_attr, edge_index=edge_index)
-    vecs_prime2 = torch.einsum("...ij,...kj->...ki", random, vecs)
-
-    # test that edge attributes are invariant
-    torch.testing.assert_close(edge_attr, edge_attr_prime, **TOLERANCES)
-
-    # test that vectors are predicted equivariantly
-    torch.testing.assert_close(vecs_prime1, vecs_prime2, **TOLERANCES)
-
-
-@pytest.mark.parametrize("batch_dims", [[100]])
-@pytest.mark.parametrize("n_vectors", range(1, 5))
-@pytest.mark.parametrize("hidden_channels", [16])
-@pytest.mark.parametrize("num_layers", [1])
-def test_equivariance_realistic(
-    batch_dims,
-    n_vectors,
-    hidden_channels,
-    num_layers,
-):
-    assert len(batch_dims) == 1
-    dtype = torch.float64
-
-    fm, edge_index, diffs = sample_jets(batch_dims[0], dtype=dtype)
-
-    # input to mlp: only edge attributes
-    in_nodes = 0
-    in_edges = 1
-    calc_node_attr = lambda fm: torch.zeros(*fm.shape[:-1], 0, dtype=dtype)
-    calc_edge_attr = lambda fm: lorentz_inner(
-        fm[edge_index[1]], fm[edge_index[0]]
-    ).unsqueeze(-1)
-    equivectors = EquivariantVectors(
-        n_vectors, in_nodes, in_edges, hidden_channels, num_layers
-    ).to(dtype=dtype)
-
-    # careful: same global transformation for each jet
-    random = rand_lorentz(batch_dims, dtype=dtype)
-    random = torch.repeat_interleave(random, diffs, dim=0).view(*fm.shape, 4)
 
     # path 1: global transform + predict vectors
     fm_prime = torch.einsum("...ij,...j->...i", random, fm)

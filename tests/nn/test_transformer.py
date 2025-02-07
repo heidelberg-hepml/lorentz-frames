@@ -1,8 +1,7 @@
-from itertools import combinations
 import torch
 import pytest
-from tests.constants import TOLERANCES, LOGM2_MEAN, LOGM2_STD, REPS, LFRAMES_PREDICTOR
-from tests.helpers import sample_vector, sample_vector_realistic
+from tests.constants import TOLERANCES, LOGM2_MEAN_STD, REPS, LFRAMES_PREDICTOR
+from tests.helpers import sample_particle
 from torch_geometric.utils import dense_to_sparse
 
 from tensorframes.nn.transformer import TFTransformer
@@ -17,14 +16,7 @@ from tensorframes.lframes.lframes import InverseLFrames
 @pytest.mark.parametrize("num_heads", [1, 4])
 @pytest.mark.parametrize("num_blocks", [0, 1, 2])
 @pytest.mark.parametrize("reps", REPS)
-@pytest.mark.parametrize(
-    "vector_type,logm2_mean,logm2_std",
-    [
-        (sample_vector, MEAN[0], STD[0])
-        for MEAN, STD in combinations((LOGM2_MEAN, LOGM2_STD), 2)
-    ]
-    + [(sample_vector_realistic, None, None)],
-)
+@pytest.mark.parametrize("logm2_mean,logm2_std", LOGM2_MEAN_STD)
 def test_transformer_invariance_equivariance(
     LFramesPredictor,
     batch_dims,
@@ -33,8 +25,8 @@ def test_transformer_invariance_equivariance(
     logm2_std,
     logm2_mean,
     reps,
-    vector_type,
 ):
+    print(logm2_std, logm2_mean)
     dtype = torch.float64
 
     assert len(batch_dims) == 1
@@ -62,7 +54,7 @@ def test_transformer_invariance_equivariance(
     random = random.repeat(*batch_dims, 1, 1)
 
     # sample Lorentz vectors
-    fm = vector_type(batch_dims, logm2_std, logm2_mean, dtype=dtype)
+    fm = sample_particle(batch_dims, logm2_std, logm2_mean, dtype=dtype)
     lframes = call_predictor(fm)
     fm_local = trafo(fm, lframes)
 

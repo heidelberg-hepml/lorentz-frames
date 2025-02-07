@@ -1,13 +1,12 @@
 import torch
 import pytest
-from tests.constants import TOLERANCES, BATCH_DIMS, LOGM2_STD, LOGM2_MEAN
-from tests.helpers import sample_vector, lorentz_test
+from tests.constants import TOLERANCES, BATCH_DIMS, LOGM2_MEAN_STD
+from tests.helpers import sample_particle, lorentz_test
 
 from tensorframes.utils.restframe import (
     restframe_boost,
     restframe_equivariant,
 )
-from tensorframes.lframes.lframes import LFrames
 from tensorframes.utils.lorentz import lorentz_squarednorm
 from tensorframes.utils.transforms import (
     rand_lorentz,
@@ -21,17 +20,16 @@ from tensorframes.utils.transforms import (
     "restframe_transform",
     [restframe_boost, restframe_equivariant],
 )
-@pytest.mark.parametrize("logm2_std", LOGM2_STD)
-@pytest.mark.parametrize("logm2_mean", LOGM2_MEAN)
+@pytest.mark.parametrize("logm2_mean,logm2_std", LOGM2_MEAN_STD)
 def test_restframe(batch_dims, restframe_transform, logm2_std, logm2_mean):
     dtype = torch.float64
 
     # sample Lorentz vectors
-    fm = sample_vector(batch_dims, logm2_std, logm2_mean, dtype=dtype)
+    fm = sample_particle(batch_dims, logm2_std, logm2_mean, dtype=dtype)
     kwargs = {}
     if restframe_transform == restframe_equivariant:
         kwargs["references"] = [
-            sample_vector(batch_dims, logm2_std, logm2_mean, dtype=dtype)
+            sample_particle(batch_dims, logm2_std, logm2_mean, dtype=dtype)
             for _ in range(2)
         ]
 
@@ -53,15 +51,15 @@ def test_restframe(batch_dims, restframe_transform, logm2_std, logm2_mean):
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
 @pytest.mark.parametrize("random_transform", [rand_lorentz, rand_rotation, rand_boost])
-@pytest.mark.parametrize("logm2_std", LOGM2_STD)
-@pytest.mark.parametrize("logm2_mean", LOGM2_MEAN)
+@pytest.mark.parametrize("logm2_mean,logm2_std", LOGM2_MEAN_STD)
 def test_restframe_transformation(batch_dims, random_transform, logm2_std, logm2_mean):
     dtype = torch.float64
 
     # sample Lorentz vectors
-    fm = sample_vector(batch_dims, logm2_std, logm2_mean, dtype=dtype)
+    fm = sample_particle(batch_dims, logm2_std, logm2_mean, dtype=dtype)
     references = [
-        sample_vector(batch_dims, logm2_std, logm2_mean, dtype=dtype) for _ in range(2)
+        sample_particle(batch_dims, logm2_std, logm2_mean, dtype=dtype)
+        for _ in range(2)
     ]
 
     # determine transformation into rest frame

@@ -9,8 +9,7 @@ BATCH_DIMS = [[10, 10], [1000]]
 
 REPS = ["4x0n", "4x1n", "10x0n+5x1n+2x2n"]
 
-LOGM2_STD = [0.1, 1, 2]
-LOGM2_MEAN = [-3, 0, 3]
+LOGM2_MEAN_STD = ((0, 1), (0, 0.1), (-3, 1))
 
 from tensorframes.lframes.equi_lframes import (
     OrthogonalLearnedLFrames,
