@@ -6,7 +6,7 @@ pytest
 black==22.3.0
 
 # deep learning
-torch>=2.0.0
+torch>=2.0.0  # should be installed manually before everything else
 torch-geometric>=2.4.0
 torch-ema
 einops
@@ -18,7 +18,7 @@ matplotlib
 
 # project-specific
 xformers
-# torch-cluster>=1.6.3 # have to install this in a second step after everything else, otherwise get error
+torch-cluster>=1.6.3 # have to install this in a second step after everything else, otherwise get error
 
 #weaver packages
 tqdm>=4.41.0

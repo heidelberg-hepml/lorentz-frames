@@ -1,4 +1,4 @@
-name: Local frames basic experiments
+name: Trial experiments
 
 on:
   push:
@@ -24,8 +24,8 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
+        pip install torch>=2.0.0
         pip install -r requirements.txt
-        pip install torch-cluster>=1.6.3
 
     # Step 4: Run tests
     - name: Run unit tests
@@ -35,4 +35,9 @@ jobs:
     # Step 5: Run some experiments
     - name: Run some experiments
       run: |
-        echo TEST
+        python run.py save=false evaluate=false training.iterations=10
+        python run.py model/lframesnet=orthogonal save=false evaluate=false training.iterations=10
+        python run.py model/lframesnet=learnedrest save=false evaluate=false training.iterations=10
+        python run.py model/lframesnet=randomphi save=false evaluate=false training.iterations=10
+        python run.py model=transformer save=false evaluate=false training.iterations=10
+        python run.py model=particlenet save=false evaluate=false training.iterations=10
