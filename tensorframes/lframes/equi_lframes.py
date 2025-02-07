@@ -34,10 +34,6 @@ class LearnedLFrames(LFramesPredictor):
         self.register_buffer("inv_mean", torch.zeros(1))
         self.register_buffer("inv_std", torch.ones(1))
 
-        # to keep track of regularized learned frames
-        self.cumsum_lightlike = 0.0
-        self.cumsum_coplanar = 0.0
-
     def forward(self, fourmomenta, scalars, edge_index):
         assert scalars.shape[-1] == self.in_nodes
 
@@ -77,17 +73,18 @@ class OrthogonalLearnedLFrames(LearnedLFrames):
         self.ortho_kwargs = ortho_kwargs
         super().__init__(*args, n_vectors=self.n_vectors, **kwargs)
 
-    def forward(self, fourmomenta, scalars, edge_index, batch):
+    def forward(self, fourmomenta, scalars, edge_index, batch, return_tracker=False):
         vecs = super().forward(fourmomenta, scalars, edge_index)
         vecs = vecs.to(dtype=torch.float64)
         vecs = [vecs[..., i, :] for i in range(self.n_vectors)]
 
-        trafo = orthogonal_trafo(vecs, **self.ortho_kwargs, return_frac=False)
+        trafo, frac_lightlike, frac_coplanar = orthogonal_trafo(
+            vecs, **self.ortho_kwargs, return_frac=True
+        )
 
-        self.cumsum_lightlike += 0
-        self.cumsum_coplanar += 0
-
-        return LFrames(trafo.to(dtype=fourmomenta.dtype))
+        tracker = {"frac_lightlike": frac_lightlike, "frac_coplanar": frac_coplanar}
+        lframes = LFrames(trafo.to(dtype=fourmomenta.dtype))
+        return (lframes, tracker) if return_tracker else lframes
 
 
 class RestLFrames(LearnedLFrames):
@@ -108,19 +105,21 @@ class RestLFrames(LearnedLFrames):
 
         self.ortho_kwargs = ortho_kwargs
 
-    def forward(self, fourmomenta, scalars, edge_index, batch):
+    def forward(self, fourmomenta, scalars, edge_index, batch, return_tracker=False):
         references = super().forward(fourmomenta, scalars, edge_index)
         references = references.to(dtype=torch.float64)
         references = [references[..., i, :] for i in range(self.n_vectors)]
         fourmomenta = fourmomenta.to(dtype=torch.float64)
 
-        trafo = restframe_equivariant(
+        trafo, frac_collinear = restframe_equivariant(
             fourmomenta,
             references,
             **self.ortho_kwargs,
+            return_frac=True,
         )
-
-        return LFrames(trafo.to(dtype=scalars.dtype))
+        tracker = {"frac_collinear": frac_collinear}
+        lframes = LFrames(trafo.to(dtype=fourmomenta.dtype))
+        return (lframes, tracker) if return_tracker else lframes
 
 
 class LearnedRestLFrames(LearnedLFrames):
@@ -143,16 +142,18 @@ class LearnedRestLFrames(LearnedLFrames):
 
         self.ortho_kwargs = ortho_kwargs
 
-    def forward(self, fourmomenta, scalars, edge_index, batch):
+    def forward(self, fourmomenta, scalars, edge_index, batch, return_tracker=False):
         vecs = super().forward(fourmomenta, scalars, edge_index)
         vecs = vecs.to(dtype=torch.float64)
         fourmomenta = vecs[..., 0, :]
         references = [vecs[..., i, :] for i in range(1, self.n_vectors)]
 
-        trafo = restframe_equivariant(
+        trafo, frac_collinear = restframe_equivariant(
             fourmomenta,
             references,
             **self.ortho_kwargs,
+            return_frac=True,
         )
-
-        return LFrames(trafo.to(dtype=scalars.dtype))
+        tracker = {"frac_collinear": frac_collinear}
+        lframes = LFrames(trafo.to(dtype=fourmomenta.dtype))
+        return (lframes, tracker) if return_tracker else lframes

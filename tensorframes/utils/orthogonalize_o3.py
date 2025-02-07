@@ -31,10 +31,7 @@ def orthogonalize_o3(
     else:
         raise ValueError(f"Orthogonalization method {method} not implemented")
 
-    if return_frac:
-        return trafo, frac_collinear
-    else:
-        return trafo
+    return (trafo, frac_collinear) if return_frac else trafo
 
 
 def orthogonalize_cross_o3(vecs, eps_norm=1e-10):

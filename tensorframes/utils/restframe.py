@@ -75,7 +75,11 @@ def restframe_equivariant(fourmomenta, references, **kwargs):
 
     # construct rotation
     ref3_rest = [r[..., 1:] for r in ref_rest]
-    orthogonal_vec3 = orthogonalize_o3(ref3_rest, **kwargs)
+    out = orthogonalize_o3(ref3_rest, **kwargs)
+    if kwargs["return_frac"]:
+        orthogonal_vec3, frac_collinear = out
+    else:
+        orthogonal_vec3 = out
     rotation = torch.zeros_like(boost)
     rotation[..., 0, 0] = 1
     rotation[..., 1:, 1:] = torch.stack(orthogonal_vec3, dim=-2)
@@ -83,4 +87,4 @@ def restframe_equivariant(fourmomenta, references, **kwargs):
     # combine rotation and boost
     trafo = torch.einsum("...ij,...jk->...ik", rotation, boost)
     assert torch.isfinite(trafo).all()
-    return trafo
+    return (trafo, frac_collinear) if kwargs["return_frac"] else trafo

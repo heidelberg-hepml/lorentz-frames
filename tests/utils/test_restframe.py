@@ -32,6 +32,7 @@ def test_restframe(batch_dims, restframe_transform, logm2_std, logm2_mean):
             sample_particle(batch_dims, logm2_std, logm2_mean, dtype=dtype)
             for _ in range(2)
         ]
+        kwargs["return_frac"] = False
 
     # determine transformation into rest frame
     rest_trafo = restframe_transform(fm, **kwargs)
@@ -63,7 +64,7 @@ def test_restframe_transformation(batch_dims, random_transform, logm2_std, logm2
     ]
 
     # determine transformation into rest frame
-    rest_trafo = restframe_equivariant(fm, references)
+    rest_trafo = restframe_equivariant(fm, references, return_frac=False)
     fm_rest = torch.einsum("...ij,...j->...i", rest_trafo, fm)
 
     # random global transformation
@@ -71,7 +72,9 @@ def test_restframe_transformation(batch_dims, random_transform, logm2_std, logm2
     random = random.repeat(*batch_dims, 1, 1)
     fm_prime = torch.einsum("...ij,...j->...i", random, fm)
     references_prime = [torch.einsum("...ij,...j->...i", random, r) for r in references]
-    rest_trafo_prime = restframe_equivariant(fm_prime, references_prime)
+    rest_trafo_prime = restframe_equivariant(
+        fm_prime, references_prime, return_frac=False
+    )
     fm_rest_prime = torch.einsum("...ij,...j->...i", rest_trafo_prime, fm_prime)
 
     # check that fourmomenta in rest frame is invariant

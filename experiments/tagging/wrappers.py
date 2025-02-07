@@ -72,9 +72,11 @@ class TaggerWrapper(nn.Module):
         # construct lframes
         fourmomenta = fourmomenta.reshape(fourmomenta.shape[0], -1)
         if self.lframesnet.is_global:
-            lframes = self.lframesnet(fourmomenta)
+            lframes, tracker = self.lframesnet(fourmomenta, return_tracker=True)
         else:
-            lframes = self.lframesnet(fourmomenta, scalars, edge_index, batch)
+            lframes, tracker = self.lframesnet(
+                fourmomenta, scalars, edge_index, batch, return_tracker=True
+            )
 
         # transform features into local frames
         fourmomenta_local = self.trafo_fourmomenta(fourmomenta, lframes)
@@ -84,7 +86,15 @@ class TaggerWrapper(nn.Module):
             4,
         )
 
-        return fourmomenta_local, scalars, lframes, edge_index, batch, is_global
+        return (
+            fourmomenta_local,
+            scalars,
+            lframes,
+            edge_index,
+            batch,
+            is_global,
+            tracker,
+        )
 
 
 class AggregatedTaggerWrapper(TaggerWrapper):
@@ -119,7 +129,9 @@ class BaselineTransformerWrapper(AggregatedTaggerWrapper):
         ), "Non-equivariant model can only handle global lframes"
 
     def forward(self, embedding):
-        fourmomenta_local, scalars, _, _, batch, is_global = super().forward(embedding)
+        fourmomenta_local, scalars, _, _, batch, is_global, tracker = super().forward(
+            embedding
+        )
         jetmomenta_local = EPPP_to_PtPhiEtaM2(fourmomenta_local)
 
         jetmomenta_local = jetmomenta_local.reshape(jetmomenta_local.shape[0], -1)
@@ -137,7 +149,7 @@ class BaselineTransformerWrapper(AggregatedTaggerWrapper):
 
         # aggregation
         score = self.extract_score(outputs, batch, is_global)
-        return score
+        return score, tracker
 
 
 class BaselineGraphNetWrapper(AggregatedTaggerWrapper):
@@ -154,9 +166,15 @@ class BaselineGraphNetWrapper(AggregatedTaggerWrapper):
         ), "Non-equivariant model can only handle global lframes"
 
     def forward(self, embedding):
-        fourmomenta_local, scalars, _, edge_index, batch, is_global = super().forward(
-            embedding
-        )
+        (
+            fourmomenta_local,
+            scalars,
+            _,
+            edge_index,
+            batch,
+            is_global,
+            tracker,
+        ) = super().forward(embedding)
         jetmomenta_local = EPPP_to_PtPhiEtaM2(fourmomenta_local)
 
         jetmomenta_local = jetmomenta_local.reshape(jetmomenta_local.shape[0], -1)
@@ -167,7 +185,7 @@ class BaselineGraphNetWrapper(AggregatedTaggerWrapper):
 
         # aggregation
         score = self.extract_score(outputs, batch, is_global)
-        return score
+        return score, tracker
 
 
 class BaselineParticleNetWrapper(TaggerWrapper):
@@ -186,7 +204,7 @@ class BaselineParticleNetWrapper(TaggerWrapper):
         self.net = net(features_dims=self.in_reps.dim)
 
     def forward(self, embedding):
-        fourmomenta_local, scalars, _, _, batch, is_global = super().forward(embedding)
+        fourmomenta_local, scalars, _, _, batch, _, tracker = super().forward(embedding)
         jetmomenta_local = EPPP_to_PtPhiEtaM2(fourmomenta_local)
 
         fourmomenta_local = fourmomenta_local.reshape(fourmomenta_local.shape[0], -1)
@@ -205,7 +223,7 @@ class BaselineParticleNetWrapper(TaggerWrapper):
             features=features_local,
             mask=mask,
         )
-        return score
+        return score, tracker
 
 
 class BaselineParTWrapper(TaggerWrapper):
@@ -224,7 +242,7 @@ class BaselineParTWrapper(TaggerWrapper):
         self.net = net(input_dim=self.in_reps.dim)
 
     def forward(self, embedding):
-        fourmomenta_local, scalars, _, _, batch, _ = super().forward(embedding)
+        fourmomenta_local, scalars, _, _, batch, _, tracker = super().forward(embedding)
         jetmomenta_local = EPPP_to_PtPhiEtaM2(fourmomenta_local)
 
         jetmomenta_local = jetmomenta_local.reshape(jetmomenta_local.shape[0], -1)
@@ -239,7 +257,7 @@ class BaselineParTWrapper(TaggerWrapper):
             x=features_local,
             mask=mask,
         )
-        return score
+        return score, tracker
 
 
 class GraphNetWrapper(AggregatedTaggerWrapper):
@@ -260,6 +278,7 @@ class GraphNetWrapper(AggregatedTaggerWrapper):
             edge_index,
             batch,
             is_global,
+            tracker,
         ) = super().forward(embedding)
         jetmomenta_local = EPPP_to_PtPhiEtaM2(fourmomenta_local)
 
@@ -271,7 +290,7 @@ class GraphNetWrapper(AggregatedTaggerWrapper):
 
         # aggregation
         score = self.extract_score(outputs, batch, is_global)
-        return score
+        return score, tracker
 
 
 class TransformerWrapper(AggregatedTaggerWrapper):
@@ -289,9 +308,10 @@ class TransformerWrapper(AggregatedTaggerWrapper):
             fourmomenta_local,
             scalars,
             lframes,
-            edge_index,
+            _,
             batch,
             is_global,
+            tracker,
         ) = super().forward(embedding)
         jetmomenta_local = EPPP_to_PtPhiEtaM2(fourmomenta_local)
 
@@ -307,4 +327,4 @@ class TransformerWrapper(AggregatedTaggerWrapper):
 
         # aggregation
         score = self.extract_score(outputs, batch, is_global)
-        return score
+        return score, tracker

@@ -18,14 +18,16 @@ class IdentityLFrames(LFramesPredictor):
     def __init__(self):
         super().__init__(is_global=True)
 
-    def forward(self, fourmomenta):
-        return LFrames(
+    def forward(self, fourmomenta, return_tracker=False):
+        lframes = LFrames(
             is_global=True,
             is_identity=True,
             device=fourmomenta.device,
             dtype=fourmomenta.dtype,
             shape=fourmomenta.shape[:-1],
         )
+
+        return (lframes, {}) if return_tracker else lframes
 
 
 class RandomLFrames(LFramesPredictor):
@@ -36,17 +38,18 @@ class RandomLFrames(LFramesPredictor):
         super().__init__(is_global=True)
         self.std_eta = std_eta
 
-    def forward(self, fourmomenta):
+    def forward(self, fourmomenta, return_tracker=False):
         # general random transformation
         matrix = rand_lorentz([1], std_eta=self.std_eta, device=fourmomenta.device)
         matrix = matrix.repeat(fourmomenta.shape[0], 1, 1)
 
-        return LFrames(
+        lframes = LFrames(
             is_global=True,
             matrices=matrix,
             device=fourmomenta.device,
             dtype=fourmomenta.dtype,
         )
+        return (lframes, {}) if return_tracker else lframes
 
 
 class RandomPhiLFrames(LFramesPredictor):
@@ -56,14 +59,15 @@ class RandomPhiLFrames(LFramesPredictor):
     def __init__(self):
         super().__init__(is_global=True)
 
-    def forward(self, fourmomenta):
+    def forward(self, fourmomenta, return_tracker=False):
         # random rotation around z axis
         matrix = rand_phirotation([1], device=fourmomenta.device)
         matrix = matrix.repeat(fourmomenta.shape[0], 1, 1)
 
-        return LFrames(
+        lframes = LFrames(
             is_global=True,
             matrices=matrix,
             device=fourmomenta.device,
             dtype=fourmomenta.dtype,
         )
+        return (lframes, {}) if return_tracker else lframes

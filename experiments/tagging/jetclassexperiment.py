@@ -169,7 +169,6 @@ class JetClassTaggingExperiment(TaggingExperiment):
                 labels_true,
                 labels_predict,
             )
-        print(labels_true.shape, labels_predict.shape)
 
         # ce loss
         metrics["loss"] = torch.nn.functional.cross_entropy(
@@ -255,5 +254,5 @@ class JetClassTaggingExperiment(TaggingExperiment):
         label = batch[1]["_label_"].to(self.device)
         fourmomenta, scalars, ptr = dense_to_sparse_jet(fourmomenta, scalars)
         embedding = embed_tagging_data(fourmomenta, scalars, ptr, self.cfg.data)
-        y_pred = self.model(embedding)
-        return y_pred, label
+        y_pred, tracker = self.model(embedding)
+        return y_pred, label, tracker

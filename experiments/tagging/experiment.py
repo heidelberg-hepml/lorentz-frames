@@ -244,21 +244,22 @@ class TaggingExperiment(BaseExperiment):
         return metrics["loss"]
 
     def _batch_loss(self, batch):
-        y_pred, label = self._get_ypred_and_label(batch)
+        y_pred, label, tracker = self._get_ypred_and_label(batch)
         loss = self.loss(y_pred, label)
         assert torch.isfinite(loss).all()
 
-        metrics = {}
+        metrics = tracker
         return loss, metrics
 
     def _get_ypred_and_label(self, batch):
         batch = batch.to(self.device)
         embedding = embed_tagging_data(batch.x, batch.scalars, batch.ptr, self.cfg.data)
-        y_pred = self.model(embedding)[:, 0]
-        return y_pred, batch.label.to(self.dtype)
+        y_pred, tracker = self.model(embedding)
+        y_pred = y_pred[:, 0]
+        return y_pred, batch.label.to(self.dtype), tracker
 
     def _init_metrics(self):
-        return {}
+        return {"frac_collinear": [], "frac_coplanar": [], "frac_lightlike": []}
 
 
 class TopTaggingExperiment(TaggingExperiment):

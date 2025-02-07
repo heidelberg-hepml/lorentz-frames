@@ -10,13 +10,17 @@ from tensorframes.utils.lorentz import (
 
 def orthogonal_trafo(*args, **kwargs):
     """Put everything together to construct a valid Lorentz transformation"""
-    orthogonal_vecs = orthogonalize(*args, **kwargs)
+    out = orthogonalize(*args, **kwargs)
+    if kwargs["return_frac"]:
+        orthogonal_vecs, *frac = out
+    else:
+        orthogonal_vecs = out
     trafo = torch.stack(orthogonal_vecs, dim=-2)
 
     metric = lorentz_metric(trafo.shape[:-2], device=trafo.device, dtype=trafo.dtype)
     trafo = trafo @ metric
     trafo = timelike_first(trafo)
-    return trafo
+    return (trafo, *frac) if kwargs["return_frac"] else trafo
 
 
 def orthogonalize(
@@ -60,10 +64,7 @@ def orthogonalize(
     else:
         raise ValueError(f"Orthogonalization method {method} not implemented")
 
-    if return_frac:
-        return trafo, frac_lightlike, frac_coplanar
-    else:
-        return trafo
+    return (trafo, frac_lightlike, frac_coplanar) if return_frac else trafo
 
 
 def orthogonalize_cross(vecs, eps_norm=1e-10):
