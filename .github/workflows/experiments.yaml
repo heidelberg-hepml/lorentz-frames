@@ -36,4 +36,4 @@ jobs:
         python run.py model/lframesnet=learnedrest save=false evaluate=false training.iterations=3
         python run.py model/lframesnet=randomphi save=false evaluate=false training.iterations=3
         python run.py model=transformer save=false evaluate=false training.iterations=3
-        python run.py model=baseparticlenet save=false evaluate=false training.iterations=3
+        python run.py model=baseparticlenet-lite save=false evaluate=false training.iterations=3
