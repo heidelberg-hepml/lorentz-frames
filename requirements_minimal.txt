@@ -13,4 +13,3 @@ numpy
 
 # project-specific
 xformers
-# torch-cluster>=1.6.3 # have to install this in a second step after everything else, otherwise get error
