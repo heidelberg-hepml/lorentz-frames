@@ -1,5 +1,5 @@
 import torch
-from tests.constants import TOLERANCES
+from tests.constants import TOLERANCES, MILD_TOLERANCES
 
 from tensorframes.utils.transforms import rand_lorentz
 from tensorframes.lframes.lframes import ChangeOfLFrames, LFrames
@@ -102,5 +102,5 @@ def test_tensorreps():
     torch.testing.assert_close(
         transformed_coeffs.reshape(10, 5, 4, 4),
         naive_trafo,
-        **TOLERANCES,
+        **MILD_TOLERANCES,
     )

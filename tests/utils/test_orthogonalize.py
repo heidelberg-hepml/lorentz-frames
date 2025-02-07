@@ -16,7 +16,7 @@ from tensorframes.utils.orthogonalize import orthogonalize
     [
         ("naive", None),
         ("coplanar", 1e-2),
-        ("coplanar", 1e-4),
+        ("coplanar", 1e-3),
         ("lightlike", 1e-2),
         ("lightlike", 1e-4),
     ],

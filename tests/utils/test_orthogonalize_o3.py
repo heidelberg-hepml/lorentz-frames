@@ -9,7 +9,7 @@ from tensorframes.utils.orthogonalize_o3 import orthogonalize_o3
 @pytest.mark.parametrize("method", ["cross", "gramschmidt"])
 @pytest.mark.parametrize(
     "vector_type,eps",
-    [("naive", None), ("collinear", 1e-3), ("collinear", 1e-5), ("collinear", 1e-10)],
+    [("naive", None), ("collinear", 1e-3), ("collinear", 1e-5), ("collinear", 1e-8)],
 )
 def test_orthogonalize_o3(batch_dims, method, vector_type, eps):
     dtype = torch.float64

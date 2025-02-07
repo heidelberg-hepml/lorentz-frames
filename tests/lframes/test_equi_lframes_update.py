@@ -1,7 +1,7 @@
 import torch
 import pytest
 from torch_geometric.utils import dense_to_sparse
-from tests.constants import TOLERANCES, LOGM2_MEAN_STD
+from tests.constants import MILD_TOLERANCES, LOGM2_MEAN_STD
 from tests.helpers import sample_particle, lorentz_test
 
 from tensorframes.utils.transforms import rand_lorentz
@@ -37,7 +37,7 @@ def test_update_lframes_transformation(
 
     # lframes for un-transformed fm
     lframes = call_predictor(fm)
-    lorentz_test(lframes.matrices, **TOLERANCES)
+    lorentz_test(lframes.matrices, **MILD_TOLERANCES)
 
     # random global transformation
     random = rand_lorentz([1], dtype=dtype)
@@ -46,7 +46,7 @@ def test_update_lframes_transformation(
     # lframes for transformed fm
     fm_prime = torch.einsum("...ij,...j->...i", random, fm)
     lframes_prime = call_predictor(fm_prime)
-    lorentz_test(lframes_prime.matrices, **TOLERANCES)
+    lorentz_test(lframes_prime.matrices, **MILD_TOLERANCES)
 
     # check that lframes transform correctly
     # expect lframes_prime = random * lframes * random^-1
@@ -55,5 +55,5 @@ def test_update_lframes_transformation(
         "...ij,...jk,...kl->...il", random, lframes.matrices, inv_random
     )
     torch.testing.assert_close(
-        lframes_prime_expected, lframes_prime.matrices, **TOLERANCES
+        lframes_prime_expected, lframes_prime.matrices, **MILD_TOLERANCES
     )

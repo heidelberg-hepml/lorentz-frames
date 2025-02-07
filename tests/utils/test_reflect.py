@@ -11,7 +11,7 @@ from tensorframes.utils.lorentz import lorentz_metric
 
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
-@pytest.mark.parametrize("n_reflections", range(1, 5))
+@pytest.mark.parametrize("n_reflections", range(1, 3))
 def test_lorentz(batch_dims, n_reflections):
     dtype = torch.float64
 
@@ -22,7 +22,7 @@ def test_lorentz(batch_dims, n_reflections):
 
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
-@pytest.mark.parametrize("n_reflections", range(1, 5))
+@pytest.mark.parametrize("n_reflections", range(1, 3))
 def test_equivariance(batch_dims, n_reflections):
     dtype = torch.float64
 

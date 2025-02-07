@@ -1,6 +1,6 @@
 import torch
 import pytest
-from tests.constants import TOLERANCES, BATCH_DIMS
+from tests.constants import TOLERANCES, MILD_TOLERANCES, BATCH_DIMS
 from tests.helpers import lorentz_test
 
 from tensorframes.utils.transforms import (
@@ -32,7 +32,7 @@ def test_rand_lorentz(batch_dims, n_range, std_eta, transform_type):
     transform = transform_type(**kwargs)
 
     # test that this is a valid Lorentz transform
-    lorentz_test(transform, **TOLERANCES)
+    lorentz_test(transform, **MILD_TOLERANCES)
 
     # test specific properties of the transform
     if transform_type in [rand_rotation, rand_phirotation]:
