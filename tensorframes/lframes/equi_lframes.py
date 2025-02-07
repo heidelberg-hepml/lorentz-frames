@@ -83,7 +83,7 @@ class OrthogonalLearnedLFrames(LearnedLFrames):
         )
 
         tracker = {"frac_lightlike": frac_lightlike, "frac_coplanar": frac_coplanar}
-        lframes = LFrames(trafo.to(dtype=fourmomenta.dtype))
+        lframes = LFrames(trafo.to(dtype=scalars.dtype))
         return (lframes, tracker) if return_tracker else lframes
 
 
@@ -118,7 +118,7 @@ class RestLFrames(LearnedLFrames):
             return_frac=True,
         )
         tracker = {"frac_collinear": frac_collinear}
-        lframes = LFrames(trafo.to(dtype=fourmomenta.dtype))
+        lframes = LFrames(trafo.to(dtype=scalars.dtype))
         return (lframes, tracker) if return_tracker else lframes
 
 
@@ -155,5 +155,5 @@ class LearnedRestLFrames(LearnedLFrames):
             return_frac=True,
         )
         tracker = {"frac_collinear": frac_collinear}
-        lframes = LFrames(trafo.to(dtype=fourmomenta.dtype))
+        lframes = LFrames(trafo.to(dtype=scalars.dtype))
         return (lframes, tracker) if return_tracker else lframes
