@@ -1,8 +1,0 @@
-_target_: tensorframes.lframes.equi_lframes.GramSchmidtLearnedLFrames
-_partial_: true
-in_nodes: null
-hidden_channels: 32
-num_layers: 2
-regularize: true
-rejection_regularize: false
-regularize_eps: 1.e-8

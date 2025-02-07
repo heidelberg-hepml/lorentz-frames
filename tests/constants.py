@@ -13,15 +13,13 @@ LOGM2_STD = [0.1, 1, 2]
 LOGM2_MEAN = [-3, 0, 3]
 
 from tensorframes.lframes.equi_lframes import (
-    CrossLearnedLFrames,
-    GramSchmidtLearnedLFrames,
+    OrthogonalLearnedLFrames,
     RestLFrames,
     LearnedRestLFrames,
 )
 
 LFRAMES_PREDICTOR = [
-    CrossLearnedLFrames,
-    GramSchmidtLearnedLFrames,
+    OrthogonalLearnedLFrames,
     RestLFrames,
     LearnedRestLFrames,
 ]

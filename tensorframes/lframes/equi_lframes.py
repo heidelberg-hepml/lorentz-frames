@@ -5,7 +5,7 @@ from tensorframes.lframes.nonequi_lframes import LFramesPredictor
 from tensorframes.utils.restframe import restframe_equivariant
 from tensorframes.nn.equivectors import EquivariantVectors
 from tensorframes.utils.lorentz import lorentz_squarednorm
-from tensorframes.utils.orthogonalize import cross_trafo, gramschmidt_trafo
+from tensorframes.utils.orthogonalize import orthogonal_trafo
 
 
 class LearnedLFrames(LFramesPredictor):
@@ -61,98 +61,31 @@ class LearnedLFrames(LFramesPredictor):
         return vecs
 
 
-class CrossLearnedLFrames(LearnedLFrames):
+class OrthogonalLearnedLFrames(LearnedLFrames):
     """
-    Local frames constructed using repeated cross products
-    of on equivariantly predicted vectors
-    """
-
-    def __init__(
-        self,
-        *args,
-        eps=1e-10,
-        regularize=False,  # The current regularization breaks the feature invariance in the local frames. This has to be addressed
-        rejection_regularize=False,
-        regularize_eps=1.0e-8,
-        **kwargs,
-    ):
-        self.n_vectors = 3
-        self.rejection_regularize = rejection_regularize
-        if rejection_regularize:
-            assert (
-                regularize
-            ), "For rejection regularize to work, regularize needs to be enabled"
-            self.n_vectors += 6  # hyperparameter
-        super().__init__(*args, n_vectors=self.n_vectors, **kwargs)
-
-        self.eps = eps
-        self.regularize_eps = regularize_eps
-        self.regularize = regularize
-
-    def forward(self, fourmomenta, scalars, edge_index, batch):
-        vecs = super().forward(fourmomenta, scalars, edge_index)
-        vecs = vecs.to(dtype=torch.float64)
-        vecs = [vecs[..., i, :] for i in range(self.n_vectors)]
-        vecs = torch.stack(vecs)
-
-        trafo, n_light, n_space = cross_trafo(
-            vecs,
-            eps=self.eps,
-            regularize=self.regularize,
-            rejection_regularize=self.rejection_regularize,
-            regularize_eps=self.regularize_eps,
-        )
-
-        self.cumsum_lightlike += n_light
-        self.cumsum_coplanar += n_space
-
-        return LFrames(trafo.to(dtype=fourmomenta.dtype))
-
-
-class GramSchmidtLearnedLFrames(LearnedLFrames):
-    """
-    Local frames constructed applying Gram-Schmidt to
-    equivariantly predicted vectors
+    Local frames from an orthonormal set of vectors
+    constructed from equivariantly predicted vectors
     """
 
     def __init__(
         self,
         *args,
-        eps=1e-10,
-        regularize=False,  # The current regularization breaks the feature invariance in the local frames. This has to be addressed
-        rejection_regularize=False,
-        regularize_eps=1.0e-8,
+        ortho_kwargs={},
         **kwargs,
     ):
         self.n_vectors = 3
-        self.rejection_regularize = rejection_regularize
-        if rejection_regularize:
-            assert (
-                regularize
-            ), "For rejection regularize to work, regularize needs to be enabled"
-            self.n_vectors += 6  # hyperparameter
+        self.ortho_kwargs = ortho_kwargs
         super().__init__(*args, n_vectors=self.n_vectors, **kwargs)
-
-        self.eps = eps
-        self.regularize_eps = regularize_eps
-        self.regularize = regularize
 
     def forward(self, fourmomenta, scalars, edge_index, batch):
         vecs = super().forward(fourmomenta, scalars, edge_index)
         vecs = vecs.to(dtype=torch.float64)
         vecs = [vecs[..., i, :] for i in range(self.n_vectors)]
-        vecs = torch.stack(vecs)
 
-        trafo, n_light, n_space = gramschmidt_trafo(
-            vecs,
-            eps=self.eps,
-            regularize=self.regularize,
-            rejection_regularize=self.rejection_regularize,
-            regularize_eps=self.regularize_eps,
-        )
+        trafo = orthogonal_trafo(vecs, **self.ortho_kwargs, return_frac=False)
 
-        self.cumsum_lightlike += n_light
-        self.cumsum_coplanar += n_space
+        self.cumsum_lightlike += 0
+        self.cumsum_coplanar += 0
 
         return LFrames(trafo.to(dtype=fourmomenta.dtype))
 
