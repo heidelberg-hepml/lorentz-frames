@@ -37,7 +37,6 @@ class JetClassTaggingExperiment(TaggingExperiment):
             "ZToQQ",
         ]
         with open_dict(self.cfg):
-            self.cfg.data.num_global_tokens = 1
             self.cfg.model.net.num_classes = len(self.class_names)
             self.cfg.model.in_reps = "1x1n"  # energy-momentum vector
 

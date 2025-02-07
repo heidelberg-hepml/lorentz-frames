@@ -20,14 +20,6 @@ class TaggingExperiment(BaseExperiment):
     """
 
     def init_physics(self):
-        # dynamically extend dict
-        with open_dict(self.cfg):
-            self.cfg.data.include_global_token = not self.cfg.model.mean_aggregation
-
-        assert (
-            not self.cfg.data.include_global_token
-        ), "Global token not properly supported"
-
         with open_dict(self.cfg):
             if self.cfg.data.add_scalar_features:
                 self.cfg.model.in_reps += "+7x0n"  # other scalar features
@@ -178,18 +170,13 @@ class TaggingExperiment(BaseExperiment):
                 log_mlflow(f"{name}.{key}", value, step=step)
 
         if mode == "eval":
-            aggregator = (
-                "mean aggregation"
-                if self.cfg.model.mean_aggregation == True
-                else "global token"
-            )
             lframeString = type(self.model.lframesnet).__name__
             num_parameters = sum(
                 p.numel() for p in self.model.parameters() if p.requires_grad
             )
 
             LOGGER.info(
-                f"table {title}: {lframeString} with {aggregator} ({self.cfg.training.iterations} epochs)"
+                f"table {title}: {lframeString} ({self.cfg.training.iterations} epochs)"
                 f" & {num_parameters} & {metrics['accuracy']:.4f}&{metrics['auc']:.4f}"
                 f" & {metrics['rej03']:.0f}&{metrics['rej05']:.0f}&{metrics['rej08']:.0f} \\\\"
             )
@@ -266,7 +253,6 @@ class TopTaggingExperiment(TaggingExperiment):
     def __init__(self, cfg):
         super().__init__(cfg)
         with open_dict(self.cfg):
-            self.cfg.data.num_global_tokens = 1
             self.cfg.model.net.num_classes = 1
             self.cfg.model.in_reps = "1x1n"  # energy-momentum vector
 
