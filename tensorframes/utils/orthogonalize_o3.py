@@ -1,9 +1,11 @@
 import torch
 
 
-def orthogonalize_o3(vecs, method="cross", eps_norm=1e-10, eps_reg=1e-4):
+def orthogonalize_o3(
+    vecs, method="gramschmidt", eps_norm=1e-10, eps_reg=1e-4, return_frac=False
+):
     """
-    Orthogonalization tools for O(3) vectors
+    Wrapper for orthogonalization of O(3) vectors
 
     Args:
         vecs: List of torch.tensor of shape (*dims, 3)
@@ -14,41 +16,47 @@ def orthogonalize_o3(vecs, method="cross", eps_norm=1e-10, eps_reg=1e-4):
             Numerical regularization for the normalization of the vectors.
         eps_reg: float
             Controls when collinear vectors are regularized.
-    """
-    # regularization -> catch collinear vectors
-    diff_norm = torch.linalg.norm(vecs[0] - vecs[1], dim=-1)
-    mask = diff_norm < eps_reg
-    vecs[1][mask] += eps_reg * torch.randn_like(vecs[1][mask])
+        return_frac: bool
 
-    # orthonormalization
+    Returns:
+        orthogonal_vecs: List of torch.tensor of shape (*dims, 3)
+            Orthogonalized vectors
+    """
+    vecs, frac_collinear = regularize_collinear(vecs, eps_reg)
+
     if method == "cross":
-        return orthogonalize_cross_o3(vecs, eps_norm)
+        trafo = orthogonalize_cross_o3(vecs, eps_norm)
     elif method == "gramschmidt":
-        return orthogonalize_gramschmidt_o3(vecs, eps_norm)
+        trafo = orthogonalize_gramschmidt_o3(vecs, eps_norm)
     else:
         raise ValueError(f"Orthogonalization method {method} not implemented")
 
+    if return_frac:
+        return trafo, frac_collinear
+    else:
+        return trafo
 
-def orthogonalize_cross_o3(vecs, eps=1e-10):
+
+def orthogonalize_cross_o3(vecs, eps_norm=1e-10):
     n_vectors = len(vecs)
     assert n_vectors == 2
 
-    vecs = [normalize_o3(v, eps) for v in vecs]
+    vecs = [normalize_o3(v, eps_norm) for v in vecs]
 
     orthogonal_vecs = [vecs[0]]
     for i in range(1, n_vectors + 1):
         v_next = torch.cross(*orthogonal_vecs, *vecs[i:], dim=-1)
         assert torch.isfinite(v_next).all()
-        orthogonal_vecs.append(normalize_o3(v_next, eps))
+        orthogonal_vecs.append(normalize_o3(v_next, eps_norm))
 
     return orthogonal_vecs
 
 
-def orthogonalize_gramschmidt_o3(vecs, eps=1e-10):
+def orthogonalize_gramschmidt_o3(vecs, eps_norm=1e-10):
     n_vectors = len(vecs)
     assert n_vectors == 2
 
-    vecs = [normalize_o3(v, eps) for v in vecs]
+    vecs = [normalize_o3(v, eps_norm) for v in vecs]
 
     v_nexts = [v for v in vecs]
     orthogonal_vecs = [vecs[0]]
@@ -60,15 +68,30 @@ def orthogonalize_gramschmidt_o3(vecs, eps=1e-10):
                 v_nexts[k] * orthogonal_vecs[i - 1], dim=-1, keepdim=True
             )
             v_nexts[k] = v_nexts[k] - orthogonal_vecs[i - 1] * v_inner
-        orthogonal_vecs.append(normalize_o3(v_nexts[i], eps))
+        orthogonal_vecs.append(normalize_o3(v_nexts[i], eps_norm))
 
     # last vector from cross product
     last_vec = torch.cross(*orthogonal_vecs, dim=-1)
-    orthogonal_vecs.append(normalize_o3(last_vec, eps))
+    orthogonal_vecs.append(normalize_o3(last_vec, eps_norm))
 
     return orthogonal_vecs
 
 
-def normalize_o3(v, eps=1e-10):
+def regularize_collinear(vecs, eps_reg=1e-4):
+    """
+    Regularize collinear vectors:
+    If two vectors are very similar (i.e. their difference is very small),
+    then we add a small amount of noise to the second vector.
+    """
+    assert len(vecs) == 2
+    diff_norm = torch.linalg.norm(vecs[0] - vecs[1], dim=-1)
+    mask = diff_norm < eps_reg
+    vecs[1][mask] += eps_reg * torch.randn_like(vecs[1][mask])
+
+    frac_collinear = mask.float().mean().item()
+    return vecs, frac_collinear
+
+
+def normalize_o3(v, eps_norm=1e-10):
     norm = torch.linalg.norm(v, dim=-1, keepdim=True)
-    return v / (norm + eps)
+    return v / (norm + eps_norm)

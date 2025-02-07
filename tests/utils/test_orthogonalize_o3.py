@@ -14,11 +14,10 @@ from tensorframes.utils.orthogonalize_o3 import orthogonalize_o3
 def test_orthogonalize_o3(batch_dims, method, vector_type, eps):
     dtype = torch.float64
 
+    v1 = torch.randn(batch_dims + [3], dtype=dtype)
     if vector_type == "naive":
-        v1 = torch.randn(batch_dims + [3], dtype=dtype)
         v2 = torch.randn_like(v1)
     elif vector_type == "collinear":
-        v1 = torch.randn(batch_dims + [3], dtype=dtype)
         v2 = v1 + eps * torch.randn_like(v1)
     else:
         raise ValueError(f"vector_type {vector_type} not implemented")
