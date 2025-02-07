@@ -22,7 +22,6 @@ def test_lorentz(batch_dims):
     lorentz_test(trafo, **MILD_TOLERANCES)
 
 
-"""
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
 @pytest.mark.skip(
     reason="Test fails because trafo makes v1_prime, v2_prime very large objects such that matrix_exp becomes unstable"
@@ -51,4 +50,3 @@ def test_equivariance(batch_dims):
         "...ij,...jk,...kl->...il", random, trafo, random_inv
     )
     torch.testing.assert_close(trafo_prime, trafo_prime_expected, **MILD_TOLERANCES)
-"""
