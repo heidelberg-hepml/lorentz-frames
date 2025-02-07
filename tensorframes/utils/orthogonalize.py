@@ -1,4 +1,3 @@
-from itertools import pairwise
 import torch
 
 from tensorframes.utils.lorentz import (
@@ -9,131 +8,103 @@ from tensorframes.utils.lorentz import (
 )
 
 
-def orthogonalize_cross(vecs, eps=1e-10):
-    n_vectors = len(vecs)
-    assert n_vectors == 3
+def orthogonal_trafo(*args, **kwargs):
+    """Put everything together to construct a valid Lorentz transformation"""
+    orthogonal_vecs = orthogonalize(*args, **kwargs)
+    trafo = torch.stack(orthogonal_vecs, dim=-2)
 
-    vecs = [normalize(v, eps) for v in vecs]
+    metric = lorentz_metric(trafo.shape[:-2], device=trafo.device, dtype=trafo.dtype)
+    trafo = trafo @ metric
+    trafo = timelike_first(trafo)
+    return trafo
 
-    # orthogonalize vectors with repeated cross products
+
+def orthogonalize(
+    vecs,
+    method="gramschmidt",
+    eps_norm=1e-10,
+    eps_reg_coplanar=1e-6,
+    eps_reg_lightlike=1e-8,
+    return_frac=False,
+):
+    """
+    Wrapper for orthogonalization of O(1,3) vectors
+
+    Args:
+        vecs: List of torch.tensor of shape (*dims, 4)
+            Vectors to be orthogonalized
+        method: str
+            Method for orthogonalization. Options are "cross" and "gramschmidt".
+        eps_norm: float
+            Numerical regularization for the normalization of the vectors.
+        eps_reg_coplanar: float
+            Controls when coplanar vectors are regularized.
+        eps_reg_lightlike: float
+            Controls when lightlike vectors are regularized.
+        return_frac: bool
+
+    Returns:
+        orthogonal_vecs: List of torch.tensor of shape (*dims, 4)
+            Orthogonalized vectors
+    """
+    assert len(vecs) == 3
+    assert all(v.shape == vecs[0].shape for v in vecs)
+
+    vecs, frac_lightlike = regularize_lightlike(vecs, eps_reg_lightlike)
+    vecs, frac_coplanar = regularize_coplanar(vecs, eps_reg_coplanar)
+
+    if method == "cross":
+        trafo = orthogonalize_cross(vecs, eps_norm)
+    elif method == "gramschmidt":
+        trafo = orthogonalize_gramschmidt(vecs, eps_norm)
+    else:
+        raise ValueError(f"Orthogonalization method {method} not implemented")
+
+    if return_frac:
+        return trafo, frac_lightlike, frac_coplanar
+    else:
+        return trafo
+
+
+def orthogonalize_cross(vecs, eps_norm=1e-10):
+    """Repeated cross products"""
+    vecs = [normalize(v, eps_norm) for v in vecs]
+
     orthogonal_vecs = [vecs[0]]
-    for i in range(1, n_vectors + 1):
+    for i in range(1, len(vecs) + 1):
         v_next = lorentz_cross(*orthogonal_vecs, *vecs[i:])
         assert torch.isfinite(v_next).all()
-        orthogonal_vecs.append(normalize(v_next, eps))
+        orthogonal_vecs.append(normalize(v_next, eps_norm))
 
     return orthogonal_vecs
 
 
-def orthogonalize_gramschmidt(
-    vecs: torch.tensor,
-    eps: float = 1e-10,
-) -> torch.tensor:
-    """
-    Applies the numerically stable Gram-Schmidt
-    Args:
-        vecs: torch.tensor of shape (3, N, 4) or (4, N, 4).
-            If (3, N, 4) the last vector is calculated from the cross product.
-        eps: nuerical regularization for the normalization of the vectors.
-    """
-    n_vectors = len(vecs)
-    assert n_vectors == 3 or n_vectors == 4
-
-    vecs = [normalize(v, eps) for v in vecs]
+def orthogonalize_gramschmidt(vecs, eps_norm=1e-10):
+    """Gram-Schmidt orthogonalization algorithm"""
+    vecs = [normalize(v, eps_norm) for v in vecs]
 
     v_nexts = [v for v in vecs]
     orthogonal_vecs = [vecs[0]]
-    for i in range(1, n_vectors):
-        for k in range(i, n_vectors):
+    for i in range(1, len(vecs)):
+        for k in range(i, len(vecs)):
             v_inner = lorentz_inner(v_nexts[k], orthogonal_vecs[i - 1]).unsqueeze(-1)
             v_norm = lorentz_squarednorm(orthogonal_vecs[i - 1]).unsqueeze(-1)
-            v_nexts[k] = v_nexts[k] - orthogonal_vecs[i - 1] * v_inner / (v_norm + eps)
-        orthogonal_vecs.append(normalize(v_nexts[i], eps))
-    if n_vectors == 3:
-        last_vec = normalize(lorentz_cross(*orthogonal_vecs), eps)
-        orthogonal_vecs.append(last_vec)
+            v_nexts[k] = v_nexts[k] - orthogonal_vecs[i - 1] * v_inner / (
+                v_norm + eps_norm
+            )
+        orthogonal_vecs.append(normalize(v_nexts[i], eps_norm))
+    last_vec = normalize(lorentz_cross(*orthogonal_vecs), eps_norm)
+    orthogonal_vecs.append(last_vec)
 
     orthogonal_vecs = [v for v in orthogonal_vecs]
     return orthogonal_vecs
 
 
-def regularize_lightlike(
-    vecs: torch.tensor,
-    exception_eps: float = 1e-8,
-    rejection_regularize=False,
-):
+def timelike_first(trafo):
     """
-    Regularize the inputs to avoid lightlike vectors
-    Args:
-        vecs (Tensor): torch tensor of shape (3, N, 4) with N the batch dimension
-        exception_eps (float): threshold applied to the criterion
-        sample_eps (float): rescaling applied to the sampled four vectors
-    Returns:
-        tensor: regularized four vectors
+    Re-order vectors such that the (single) timelike vector comes first
+    This is necessary to get valid Lorentz transformations
     """
-    if rejection_regularize:
-        inners = torch.stack([lorentz_inner(v, v) for v in vecs])
-        mask = (inners.abs() < exception_eps).to(vecs.device)[:, 0]
-        return vecs[torch.argsort(mask)]
-
-    assert vecs.shape[0] == 3
-
-    inners = torch.stack([lorentz_inner(v, v) for v in vecs])
-    sample = torch.randn(vecs.shape, dtype=vecs.dtype, device=vecs.device)
-    mask = (inners.abs() < exception_eps)[..., None].expand_as(sample)
-    vecs = vecs + sample * mask
-
-    n_reg = mask.any(dim=-1).sum()
-
-    return vecs, n_reg
-
-
-def regularize_coplanar(
-    vecs: torch.tensor,
-    exception_eps: float = 1e-6,
-    rejection_regularize=False,
-):
-    """
-    Regularize the inputs to avoid collinear vectors
-    Args:
-        vecs (Tensor): torch tensor of shape (3, N, 4) with N the batch dimension
-        exception_eps (float): threshold applied to the criterion
-        sample_eps (float): rescaling applied to the sampled four vectors
-    Returns:
-        tensor: regularized four vectors
-    """
-    if rejection_regularize:
-        error = True
-        safety = 10
-        while error and (safety := safety - 1) > 0:
-            error = False
-            cross_norm = lorentz_squarednorm(lorentz_cross(vecs[0], vecs[1], vecs[2]))
-            mask = cross_norm.abs() < exception_eps
-            vecs[2:, mask] = torch.cat(
-                (vecs[3:, mask], vecs[2, mask].unsqueeze(0)), dim=0
-            )
-
-            if mask.sum() != 0:
-                error = True
-        return vecs
-
-    assert vecs.shape[0] == 3
-
-    cross_norm = lorentz_squarednorm(lorentz_cross(vecs[0], vecs[1], vecs[2]))
-    sample = torch.randn(vecs.shape, dtype=vecs.dtype, device=vecs.device)
-    mask = (cross_norm.abs() < exception_eps)[None, :, None].expand_as(sample)
-    vecs = vecs + sample * mask
-
-    n_reg = mask.any(dim=-3).any(dim=-1).sum()
-    return vecs, n_reg
-
-
-def order_vectors(
-    trafo,
-):
-    # sort vectors by norm -> first vector has >0 norm
-    # this is necessary to get valid Lorentz transforms
-    # see paper for why at most one vector can have >0 norm
     vecs = [trafo[..., i, :] for i in range(4)]
     norm = torch.stack([lorentz_squarednorm(v) for v in vecs], dim=-1)
     pos_norm = norm > 0
@@ -144,66 +115,43 @@ def order_vectors(
     old_trafo = trafo.clone()
     trafo[..., 0, :] = old_trafo[pos_norm]
     trafo[..., 1:, :] = old_trafo[~pos_norm].view(-1, 3, 4)
-
     return trafo
 
 
-def cross_trafo(
-    vecs, regularize=True, rejection_regularize=False, regularize_eps=1e-10, eps=1e-10
-):
-    if regularize:
-        vecs, n_light = regularize_coplanar(
-            vecs,
-            rejection_regularize=rejection_regularize,
-            exception_eps=regularize_eps,
-        )
-        vecs, n_space = regularize_lightlike(
-            vecs,
-            rejection_regularize=rejection_regularize,
-            exception_eps=regularize_eps,
-        )
-    else:
-        n_light, n_space = 0, 0
-    vecs = vecs[:3]
+def regularize_lightlike(vecs, eps_reg_lightlike=1e-8):
+    """
+    Regularize lightlike vectors:
+    Add a bit of noise to every lightlike vector
+    """
+    vecs_reg = []
+    masks = []
+    for v in vecs:
+        inners = lorentz_inner(v, v)
+        mask = inners.abs() < eps_reg_lightlike
+        v_reg = v + eps_reg_lightlike * torch.randn_like(v) * mask.unsqueeze(-1)
+        masks.append(mask)
+        vecs_reg.append(v_reg)
 
-    orthogonal_vecs = orthogonalize_cross(vecs, eps)
-    trafo = torch.stack(orthogonal_vecs, dim=-2)
-
-    # turn into transformation matrix
-    metric = lorentz_metric(trafo.shape[:-2], device=trafo.device, dtype=trafo.dtype)
-    trafo = trafo @ metric
-    trafo = order_vectors(trafo)
-
-    return trafo, n_light, n_space
+    frac_lightlike = torch.stack(masks).any(dim=-1).float().mean().item()
+    return vecs_reg, frac_lightlike
 
 
-def gramschmidt_trafo(
-    vecs, regularize=True, rejection_regularize=False, regularize_eps=1e-10, eps=1e-10
-):
-    if regularize:
-        vecs, n_light = regularize_coplanar(
-            vecs,
-            rejection_regularize=rejection_regularize,
-            exception_eps=regularize_eps,
-        )
-        vecs, n_space = regularize_lightlike(
-            vecs,
-            rejection_regularize=rejection_regularize,
-            exception_eps=regularize_eps,
-        )
-    else:
-        n_light, n_space = 0, 0
-    vecs = vecs[:3]
+def regularize_coplanar(vecs, eps_reg_coplanar=1e-6):
+    """
+    Regularize coplanar vectors:
+    Add a bit of noise to every triplet of coplanar vectors
+    """
+    assert len(vecs) == 3
+    cross_norm = lorentz_squarednorm(lorentz_cross(*vecs))
+    mask = cross_norm.abs() < eps_reg_coplanar
 
-    orthogonal_vecs = orthogonalize_gramschmidt(vecs, eps)
-    trafo = torch.stack(orthogonal_vecs, dim=-2)
+    vecs_reg = []
+    for v in vecs:
+        v_reg = v + eps_reg_coplanar * torch.randn_like(v) * mask.unsqueeze(-1)
+        vecs_reg.append(v_reg)
 
-    # turn into transformation matrix
-    metric = lorentz_metric(trafo.shape[:-2], device=trafo.device, dtype=trafo.dtype)
-    trafo = trafo @ metric
-    trafo = order_vectors(trafo)
-
-    return trafo, n_light, n_space
+    frac_coplanar = mask.float().mean().item()
+    return vecs, frac_coplanar
 
 
 def normalize(v, eps=1e-10):
