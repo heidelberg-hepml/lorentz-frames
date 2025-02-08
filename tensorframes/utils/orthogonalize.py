@@ -128,7 +128,7 @@ def regularize_lightlike(vecs, eps_reg_lightlike=1e-8):
     for v in vecs:
         inners = lorentz_inner(v, v)
         mask = inners.abs() < eps_reg_lightlike
-        v_reg = v + eps_reg_lightlike * torch.randn_like(v) * mask.unsqueeze(-1)
+        v_reg = v + eps_reg_lightlike**0.5 * torch.randn_like(v) * mask.unsqueeze(-1)
         masks.append(mask)
         vecs_reg.append(v_reg)
 
@@ -147,7 +147,7 @@ def regularize_coplanar(vecs, eps_reg_coplanar=1e-6):
 
     vecs_reg = []
     for v in vecs:
-        v_reg = v + eps_reg_coplanar * torch.randn_like(v) * mask.unsqueeze(-1)
+        v_reg = v + eps_reg_coplanar**0.5 * torch.randn_like(v) * mask.unsqueeze(-1)
         vecs_reg.append(v_reg)
 
     reg_coplanar = mask.sum().item()

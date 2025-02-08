@@ -83,7 +83,7 @@ def regularize_collinear(vecs, eps_reg=1e-4):
     assert len(vecs) == 2
     diff_norm = torch.linalg.norm(vecs[0] - vecs[1], dim=-1)
     mask = diff_norm < eps_reg
-    vecs[1][mask] += eps_reg * torch.randn_like(vecs[1][mask])
+    vecs[1][mask] += eps_reg**0.5 * torch.randn_like(vecs[1][mask])
 
     reg_collinear = mask.sum().item()
     return vecs, reg_collinear
