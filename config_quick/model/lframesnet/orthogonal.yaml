@@ -6,5 +6,5 @@ num_layers: 2
 ortho_kwargs:
  method: gramschmidt
  eps_norm: 1e-10
- eps_reg_coplanar: 1e-8
- eps_reg_lightlike: 1e-6
+ eps_reg_coplanar: 1e-4
+ eps_reg_lightlike: 1e-4
