@@ -11,8 +11,8 @@ from tensorframes.utils.lorentz import (
 def orthogonal_trafo(*args, **kwargs):
     """Put everything together to construct a valid Lorentz transformation"""
     out = orthogonalize(*args, **kwargs)
-    if kwargs["return_frac"]:
-        orthogonal_vecs, *frac = out
+    if kwargs["return_reg"]:
+        orthogonal_vecs, *reg = out
     else:
         orthogonal_vecs = out
     trafo = torch.stack(orthogonal_vecs, dim=-2)
@@ -20,7 +20,7 @@ def orthogonal_trafo(*args, **kwargs):
     metric = lorentz_metric(trafo.shape[:-2], device=trafo.device, dtype=trafo.dtype)
     trafo = trafo @ metric
     trafo = timelike_first(trafo)
-    return (trafo, *frac) if kwargs["return_frac"] else trafo
+    return (trafo, *reg) if kwargs["return_reg"] else trafo
 
 
 def orthogonalize(
@@ -29,7 +29,7 @@ def orthogonalize(
     eps_norm=1e-10,
     eps_reg_coplanar=1e-6,
     eps_reg_lightlike=1e-8,
-    return_frac=False,
+    return_reg=False,
 ):
     """
     Wrapper for orthogonalization of O(1,3) vectors
@@ -45,7 +45,7 @@ def orthogonalize(
             Controls when coplanar vectors are regularized.
         eps_reg_lightlike: float
             Controls when lightlike vectors are regularized.
-        return_frac: bool
+        return_reg: bool
 
     Returns:
         orthogonal_vecs: List of torch.tensor of shape (*dims, 4)
@@ -54,8 +54,8 @@ def orthogonalize(
     assert len(vecs) == 3
     assert all(v.shape == vecs[0].shape for v in vecs)
 
-    vecs, frac_lightlike = regularize_lightlike(vecs, eps_reg_lightlike)
-    vecs, frac_coplanar = regularize_coplanar(vecs, eps_reg_coplanar)
+    vecs, reg_lightlike = regularize_lightlike(vecs, eps_reg_lightlike)
+    vecs, reg_coplanar = regularize_coplanar(vecs, eps_reg_coplanar)
 
     if method == "cross":
         trafo = orthogonalize_cross(vecs, eps_norm)
@@ -64,7 +64,7 @@ def orthogonalize(
     else:
         raise ValueError(f"Orthogonalization method {method} not implemented")
 
-    return (trafo, frac_lightlike, frac_coplanar) if return_frac else trafo
+    return (trafo, reg_lightlike, reg_coplanar) if return_reg else trafo
 
 
 def orthogonalize_cross(vecs, eps_norm=1e-10):
@@ -133,8 +133,8 @@ def regularize_lightlike(vecs, eps_reg_lightlike=1e-8):
         masks.append(mask)
         vecs_reg.append(v_reg)
 
-    frac_lightlike = torch.stack(masks).any(dim=-1).float().mean().item()
-    return vecs_reg, frac_lightlike
+    reg_lightlike = torch.stack(masks).any(dim=-1).sum().item()
+    return vecs_reg, reg_lightlike
 
 
 def regularize_coplanar(vecs, eps_reg_coplanar=1e-6):
@@ -151,8 +151,8 @@ def regularize_coplanar(vecs, eps_reg_coplanar=1e-6):
         v_reg = v + eps_reg_coplanar * torch.randn_like(v) * mask.unsqueeze(-1)
         vecs_reg.append(v_reg)
 
-    frac_coplanar = mask.float().mean().item()
-    return vecs, frac_coplanar
+    reg_coplanar = mask.sum().item()
+    return vecs, reg_coplanar
 
 
 def normalize(v, eps=1e-10):

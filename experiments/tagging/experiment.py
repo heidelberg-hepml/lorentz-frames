@@ -246,7 +246,7 @@ class TaggingExperiment(BaseExperiment):
         return y_pred, batch.label.to(self.dtype), tracker
 
     def _init_metrics(self):
-        return {"frac_collinear": [], "frac_coplanar": [], "frac_lightlike": []}
+        return {"reg_collinear": [], "reg_coplanar": [], "reg_lightlike": []}
 
 
 class TopTaggingExperiment(TaggingExperiment):

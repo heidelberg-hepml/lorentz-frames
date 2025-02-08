@@ -78,11 +78,11 @@ class OrthogonalLearnedLFrames(LearnedLFrames):
         vecs = vecs.to(dtype=torch.float64)
         vecs = [vecs[..., i, :] for i in range(self.n_vectors)]
 
-        trafo, frac_lightlike, frac_coplanar = orthogonal_trafo(
-            vecs, **self.ortho_kwargs, return_frac=True
+        trafo, reg_lightlike, reg_coplanar = orthogonal_trafo(
+            vecs, **self.ortho_kwargs, return_reg=True
         )
 
-        tracker = {"frac_lightlike": frac_lightlike, "frac_coplanar": frac_coplanar}
+        tracker = {"reg_lightlike": reg_lightlike, "reg_coplanar": reg_coplanar}
         lframes = LFrames(trafo.to(dtype=scalars.dtype))
         return (lframes, tracker) if return_tracker else lframes
 
@@ -111,13 +111,13 @@ class RestLFrames(LearnedLFrames):
         references = [references[..., i, :] for i in range(self.n_vectors)]
         fourmomenta = fourmomenta.to(dtype=torch.float64)
 
-        trafo, frac_collinear = restframe_equivariant(
+        trafo, reg_collinear = restframe_equivariant(
             fourmomenta,
             references,
             **self.ortho_kwargs,
-            return_frac=True,
+            return_reg=True,
         )
-        tracker = {"frac_collinear": frac_collinear}
+        tracker = {"reg_collinear": reg_collinear}
         lframes = LFrames(trafo.to(dtype=scalars.dtype))
         return (lframes, tracker) if return_tracker else lframes
 
@@ -148,12 +148,12 @@ class LearnedRestLFrames(LearnedLFrames):
         fourmomenta = vecs[..., 0, :]
         references = [vecs[..., i, :] for i in range(1, self.n_vectors)]
 
-        trafo, frac_collinear = restframe_equivariant(
+        trafo, reg_collinear = restframe_equivariant(
             fourmomenta,
             references,
             **self.ortho_kwargs,
-            return_frac=True,
+            return_reg=True,
         )
-        tracker = {"frac_collinear": frac_collinear}
+        tracker = {"reg_collinear": reg_collinear}
         lframes = LFrames(trafo.to(dtype=scalars.dtype))
         return (lframes, tracker) if return_tracker else lframes

@@ -2,7 +2,7 @@ import torch
 
 
 def orthogonalize_o3(
-    vecs, method="gramschmidt", eps_norm=1e-10, eps_reg=1e-4, return_frac=False
+    vecs, method="gramschmidt", eps_norm=1e-10, eps_reg=1e-4, return_reg=False
 ):
     """
     Wrapper for orthogonalization of O(3) vectors
@@ -16,13 +16,13 @@ def orthogonalize_o3(
             Numerical regularization for the normalization of the vectors.
         eps_reg: float
             Controls when collinear vectors are regularized.
-        return_frac: bool
+        return_reg: bool
 
     Returns:
         orthogonal_vecs: List of torch.tensor of shape (*dims, 3)
             Orthogonalized vectors
     """
-    vecs, frac_collinear = regularize_collinear(vecs, eps_reg)
+    vecs, reg_collinear = regularize_collinear(vecs, eps_reg)
 
     if method == "cross":
         trafo = orthogonalize_cross_o3(vecs, eps_norm)
@@ -31,7 +31,7 @@ def orthogonalize_o3(
     else:
         raise ValueError(f"Orthogonalization method {method} not implemented")
 
-    return (trafo, frac_collinear) if return_frac else trafo
+    return (trafo, reg_collinear) if return_reg else trafo
 
 
 def orthogonalize_cross_o3(vecs, eps_norm=1e-10):
@@ -85,8 +85,8 @@ def regularize_collinear(vecs, eps_reg=1e-4):
     mask = diff_norm < eps_reg
     vecs[1][mask] += eps_reg * torch.randn_like(vecs[1][mask])
 
-    frac_collinear = mask.float().mean().item()
-    return vecs, frac_collinear
+    reg_collinear = mask.sum().item()
+    return vecs, reg_collinear
 
 
 def normalize_o3(v, eps_norm=1e-10):
