@@ -97,7 +97,6 @@ def orthogonalize_gramschmidt(vecs, eps_norm=1e-10):
     last_vec = normalize(lorentz_cross(*orthogonal_vecs), eps_norm)
     orthogonal_vecs.append(last_vec)
 
-    orthogonal_vecs = [v for v in orthogonal_vecs]
     return orthogonal_vecs
 
 
