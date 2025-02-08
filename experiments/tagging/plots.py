@@ -47,6 +47,26 @@ def plot_mixer(cfg, plot_path, title, plot_dict):
                 "Gradient norm main network",
                 logy=True,
             )
+            plot_metric(
+                out,
+                [
+                    plot_dict["reg_collinear"],
+                    plot_dict["reg_coplanar"],
+                    plot_dict["reg_lightlike"],
+                ],
+                "Number of regularized particles",
+                labels=["collinear", "coplanar", "lightlike"],
+            )
+            plot_metric(
+                out,
+                [
+                    np.cumsum(plot_dict["reg_collinear"]),
+                    np.cumsum(plot_dict["reg_coplanar"]),
+                    np.cumsum(plot_dict["reg_lightlike"]),
+                ],
+                "Cumsum of regularized particles",
+                labels=["collinear", "coplanar", "lightlike"],
+            )
 
     if cfg.plotting.score and cfg.evaluate:
         file = f"{plot_path}/score.pdf"

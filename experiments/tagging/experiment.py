@@ -211,6 +211,8 @@ class TaggingExperiment(BaseExperiment):
             plot_dict["grad_norm"] = self.grad_norm_train
             plot_dict["grad_norm_lframes"] = self.grad_norm_lframes
             plot_dict["grad_norm_net"] = self.grad_norm_net
+            for key, value in self.train_metrics.items():
+                plot_dict[key] = value
         plot_mixer(self.cfg, plot_path, title, plot_dict)
 
     def _init_loss(self):
