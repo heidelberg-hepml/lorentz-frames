@@ -15,7 +15,8 @@ def orthogonalize_o3(
         eps_norm: float
             Numerical regularization for the normalization of the vectors.
         eps_reg: float
-            Controls when collinear vectors are regularized.
+            Controls the scale of the regularization for collinear vectors.
+            eps_reg**2 defines the selection threshold.
         return_reg: bool
 
     Returns:
@@ -82,8 +83,8 @@ def regularize_collinear(vecs, eps_reg=1e-4):
     """
     assert len(vecs) == 2
     diff_norm = torch.linalg.norm(vecs[0] - vecs[1], dim=-1)
-    mask = diff_norm < eps_reg
-    vecs[1][mask] += eps_reg**0.5 * torch.randn_like(vecs[1][mask])
+    mask = diff_norm < eps_reg**2
+    vecs[1][mask] += eps_reg * torch.randn_like(vecs[1][mask])
 
     reg_collinear = mask.sum().item()
     return vecs, reg_collinear

@@ -42,9 +42,11 @@ def orthogonalize(
         eps_norm: float
             Numerical regularization for the normalization of the vectors.
         eps_reg_coplanar: float
-            Controls when coplanar vectors are regularized.
+            Controls the scale of the regularization for coplanar vectors.
+            eps_reg_coplanar**2 defines the selection threshold.
         eps_reg_lightlike: float
-            Controls when lightlike vectors are regularized.
+            Controls the scale of the regularization for lightlike vectors.
+            eps_reg_lightlike**2 defines the selection threshold.
         return_reg: bool
 
     Returns:
@@ -127,8 +129,8 @@ def regularize_lightlike(vecs, eps_reg_lightlike=1e-8):
     masks = []
     for v in vecs:
         inners = lorentz_inner(v, v)
-        mask = inners.abs() < eps_reg_lightlike
-        v_reg = v + eps_reg_lightlike**0.5 * torch.randn_like(v) * mask.unsqueeze(-1)
+        mask = inners.abs() < eps_reg_lightlike**2
+        v_reg = v + eps_reg_lightlike * torch.randn_like(v) * mask.unsqueeze(-1)
         masks.append(mask)
         vecs_reg.append(v_reg)
 
@@ -143,11 +145,11 @@ def regularize_coplanar(vecs, eps_reg_coplanar=1e-6):
     """
     assert len(vecs) == 3
     cross_norm = lorentz_squarednorm(lorentz_cross(*vecs))
-    mask = cross_norm.abs() < eps_reg_coplanar
+    mask = cross_norm.abs() < eps_reg_coplanar**2
 
     vecs_reg = []
     for v in vecs:
-        v_reg = v + eps_reg_coplanar**0.5 * torch.randn_like(v) * mask.unsqueeze(-1)
+        v_reg = v + eps_reg_coplanar * torch.randn_like(v) * mask.unsqueeze(-1)
         vecs_reg.append(v_reg)
 
     reg_coplanar = mask.sum().item()
