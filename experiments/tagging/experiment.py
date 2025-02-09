@@ -117,7 +117,7 @@ class TaggingExperiment(BaseExperiment):
             self.optimizer.eval()
         with torch.no_grad():
             for batch in loader:
-                y_pred, label = self._get_ypred_and_label(batch)
+                y_pred, label, _ = self._get_ypred_and_label(batch)
                 y_pred = torch.nn.functional.sigmoid(y_pred)
                 labels_true.append(label.cpu().float())
                 labels_predict.append(y_pred.cpu().float())
