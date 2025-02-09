@@ -27,8 +27,8 @@ def orthogonalize(
     vecs,
     method="gramschmidt",
     eps_norm=1e-10,
-    eps_reg_coplanar=1e-6,
-    eps_reg_lightlike=1e-8,
+    eps_reg_coplanar=1e-4,
+    eps_reg_lightlike=1e-4,
     return_reg=False,
 ):
     """
@@ -120,7 +120,7 @@ def timelike_first(trafo):
     return trafo
 
 
-def regularize_lightlike(vecs, eps_reg_lightlike=1e-8):
+def regularize_lightlike(vecs, eps_reg_lightlike=1e-4):
     """
     Regularize lightlike vectors:
     Add a bit of noise to every lightlike vector
@@ -138,7 +138,7 @@ def regularize_lightlike(vecs, eps_reg_lightlike=1e-8):
     return vecs_reg, reg_lightlike
 
 
-def regularize_coplanar(vecs, eps_reg_coplanar=1e-6):
+def regularize_coplanar(vecs, eps_reg_coplanar=1e-4):
     """
     Regularize coplanar vectors:
     Add a bit of noise to every triplet of coplanar vectors
