@@ -16,7 +16,7 @@ from tensorframes.utils.transforms import rand_lorentz
 @pytest.mark.parametrize("num_layers", [1])
 @pytest.mark.parametrize("logm2_mean,logm2_std", LOGM2_MEAN_STD)
 @pytest.mark.parametrize("operation", ["diff", "add", "single"])
-@pytest.mark.parametrize("nonlinearity", ["exp", None])
+@pytest.mark.parametrize("nonlinearity", ["softplus", "exp", None])
 def test_equivariance(
     batch_dims,
     jet_size,
