@@ -21,14 +21,14 @@ class EquivariantVectors(MessagePassing):
         in_edges,
         hidden_channels,
         num_layers,
-        operation="diff",
-        nonlinearity=None,
+        operation="single",
+        nonlinearity="exp",
         dropout_prob=None,
     ):
         super().__init__()
         self.n_vectors = n_vectors
         self.operation = self.get_operation(operation)
-        self.nonlinearity = self.get_activation(nonlinearity)
+        self.nonlinearity = self.get_nonlinearity(nonlinearity)
         in_channels = 2 * in_nodes + in_edges
 
         self.mlp = MLP(
@@ -62,23 +62,20 @@ class EquivariantVectors(MessagePassing):
         elif operation == "add":
             return torch.add
         elif operation == "single":
-            return self.get_fmj
+            return lambda fm_i, fm_j: fm_j
         else:
-            raise Exception(
+            raise ValueError(
                 f"Invalid operation {operation}. Options are (add, diff, single)."
             )
 
-    def get_fmj(self, fm_i, fm_j):
-        return fm_j
-
-    def get_activation(self, nonlinearity):
+    def get_nonlinearity(self, nonlinearity):
         if nonlinearity == None:
             return Identity()
         elif nonlinearity == "exp":
-            return torch.exp
+            return lambda x: torch.clamp(x, min=-10, max=10).exp()
         elif nonlinearity == "softplus":
             return Softplus()
         else:
-            raise Exception(
-                f"Invalid nonlinearity: {nonlinearity}. Options are (None, exp, softplus)."
+            raise ValueError(
+                f"Invalid nonlinearity {nonlinearity}. Options are (None, exp, softplus)."
             )
