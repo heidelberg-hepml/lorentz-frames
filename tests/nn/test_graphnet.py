@@ -15,7 +15,7 @@ from tensorframes.lframes.lframes import InverseLFrames
 @pytest.mark.parametrize("batch_dims", [[10]])
 @pytest.mark.parametrize("num_layers_mlp1", range(1, 2))
 @pytest.mark.parametrize("num_layers_mlp2", range(0, 2))
-@pytest.mark.parametrize("reps", REPS)
+@pytest.mark.parametrize("hidden_reps", REPS)
 @pytest.mark.parametrize("logm2_mean,logm2_std", LOGM2_MEAN_STD)
 def test_edgeconv_invariance_equivariance(
     LFramesPredictor,
@@ -24,7 +24,7 @@ def test_edgeconv_invariance_equivariance(
     num_layers_mlp2,
     logm2_std,
     logm2_mean,
-    reps,
+    hidden_reps,
 ):
     dtype = torch.float64
 
@@ -40,7 +40,7 @@ def test_edgeconv_invariance_equivariance(
 
     # define edgeconv
     in_reps = TensorReps("1x1n")
-    hidden_reps = TensorReps(reps)
+    hidden_reps = TensorReps(hidden_reps)
     trafo = TensorRepsTransform(TensorReps(in_reps))
     linear_in = torch.nn.Linear(in_reps.dim, hidden_reps.dim).to(dtype=dtype)
     linear_out = torch.nn.Linear(hidden_reps.dim, in_reps.dim).to(dtype=dtype)
@@ -88,7 +88,7 @@ def test_edgeconv_invariance_equivariance(
 @pytest.mark.parametrize("num_layers_mlp1", range(1, 2))
 @pytest.mark.parametrize("num_layers_mlp2", range(0, 2))
 @pytest.mark.parametrize("num_blocks", [0, 1, 2])
-@pytest.mark.parametrize("reps", REPS)
+@pytest.mark.parametrize("hidden_reps", REPS)
 @pytest.mark.parametrize("logm2_mean,logm2_std", LOGM2_MEAN_STD)
 def test_graphnet_invariance_equivariance(
     LFramesPredictor,
@@ -98,7 +98,7 @@ def test_graphnet_invariance_equivariance(
     num_blocks,
     logm2_std,
     logm2_mean,
-    reps,
+    hidden_reps,
 ):
     dtype = torch.float64
 
@@ -116,9 +116,9 @@ def test_graphnet_invariance_equivariance(
     in_reps = TensorReps("1x1n")
     trafo = TensorRepsTransform(TensorReps(in_reps))
     graphnet = TFGraphNet(
-        in_channels=in_reps.dim,
-        hidden_channels=reps,
-        num_classes=in_reps.dim,
+        in_reps=in_reps,
+        hidden_reps=hidden_reps,
+        out_reps=in_reps,
         num_blocks=num_blocks,
         num_layers_mlp1=num_layers_mlp1,
         num_layers_mlp2=num_layers_mlp2,
