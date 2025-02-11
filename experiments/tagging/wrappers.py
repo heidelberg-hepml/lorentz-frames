@@ -260,7 +260,7 @@ class GraphNetWrapper(AggregatedTaggerWrapper):
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
-        self.net = net(in_reps=self.in_reps)
+        self.net = net(in_reps=self.in_reps, out_reps=self.out_reps)
 
     def forward(self, embedding):
         (
@@ -294,7 +294,7 @@ class TransformerWrapper(AggregatedTaggerWrapper):
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
-        self.net = net(in_reps=self.in_reps)
+        self.net = net(in_reps=self.in_reps, out_reps=self.out_reps)
 
     def forward(self, embedding):
         (
