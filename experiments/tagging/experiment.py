@@ -255,7 +255,7 @@ class TopTaggingExperiment(TaggingExperiment):
     def __init__(self, cfg):
         super().__init__(cfg)
         with open_dict(self.cfg):
-            self.cfg.model.net.num_classes = 1
+            self.cfg.model.out_reps = "1x0n"
             self.cfg.model.in_reps = "1x1n"  # energy-momentum vector
 
     def init_data(self):

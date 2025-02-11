@@ -2,7 +2,14 @@ _target_: experiments.tagging.wrappers.TransformerWrapper
 
 net:
  _target_: tensorframes.nn.transformer.TFTransformer
- hidden_channels: "8x0n+4x1n+1x2n"
+ _partial_: true
+
+ in_reps: null
+ attn_reps: "8x0n+4x1n+1x2n"
+ out_reps: null
+
+ num_blocks: 4
+ num_heads: 4
 
 defaults:
- - basetransformer
+ - lframesnet: identity

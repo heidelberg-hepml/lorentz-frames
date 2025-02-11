@@ -56,24 +56,49 @@ class EdgeConv(TFMessagePassing):
 
 
 class TFGraphNet(nn.Module):
+    """Baseline graphnet.
+
+    Combines num_blocks EdgeConv blocks.
+
+    Parameters
+    ----------
+    in_reps : str
+        Input representation.
+    hidden_reps : str
+        Representation during message passing.
+    out_reps : str
+        Output representation.
+    num_blocks : int
+        Number of transformer blocks.
+    num_heads : int
+        Number of attention heads.
+    increase_hidden_channels : int
+        Factor by which the key, query, and value size is increased over the default value of
+        hidden_channels / num_heads.
+    multi_query : bool
+        Use multi-query attention instead of multi-head attention.
+    """
+
     def __init__(
         self,
-        in_channels,
-        hidden_channels,
-        num_classes,
-        num_blocks,
-        num_layers_mlp1=2,
-        num_layers_mlp2=0,
+        in_reps: str,
+        hidden_reps: str,
+        out_reps: str,
+        num_blocks: int,
+        num_layers_mlp1: int = 2,
+        num_layers_mlp2: int = 0,
         aggr="add",
         checkpoint_blocks=False,
         dropout_prob=None,
     ):
         super().__init__()
-        hidden_reps = TensorReps(hidden_channels)
+        in_reps = TensorReps(in_reps)
+        hidden_reps = TensorReps(hidden_reps)
+        out_reps = TensorReps(out_reps)
         self.checkpoint_blocks = checkpoint_blocks
 
-        self.linear_in = nn.Linear(in_channels, hidden_reps.dim)
-        self.linear_out = nn.Linear(hidden_reps.dim, num_classes)
+        self.linear_in = nn.Linear(in_reps.dim, hidden_reps.dim)
+        self.linear_out = nn.Linear(hidden_reps.dim, out_reps.dim)
         self.blocks = nn.ModuleList(
             [
                 EdgeConv(
@@ -87,8 +112,23 @@ class TFGraphNet(nn.Module):
             ]
         )
 
-    def forward(self, x, lframes, edge_index):
-        x = self.linear_in(x)
+    def forward(self, inputs, lframes, edge_index):
+        """Forward pass.
+
+        Parameters
+        ----------
+        inputs : Tensor with shape (..., num_items, in_reps.dim)
+            Input data
+        lframes : LFrames
+            Local frames used for message passing
+        edge_index : Tensor with shape (2, num_edges)
+
+        Returns
+        -------
+        outputs : Tensor with shape (..., num_items, out_reps.dim)
+            Outputs
+        """
+        x = self.linear_in(inputs)
         for block in self.blocks:
             if self.checkpoint_blocks:
                 x = checkpoint(
@@ -103,5 +143,5 @@ class TFGraphNet(nn.Module):
                     lframes=lframes,
                     edge_index=edge_index,
                 )
-        x = self.linear_out(x)
-        return x
+        outputs = self.linear_out(x)
+        return outputs

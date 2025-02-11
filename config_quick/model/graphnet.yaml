@@ -2,7 +2,15 @@ _target_: experiments.tagging.wrappers.GraphNetWrapper
 
 net:
  _target_: tensorframes.nn.graphnet.TFGraphNet
- hidden_channels: "8x0n+4x1n"
+ _partial_: true
+
+ in_reps: null
+ hidden_reps: "16x0n+4x1n"
+ out_reps: null
+
+ num_blocks: 2
+ num_layers_mlp1: 2
+ num_layers_mlp2: 0
 
 defaults:
- - basegraphnet
+ - lframesnet: identity
