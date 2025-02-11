@@ -5,11 +5,11 @@ net:
  _partial_: true
 
  in_reps: null
- hidden_reps: "32x0n+16x1n+4x2n"
+ hidden_reps: "96x0n+24x1n"
  out_reps: null
 
- num_blocks: 2
- num_layers_mlp1: 2
+ num_blocks: 3
+ num_layers_mlp1: 1
  num_layers_mlp2: 0
 
 defaults:

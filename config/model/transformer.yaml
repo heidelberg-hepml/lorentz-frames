@@ -5,11 +5,11 @@ net:
  _partial_: true
 
  in_reps: null
- attn_reps: "8x0n+4x1n+1x2n"
+ attn_reps: "8x0n+2x1n"
  out_reps: null
 
- num_blocks: 4
- num_heads: 4
+ num_blocks: 8
+ num_heads: 8
 
 defaults:
  - lframesnet: identity
