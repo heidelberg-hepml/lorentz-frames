@@ -1,8 +1,8 @@
 import torch
 import pytest
 from torch_geometric.utils import dense_to_sparse
-from tests.constants import TOLERANCES, LOGM2_MEAN, LOGM2_STD
-from tests.helpers import sample_vector
+from tests.constants import TOLERANCES, LOGM2_MEAN_STD
+from tests.helpers import sample_particle
 
 from tensorframes.nn.equivectors import EquivariantVectors
 from tensorframes.utils.lorentz import lorentz_inner
@@ -14,10 +14,19 @@ from tensorframes.utils.transforms import rand_lorentz
 @pytest.mark.parametrize("n_vectors", range(1, 5))
 @pytest.mark.parametrize("hidden_channels", [16])
 @pytest.mark.parametrize("num_layers", [1])
-@pytest.mark.parametrize("logm2_std", LOGM2_STD)
-@pytest.mark.parametrize("logm2_mean", LOGM2_MEAN)
+@pytest.mark.parametrize("logm2_mean,logm2_std", LOGM2_MEAN_STD)
+@pytest.mark.parametrize("operation", ["diff", "add", "single"])
+@pytest.mark.parametrize("nonlinearity", ["softplus", "exp", None])
 def test_equivariance(
-    batch_dims, jet_size, n_vectors, hidden_channels, num_layers, logm2_std, logm2_mean
+    batch_dims,
+    jet_size,
+    n_vectors,
+    hidden_channels,
+    num_layers,
+    logm2_std,
+    logm2_mean,
+    operation,
+    nonlinearity,
 ):
     assert len(batch_dims) == 1
     dtype = torch.float64
@@ -41,10 +50,16 @@ def test_equivariance(
         fm[edge_index[1]], fm[edge_index[0]]
     ).unsqueeze(-1)
     equivectors = EquivariantVectors(
-        n_vectors, in_nodes, in_edges, hidden_channels, num_layers
+        n_vectors,
+        in_nodes,
+        in_edges,
+        hidden_channels,
+        num_layers,
+        operation=operation,
+        nonlinearity=nonlinearity,
     ).to(dtype=dtype)
 
-    fm = sample_vector(
+    fm = sample_particle(
         batch_dims + [jet_size], logm2_std, logm2_mean, dtype=dtype
     ).flatten(0, 1)
 

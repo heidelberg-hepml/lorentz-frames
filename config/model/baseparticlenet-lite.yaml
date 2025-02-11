@@ -1,5 +1,4 @@
 _target_: experiments.tagging.wrappers.BaselineParticleNetWrapper
-mean_aggregation: true
 in_reps: null
 
 net:

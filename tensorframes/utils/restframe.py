@@ -1,63 +1,23 @@
 import torch
 
-from tensorframes.utils.utils import stable_arctanh
-from tensorframes.utils.transforms import transform
-from tensorframes.utils.orthogonalize import orthogonalize_cross_o3
+from tensorframes.utils.orthogonalize_o3 import orthogonalize_o3
 
 
-def restframe_transform_v1(fourmomenta):
+def restframe_boost(fourmomenta):
     """
-    Create rest frame transformation matrices for given fourmomenta
-    as a combination of rotations and boosts
-
-    Strategy:
-    1) Rotate around z-axis to set p_y=0
-    2) Rotate around the y-axis to set p_z=0
-    3) Boost along the x-axis to set p_x=0
-
-    This transformation probably does not do the job,
-    because it is invariant under rotations and not equivariant
-    -> motivation for v2 below
+    Lorentz transformation representing a boost into the rest frame.
+    This transformation does not have the lframes transformation properties,
+    because there is no rotation aspect - its simply a boost.
 
     Args:
         fourmomenta: torch.tensor of shape (*dims, 4)
 
     Returns:
-        final_trafo: torch.tensor of shape (*dims, 4, 4)
-    """
-    axes = torch.tensor(
-        [[1, 2], [1, 3], [0, 1]], device=fourmomenta.device, dtype=torch.long
-    )
-    axes = axes.view(*axes.shape, *([1] * len(fourmomenta.shape[:-1])))
-    axes = axes.repeat(1, 1, *fourmomenta.shape[:-1])
-    axes = [ax for ax in axes]
-
-    fm = fourmomenta
-    angles0 = -torch.arctan(fm[..., 2] / fm[..., 1])
-    angles1 = -torch.arctan(
-        fm[..., 3] / (fm[..., 1] * torch.cos(angles0) - fm[..., 2] * torch.sin(angles0))
-    )
-    angles2 = -stable_arctanh(torch.linalg.norm(fm[..., 1:], dim=-1) / fm[..., 0])
-    angles2 *= torch.sign(fm[..., 1])
-    angles = [angles0, angles1, angles2]
-
-    return transform(axes, angles)
-
-
-def restframe_transform_v2(fourmomenta):
-    """
-    Create rest frame transformation matrices for given fourmomenta
-    as a single transformation using a textbook formula
-
-    Args:
-        fourmomenta: torch.tensor of shape (*dims, 4)
-
-    Returns:
-        final_trafo: torch.tensor of shape (*dims, 4, 4)
+        trafo: torch.tensor of shape (*dims, 4, 4)
     """
     beta = fourmomenta[..., 1:] / fourmomenta[..., [0]]
     beta2 = (beta**2).sum(dim=-1, keepdim=True)
-    gamma = 1 / (1 - beta2).sqrt()
+    gamma = 1 / (1 - beta2).clamp(min=1e-10).sqrt()
 
     # prepare entries of the trafo
     boost = -gamma * beta
@@ -66,7 +26,10 @@ def restframe_transform_v2(fourmomenta):
         *fourmomenta.shape[:-1], 1, 1
     )
     rot = eye + (
-        (gamma[..., None] - 1) * beta[..., None] * beta[..., None, :] / beta2[..., None]
+        (gamma[..., None] - 1)
+        * beta[..., None]
+        * beta[..., None, :]
+        / beta2[..., None].clamp(min=1e-10)
     )
 
     # put trafo together
@@ -81,42 +44,47 @@ def restframe_transform_v2(fourmomenta):
     trafo[..., 1:, 1:] = rot
     trafo[..., 0, 1:] = boost
     trafo[..., 1:, 0] = boost
+    assert torch.isfinite(trafo).all()
     return trafo
 
 
-def restframe_transform_v3(fourmomenta, eps=1e-10):
+def restframe_equivariant(fourmomenta, references, **kwargs):
     """
-    Create rest frame transformation matrices for given fourmomenta
-    such that it has the correct transformation properties
-
-    Strategy:
-    1) Construct 1st part using restframe_transform_v2
-    2) Construct 2nd part from orthogonalized 3-vectors
-       (effectively a O(3) local frame)
-    3) Combine both parts
+    Lorentz transformation representing a boost into the rest frame and a
+    properly constructed rotation that fixes the little group degree of freedom
+    The resulting transformation has the lframes transformation behaviour
 
     Args:
         fourmomenta: torch.tensor of shape (*dims, 4)
+            Four-momentum that defines the rest frames
+        references: List with two torch.tensor of shape (*dims, 4)
+            Two reference four-momenta to construct the rotation
+        **kwargs: Additional arguments for orthogonalize_o3
 
     Returns:
-        final_trafo: torch.tensor of shape (*dims, 4, 4)
+        trafo: torch.tensor of shape (*dims, 4, 4)
     """
-    trafo1 = restframe_transform_v2(fourmomenta)
+    assert len(references) == 2
+    assert all(r.shape == fourmomenta.shape for r in references)
 
-    # for now, construct reference from fourmomenta directly
-    reference = fourmomenta.sum(dim=-2, keepdim=True)
+    # construct rest frame transformation
+    boost = restframe_boost(fourmomenta)
+
+    # references go into rest frame
+    ref_rest = [torch.einsum("...ij,...j->...i", boost, v) for v in references]
 
     # construct rotation
-    # note: cross product orthogonalization is stable here,
-    # because we have 3-vectors and they are nonzero
-    vecs = [fourmomenta[..., 1:], reference[..., 1:]]
-    orthogonal_vecs = orthogonalize_cross_o3(vecs, eps=eps)
-    rotation = torch.stack(orthogonal_vecs, dim=-2)
+    ref3_rest = [r[..., 1:] for r in ref_rest]
+    out = orthogonalize_o3(ref3_rest, **kwargs)
+    if kwargs["return_reg"]:
+        orthogonal_vec3, reg_collinear = out
+    else:
+        orthogonal_vec3 = out
+    rotation = torch.zeros_like(boost)
+    rotation[..., 0, 0] = 1
+    rotation[..., 1:, 1:] = torch.stack(orthogonal_vec3, dim=-2)
 
-    # embed rotation into lorentz transformation
-    trafo2 = torch.zeros_like(trafo1)
-    trafo2[..., 0, 0] = 1
-    trafo2[..., 1:, 1:] = rotation
-
-    trafo = torch.einsum("...ij,...jk->...ik", trafo2, trafo1)
-    return trafo
+    # combine rotation and boost
+    trafo = torch.einsum("...ij,...jk->...ik", rotation, boost)
+    assert torch.isfinite(trafo).all()
+    return (trafo, reg_collinear) if kwargs["return_reg"] else trafo

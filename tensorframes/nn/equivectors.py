@@ -1,4 +1,5 @@
 import torch
+from torch.nn import Identity, Softplus
 from torch_geometric.nn import MessagePassing
 
 from tensorframes.nn.mlp import MLP
@@ -20,10 +21,14 @@ class EquivariantVectors(MessagePassing):
         in_edges,
         hidden_channels,
         num_layers,
+        operation="single",
+        nonlinearity="exp",
         dropout_prob=None,
     ):
         super().__init__()
         self.n_vectors = n_vectors
+        self.operation = self.get_operation(operation)
+        self.nonlinearity = self.get_nonlinearity(nonlinearity)
         in_channels = 2 * in_nodes + in_edges
 
         self.mlp = MLP(
@@ -44,7 +49,33 @@ class EquivariantVectors(MessagePassing):
         prefactor = torch.cat([x_i, x_j], dim=-1)
         prefactor = torch.cat([prefactor, edge_attr], dim=-1)
         prefactor = self.mlp(prefactor)
+        prefactor = self.nonlinearity(prefactor)
 
-        fm_rel = fm_i - fm_j
+        fm_rel = self.operation(fm_i, fm_j)
+
         out = torch.einsum("...j,...k->...jk", prefactor, fm_rel)
         return out.flatten(-2, -1)
+
+    def get_operation(self, operation):
+        if operation == "diff":
+            return torch.sub
+        elif operation == "add":
+            return torch.add
+        elif operation == "single":
+            return lambda fm_i, fm_j: fm_j
+        else:
+            raise ValueError(
+                f"Invalid operation {operation}. Options are (add, diff, single)."
+            )
+
+    def get_nonlinearity(self, nonlinearity):
+        if nonlinearity == None:
+            return Identity()
+        elif nonlinearity == "exp":
+            return lambda x: torch.clamp(x, min=-10, max=10).exp()
+        elif nonlinearity == "softplus":
+            return Softplus()
+        else:
+            raise ValueError(
+                f"Invalid nonlinearity {nonlinearity}. Options are (None, exp, softplus)."
+            )

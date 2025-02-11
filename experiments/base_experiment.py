@@ -78,10 +78,7 @@ class BaseExperiment:
             self._save_model()
 
         if self.cfg.evaluate:
-            try:
-                self.evaluate()
-            except Exception as e:
-                LOGGER.exception("Skipping evaluation {e}")
+            self.evaluate()
 
         if self.cfg.plot and self.cfg.save:
             self.plot()
@@ -108,6 +105,7 @@ class BaseExperiment:
         LOGGER.info(
             f"Instantiated model {type(self.model.net).__name__} with {num_parameters} learnable parameters"
         )
+        LOGGER.info(f"LFrames approach: {type(self.model.lframesnet).__name__}")
 
         if self.cfg.ema:
             LOGGER.info(f"Using EMA for validation and eval")
@@ -447,7 +445,16 @@ class BaseExperiment:
 
     def train(self):
         # performance metrics
-        self.train_lr, self.train_loss, self.val_loss, self.train_grad_norm = (
+        (
+            self.train_lr,
+            self.train_loss,
+            self.val_loss,
+            self.grad_norm_train,
+            self.grad_norm_lframes,
+            self.grad_norm_net,
+        ) = (
+            [],
+            [],
             [],
             [],
             [],
@@ -483,21 +490,13 @@ class BaseExperiment:
             self.model.train()
             data = next(iterator)
             t0 = time.time()
-            try:
-                self._step(data, step)
-            except Exception as e:  # shame on me
-                LOGGER.exception(f"Skipping iteration {step}")
-                continue
+            self._step(data, step)
             train_time += time.time() - t0
 
             # validation (and early stopping)
             if (step + 1) % self.cfg.training.validate_every_n_steps == 0:
                 t0 = time.time()
-                try:
-                    val_loss = self._validate(step)
-                except Exception as e:
-                    LOGGER.exception(f"Skipping validation in iteration {step}")
-                    continue
+                val_loss = self._validate(step)
                 val_time += time.time() - t0
                 if val_loss < smallest_val_loss:
                     smallest_val_loss = val_loss
@@ -573,6 +572,20 @@ class BaseExperiment:
         loss, metrics = self._batch_loss(data)
         self.optimizer.zero_grad()
         loss.backward()
+
+        grad_norm_lframes = (
+            torch.nn.utils.clip_grad_norm_(
+                self.model.lframesnet.parameters(), float("inf")
+            )
+            .cpu()
+            .item()
+        )
+        grad_norm_net = (
+            torch.nn.utils.clip_grad_norm_(self.model.net.parameters(), float("inf"))
+            .cpu()
+            .item()
+        )
+
         if self.cfg.training.clip_grad_value is not None:
             # clip gradients at a certain value (this is dangerous!)
             torch.nn.utils.clip_grad_value_(
@@ -605,9 +618,12 @@ class BaseExperiment:
             self.scheduler.step()
 
         # collect metrics
+
         self.train_loss.append(loss.item())
         self.train_lr.append(self.optimizer.param_groups[0]["lr"])
-        self.train_grad_norm.append(grad_norm)
+        self.grad_norm_train.append(grad_norm)
+        self.grad_norm_lframes.append(grad_norm_lframes)
+        self.grad_norm_net.append(grad_norm_net)
         for key, value in metrics.items():
             self.train_metrics[key].append(value)
 
@@ -622,6 +638,8 @@ class BaseExperiment:
                 "lr": self.train_lr[-1],
                 "time_per_step": (time.time() - self.training_start_time) / (step + 1),
                 "grad_norm": grad_norm,
+                "grad_norm_lframes": grad_norm_lframes,
+                "grad_norm_net": grad_norm_net,
             }
             for key, values in log_dict.items():
                 log_mlflow(f"train.{key}", values, step=step)

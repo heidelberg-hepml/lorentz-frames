@@ -20,14 +20,6 @@ class TaggingExperiment(BaseExperiment):
     """
 
     def init_physics(self):
-        # dynamically extend dict
-        with open_dict(self.cfg):
-            self.cfg.data.include_global_token = not self.cfg.model.mean_aggregation
-
-        assert (
-            not self.cfg.data.include_global_token
-        ), "Global token not properly supported"
-
         with open_dict(self.cfg):
             if self.cfg.data.add_scalar_features:
                 self.cfg.model.in_reps += "+7x0n"  # other scalar features
@@ -125,7 +117,7 @@ class TaggingExperiment(BaseExperiment):
             self.optimizer.eval()
         with torch.no_grad():
             for batch in loader:
-                y_pred, label = self._get_ypred_and_label(batch)
+                y_pred, label, _ = self._get_ypred_and_label(batch)
                 y_pred = torch.nn.functional.sigmoid(y_pred)
                 labels_true.append(label.cpu().float())
                 labels_predict.append(y_pred.cpu().float())
@@ -178,18 +170,13 @@ class TaggingExperiment(BaseExperiment):
                 log_mlflow(f"{name}.{key}", value, step=step)
 
         if mode == "eval":
-            aggregator = (
-                "mean aggregation"
-                if self.cfg.model.mean_aggregation == True
-                else "global token"
-            )
             lframeString = type(self.model.lframesnet).__name__
             num_parameters = sum(
                 p.numel() for p in self.model.parameters() if p.requires_grad
             )
 
             LOGGER.info(
-                f"table {title}: {lframeString} with {aggregator} ({self.cfg.training.iterations} epochs)"
+                f"table {title}: {lframeString} ({self.cfg.training.iterations} epochs)"
                 f" & {num_parameters} & {metrics['accuracy']:.4f}&{metrics['auc']:.4f}"
                 f" & {metrics['rej03']:.0f}&{metrics['rej05']:.0f}&{metrics['rej08']:.0f} \\\\"
             )
@@ -221,7 +208,11 @@ class TaggingExperiment(BaseExperiment):
             plot_dict["train_lr"] = self.train_lr
             plot_dict["train_metrics"] = self.train_metrics
             plot_dict["val_metrics"] = self.val_metrics
-            plot_dict["grad_norm"] = self.train_grad_norm
+            plot_dict["grad_norm"] = self.grad_norm_train
+            plot_dict["grad_norm_lframes"] = self.grad_norm_lframes
+            plot_dict["grad_norm_net"] = self.grad_norm_net
+            for key, value in self.train_metrics.items():
+                plot_dict[key] = value
         plot_mixer(self.cfg, plot_path, title, plot_dict)
 
     def _init_loss(self):
@@ -242,28 +233,28 @@ class TaggingExperiment(BaseExperiment):
         return metrics["loss"]
 
     def _batch_loss(self, batch):
-        y_pred, label = self._get_ypred_and_label(batch)
+        y_pred, label, tracker = self._get_ypred_and_label(batch)
         loss = self.loss(y_pred, label)
         assert torch.isfinite(loss).all()
 
-        metrics = {}
+        metrics = tracker
         return loss, metrics
 
     def _get_ypred_and_label(self, batch):
         batch = batch.to(self.device)
         embedding = embed_tagging_data(batch.x, batch.scalars, batch.ptr, self.cfg.data)
-        y_pred = self.model(embedding)[:, 0]
-        return y_pred, batch.label.to(self.dtype)
+        y_pred, tracker = self.model(embedding)
+        y_pred = y_pred[:, 0]
+        return y_pred, batch.label.to(self.dtype), tracker
 
     def _init_metrics(self):
-        return {}
+        return {"reg_collinear": [], "reg_coplanar": [], "reg_lightlike": []}
 
 
 class TopTaggingExperiment(TaggingExperiment):
     def __init__(self, cfg):
         super().__init__(cfg)
         with open_dict(self.cfg):
-            self.cfg.data.num_global_tokens = 1
             self.cfg.model.net.num_classes = 1
             self.cfg.model.in_reps = "1x1n"  # energy-momentum vector
 

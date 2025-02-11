@@ -5,8 +5,13 @@ from torch import Tensor
 from torch.nn.functional import scaled_dot_product_attention as torch_sdpa
 from xformers.ops import AttentionBias, memory_efficient_attention
 
-from tensorframes.lframes import ChangeOfLFrames, LFrames
+from tensorframes.lframes.lframes import (
+    LFrames,
+    InverseLFrames,
+    LowerIndices,
+)
 from tensorframes.reps import TensorReps
+from tensorframes.reps.tensorreps_transform import TensorRepsTransform
 from tensorframes.utils.utils import to_nd
 
 # Masked out attention logits are set to this constant (a finite replacement for -inf):
@@ -16,66 +21,57 @@ _MASKED_OUT = float("-inf")
 class InvariantParticleAttention(torch.nn.Module):
     def __init__(self, attn_reps):
         super().__init__()
-        self.transform = TensorReps(attn_reps).get_transform_class()
+        self.transform = TensorRepsTransform(TensorReps(attn_reps))
 
     def forward(
         self, q_local, k_local, v_local, lframes, attn_mask=None, is_causal=False
     ):
-        # TODO: Clean this up
+        """
+        dimensions: H (head), N (particles), C (channels)
+        q_local, k_local, v_local: (H, N, C)
+        """
 
-        # assume that the first dimension is the head dimension
-        # -> expand lframes across this dimension
-        matrices = lframes.matrices
-        matrices = matrices.unsqueeze(0).repeat(
-            q_local.shape[0], *(1,) * len(matrices.shape)
+        # prepare lframes trafos
+        # have to add head dimension
+        matrices = lframes.matrices.unsqueeze(0).repeat(
+            q_local.shape[0], *(1,) * len(lframes.shape), 1, 1
         )
         matrices = to_nd(matrices, 3)
         lframes = LFrames(matrices)
-        lframes_inv = lframes.inverse_lframes()
+        inv_lframes = InverseLFrames(lframes)
+        lower_inv_lframes = LowerIndices(inv_lframes)
 
-        # transformation matrices with lowered indices (multiply with metric)
-        lframes_inv_lower_matrices = torch.einsum(
-            "...ij,...jk->...ik", lframes.metric, lframes_inv.matrices
-        )
-        lframes_inv_lower = LFrames(lframes_inv_lower_matrices)
+        # transform q, k, v into global frame
+        shape_in = q_local.shape
+        q_local, k_local, v_local = (
+            to_nd(q_local, 2),
+            to_nd(k_local, 2),
+            to_nd(v_local, 2),
+        )  # (H*N, C)
+        q_global = self.transform(q_local, inv_lframes)
+        k_global = self.transform(k_local, lower_inv_lframes)
+        v_global = self.transform(v_local, inv_lframes)
+        q_global, k_global, v_global = (
+            q_global.view(*shape_in),
+            k_global.view(*shape_in),
+            v_global.view(*shape_in),
+        )  # (H, N, C)
 
-        # collapse batch dimension (required for tensorreps.py)
-        bh_shape1 = q_local.shape
-        q_local = to_nd(q_local, 2)
-        k_local = to_nd(k_local, 2)
-        v_local = to_nd(v_local, 2)
-
-        # transform into global frame
-        q_global = self.transform(q_local, lframes_inv)
-        k_global = self.transform(k_local, lframes_inv_lower)
-        v_global = self.transform(v_local, lframes_inv)
-
-        # undo collapse
-        q_global = q_global.view(*bh_shape1)
-        k_global = k_global.view(*bh_shape1)
-        v_global = v_global.view(*bh_shape1)
-
-        # add batch dimension if needed
-        bh_shape2 = q_global.shape[:-2]
-        q_global = to_nd(q_global, 4)
-        k_global = to_nd(k_global, 4)
-        v_global = to_nd(v_global, 4)
-
+        # attention (in global frame)
+        q_global, k_global, v_global = (
+            to_nd(q_global, 4),
+            to_nd(k_global, 4),
+            to_nd(v_global, 4),
+        )  # (1, H, N, C) format required for xformers
         out_global = scaled_dot_product_attention(
             q_global, k_global, v_global, attn_mask=attn_mask, is_causal=is_causal
         )
+        out_global = out_global.view(*shape_in)  # (H, N, C)
 
-        # Return batch dimensions to inputs
-        out_global = out_global.view(*bh_shape2, *out_global.shape[-2:])
-
-        # collapse batch dimension
+        # transform out back into local frame
         out_global = to_nd(out_global, 2)
-
-        # transform into local frame
         out_local = self.transform(out_global, lframes)
-
-        # undo collapse
-        out_local = out_local.view(*bh_shape1)
+        out_local = out_local.view(*shape_in)
         return out_local
 
 

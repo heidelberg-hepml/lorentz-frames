@@ -31,28 +31,29 @@ def lorentz_metric(dims, device=torch.device("cpu"), dtype=torch.float32):
     return eye
 
 
-def leinsum(einstr: str, a: torch.Tensor, b: torch.Tensor, dim: int = -1):
-    """torch.einsum, but uses the minkovski metric (1, -1, -1, -1)
-    e.g.
-    a = torch.tensor([1,2,1,2])
-    b = torch.tensor([[2,2,2,2]])
-    result = leinsum(einstr="d,bd->b", a, b, dim=-1)
-
-    will calculate the following:
-        result = torch.einsum(einstr="d,bd->b", a, torch.tensor([[2,-2,-2,-2]]))
+def lorentz_cross(v1, v2, v3):
+    """
+    Compute the cross product in Minkowski space.
 
     Args:
-        einstr (str): string for einstein notations
-        a, b (tensors): tensors to operate on
-        dim (int): dimention in which the first element should have opposite sign
+        v1, v2, v3: Tensors of shape (*dims, 4)
 
     Returns:
-        einsum of the tensors
+        v4: Tensor of shape (*dims, )
     """
-    index = [slice(None)] * b.dim()
+    assert v1.shape[-1] == 4
+    assert v1.shape == v2.shape and v1.shape == v3.shape
 
-    index[dim] = slice(1, None)
+    mat = torch.stack([v1, v2, v3], dim=-1)
 
-    b_copy = b.detach().clone()
-    b_copy[index] *= -1
-    return torch.einsum(einstr, a, b_copy)
+    # euclidean fully antisymmetric product
+    v4 = []
+    for n in range(4):
+        minor = torch.cat([mat[..., :n, :], mat[..., n + 1 :, :]], dim=-2)
+        contribution = (-1) ** n * torch.det(minor)
+        v4.append(contribution)
+    v4 = torch.stack(v4, dim=-1)
+
+    # raise indices with metric tensor
+    v4 *= torch.tensor([1.0, -1.0, -1.0, -1.0], device=v1.device, dtype=v1.dtype)
+    return v4

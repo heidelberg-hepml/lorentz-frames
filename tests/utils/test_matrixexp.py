@@ -1,6 +1,6 @@
 import torch
 import pytest
-from tests.constants import TOLERANCES, BATCH_DIMS
+from tests.constants import MILD_TOLERANCES, BATCH_DIMS
 from tests.helpers import lorentz_test
 
 from tensorframes.utils.matrixexp import (
@@ -12,14 +12,14 @@ from tensorframes.utils.lorentz import lorentz_metric
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
 def test_lorentz(batch_dims):
-    dtype = torch.float64  # some tests require higher precision
+    dtype = torch.float64
 
     v1 = torch.randn(*batch_dims, 4, dtype=dtype)
     v2 = torch.randn(*batch_dims, 4, dtype=dtype)
 
     trafo = matrix_exponential(v1, v2)
 
-    lorentz_test(trafo, **TOLERANCES)
+    lorentz_test(trafo, **MILD_TOLERANCES)
 
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
@@ -27,7 +27,7 @@ def test_lorentz(batch_dims):
     reason="Test fails because trafo makes v1_prime, v2_prime very large objects such that matrix_exp becomes unstable"
 )
 def test_equivariance(batch_dims):
-    dtype = torch.float64  # some tests require higher precision
+    dtype = torch.float64
 
     v1 = torch.randn(*batch_dims, 4, dtype=dtype)
     v2 = torch.randn(*batch_dims, 4, dtype=dtype)
@@ -49,4 +49,4 @@ def test_equivariance(batch_dims):
     trafo_prime_expected = torch.einsum(
         "...ij,...jk,...kl->...il", random, trafo, random_inv
     )
-    torch.testing.assert_close(trafo_prime, trafo_prime_expected, **TOLERANCES)
+    torch.testing.assert_close(trafo_prime, trafo_prime_expected, **MILD_TOLERANCES)

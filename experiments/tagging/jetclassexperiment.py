@@ -37,7 +37,6 @@ class JetClassTaggingExperiment(TaggingExperiment):
             "ZToQQ",
         ]
         with open_dict(self.cfg):
-            self.cfg.data.num_global_tokens = 1
             self.cfg.model.net.num_classes = len(self.class_names)
             self.cfg.model.in_reps = "1x1n"  # energy-momentum vector
 
@@ -162,8 +161,6 @@ class JetClassTaggingExperiment(TaggingExperiment):
                 y_pred, label = self._get_ypred_and_label(batch)
                 labels_true.append(label.cpu())
                 labels_predict.append(y_pred.cpu().float())
-                print(labels_true[-1].shape, labels_predict[-1].shape)
-                break
 
         labels_true, labels_predict = torch.cat(labels_true), torch.cat(labels_predict)
         if mode == "eval":
@@ -171,7 +168,6 @@ class JetClassTaggingExperiment(TaggingExperiment):
                 labels_true,
                 labels_predict,
             )
-        print(labels_true.shape, labels_predict.shape)
 
         # ce loss
         metrics["loss"] = torch.nn.functional.cross_entropy(
@@ -257,5 +253,5 @@ class JetClassTaggingExperiment(TaggingExperiment):
         label = batch[1]["_label_"].to(self.device)
         fourmomenta, scalars, ptr = dense_to_sparse_jet(fourmomenta, scalars)
         embedding = embed_tagging_data(fourmomenta, scalars, ptr, self.cfg.data)
-        y_pred = self.model(embedding)
-        return y_pred, label
+        y_pred, tracker = self.model(embedding)
+        return y_pred, label, tracker

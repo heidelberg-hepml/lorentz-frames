@@ -43,9 +43,9 @@ def plot_loss(file, losses, lr=None, labels=None, logy=True):
 
 def plot_metric(file, metrics, metric_label, labels=None, logy=False):
     labels = [None for _ in range(len(metrics))] if labels is None else labels
-    iterations = range(1, len(metrics[0]) + 1)
     fig, ax = plt.subplots()
     for i, metric, label in zip(range(len(metrics)), metrics, labels):
+        iterations = range(1, len(metric) + 1)
         if len(metric) == len(iterations):
             its = iterations
         else:

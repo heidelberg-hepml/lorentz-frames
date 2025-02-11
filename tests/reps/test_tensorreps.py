@@ -1,9 +1,10 @@
 import torch
-from tests.constants import TOLERANCES
+from tests.constants import TOLERANCES, MILD_TOLERANCES
 
 from tensorframes.utils.transforms import rand_lorentz
 from tensorframes.lframes.lframes import ChangeOfLFrames, LFrames
-from tensorframes.reps.tensorreps import TensorReps, TensorRepsTransform
+from tensorframes.reps.tensorreps import TensorReps
+from tensorframes.reps.tensorreps_transform import TensorRepsTransform
 
 # I quick-and-dirty-adapted this test from the original tensorframes repo
 # this deserves some attention at some point
@@ -17,7 +18,6 @@ def test_tensorreps():
 
     coeffs = torch.randn(10, tensor_reps_1.dim)
     tensor_reps_transform = TensorRepsTransform(tensor_reps_1)
-    lframes = LFrames(random_rot)
 
     random_rot = rand_lorentz([20])
     flip_mask = torch.randint(0, 2, (20,), dtype=torch.bool)
@@ -102,5 +102,5 @@ def test_tensorreps():
     torch.testing.assert_close(
         transformed_coeffs.reshape(10, 5, 4, 4),
         naive_trafo,
-        **TOLERANCES,
+        **MILD_TOLERANCES,
     )

@@ -2,7 +2,7 @@ _target_: experiments.tagging.wrappers.GraphNetWrapper
 
 net:
  _target_: tensorframes.nn.graphnet.TFGraphNet
- hidden_channels: "16x0n+8x1n+1x2n"
+ hidden_channels: "32x0n+16x1n+2x2n"
 
 defaults:
  - basegraphnet

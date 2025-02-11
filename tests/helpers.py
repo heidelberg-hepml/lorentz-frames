@@ -3,7 +3,7 @@ import torch
 from tensorframes.utils.lorentz import lorentz_metric
 
 
-def sample_vector(
+def sample_particle(
     shape, logm2_std, logm2_mean, device=torch.device("cpu"), dtype=torch.float32
 ):
     assert logm2_std > 0

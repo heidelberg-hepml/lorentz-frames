@@ -1,3 +1,6 @@
+# torch-cluster requires pre-build torch wheels
+--find-links https://data.pyg.org/whl/torch-2.0.0+cpu.html
+
 # experiment management
 hydra-core
 mlflow==2.4.1
@@ -6,9 +9,8 @@ pytest
 black==22.3.0
 
 # deep learning
-torch>=2.0.0
-torchvision>=0.15.0
-torch-geometric==2.4.0
+torch>=2.0.0  # should be installed manually before everything else
+torch-geometric>=2.4.0
 torch-ema
 einops
 pytorch_optimizer>=3.2.0
@@ -19,4 +21,13 @@ matplotlib
 
 # project-specific
 xformers
-torch-cluster>=1.6.3
+torch-cluster>=1.6.3 # have to install this in a second step after everything else, otherwise get error
+
+#weaver packages
+tqdm>=4.41.0
+PyYAML>=5.4
+awkward0>=0.15.5
+uproot>=4.2.0,<5.2.0
+awkward>=1.8.0
+lz4
+xxhash

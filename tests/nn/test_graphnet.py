@@ -1,27 +1,22 @@
 import torch
 import pytest
-from tests.constants import TOLERANCES, LOGM2_MEAN, LOGM2_STD, REPS
-from tests.helpers import sample_vector
+from tests.constants import TOLERANCES, LOGM2_MEAN_STD, REPS, LFRAMES_PREDICTOR
+from tests.helpers import sample_particle
 from torch_geometric.utils import dense_to_sparse
 
 from tensorframes.nn.graphnet import EdgeConv, TFGraphNet
-from tensorframes.lframes.equi_lframes import (
-    RestLFrames,
-    CrossLearnedLFrames,
-    ReflectLearnedLFrames,
-    MatrixExpLearnedLFrames,
-)
 from tensorframes.reps.tensorreps import TensorReps
+from tensorframes.reps.tensorreps_transform import TensorRepsTransform
 from tensorframes.utils.transforms import rand_lorentz
+from tensorframes.lframes.lframes import InverseLFrames
 
 
-@pytest.mark.parametrize("LFramesPredictor", [CrossLearnedLFrames])
+@pytest.mark.parametrize("LFramesPredictor", LFRAMES_PREDICTOR)
 @pytest.mark.parametrize("batch_dims", [[10]])
 @pytest.mark.parametrize("num_layers_mlp1", range(1, 2))
 @pytest.mark.parametrize("num_layers_mlp2", range(0, 2))
-@pytest.mark.parametrize("logm2_std", LOGM2_STD)
-@pytest.mark.parametrize("logm2_mean", LOGM2_MEAN)
 @pytest.mark.parametrize("reps", REPS)
+@pytest.mark.parametrize("logm2_mean,logm2_std", LOGM2_MEAN_STD)
 def test_edgeconv_invariance_equivariance(
     LFramesPredictor,
     batch_dims,
@@ -31,32 +26,22 @@ def test_edgeconv_invariance_equivariance(
     logm2_mean,
     reps,
 ):
-    # test construction of the messages in EdgeConv by probing the equivariance
-    # preparations as in test_attention
-    # only use 1 "jet"
-    dtype = torch.float64  # is this needed?
+    dtype = torch.float64
 
     edge_index = dense_to_sparse(torch.ones(batch_dims[0], batch_dims[0]))[0]
-    if LFramesPredictor == RestLFrames:
-        predictor = LFramesPredictor()
-        call_predictor = lambda fm: predictor(fm)
-    elif LFramesPredictor in [
-        CrossLearnedLFrames,
-        ReflectLearnedLFrames,
-        MatrixExpLearnedLFrames,
-    ]:
-        assert len(batch_dims) == 1
-        predictor = LFramesPredictor(hidden_channels=16, num_layers=1, in_nodes=0).to(
-            dtype=dtype
-        )
-        batch = torch.zeros(batch_dims, dtype=torch.long)
-        scalars = torch.zeros(*batch_dims, 0, dtype=dtype)
-        call_predictor = lambda fm: predictor(fm, scalars, edge_index, batch)
+
+    assert len(batch_dims) == 1
+    predictor = LFramesPredictor(hidden_channels=16, num_layers=1, in_nodes=0).to(
+        dtype=dtype
+    )
+    batch = torch.zeros(batch_dims, dtype=torch.long)
+    scalars = torch.zeros(*batch_dims, 0, dtype=dtype)
+    call_predictor = lambda fm: predictor(fm, scalars, edge_index, batch)
 
     # define edgeconv
     in_reps = TensorReps("1x1n")
     hidden_reps = TensorReps(reps)
-    trafo = TensorReps(in_reps).get_transform_class()
+    trafo = TensorRepsTransform(TensorReps(in_reps))
     linear_in = torch.nn.Linear(in_reps.dim, hidden_reps.dim).to(dtype=dtype)
     linear_out = torch.nn.Linear(hidden_reps.dim, in_reps.dim).to(dtype=dtype)
     edgeconv = EdgeConv(hidden_reps, num_layers_mlp1, num_layers_mlp2).to(dtype)
@@ -66,7 +51,7 @@ def test_edgeconv_invariance_equivariance(
     random = random.repeat(*batch_dims, 1, 1)
 
     # sample Lorentz vectors
-    fm = sample_vector(batch_dims, logm2_std, logm2_mean, dtype=dtype)
+    fm = sample_particle(batch_dims, logm2_std, logm2_mean, dtype=dtype)
     lframes = call_predictor(fm)
     fm_local = trafo(fm, lframes)
 
@@ -78,14 +63,14 @@ def test_edgeconv_invariance_equivariance(
     x_tr_prime_local = edgeconv(x_tr_local, lframes_transformed, edge_index)
     fm_tr_prime_local = linear_out(x_tr_prime_local)
     # back to global frame
-    fm_tr_prime_global = trafo(fm_tr_prime_local, lframes_transformed.inverse_lframes())
+    fm_tr_prime_global = trafo(fm_tr_prime_local, InverseLFrames(lframes_transformed))
 
     # edgeconv - global
     x_local = linear_in(fm_local)
     x_prime_local = edgeconv(x_local, lframes, edge_index)
     fm_prime_local = linear_out(x_prime_local)
     # back to global
-    fm_prime_global = trafo(fm_prime_local, lframes.inverse_lframes())
+    fm_prime_global = trafo(fm_prime_local, InverseLFrames(lframes))
     fm_prime_tr_global = torch.einsum("...ij,...j->...i", random, fm_prime_global)
 
     # test feature invariance before the operation
@@ -98,14 +83,13 @@ def test_edgeconv_invariance_equivariance(
     torch.testing.assert_close(fm_tr_prime_global, fm_prime_tr_global, **TOLERANCES)
 
 
-@pytest.mark.parametrize("LFramesPredictor", [CrossLearnedLFrames])
+@pytest.mark.parametrize("LFramesPredictor", LFRAMES_PREDICTOR)
 @pytest.mark.parametrize("batch_dims", [[10]])
 @pytest.mark.parametrize("num_layers_mlp1", range(1, 2))
 @pytest.mark.parametrize("num_layers_mlp2", range(0, 2))
 @pytest.mark.parametrize("num_blocks", [0, 1, 2])
-@pytest.mark.parametrize("logm2_std", LOGM2_STD)
-@pytest.mark.parametrize("logm2_mean", LOGM2_MEAN)
 @pytest.mark.parametrize("reps", REPS)
+@pytest.mark.parametrize("logm2_mean,logm2_std", LOGM2_MEAN_STD)
 def test_graphnet_invariance_equivariance(
     LFramesPredictor,
     batch_dims,
@@ -116,31 +100,21 @@ def test_graphnet_invariance_equivariance(
     logm2_mean,
     reps,
 ):
-    # test construction of the messages in GraphNet by probing the equivariance
-    # preparations as in test_attention
-    # only use 1 "jet"
-    dtype = torch.float64  # is this needed?
+    dtype = torch.float64
 
     edge_index = dense_to_sparse(torch.ones(batch_dims[0], batch_dims[0]))[0]
-    if LFramesPredictor == RestLFrames:
-        predictor = LFramesPredictor()
-        call_predictor = lambda fm: predictor(fm)
-    elif LFramesPredictor in [
-        CrossLearnedLFrames,
-        ReflectLearnedLFrames,
-        MatrixExpLearnedLFrames,
-    ]:
-        assert len(batch_dims) == 1
-        predictor = LFramesPredictor(hidden_channels=16, num_layers=1, in_nodes=0).to(
-            dtype=dtype
-        )
-        batch = torch.zeros(batch_dims, dtype=torch.long)
-        scalars = torch.zeros(*batch_dims, 0, dtype=dtype)
-        call_predictor = lambda fm: predictor(fm, scalars, edge_index, batch)
+
+    assert len(batch_dims) == 1
+    predictor = LFramesPredictor(hidden_channels=16, num_layers=1, in_nodes=0).to(
+        dtype=dtype
+    )
+    batch = torch.zeros(batch_dims, dtype=torch.long)
+    scalars = torch.zeros(*batch_dims, 0, dtype=dtype)
+    call_predictor = lambda fm: predictor(fm, scalars, edge_index, batch)
 
     # define edgeconv
     in_reps = TensorReps("1x1n")
-    trafo = TensorReps(in_reps).get_transform_class()
+    trafo = TensorRepsTransform(TensorReps(in_reps))
     graphnet = TFGraphNet(
         in_channels=in_reps.dim,
         hidden_channels=reps,
@@ -155,7 +129,7 @@ def test_graphnet_invariance_equivariance(
     random = random.repeat(*batch_dims, 1, 1)
 
     # sample Lorentz vectors
-    fm = sample_vector(batch_dims, logm2_std, logm2_mean, dtype=dtype)
+    fm = sample_particle(batch_dims, logm2_std, logm2_mean, dtype=dtype)
     lframes = call_predictor(fm)
     fm_local = trafo(fm, lframes)
 
@@ -165,12 +139,12 @@ def test_graphnet_invariance_equivariance(
     fm_tr_local = trafo(fm_transformed, lframes_transformed)
     fm_tr_prime_local = graphnet(fm_tr_local, lframes_transformed, edge_index)
     # back to global frame
-    fm_tr_prime_global = trafo(fm_tr_prime_local, lframes_transformed.inverse_lframes())
+    fm_tr_prime_global = trafo(fm_tr_prime_local, InverseLFrames(lframes_transformed))
 
     # edgeconv - global
     fm_prime_local = graphnet(fm_local, lframes, edge_index)
     # back to global
-    fm_prime_global = trafo(fm_prime_local, lframes.inverse_lframes())
+    fm_prime_global = trafo(fm_prime_local, InverseLFrames(lframes))
     fm_prime_tr_global = torch.einsum("...ij,...j->...i", random, fm_prime_global)
 
     # test equivariance of outputs

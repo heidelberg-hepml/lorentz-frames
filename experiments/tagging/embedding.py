@@ -35,7 +35,7 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
     -------
     embedding: dict
         Embedded data
-        Includes keys for fourmomenta (n_particle (+n_spurion if beam_token), n_vectors, 4), scalars, is_global and ptr
+        Includes keys for fourmomenta (n_particle (+n_spurion if beam_token), n_vectors, 4), scalars and ptr
     """
     batchsize = len(ptr) - 1
     arange = torch.arange(batchsize, device=fourmomenta.device)
@@ -93,6 +93,7 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
 
     fourmomenta = fourmomenta.unsqueeze(1)
     n_spurions = spurions.shape[0]
+    assert cfg_data.beam_token, f"spurions as channels not consistently supported yet"
     if cfg_data.beam_token and n_spurions > 0:
         # prepend spurions to the token list (within each block)
         spurion_idxs = torch.stack(
@@ -128,65 +129,6 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
         spurions = spurions.unsqueeze(0).repeat(fourmomenta.shape[0], 1, 1)
         fourmomenta = torch.cat((fourmomenta, spurions), dim=-2)
 
-    # global tokens
-    num_global_tokens = cfg_data.num_global_tokens
-    if cfg_data.include_global_token and num_global_tokens > 0:
-        # prepend global tokens to the token list
-        global_idxs = torch.stack(
-            [ptr[:-1] + i for i in range(num_global_tokens)], dim=0
-        ) + num_global_tokens * torch.arange(batchsize, device=ptr.device)
-        global_idxs = global_idxs.permute(1, 0).flatten()
-        is_global = torch.zeros(
-            fourmomenta.shape[0] + batchsize * num_global_tokens,
-            dtype=torch.bool,
-            device=fourmomenta.device,
-        )
-        is_global[global_idxs] = True
-        fourmomenta_buffer = fourmomenta.clone()
-        fourmomenta = torch.zeros(
-            is_global.shape[0],
-            *fourmomenta.shape[1:],
-            dtype=fourmomenta.dtype,
-            device=fourmomenta.device,
-        )
-        fourmomenta[~is_global] = fourmomenta_buffer
-        scalars_buffer = scalars.clone()
-        scalars = torch.zeros(
-            fourmomenta.shape[0],
-            scalars.shape[1] + num_global_tokens,
-            dtype=scalars.dtype,
-            device=scalars.device,
-        )
-        token_idx = one_hot(torch.arange(num_global_tokens, device=scalars.device))
-        token_idx = token_idx.repeat(batchsize, 1)
-        scalars[~is_global] = torch.cat(
-            (
-                scalars_buffer,
-                torch.zeros(
-                    scalars_buffer.shape[0],
-                    token_idx.shape[1],
-                    dtype=scalars.dtype,
-                    device=scalars.device,
-                ),
-            ),
-            dim=-1,
-        )
-        scalars[is_global] = torch.cat(
-            (
-                torch.zeros(
-                    token_idx.shape[0],
-                    scalars_buffer.shape[1],
-                    dtype=scalars.dtype,
-                    device=scalars.device,
-                ),
-                token_idx,
-            ),
-            dim=-1,
-        )
-        ptr[1:] = ptr[1:] + (arange + 1) * num_global_tokens
-    else:
-        is_global = None
-
     # construct edge_index (dark art)
     diffs = torch.diff(ptr)
     edge_index = torch.cat(
@@ -202,7 +144,6 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
     embedding = {
         "fourmomenta": fourmomenta,
         "scalars": scalars,
-        "is_global": is_global,
         "edge_index": edge_index,
         "batch": batch,
     }
