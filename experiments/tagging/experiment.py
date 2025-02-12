@@ -36,7 +36,9 @@ class TaggingExperiment(BaseExperiment):
                 num_spurions += 1 if self.cfg.data.add_time_reference else 0
                 self.cfg.model.in_reps += f"+{num_spurions}x1n"
 
-        LOGGER.info(f"Using the input representation: {self.cfg.model.in_reps}")
+        LOGGER.info(
+            f"Representations: in_reps={self.cfg.model.in_reps}, out_reps={self.cfg.model.out_reps}"
+        )
 
     def init_data(self):
         raise NotImplementedError
