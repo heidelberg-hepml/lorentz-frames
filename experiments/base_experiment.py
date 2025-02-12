@@ -45,7 +45,7 @@ class BaseExperiment:
 
     def run_mlflow(self):
         experiment_id, run_name = self._init()
-        git_hash = os.popen("git rev-parse HEAD").read().strip()
+        git_hash = os.popen("git rev-parse HEAD").read().strip()[:7]
         LOGGER.info(
             f"### Starting experiment {self.cfg.exp_name}/{run_name} (mlflowid={experiment_id}) (jobid={self.cfg.jobid}) (git_hash={git_hash}) ###"
         )
