@@ -1,4 +1,3 @@
-iterations: 50000
 batchsize: 256
 
 defaults:

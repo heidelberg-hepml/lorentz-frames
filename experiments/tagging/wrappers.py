@@ -44,11 +44,16 @@ class TaggerWrapper(nn.Module):
     def __init__(
         self,
         in_reps,
+        out_reps,
         lframesnet,
     ):
         super().__init__()
 
         self.in_reps = TensorReps(in_reps)
+        self.out_reps = TensorReps(out_reps)
+        assert (
+            self.out_reps.mul_without_scalars == 0
+        ), "out_reps must only contain scalars, but got out_reps={out_reps}"
 
         if isinstance(lframesnet, partial):
             # lframesnet with learnable elements need the in_nodes (number of scalars in input) for the networks
@@ -117,7 +122,7 @@ class BaselineTransformerWrapper(AggregatedTaggerWrapper):
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
-        self.net = net(in_channels=self.in_reps.dim)
+        self.net = net(in_channels=self.in_reps.dim, num_classes=self.out_reps.dim)
         assert (
             self.lframesnet.is_global
         ), "Non-equivariant model can only handle global lframes"
@@ -152,7 +157,7 @@ class BaselineGraphNetWrapper(AggregatedTaggerWrapper):
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
-        self.net = net(in_channels=self.in_reps.dim)
+        self.net = net(in_channels=self.in_reps.dim, num_classes=self.out_reps.dim)
         assert (
             self.lframesnet.is_global
         ), "Non-equivariant model can only handle global lframes"
@@ -190,7 +195,7 @@ class BaselineParticleNetWrapper(TaggerWrapper):
         assert (
             self.lframesnet.is_global
         ), "Non-equivariant model can only handle global lframes"
-        self.net = net(features_dims=self.in_reps.dim)
+        self.net = net(features_dims=self.in_reps.dim, num_classes=self.out_reps.dim)
 
     def forward(self, embedding):
         fourmomenta_local, scalars, _, _, batch, tracker = super().forward(embedding)
@@ -226,7 +231,7 @@ class BaselineParTWrapper(TaggerWrapper):
         assert (
             self.lframesnet.is_global
         ), "Non-equivariant model can only handle global lframes"
-        self.net = net(input_dim=self.in_reps.dim)
+        self.net = net(input_dim=self.in_reps.dim, num_classes=self.out_reps.dim)
 
     def forward(self, embedding):
         fourmomenta_local, scalars, _, _, batch, tracker = super().forward(embedding)
@@ -255,7 +260,7 @@ class GraphNetWrapper(AggregatedTaggerWrapper):
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
-        self.net = net(in_channels=self.in_reps.dim)
+        self.net = net(in_reps=self.in_reps, out_reps=self.out_reps)
 
     def forward(self, embedding):
         (
@@ -272,7 +277,9 @@ class GraphNetWrapper(AggregatedTaggerWrapper):
         features_local = torch.cat([jetmomenta_local, scalars], dim=-1)
 
         # network
-        outputs = self.net(x=features_local, lframes=lframes, edge_index=edge_index)
+        outputs = self.net(
+            inputs=features_local, lframes=lframes, edge_index=edge_index
+        )
 
         # aggregation
         score = self.extract_score(outputs, batch)
@@ -287,7 +294,7 @@ class TransformerWrapper(AggregatedTaggerWrapper):
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
-        self.net = net(in_channels=self.in_reps.dim)
+        self.net = net(in_reps=self.in_reps, out_reps=self.out_reps)
 
     def forward(self, embedding):
         (

@@ -8,10 +8,14 @@ from tensorframes.utils.lorentz import (
 )
 
 
-def orthogonal_trafo(*args, **kwargs):
+def orthogonal_trafo(vecs, use_float64=True, return_reg=False, **kwargs):
     """Put everything together to construct a valid Lorentz transformation"""
-    out = orthogonalize(*args, **kwargs)
-    if kwargs["return_reg"]:
+    if use_float64:
+        original_dtype = vecs[0].dtype
+        vecs = [v.to(torch.float64) for v in vecs]
+
+    out = orthogonalize(vecs, return_reg=return_reg, **kwargs)
+    if return_reg:
         orthogonal_vecs, *reg = out
     else:
         orthogonal_vecs = out
@@ -20,7 +24,9 @@ def orthogonal_trafo(*args, **kwargs):
     metric = lorentz_metric(trafo.shape[:-2], device=trafo.device, dtype=trafo.dtype)
     trafo = trafo @ metric
     trafo = timelike_first(trafo)
-    return (trafo, *reg) if kwargs["return_reg"] else trafo
+    if use_float64:
+        trafo = trafo.to(original_dtype)
+    return (trafo, *reg) if return_reg else trafo
 
 
 def orthogonalize(

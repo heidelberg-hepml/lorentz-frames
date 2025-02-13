@@ -15,7 +15,7 @@ from tensorframes.lframes.lframes import InverseLFrames
 @pytest.mark.parametrize("batch_dims", [[10]])
 @pytest.mark.parametrize("num_heads", [1, 4])
 @pytest.mark.parametrize("num_blocks", [0, 1, 2])
-@pytest.mark.parametrize("reps", REPS)
+@pytest.mark.parametrize("attn_reps", REPS)
 @pytest.mark.parametrize("logm2_mean,logm2_std", LOGM2_MEAN_STD)
 def test_transformer_invariance_equivariance(
     LFramesPredictor,
@@ -24,7 +24,7 @@ def test_transformer_invariance_equivariance(
     num_blocks,
     logm2_std,
     logm2_mean,
-    reps,
+    attn_reps,
 ):
     print(logm2_std, logm2_mean)
     dtype = torch.float64
@@ -42,9 +42,9 @@ def test_transformer_invariance_equivariance(
     in_reps = TensorReps("1x1n")
     trafo = TensorRepsTransform(TensorReps(in_reps))
     net = TFTransformer(
-        in_channels=in_reps.dim,
-        hidden_channels=reps,
-        num_classes=in_reps.dim,
+        in_reps=in_reps,
+        attn_reps=attn_reps,
+        out_reps=in_reps,
         num_blocks=num_blocks,
         num_heads=num_heads,
     ).to(dtype=dtype)

@@ -45,7 +45,7 @@ class BaseExperiment:
 
     def run_mlflow(self):
         experiment_id, run_name = self._init()
-        git_hash = os.popen("git rev-parse HEAD").read().strip()
+        git_hash = os.popen("git rev-parse HEAD").read().strip()[:7]
         LOGGER.info(
             f"### Starting experiment {self.cfg.exp_name}/{run_name} (mlflowid={experiment_id}) (jobid={self.cfg.jobid}) (git_hash={git_hash}) ###"
         )
@@ -105,7 +105,13 @@ class BaseExperiment:
         LOGGER.info(
             f"Instantiated model {type(self.model.net).__name__} with {num_parameters} learnable parameters"
         )
-        LOGGER.info(f"LFrames approach: {type(self.model.lframesnet).__name__}")
+
+        num_parameters_lframesnet = sum(
+            p.numel() for p in self.model.lframesnet.parameters() if p.requires_grad
+        )
+        LOGGER.info(
+            f"LFrames approach: {type(self.model.lframesnet).__name__} ({num_parameters_lframesnet} learnable parameters)"
+        )
 
         if self.cfg.ema:
             LOGGER.info(f"Using EMA for validation and eval")

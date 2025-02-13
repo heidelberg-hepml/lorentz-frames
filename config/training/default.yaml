@@ -1,12 +1,14 @@
-iterations: 100000
+iterations: 50000
 batchsize: 512
 
+# optimizer: default AdamW
 optimizer: AdamW
-lr: 1e-3
 betas: [.99, .999]
 eps: 1e-8
 weight_decay: 0
 
+# LR: Default CosineAnnealingLR
+lr: 1e-3
 scheduler: CosineAnnealingLR
 scheduler_scale: 1
 cosanneal_eta_min: 0

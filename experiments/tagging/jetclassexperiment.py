@@ -37,7 +37,7 @@ class JetClassTaggingExperiment(TaggingExperiment):
             "ZToQQ",
         ]
         with open_dict(self.cfg):
-            self.cfg.model.net.num_classes = len(self.class_names)
+            self.cfg.model.out_reps = f"{len(self.class_names)}x0n"
             self.cfg.model.in_reps = "1x1n"  # energy-momentum vector
 
             if self.cfg.data.features == "fourmomenta":

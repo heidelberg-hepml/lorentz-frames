@@ -75,7 +75,6 @@ class OrthogonalLearnedLFrames(LearnedLFrames):
 
     def forward(self, fourmomenta, scalars, edge_index, batch, return_tracker=False):
         vecs = super().forward(fourmomenta, scalars, edge_index)
-        vecs = vecs.to(dtype=torch.float64)
         vecs = [vecs[..., i, :] for i in range(self.n_vectors)]
 
         trafo, reg_lightlike, reg_coplanar = orthogonal_trafo(
@@ -83,7 +82,7 @@ class OrthogonalLearnedLFrames(LearnedLFrames):
         )
 
         tracker = {"reg_lightlike": reg_lightlike, "reg_coplanar": reg_coplanar}
-        lframes = LFrames(trafo.to(dtype=scalars.dtype))
+        lframes = LFrames(trafo)
         return (lframes, tracker) if return_tracker else lframes
 
 
@@ -107,9 +106,7 @@ class RestLFrames(LearnedLFrames):
 
     def forward(self, fourmomenta, scalars, edge_index, batch, return_tracker=False):
         references = super().forward(fourmomenta, scalars, edge_index)
-        references = references.to(dtype=torch.float64)
         references = [references[..., i, :] for i in range(self.n_vectors)]
-        fourmomenta = fourmomenta.to(dtype=torch.float64)
 
         trafo, reg_collinear = restframe_equivariant(
             fourmomenta,
@@ -118,7 +115,7 @@ class RestLFrames(LearnedLFrames):
             return_reg=True,
         )
         tracker = {"reg_collinear": reg_collinear}
-        lframes = LFrames(trafo.to(dtype=scalars.dtype))
+        lframes = LFrames(trafo)
         return (lframes, tracker) if return_tracker else lframes
 
 
@@ -144,7 +141,6 @@ class LearnedRestLFrames(LearnedLFrames):
 
     def forward(self, fourmomenta, scalars, edge_index, batch, return_tracker=False):
         vecs = super().forward(fourmomenta, scalars, edge_index)
-        vecs = vecs.to(dtype=torch.float64)
         fourmomenta = vecs[..., 0, :]
         references = [vecs[..., i, :] for i in range(1, self.n_vectors)]
 
@@ -155,5 +151,5 @@ class LearnedRestLFrames(LearnedLFrames):
             return_reg=True,
         )
         tracker = {"reg_collinear": reg_collinear}
-        lframes = LFrames(trafo.to(dtype=scalars.dtype))
+        lframes = LFrames(trafo)
         return (lframes, tracker) if return_tracker else lframes

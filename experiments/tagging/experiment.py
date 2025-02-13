@@ -36,7 +36,9 @@ class TaggingExperiment(BaseExperiment):
                 num_spurions += 1 if self.cfg.data.add_time_reference else 0
                 self.cfg.model.in_reps += f"+{num_spurions}x1n"
 
-        LOGGER.info(f"Using the input representation: {self.cfg.model.in_reps}")
+        LOGGER.info(
+            f"Representations: in_reps={self.cfg.model.in_reps}, out_reps={self.cfg.model.out_reps}"
+        )
 
     def init_data(self):
         raise NotImplementedError
@@ -255,7 +257,7 @@ class TopTaggingExperiment(TaggingExperiment):
     def __init__(self, cfg):
         super().__init__(cfg)
         with open_dict(self.cfg):
-            self.cfg.model.net.num_classes = 1
+            self.cfg.model.out_reps = "1x0n"
             self.cfg.model.in_reps = "1x1n"  # energy-momentum vector
 
     def init_data(self):
