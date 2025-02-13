@@ -5,7 +5,7 @@ net:
  _partial_: true
 
  in_reps: null
- attn_reps: "8x0n+2x1n"
+ attn_reps: "8x0n+2x1n" # reps can be varied, but number of channels should stay fixed
  out_reps: null
 
  num_blocks: 8

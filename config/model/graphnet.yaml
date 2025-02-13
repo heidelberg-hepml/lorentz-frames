@@ -5,7 +5,7 @@ net:
  _partial_: true
 
  in_reps: null
- hidden_reps: "64x0n+16x1n"
+ hidden_reps: "64x0n+16x1n" # reps can be varied, but number of channels should stay fixed
  out_reps: null
 
  num_blocks: 3
