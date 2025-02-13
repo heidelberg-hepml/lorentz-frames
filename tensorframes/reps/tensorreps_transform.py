@@ -306,7 +306,9 @@ class TensorRepsTransform(Module):
             ), "No coeffs are provided for non-trivial transform"
             return None
 
-        if basis_change.is_identity:  # shortcut
+        if (
+            basis_change.is_identity or self.tensor_reps.mul_without_scalars == 0
+        ):  # shortcut
             if inplace:
                 return coeffs
             else:
