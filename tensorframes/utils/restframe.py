@@ -48,7 +48,9 @@ def restframe_boost(fourmomenta):
     return trafo
 
 
-def restframe_equivariant(fourmomenta, references, **kwargs):
+def restframe_equivariant(
+    fourmomenta, references, use_float64=True, return_reg=False, **kwargs
+):
     """
     Lorentz transformation representing a boost into the rest frame and a
     properly constructed rotation that fixes the little group degree of freedom
@@ -59,6 +61,10 @@ def restframe_equivariant(fourmomenta, references, **kwargs):
             Four-momentum that defines the rest frames
         references: List with two torch.tensor of shape (*dims, 4)
             Two reference four-momenta to construct the rotation
+        use_float64: bool
+            Use float64 for calculations?
+        return_reg: bool
+            Return dict with regularization information?
         **kwargs: Additional arguments for orthogonalize_o3
 
     Returns:
@@ -66,6 +72,11 @@ def restframe_equivariant(fourmomenta, references, **kwargs):
     """
     assert len(references) == 2
     assert all(r.shape == fourmomenta.shape for r in references)
+
+    if use_float64:
+        original_dtype = fourmomenta.dtype
+        fourmomenta = fourmomenta.to(torch.float64)
+        references = [r.to(torch.float64) for r in references]
 
     # construct rest frame transformation
     boost = restframe_boost(fourmomenta)
@@ -75,8 +86,8 @@ def restframe_equivariant(fourmomenta, references, **kwargs):
 
     # construct rotation
     ref3_rest = [r[..., 1:] for r in ref_rest]
-    out = orthogonalize_o3(ref3_rest, **kwargs)
-    if kwargs["return_reg"]:
+    out = orthogonalize_o3(ref3_rest, return_reg=return_reg, **kwargs)
+    if return_reg:
         orthogonal_vec3, reg_collinear = out
     else:
         orthogonal_vec3 = out
@@ -86,5 +97,7 @@ def restframe_equivariant(fourmomenta, references, **kwargs):
 
     # combine rotation and boost
     trafo = torch.einsum("...ij,...jk->...ik", rotation, boost)
+    if use_float64:
+        trafo = trafo.to(original_dtype)
     assert torch.isfinite(trafo).all()
-    return (trafo, reg_collinear) if kwargs["return_reg"] else trafo
+    return (trafo, reg_collinear) if return_reg else trafo

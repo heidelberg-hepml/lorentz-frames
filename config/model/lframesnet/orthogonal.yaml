@@ -8,3 +8,4 @@ ortho_kwargs:
  eps_norm: 1e-10
  eps_reg_coplanar: 1e-4
  eps_reg_lightlike: 1e-4
+ use_float64: true

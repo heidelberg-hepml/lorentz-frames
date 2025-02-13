@@ -7,3 +7,4 @@ ortho_kwargs:
  method: gramschmidt
  eps_norm: 1e-10
  eps_reg: 1e-4
+ use_float64: true
