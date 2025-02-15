@@ -21,6 +21,21 @@ class TaggingExperiment(BaseExperiment):
 
     def init_physics(self):
         with open_dict(self.cfg):
+            if (
+                self.cfg.model._target_.rsplit(".", 1)[-1]
+                == "BaselineParticleNetWrapper"
+            ):
+                # Note: cfg.data.add_scalar_features not supported for net inputs; in_reps currently hard-coded
+                if (
+                    self.cfg.data.beam_reference is not None
+                    or self.cfg.data.add_time_reference
+                ):
+                    LOGGER.warning(
+                        "Spurions not supported for BaselineParticleNetWrapper (yield nan/inf in get_tagging_features), removing them"
+                    )
+                    self.cfg.data.beam_reference = None
+                    self.cfg.data.add_time_reference = False
+
             if self.cfg.data.add_scalar_features:
                 self.cfg.model.in_reps += "+7x0n"  # other scalar features
 
