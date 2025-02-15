@@ -204,16 +204,17 @@ class BaselineParticleNetWrapper(TaggerWrapper):
         fourmomenta_local = fourmomenta_local.reshape(fourmomenta_local.shape[0], -1)
         jetmomenta_local = jetmomenta_local.reshape(jetmomenta_local.shape[0], -1)
         features_local = torch.cat([jetmomenta_local, scalars], dim=-1)
+        phieta_local = jetmomenta_local[..., [1, 2]]
 
-        fourmomenta_local, mask = to_dense_batch(fourmomenta_local, batch)
+        phieta_local, mask = to_dense_batch(phieta_local, batch)
         features_local, _ = to_dense_batch(features_local, batch)
-        fourmomenta_local = fourmomenta_local.transpose(1, 2)
+        phieta_local = phieta_local.transpose(1, 2)
         features_local = features_local.transpose(1, 2)
         mask = mask.unsqueeze(1)
 
         # network
         score = self.net(
-            points=fourmomenta_local,
+            points=phieta_local,
             features=features_local,
             mask=mask,
         )
