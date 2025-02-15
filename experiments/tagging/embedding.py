@@ -50,6 +50,7 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
         Includes keys for fourmomenta (n_particle (+n_spurion if beam_token), n_vectors, 4), scalars and ptr
     """
     batchsize = len(ptr) - 1
+    batch = get_batch_from_ptr(ptr)
     arange = torch.arange(batchsize, device=fourmomenta.device)
 
     # add mass regulator
@@ -60,7 +61,7 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
 
     # add extra scalar channels
     if cfg_data.add_scalar_features:
-        features = get_tagging_features(fourmomenta, ptr)
+        features = get_tagging_features(fourmomenta, batch)
         scalars = torch.cat(
             (scalars, features),
             dim=-1,
@@ -127,7 +128,7 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
     )
 
     # return dict
-    batch = get_batch_from_ptr(ptr)
+    batch = get_batch_from_ptr(ptr)  # have to re-compute because ptr might have changed
     embedding = {
         "fourmomenta": fourmomenta,
         "scalars": scalars,
@@ -232,7 +233,7 @@ def get_spurion(
     return spurion
 
 
-def get_tagging_features(fourmomenta, ptr):
+def get_tagging_features(fourmomenta, batch):
     """
     Compute features typically used in jet tagging
 
@@ -240,9 +241,8 @@ def get_tagging_features(fourmomenta, ptr):
     ----------
     fourmomenta: torch.tensor of shape (n_particles, 4)
         Fourmomenta in the format (E, px, py, pz)
-    ptr: torch.tensor of shape (batchsize+1)
-        Indices of the first particle for each jet
-        Also includes the first index after the batch ends
+    batch: torch.tensor of shape (n_particles)
+        Batch index for each particle
 
     Returns
     -------
@@ -252,7 +252,6 @@ def get_tagging_features(fourmomenta, ptr):
     log_pt = get_pt(fourmomenta).unsqueeze(-1).log()
     log_energy = fourmomenta[..., 0].unsqueeze(-1).log()
 
-    batch = get_batch_from_ptr(ptr)
     jet = scatter(fourmomenta, index=batch, dim=0, reduce="sum").index_select(0, batch)
     log_pt_rel = (get_pt(fourmomenta).log() - get_pt(jet).log()).unsqueeze(-1)
     log_energy_rel = (fourmomenta[..., 0].log() - jet[..., 0].log()).unsqueeze(-1)
