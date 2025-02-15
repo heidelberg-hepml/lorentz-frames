@@ -60,7 +60,7 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
 
     # add extra scalar channels
     if cfg_data.add_scalar_features:
-        features = get_tagging_features(fourmomenta, ptr, cfg_data)
+        features = get_tagging_features(fourmomenta, ptr)
         scalars = torch.cat(
             (scalars, features),
             dim=-1,
@@ -232,7 +232,7 @@ def get_spurion(
     return spurion
 
 
-def get_tagging_features(fourmomenta, ptr, cfg_data):
+def get_tagging_features(fourmomenta, ptr):
     """
     Compute features typically used in jet tagging
 
@@ -243,7 +243,6 @@ def get_tagging_features(fourmomenta, ptr, cfg_data):
     ptr: torch.tensor of shape (batchsize+1)
         Indices of the first particle for each jet
         Also includes the first index after the batch ends
-    cfg_data: settings for embedding
 
     Returns
     -------
