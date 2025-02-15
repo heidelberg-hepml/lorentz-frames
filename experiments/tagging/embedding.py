@@ -1,11 +1,23 @@
 import torch
-from torch.nn.functional import one_hot
+import math
 from torch_geometric.utils import scatter, dense_to_sparse
 
 from tensorframes.utils.hep import get_eta, get_phi, get_pt
 from experiments.tagging.dataset import EPS
 
 UNITS = 20  # We use units of 20 GeV for all tagging experiments
+
+# Preprocessing (mean, std) for scalar features
+# these are the defaults used in weaver
+SCALAR_FEATURES_PREPROCESSING = [
+    [1.7 - math.log(UNITS), 0.7],  # log_pt
+    [2.0 - math.log(UNITS), 0.7],  # log_energy
+    [-4.7 - math.log(UNITS), 0.7],  # log_pt_rel
+    [-4.7 - math.log(UNITS), 0.7],  # log_energy_rel
+    [0, 1],  # dphi
+    [0, 1],  # deta
+    [0.2, 4],  # dr
+]
 
 
 def get_batch_from_ptr(ptr):
@@ -260,6 +272,6 @@ def get_tagging_features(fourmomenta, ptr, cfg_data):
         dr,
     ]
     for i, feature in enumerate(features):
-        mean, factor = cfg_data.scalar_features_preprocessing[i]
+        mean, factor = SCALAR_FEATURES_PREPROCESSING[i]
         features[i] = (feature - mean) * factor
     return torch.cat(features, dim=-1)
