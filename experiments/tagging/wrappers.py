@@ -205,6 +205,8 @@ class BaselineParticleNetWrapper(TaggerWrapper):
         fourmomenta_local, _, _, _, batch, tracker = super().forward(embedding)
         fourmomenta_local = fourmomenta_local[..., 0, :]
         features_local = get_tagging_features(fourmomenta_local, batch)
+
+        # ParticleNet uses L2 norm in (phi, eta) for kNN
         phieta_local = features_local[..., [4, 5]]
 
         phieta_local, mask = to_dense_batch(phieta_local, batch)
