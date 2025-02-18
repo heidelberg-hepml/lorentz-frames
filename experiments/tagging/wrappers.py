@@ -251,7 +251,7 @@ class BaselineParTWrapper(TaggerWrapper):
         features_local, _ = to_dense_batch(features_local, batch)
         fourmomenta_local = fourmomenta_local.transpose(1, 2)
         features_local = features_local.transpose(1, 2)
-        mask = mask.unsqueeze(1)
+        mask = mask.unsqueeze(1).float()
 
         # network
         score = self.net(
