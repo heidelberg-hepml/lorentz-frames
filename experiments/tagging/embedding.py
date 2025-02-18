@@ -70,11 +70,12 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
         ).sqrt()
 
     # ADD ADDITIONAL TRUE SCALAR FEATURES HERE
-    extra_scalars = []
-    for i, feature in enumerate(extra_scalars):
-        mean, factor = SCALAR_FEATURES_PREPROCESSING[i]
-        extra_scalars[i] = (feature - mean) * factor
-    scalars = torch.cat((scalars, *extra_scalars), dim=-1)
+    if cfg_data.add_scalar_features:
+        extra_scalars = []
+        for i, feature in enumerate(extra_scalars):
+            mean, factor = SCALAR_FEATURES_PREPROCESSING[i]
+            extra_scalars[i] = (feature - mean) * factor
+        scalars = torch.cat((scalars, *extra_scalars), dim=-1)
 
     if cfg_data.rescale_data:
         fourmomenta /= UNITS
@@ -135,6 +136,8 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
     )
 
     # i want to avoid the two_beams vector when we use it as replacements for the lframe
+    # these are the spurions which can be used as replacements for equivectors in lframes
+    # it might make sense to add more parameters later to adjust them
     unique_spurions = get_spurion(
         cfg_data.beam_reference,
         cfg_data.add_time_reference,
@@ -145,10 +148,18 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
 
     # return dict
     batch = get_batch_from_ptr(ptr)
+
+    if cfg_data.add_tagging_features:
+        tagging_features = get_tagging_features
+    else:
+        tagging_features = lambda fourmomenta, _: torch.empty(
+            fourmomenta.shape[0], 0, device=fourmomenta.device
+        )
+
     embedding = {
         "fourmomenta": fourmomenta,
         "scalars": scalars,
-        "tagging_features": get_tagging_features,
+        "tagging_features": tagging_features,
         "edge_index": edge_index,
         "batch": batch,
         "is_spurion": is_spurion,

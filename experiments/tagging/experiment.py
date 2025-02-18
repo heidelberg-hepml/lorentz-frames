@@ -21,7 +21,7 @@ class TaggingExperiment(BaseExperiment):
 
     def init_physics(self):
         with open_dict(self.cfg):
-            if self.cfg.data.add_scalar_features:
+            if self.cfg.data.add_tagging_features:
                 self.cfg.model.in_reps += "+7x0n"  # other scalar features
 
         LOGGER.info(
