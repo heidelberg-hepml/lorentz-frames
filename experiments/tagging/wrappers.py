@@ -199,7 +199,7 @@ class BaselineParticleNetWrapper(TaggerWrapper):
         # 7 input features are computed from fourmomenta_local
         # scalars are ignored in this model (for now, thats a design choice)
         num_inputs = 7
-        self.net = net(features_dims=num_inputs, num_classes=self.out_reps.dim)
+        self.net = net(input_dims=num_inputs, num_classes=self.out_reps.dim)
 
     def forward(self, embedding):
         fourmomenta_local, _, _, _, batch, tracker = super().forward(embedding)
