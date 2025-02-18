@@ -5,7 +5,10 @@ from torch_geometric.nn.aggr import MeanAggregation
 from functools import partial
 from torch_geometric.utils import to_dense_batch
 from xformers.ops.fmha import BlockDiagonalMask
+from torch_geometric.utils import dense_to_sparse
 
+from tensorframes.lframes.lframes import LFrames
+from experiments.tagging.embedding import get_ptr_from_batch
 from tensorframes.reps.tensorreps import TensorReps
 from tensorframes.reps.tensorreps_transform import TensorRepsTransform
 from tensorframes.utils.hep import EPPP_to_PtPhiEtaM2
@@ -70,8 +73,16 @@ class TaggerWrapper(nn.Module):
         # extract embedding
         fourmomenta = embedding["fourmomenta"]
         scalars = embedding["scalars"]
+        tagging_features = embedding["tagging_features"]
         edge_index = embedding["edge_index"]
         batch = embedding["batch"]
+        is_spurion = embedding["is_spurion"]
+
+        # compute tagging features in global frame
+        tagging_features_global = tagging_features(fourmomenta, batch)
+        tagging_features_global[is_spurion] = torch.zeros_like(
+            tagging_features_global[is_spurion]
+        )
 
         # construct lframes
         fourmomenta = fourmomenta.reshape(fourmomenta.shape[0], -1)
@@ -79,20 +90,44 @@ class TaggerWrapper(nn.Module):
             lframes, tracker = self.lframesnet(fourmomenta, return_tracker=True)
         else:
             lframes, tracker = self.lframesnet(
-                fourmomenta, scalars, edge_index, batch, return_tracker=True
+                fourmomenta,
+                torch.cat((scalars, tagging_features_global), dim=-1),
+                edge_index,
+                batch,
+                return_tracker=True,
             )
 
         # transform features into local frames
-        fourmomenta_local = self.trafo_fourmomenta(fourmomenta, lframes)
+        fourmomenta_local = self.trafo_fourmomenta(fourmomenta.clone(), lframes)
         fourmomenta_local = fourmomenta_local.reshape(
             fourmomenta_local.shape[0],
             -1,
             4,
         )
 
+        # remove spurions for net
+        fourmomenta_local = fourmomenta_local[~is_spurion]
+        scalars = scalars[~is_spurion]
+        batch = batch[~is_spurion]
+        lframes = LFrames(lframes.matrices[~is_spurion])
+        # compute tagging features in local fourmomenta_localframes
+        tagging_features_local = tagging_features(fourmomenta_local, batch)
+
+        ptr = get_ptr_from_batch(batch)
+        diffs = torch.diff(ptr)
+        edge_index = torch.cat(
+            [
+                dense_to_sparse(torch.ones(d, d, device=diffs.device))[0]
+                + diffs[:i].sum()
+                for i, d in enumerate(diffs)
+            ],
+            dim=-1,
+        )
+
         return (
             fourmomenta_local,
             scalars,
+            tagging_features_local,
             lframes,
             edge_index,
             batch,
@@ -266,6 +301,7 @@ class GraphNetWrapper(AggregatedTaggerWrapper):
         (
             fourmomenta_local,
             scalars,
+            tagging_features_local,
             lframes,
             edge_index,
             batch,
@@ -274,7 +310,9 @@ class GraphNetWrapper(AggregatedTaggerWrapper):
         jetmomenta_local = EPPP_to_PtPhiEtaM2(fourmomenta_local)
 
         jetmomenta_local = jetmomenta_local.reshape(jetmomenta_local.shape[0], -1)
-        features_local = torch.cat([jetmomenta_local, scalars], dim=-1)
+        features_local = torch.cat(
+            [jetmomenta_local, scalars, tagging_features_local], dim=-1
+        )
 
         # network
         outputs = self.net(
