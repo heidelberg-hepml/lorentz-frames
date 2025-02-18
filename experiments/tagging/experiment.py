@@ -247,7 +247,13 @@ class TaggingExperiment(BaseExperiment):
 
     def _get_ypred_and_label(self, batch):
         batch = batch.to(self.device)
-        embedding = embed_tagging_data(batch.x, batch.scalars, batch.ptr, self.cfg.data)
+        embedding = embed_tagging_data(
+            batch.x,
+            batch.scalars,
+            batch.ptr,
+            self.cfg.data,
+            self.cfg.model.lframesnet.spurion_lframes_replacements,
+        )
         y_pred, tracker = self.model(embedding)
         y_pred = y_pred[:, 0]
         return y_pred, batch.label.to(self.dtype), tracker
