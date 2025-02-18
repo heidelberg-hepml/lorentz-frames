@@ -100,7 +100,13 @@ class OrthogonalLearnedLFrames(LearnedLFrames):
         super().__init__(*args, n_vectors=self.n_vectors, **kwargs)
 
     def forward(
-        self, fourmomenta, scalars, edge_index, batch, spurions=None, return_tracker=False
+        self,
+        fourmomenta,
+        scalars,
+        edge_index,
+        batch,
+        spurions=None,
+        return_tracker=False,
     ):
         vecs = super().forward(fourmomenta, scalars, edge_index, spurions)
         vecs = [vecs[..., i, :] for i in range(self.n_vectors)]
@@ -133,7 +139,13 @@ class RestLFrames(LearnedLFrames):
         self.ortho_kwargs = ortho_kwargs
 
     def forward(
-        self, fourmomenta, scalars, edge_index, batch, spurions=None, return_tracker=False
+        self,
+        fourmomenta,
+        scalars,
+        edge_index,
+        batch,
+        spurions=None,
+        return_tracker=False,
     ):
         references = super().forward(fourmomenta, scalars, edge_index, spurions)
         references = [references[..., i, :] for i in range(self.n_vectors)]
@@ -170,7 +182,13 @@ class LearnedRestLFrames(LearnedLFrames):
         self.ortho_kwargs = ortho_kwargs
 
     def forward(
-        self, fourmomenta, scalars, edge_index, batch, spurions=None, return_tracker=False
+        self,
+        fourmomenta,
+        scalars,
+        edge_index,
+        batch,
+        spurions=None,
+        return_tracker=False,
     ):
         vecs = super().forward(fourmomenta, scalars, edge_index, spurions)
         fourmomenta = vecs[..., 0, :]

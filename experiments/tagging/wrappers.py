@@ -252,9 +252,17 @@ class BaselineParticleNetWrapper(TaggerWrapper):
         self.net = net(features_dims=num_inputs, num_classes=self.out_reps.dim)
 
     def forward(self, embedding):
-        fourmomenta_local, _, _, _, batch, tracker = super().forward(embedding)
+        (
+            fourmomenta_local,
+            _,
+            tagging_features_local,
+            _,
+            _,
+            batch,
+            tracker,
+        ) = super().forward(embedding)
         fourmomenta_local = fourmomenta_local[..., 0, :]
-        features_local = get_tagging_features(fourmomenta_local, batch)
+        features_local = tagging_features_local
 
         # ParticleNet uses L2 norm in (phi, eta) for kNN
         phieta_local = features_local[..., [4, 5]]
