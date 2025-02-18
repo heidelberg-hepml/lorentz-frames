@@ -1,5 +1,5 @@
 import torch
-from torch.nn.functional import one_hot
+import math
 from torch_geometric.utils import scatter, dense_to_sparse
 import math
 
@@ -63,6 +63,7 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
         Includes keys for fourmomenta (n_particle (+n_spurion if beam_token), n_vectors, 4), scalars and ptr
     """
     batchsize = len(ptr) - 1
+    batch = get_batch_from_ptr(ptr)
     arange = torch.arange(batchsize, device=fourmomenta.device)
 
     # add mass regulator
@@ -157,6 +158,8 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
         tagging_features = lambda fourmomenta, _: torch.empty(
             fourmomenta.shape[0], 0, device=fourmomenta.device
         )
+
+    batch = get_batch_from_ptr(ptr)  # have to re-compute because ptr might have changed
 
     embedding = {
         "fourmomenta": fourmomenta,
@@ -287,7 +290,7 @@ def get_spurion(
         beam = torch.tensor(beam, device=device, dtype=dtype).reshape(1, 4)
         if two_beams:
             beam2 = beam.clone()
-            beam2[..., 3] = -1  # flip pz
+            beam2[..., 3] = -1  # flip pzlog_pt
             beam = torch.cat((beam, beam2), dim=0)
 
     elif beam_reference is None:
@@ -304,3 +307,45 @@ def get_spurion(
 
     spurion = torch.cat((beam, time), dim=-2)
     return spurion
+
+
+def get_tagging_features(fourmomenta, batch):
+    """
+    Compute features typically used in jet tagging
+
+    Parameters
+    ----------
+    fourmomenta: torch.tensor of shape (n_particles, 4)
+        Fourmomenta in the format (E, px, py, pz)
+    batch: torch.tensor of shape (n_particles)
+        Batch index for each particle
+
+    Returns
+    -------
+    features: torch.tensor of shape (n_particles, n_features)
+        Features: log_pt, log_energy, log_pt_rel, log_energy_rel, dphi, deta, dr
+    """
+    log_pt = get_pt(fourmomenta).unsqueeze(-1).log()
+    log_energy = fourmomenta[..., 0].unsqueeze(-1).log()
+
+    jet = scatter(fourmomenta, index=batch, dim=0, reduce="sum").index_select(0, batch)
+    log_pt_rel = (get_pt(fourmomenta).log() - get_pt(jet).log()).unsqueeze(-1)
+    log_energy_rel = (fourmomenta[..., 0].log() - jet[..., 0].log()).unsqueeze(-1)
+    phi_4, phi_jet = get_phi(fourmomenta), get_phi(jet)
+    dphi = ((phi_4 - phi_jet + torch.pi) % (2 * torch.pi) - torch.pi).unsqueeze(-1)
+    eta_4, eta_jet = get_eta(fourmomenta), get_eta(jet)
+    deta = -(eta_4 - eta_jet).unsqueeze(-1)
+    dr = torch.sqrt(dphi**2 + deta**2)
+    features = [
+        log_pt,
+        log_energy,
+        log_pt_rel,
+        log_energy_rel,
+        dphi,
+        deta,
+        dr,
+    ]
+    for i, feature in enumerate(features):
+        mean, factor = SCALAR_FEATURES_PREPROCESSING[i]
+        features[i] = (feature - mean) * factor
+    return torch.cat(features, dim=-1)
