@@ -1,4 +1,6 @@
 _target_: experiments.tagging.wrappers.GraphNetWrapper
+in_reps: null
+out_reps: null
 
 net:
  _target_: tensorframes.nn.graphnet.TFGraphNet
