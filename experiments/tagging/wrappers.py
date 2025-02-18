@@ -235,22 +235,29 @@ class BaselineParTWrapper(TaggerWrapper):
         assert (
             self.lframesnet.is_global
         ), "Non-equivariant model can only handle global lframes"
-        self.net = net(input_dim=self.in_reps.dim, num_classes=self.out_reps.dim)
+        # 7 input features are computed from fourmomenta_local
+        # scalars are ignored in this model (for now, thats a design choice)
+        num_inputs = 7
+        self.net = net(input_dim=num_inputs, num_classes=self.out_reps.dim)
 
     def forward(self, embedding):
-        fourmomenta_local, scalars, _, _, batch, tracker = super().forward(embedding)
-        jetmomenta_local = EPPP_to_PtPhiEtaM2(fourmomenta_local)
+        fourmomenta_local, _, _, _, batch, tracker = super().forward(embedding)
+        fourmomenta_local = fourmomenta_local[..., 0, :]
+        features_local = get_tagging_features(fourmomenta_local, batch)
+        fourmomenta_local = fourmomenta_local[
+            ..., [1, 2, 3, 0]
+        ]  # need (px, py, pz, E) order
 
-        jetmomenta_local = jetmomenta_local.reshape(jetmomenta_local.shape[0], -1)
-        features_local = torch.cat([jetmomenta_local, scalars], dim=-1)
-
-        features_local, mask = to_dense_batch(features_local, batch)
+        fourmomenta_local, mask = to_dense_batch(fourmomenta_local, batch)
+        features_local, _ = to_dense_batch(features_local, batch)
+        fourmomenta_local = fourmomenta_local.transpose(1, 2)
         features_local = features_local.transpose(1, 2)
         mask = mask.unsqueeze(1)
 
         # network
         score = self.net(
             x=features_local,
+            v=fourmomenta_local,
             mask=mask,
         )
         return score, tracker
