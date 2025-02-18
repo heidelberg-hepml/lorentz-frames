@@ -16,7 +16,7 @@ class LearnedLFrames(LFramesPredictor):
         self,
         n_vectors,
         in_nodes,
-        spurion_lframes_replacements,
+        spurion_lframes_replacements=None,
         *args,
         **kwargs,
     ):
@@ -50,7 +50,10 @@ class LearnedLFrames(LFramesPredictor):
 
     def forward(self, fourmomenta, scalars, edge_index, spurions):
         assert scalars.shape[-1] == self.in_nodes
-        assert self.spurion_lframes_replacements == spurions.shape[0]
+        assert (
+            self.spurion_lframes_replacements is None
+            or self.spurion_lframes_replacements == spurions.shape[0]
+        )
 
         # calculate and standardize edge attributes
         assert (
@@ -127,8 +130,10 @@ class RestLFrames(LearnedLFrames):
 
         self.ortho_kwargs = ortho_kwargs
 
-    def forward(self, fourmomenta, scalars, edge_index, batch, return_tracker=False):
-        references = super().forward(fourmomenta, scalars, edge_index)
+    def forward(
+        self, fourmomenta, scalars, edge_index, batch, spurions, return_tracker=False
+    ):
+        references = super().forward(fourmomenta, scalars, edge_index, spurions)
         references = [references[..., i, :] for i in range(self.n_vectors)]
 
         trafo, reg_collinear = restframe_equivariant(
@@ -162,8 +167,10 @@ class LearnedRestLFrames(LearnedLFrames):
 
         self.ortho_kwargs = ortho_kwargs
 
-    def forward(self, fourmomenta, scalars, edge_index, batch, return_tracker=False):
-        vecs = super().forward(fourmomenta, scalars, edge_index)
+    def forward(
+        self, fourmomenta, scalars, edge_index, batch, spurions, return_tracker=False
+    ):
+        vecs = super().forward(fourmomenta, scalars, edge_index, spurions)
         fourmomenta = vecs[..., 0, :]
         references = [vecs[..., i, :] for i in range(1, self.n_vectors)]
 

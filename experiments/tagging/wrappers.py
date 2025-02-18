@@ -95,8 +95,8 @@ class TaggerWrapper(nn.Module):
                 torch.cat((scalars, tagging_features_global), dim=-1),
                 edge_index,
                 batch,
-                return_tracker=True,
                 spurions=spurions,
+                return_tracker=True,
             )
 
         # transform features into local frames
