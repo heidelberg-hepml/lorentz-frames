@@ -4,6 +4,7 @@ in_reps: null
 net:
  _target_: experiments.baselines.particlenet.ParticleNet
  _partial_: true
+ input_dims: 7
  num_classes: null
  conv_params: [[16, [64, 64, 64]], [16, [128, 128, 128]], [16, [256, 256, 256]]]
  fc_params: [[128, 0.1]]

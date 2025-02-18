@@ -196,10 +196,7 @@ class BaselineParticleNetWrapper(TaggerWrapper):
         assert (
             self.lframesnet.is_global
         ), "Non-equivariant model can only handle global lframes"
-        # 7 input features are computed from fourmomenta_local
-        # scalars are ignored in this model (for now, thats a design choice)
-        num_inputs = 7
-        self.net = net(input_dims=num_inputs, num_classes=self.out_reps.dim)
+        self.net = net(num_classes=self.out_reps.dim)
 
     def forward(self, embedding):
         fourmomenta_local, _, _, _, batch, tracker = super().forward(embedding)
@@ -236,12 +233,8 @@ class BaselineParTWrapper(TaggerWrapper):
         assert (
             self.lframesnet.is_global
         ), "Non-equivariant model can only handle global lframes"
-        # 7 input features are computed from fourmomenta_local
-        # scalars are ignored in this model (for now, thats a design choice)
-        num_inputs = 7
         pair_embed_dims = [64, 64, 64] if use_pair_attn else None
         self.net = net(
-            input_dim=num_inputs,
             num_classes=self.out_reps.dim,
             pair_embed_dims=pair_embed_dims,
         )

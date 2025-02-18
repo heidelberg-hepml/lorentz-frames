@@ -6,6 +6,7 @@ net:
  _target_: experiments.baselines.particletransformer.ParticleTransformer
  _partial_: true
  num_classes: null
+ input_dim: 7
 
 defaults:
  - lframesnet: identity
