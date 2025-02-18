@@ -24,18 +24,6 @@ class TaggingExperiment(BaseExperiment):
             if self.cfg.data.add_scalar_features:
                 self.cfg.model.in_reps += "+7x0n"  # other scalar features
 
-            if not self.cfg.data.beam_token:
-                num_spurions = 0
-                num_spurions += (
-                    1
-                    if self.cfg.data.beam_reference
-                    in ["lightlike", "spacelike", "timelike"]
-                    else 0
-                )
-                num_spurions += 1 if self.cfg.data.two_beams else 0
-                num_spurions += 1 if self.cfg.data.add_time_reference else 0
-                self.cfg.model.in_reps += f"+{num_spurions}x1n"
-
         LOGGER.info(
             f"Representations: in_reps={self.cfg.model.in_reps}, out_reps={self.cfg.model.out_reps}"
         )
