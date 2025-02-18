@@ -193,9 +193,9 @@ class TaggingExperiment(BaseExperiment):
             )
 
             LOGGER.info(
-                f"table {title}: {lframeString} ({self.cfg.training.iterations} epochs)"
-                f" & {num_parameters} & {metrics['accuracy']:.4f}&{metrics['auc']:.4f}"
-                f" & {metrics['rej03']:.0f}&{metrics['rej05']:.0f}&{metrics['rej08']:.0f} \\\\"
+                f"table {title}: {lframeString} ({self.cfg.training.iterations} iterations)"
+                f" & {num_parameters} & {metrics['accuracy']:.4f} & {metrics['auc']:.4f}"
+                f" & {metrics['rej03']:.0f} & {metrics['rej05']:.0f} & {metrics['rej08']:.0f} \\\\"
             )
         return metrics
 
