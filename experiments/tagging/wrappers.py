@@ -77,6 +77,7 @@ class TaggerWrapper(nn.Module):
         edge_index = embedding["edge_index"]
         batch = embedding["batch"]
         is_spurion = embedding["is_spurion"]
+        spurions = embedding["spurions"]
 
         # compute tagging features in global frame
         tagging_features_global = tagging_features(fourmomenta, batch)
@@ -95,6 +96,7 @@ class TaggerWrapper(nn.Module):
                 edge_index,
                 batch,
                 return_tracker=True,
+                spurions=spurions,
             )
 
         # transform features into local frames

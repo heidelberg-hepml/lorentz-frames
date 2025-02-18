@@ -134,6 +134,15 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
         dim=-1,
     )
 
+    # i want to avoid the two_beams vector when we use it as replacements for the lframe
+    unique_spurions = get_spurion(
+        cfg_data.beam_reference,
+        cfg_data.add_time_reference,
+        False,
+        fourmomenta.device,
+        fourmomenta.dtype,
+    )
+
     # return dict
     batch = get_batch_from_ptr(ptr)
     embedding = {
@@ -143,6 +152,7 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
         "edge_index": edge_index,
         "batch": batch,
         "is_spurion": is_spurion,
+        "spurions": unique_spurions,
     }
     return embedding
 

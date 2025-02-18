@@ -16,11 +16,25 @@ class LearnedLFrames(LFramesPredictor):
         self,
         n_vectors,
         in_nodes,
+        spurion_lframes_replacements,
         *args,
         **kwargs,
     ):
+        """
+        contructor
+
+        Args:
+            n_vectors: The number of vectors to predict, this is usually 3, when the last vector is derived per cross product of the other 3 or 4
+            in_nodes: number of in_nodes for network prediction of the equivariant networks
+            spurion_lframes: number of spurions to replace some of the otherwise predicted vectors
+
+        """
         super().__init__()
+
         self.in_nodes = in_nodes
+        self.spurion_lframes_replacements = spurion_lframes_replacements
+        if spurion_lframes_replacements is not None:
+            n_vectors = n_vectors - spurion_lframes_replacements
         self.equivectors = EquivariantVectors(
             n_vectors=n_vectors,
             in_nodes=in_nodes,
@@ -34,8 +48,9 @@ class LearnedLFrames(LFramesPredictor):
         self.register_buffer("inv_mean", torch.zeros(1))
         self.register_buffer("inv_std", torch.ones(1))
 
-    def forward(self, fourmomenta, scalars, edge_index):
+    def forward(self, fourmomenta, scalars, edge_index, spurions):
         assert scalars.shape[-1] == self.in_nodes
+        assert self.spurion_lframes_replacements == spurions.shape[0]
 
         # calculate and standardize edge attributes
         assert (
@@ -57,6 +72,9 @@ class LearnedLFrames(LFramesPredictor):
             edge_attr=edge_attr,
             edge_index=edge_index,
         )
+
+        if self.spurion_lframes_replacements is not None:
+            vecs = torch.cat([vecs, spurions.repeat(vecs.shape[0], 1, 1)], dim=-2)
         return vecs
 
 
@@ -76,8 +94,10 @@ class OrthogonalLearnedLFrames(LearnedLFrames):
         self.ortho_kwargs = ortho_kwargs
         super().__init__(*args, n_vectors=self.n_vectors, **kwargs)
 
-    def forward(self, fourmomenta, scalars, edge_index, batch, return_tracker=False):
-        vecs = super().forward(fourmomenta, scalars, edge_index)
+    def forward(
+        self, fourmomenta, scalars, edge_index, batch, spurions, return_tracker=False
+    ):
+        vecs = super().forward(fourmomenta, scalars, edge_index, spurions)
         vecs = [vecs[..., i, :] for i in range(self.n_vectors)]
 
         trafo, reg_lightlike, reg_coplanar = orthogonal_trafo(
