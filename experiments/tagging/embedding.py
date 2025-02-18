@@ -106,10 +106,10 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data, seperate_spurious):
         spurions = spurions[seperate_spurious:]
 
     is_spurion = torch.zeros(
-            fourmomenta.shape[0] + n_spurions * batchsize,
-            dtype=torch.bool,
-            device=fourmomenta.device,
-        )
+        fourmomenta.shape[0] + n_spurions * batchsize,
+        dtype=torch.bool,
+        device=fourmomenta.device,
+    )
     if n_spurions > 0:
         # prepend spurions to the token list (within each block)
         spurion_idxs = torch.stack(
@@ -168,7 +168,7 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data, seperate_spurious):
         tagging_features = get_tagging_features
     else:
         tagging_features = lambda fourmomenta, _: torch.empty(
-            fourmomenta.shape[0], 0, device=fourmomenta.device
+            (fourmomenta.shape[0], 0), device=fourmomenta.device
         )
 
     embedding = {
