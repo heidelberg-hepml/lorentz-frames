@@ -9,6 +9,8 @@ from experiments.logger import LOGGER
 
 UNITS = 20  # We use units of 20 GeV for all tagging experiments
 
+# Preprocessing (mean, std) for scalar features
+# these are the defaults used in weaver
 SCALAR_FEATURES_PREPROCESSING = [
     [1.7 - math.log(UNITS), 0.7],  # log_pt
     [2.0 - math.log(UNITS), 0.7],  # log_energy
