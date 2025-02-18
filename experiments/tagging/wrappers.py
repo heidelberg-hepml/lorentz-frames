@@ -239,7 +239,7 @@ class BaselineParTWrapper(TaggerWrapper):
         # 7 input features are computed from fourmomenta_local
         # scalars are ignored in this model (for now, thats a design choice)
         num_inputs = 7
-        pair_embed_dims = (64, 64, 64) if use_pair_attn else None
+        pair_embed_dims = [64, 64, 64] if use_pair_attn else None
         self.net = net(
             input_dim=num_inputs,
             num_classes=self.out_reps.dim,
