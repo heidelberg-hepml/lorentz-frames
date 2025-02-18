@@ -225,7 +225,7 @@ class BaselineParTWrapper(TaggerWrapper):
     def __init__(
         self,
         net,
-        use_pair_attn,
+        use_pair_attn=True,
         *args,
         **kwargs,
     ):
