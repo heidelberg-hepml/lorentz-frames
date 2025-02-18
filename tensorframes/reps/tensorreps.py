@@ -89,7 +89,7 @@ class _TensorMulRep(Tuple):
 class TensorReps(Tuple):
     """Direct product of potentially different tensor representations"""
 
-    def __new__(cls, input):
+    def __new__(cls, input, simplify=True):
         """
         Args:
             input (Union[TensorReps, str]): The tensor reps to initialize the object with.
@@ -109,7 +109,10 @@ class TensorReps(Tuple):
         else:
             raise ValueError(f"Invalid input: {input} is of type {type(input)}")
 
-        return super().__new__(cls, tensor_reps)
+        ret = super().__new__(cls, tensor_reps)
+        if simplify:
+            return ret.simplify()
+        return ret
 
     def __repr__(self):
         """
@@ -170,7 +173,7 @@ class TensorReps(Tuple):
                 for i in range(len(self[:-1]))
             )
 
-    def __add__(self, tensor_reps) -> "TensorReps":
+    def __add__(self, tensor_reps, simplify=True) -> "TensorReps":
         """Adds tensor reps to the current tensor reps.
 
         Args:
@@ -181,7 +184,10 @@ class TensorReps(Tuple):
         """
 
         tensor_reps = TensorReps(tensor_reps)
-        return TensorReps(super().__add__(tensor_reps))
+        if simplify:
+            return TensorReps(super().__add__(tensor_reps)).simplify()
+        else:
+            return TensorReps(super().__add__(tensor_reps))
 
     def sort(self):
         """Sorts the tensor reps by the order of the reps.
@@ -211,7 +217,28 @@ class TensorReps(Tuple):
                 # different rep and mul>0 -> create new entry
                 out.append(mul_rep)
 
-        return TensorReps(out)
+        return TensorReps(out, simplify=False)
+
+    def is_simplified(self):
+        """
+        Check if the TensorReps is simlified
+        """
+        if not self.is_sorted:
+            return False
+
+        return all(
+            self[i].rep.order != self[i + 1].rep.order for i in range(len(self[:-1]))
+        )
+
+    def to_dict(self):
+        """
+        Returns the TensorReps as a dict, only works when it is sorted and simplified
+        """
+        assert (
+            self.is_simplified
+        ), f"Can only return TensorReps if the object is simplified to avoid degenerate keys in dict"
+
+        return {str(mul_rep[1]): mul_rep[0] for mul_rep in self}
 
 
 def parse_tensorreps_string(input):
