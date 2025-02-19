@@ -51,6 +51,7 @@ class TaggerWrapper(nn.Module):
         in_reps,
         out_reps,
         lframesnet,
+        remove_local_tagging_features=False,
     ):
         super().__init__()
 
@@ -70,6 +71,12 @@ class TaggerWrapper(nn.Module):
             self.lframesnet = lframesnet
 
         self.trafo_fourmomenta = TensorRepsTransform(TensorReps("1x1n"))
+
+        self.remove_local_tagging_features = remove_local_tagging_features
+        if remove_local_tagging_features:
+            in_reps_without_tagging_features = self.in_reps.to_dict()
+            in_reps_without_tagging_features["0n"] -= 7  # remove the 7 tagging features
+            self.in_reps = TensorReps(in_reps_without_tagging_features)
 
     def forward(self, embedding):
         # extract embedding
@@ -114,7 +121,12 @@ class TaggerWrapper(nn.Module):
         batch = batch[~is_spurion]
         lframes = LFrames(lframes.matrices[~is_spurion])
         # compute tagging features in local fourmomenta_localframes
-        tagging_features_local = tagging_features(fourmomenta_local, batch)
+        if not self.remove_local_tagging_features:
+            tagging_features_local = tagging_features(fourmomenta_local, batch)
+        else:
+            tagging_features_local = torch.empty(
+                (fourmomenta_local.shape[0], 0), device=fourmomenta_local.device
+            )
 
         ptr = get_ptr_from_batch(batch)
         diffs = torch.diff(ptr)
