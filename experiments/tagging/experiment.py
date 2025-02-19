@@ -36,7 +36,7 @@ class TaggingExperiment(BaseExperiment):
                     self.cfg.data.beam_reference = None
                     self.cfg.data.add_time_reference = False
 
-            if self.cfg.data.add_scalar_features:
+            if self.cfg.data.add_tagging_features:
                 self.cfg.model.in_reps += "+7x0n"  # other scalar features
 
         LOGGER.info(

@@ -104,7 +104,6 @@ class OrthogonalLearnedLFrames(LearnedLFrames):
         fourmomenta,
         scalars,
         edge_index,
-        batch,
         spurions=None,
         return_tracker=False,
     ):
@@ -143,7 +142,6 @@ class RestLFrames(LearnedLFrames):
         fourmomenta,
         scalars,
         edge_index,
-        batch,
         spurions=None,
         return_tracker=False,
     ):
@@ -186,7 +184,6 @@ class LearnedRestLFrames(LearnedLFrames):
         fourmomenta,
         scalars,
         edge_index,
-        batch,
         spurions=None,
         return_tracker=False,
     ):
