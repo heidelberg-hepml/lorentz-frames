@@ -14,6 +14,7 @@ from tensorframes.reps.tensorreps_transform import TensorRepsTransform
 from tensorframes.utils.hep import EPPP_to_PtPhiEtaM2
 from tensorframes.lframes.equi_lframes import LearnedLFrames
 from experiments.tagging.embedding import get_tagging_features
+from experiments.logger import LOGGER
 
 
 def attention_mask(batch, materialize=False):
@@ -95,7 +96,6 @@ class TaggerWrapper(nn.Module):
                 fourmomenta,
                 torch.cat((scalars, tagging_features_global), dim=-1),
                 edge_index,
-                batch,
                 spurions=spurions,
                 return_tracker=True,
             )
@@ -351,11 +351,19 @@ class GraphNetWrapper(AggregatedTaggerWrapper):
             [jetmomenta_local, scalars, tagging_features_local], dim=-1
         )
 
+        # note : this should be removed later, but it seems not to harm performance much
+        if not torch.isfinite(features_local).all():
+            LOGGER.warning(f"{features_local=}")
+
         # network
         outputs = self.net(
             inputs=features_local, lframes=lframes, edge_index=edge_index
         )
 
+        # note : this should be removed later, but it seems not to harm performance much
+        if not torch.isfinite(outputs).all():
+            LOGGER.warning(f"{features_local=}")
+            LOGGER.warning(f"{outputs=}")
         # aggregation
         score = self.extract_score(outputs, batch)
         return score, tracker
