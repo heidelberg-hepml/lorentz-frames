@@ -163,7 +163,8 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data, seperate_spurious):
         fourmomenta.dtype,
     )
 
-    unique_spurions = unique_spurions[-seperate_spurious:]
+    if seperate_spurious is not None:
+        unique_spurions = unique_spurions[-seperate_spurious:]
 
     # return dict
     batch = get_batch_from_ptr(ptr)
