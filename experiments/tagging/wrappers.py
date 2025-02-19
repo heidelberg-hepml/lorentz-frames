@@ -10,7 +10,7 @@ from tensorframes.reps.tensorreps import TensorReps
 from tensorframes.reps.tensorreps_transform import TensorRepsTransform
 from tensorframes.utils.hep import EPPP_to_PtPhiEtaM2
 from tensorframes.lframes.equi_lframes import LearnedLFrames
-from experiments.tagging.embedding import get_tagging_features
+from experiments.tagging.embedding import get_tagging_features, UNITS
 
 
 def attention_mask(batch, materialize=False):
@@ -243,12 +243,17 @@ class BaselineParTWrapper(TaggerWrapper):
         fourmomenta_local, _, _, _, batch, tracker = super().forward(embedding)
         fourmomenta_local = fourmomenta_local[..., 0, :]
         features_local = get_tagging_features(fourmomenta_local, batch)
+        fourmomenta_local *= UNITS  # ParT wants unscaled fourmomenta
         fourmomenta_local = fourmomenta_local[
             ..., [1, 2, 3, 0]
         ]  # need (px, py, pz, E) order
 
         fourmomenta_local, mask = to_dense_batch(fourmomenta_local, batch)
         features_local, _ = to_dense_batch(features_local, batch)
+
+        fourmomenta_local[~mask] = torch.randn_like(fourmomenta_local[~mask])
+        features_local[~mask] = torch.randn_like(features_local[~mask])
+
         fourmomenta_local = fourmomenta_local.transpose(1, 2)
         features_local = features_local.transpose(1, 2)
         mask = mask.unsqueeze(1).float()
