@@ -106,6 +106,9 @@ class TensorReps(Tuple):
                 tensor_reps = parse_tensorreps_string(input)
             except Exception:
                 raise ValueError(f"Invalid tensor_reps string {input}")
+        elif isinstance(input, dict):
+            input_string = "+".join(f"{v}x{k}" for k, v in input.items())
+            tensor_reps = TensorReps(input_string)
         else:
             raise ValueError(f"Invalid input: {input} is of type {type(input)}")
 
