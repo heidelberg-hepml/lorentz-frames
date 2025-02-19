@@ -103,7 +103,11 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data, seperate_spurious):
             cfg_data.two_beams
         ), f"Not enough spurions to add to the lframesnet"
         n_spurions -= seperate_spurious
-        spurions = spurions[seperate_spurious:]
+        if cfg_data.two_beams:
+            spurions[:2] = spurions[[1, 0], :]  # swap out first two beams
+        spurions = spurions[:-seperate_spurious]
+        if n_spurions >= 2 and cfg_data.two_beams:
+            spurions[:2] = spurions[[1, 0], :]  # swap out first two beams
 
     is_spurion = torch.zeros(
         fourmomenta.shape[0] + n_spurions * batchsize,
@@ -159,7 +163,7 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data, seperate_spurious):
         fourmomenta.dtype,
     )
 
-    unique_spurions = unique_spurions[:seperate_spurious]
+    unique_spurions = unique_spurions[-seperate_spurious:]
 
     # return dict
     batch = get_batch_from_ptr(ptr)
