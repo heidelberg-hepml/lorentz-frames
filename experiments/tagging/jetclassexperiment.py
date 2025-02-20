@@ -154,8 +154,6 @@ class JetClassTaggingExperiment(TaggingExperiment):
         # predictions
         labels_true, labels_predict = [], []
         self.model.eval()
-        if self.cfg.training.optimizer == "ScheduleFree":
-            self.optimizer.eval()
         with torch.no_grad():
             for batch in loader:
                 y_pred, label = self._get_ypred_and_label(batch)

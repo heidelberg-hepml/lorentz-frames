@@ -94,6 +94,7 @@ class TaggingExperiment(BaseExperiment):
             f"batch_size={self.cfg.training.batchsize} (training), {self.cfg.evaluation.batchsize} (evaluation)"
         )
 
+    @torch.no_grad()
     def evaluate(self):
         self.results = {}
         loader_dict = {
@@ -130,14 +131,11 @@ class TaggingExperiment(BaseExperiment):
         # predictions
         labels_true, labels_predict = [], []
         self.model.eval()
-        if self.cfg.training.optimizer == "ScheduleFree":
-            self.optimizer.eval()
-        with torch.no_grad():
-            for batch in loader:
-                y_pred, label, _ = self._get_ypred_and_label(batch)
-                y_pred = torch.nn.functional.sigmoid(y_pred)
-                labels_true.append(label.cpu().float())
-                labels_predict.append(y_pred.cpu().float())
+        for batch in loader:
+            y_pred, label, _ = self._get_ypred_and_label(batch)
+            y_pred = torch.nn.functional.sigmoid(y_pred)
+            labels_true.append(label.cpu().float())
+            labels_predict.append(y_pred.cpu().float())
         labels_true, labels_predict = torch.cat(labels_true), torch.cat(labels_predict)
         if mode == "eval":
             metrics["labels_true"], metrics["labels_predict"] = (
@@ -223,8 +221,6 @@ class TaggingExperiment(BaseExperiment):
             plot_dict["train_loss"] = self.train_loss
             plot_dict["val_loss"] = self.val_loss
             plot_dict["train_lr"] = self.train_lr
-            plot_dict["train_metrics"] = self.train_metrics
-            plot_dict["val_metrics"] = self.val_metrics
             plot_dict["grad_norm"] = self.grad_norm_train
             plot_dict["grad_norm_lframes"] = self.grad_norm_lframes
             plot_dict["grad_norm_net"] = self.grad_norm_net
