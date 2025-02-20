@@ -36,7 +36,8 @@ MODEL_TITLE = {"TFTransformer": "Tr", "MLP": "MLP", "TFGraphNet": "GN"}
 
 class AmplitudeExperiment(BaseExperiment):
     def init_physics(self):
-        particle_type = PARTICLE_TYPE[self.cfg.data.dataset]
+        self.dataset = self.cfg.data.dataset.rsplit("_")[0]
+        particle_type = PARTICLE_TYPE[self.dataset]
         if not self.cfg.data.permutation_symmetry:
             particle_type = list(range(len(particle_type)))
         num_particle_types = max(particle_type) + 1
@@ -210,7 +211,7 @@ class AmplitudeExperiment(BaseExperiment):
         plot_path = os.path.join(self.cfg.run_dir, f"plots_{self.cfg.run_idx}")
         os.makedirs(plot_path)
         model_title = self.cfg.model.net._target_.rsplit(".", 1)[-1]
-        title = f"{MODEL_TITLE[model_title]} ({DATASET_TITLE[self.cfg.data.dataset]})"
+        title = f"{MODEL_TITLE[model_title]} ({DATASET_TITLE[self.dataset]})"
         LOGGER.info(f"Creating plots in {plot_path}")
 
         plot_dict = {}
