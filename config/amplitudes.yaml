@@ -4,6 +4,7 @@ exp_name: amp
 data:
  dataset : zgg
  data_path : data/
+ subsample: null
  permutation_symmetry: true
  train_test_val: [.4, .5, .1]
 
