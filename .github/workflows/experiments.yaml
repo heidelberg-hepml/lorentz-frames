@@ -49,14 +49,14 @@ jobs:
       run: |
         python run.py model=baseparticlenet-lite save=false evaluate=false training.iterations=3
 
-   - name: Amplitudes MLP + IdentityLFrames
+    - name: Amplitudes MLP + IdentityLFrames
       run: |
         python run.py -cn amplitudes model=amp_mlp save=false evaluate=false training.iterations=3
 
-   - name: Amplitudes TFTransformer + IdentityLFrames
+    - name: Amplitudes TFTransformer + IdentityLFrames
       run: |
         python run.py -cn amplitudes model=amp_transformer save=false evaluate=false training.iterations=3
 
-   - name: Amplitudes TFGraphNet + IdentityLFrames
+    - name: Amplitudes TFGraphNet + IdentityLFrames
       run: |
         python run.py -cn amplitudes model=amp_graphnet save=false evaluate=false training.iterations=3
