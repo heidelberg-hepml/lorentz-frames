@@ -247,13 +247,6 @@ class TaggingExperiment(BaseExperiment):
             self.cfg.data,
             self.cfg.model.lframesnet.spurion_lframes_replacements,
         )
-        if (
-            self.cfg.model.lframesnet.spurion_lframes_replacements is not None
-            and self.cfg.model.lframesnet.spurion_lframes_replacements != 0
-        ):
-            LOGGER.info(
-                f"Giving {self.cfg.model.lframesnet.spurion_lframes_replacements} vectors to the lframesnet instead of inserting it into data!"
-            )
         y_pred, tracker = self.model(embedding)
         y_pred = y_pred[:, 0]
         return y_pred, batch.label.to(self.dtype), tracker

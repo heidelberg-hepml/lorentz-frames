@@ -57,16 +57,17 @@ class TaggerWrapper(nn.Module):
         self.net_features = net_features
         self.lframesnet_features = lframesnet_features
 
+        assert len(net_features) != 0
         # decide which entries to use for the net
-        self.in_reps = "0x0n"
+        in_reps = "0x0n"
         if "scalar" in net_features:
-            self.in_reps += "+0x0n"
+            in_reps += "+0x0n"
         if "tagging_features" in net_features:
-            self.in_reps += "+7x0n"
+            in_reps += "+7x0n"
         if "fourmomenta" in net_features:
-            self.in_reps += "+1x1n"
-        self.in_reps = TensorReps(self.in_reps)
-        LOGGER.info(f"Net: Input: {self.in_reps} ({net_features}); Output: {out_reps} ")
+            in_reps += "+1x1n"
+        self.in_reps = TensorReps(in_reps)
+        LOGGER.info(f"Net: Input: {in_reps} ({net_features}); Output: {out_reps} ")
 
         # this is the output for the net
         self.out_reps = TensorReps(out_reps)
@@ -137,11 +138,7 @@ class TaggerWrapper(nn.Module):
 
         # transform features into local frames
         fourmomenta_local = self.trafo_fourmomenta(fourmomenta.clone(), lframes)
-        fourmomenta_local = fourmomenta_local.reshape(
-            fourmomenta_local.shape[0],
-            -1,
-            4,
-        )
+        fourmomenta_local = fourmomenta_local.reshape(fourmomenta.shape[0], -1, 4)
         fourmomenta_local = fourmomenta_local[~is_spurion]
         batch = batch[~is_spurion]
         lframes = LFrames(lframes.matrices[~is_spurion])
@@ -157,7 +154,9 @@ class TaggerWrapper(nn.Module):
             features_local.append(tagging_features_local)
 
         if "fourmomenta" in self.net_features:
-            features_local.append(fourmomenta_local)
+            features_local.append(
+                fourmomenta_local.reshape(fourmomenta_local.shape[0], 4)
+            )
 
         if len(features_local) != 0:
             features_local = torch.cat(features_local, dim=-1)
@@ -176,6 +175,14 @@ class TaggerWrapper(nn.Module):
             ],
             dim=-1,
         )
+
+        # note : this should be removed later, but it seems not to harm performance much
+        if not torch.isfinite(features_local).all():
+            mask = torch.isfinite(features_local).all(dim=-1)
+            LOGGER.warning(
+                f"{features_local=}, {features_local[~mask]=}, {torch.where(~mask)=} {fourmomenta_local[~mask]=}"
+            )
+            assert False
 
         return (
             features_local,
@@ -363,14 +370,6 @@ class GraphNetWrapper(AggregatedTaggerWrapper):
             batch,
             tracker,
         ) = super().forward(embedding)
-
-        # note : this should be removed later, but it seems not to harm performance much
-        if not torch.isfinite(features_local).all():
-            mask = torch.isfinite(features_local).all(dim=-1)
-            LOGGER.warning(
-                f"{features_local=}, {features_local[~mask]=}, {torch.where(~mask)=}"
-            )
-            assert False
 
         # network
         outputs = self.net(

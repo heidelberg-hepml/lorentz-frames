@@ -473,6 +473,14 @@ class BaseExperiment:
         smallest_val_loss, smallest_val_loss_step = 1e10, 0
         patience = 0
 
+        if (
+            self.cfg.model.lframesnet.spurion_lframes_replacements is not None
+            and self.cfg.model.lframesnet.spurion_lframes_replacements != 0
+        ):
+            LOGGER.info(
+                f"Giving {self.cfg.model.lframesnet.spurion_lframes_replacements} vectors to the lframesnet instead of inserting it into data!"
+            )
+
         # main train loop
         LOGGER.info(
             f"Starting to train for {self.cfg.training.iterations} iterations "
