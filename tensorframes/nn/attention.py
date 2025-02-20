@@ -30,9 +30,21 @@ class InvariantParticleAttention(torch.nn.Module):
         dimensions: H (head), N (particles), C (channels)
         q_local, k_local, v_local: (H, N, C)
         """
+        # hacky solution for amplitude transformer (clean this up later)
+        in_shape = q_local.shape
+        if len(in_shape) == 4 and len(lframes.matrices.shape) == 4:
+            mat = lframes.matrices.reshape(-1, 4, 4)
+            lframes = LFrames(mat)
+            q_local, k_local, v_local = [
+                x.permute(0, 2, 1, 3)
+                .reshape(-1, x.shape[-3], x.shape[-1])
+                .permute(1, 0, 2)
+                for x in [q_local, k_local, v_local]
+            ]
 
         # prepare lframes trafos
         # have to add head dimension
+        assert len(q_local.shape) == 3 and len(lframes.matrices.shape) == 3
         matrices = lframes.matrices.unsqueeze(0).repeat(
             q_local.shape[0], *(1,) * len(lframes.shape), 1, 1
         )
@@ -72,6 +84,15 @@ class InvariantParticleAttention(torch.nn.Module):
         out_global = to_nd(out_global, 2)
         out_local = self.transform(out_global, lframes)
         out_local = out_local.view(*shape_in)
+
+        # more tricks
+        if in_shape != out_local.shape:
+            out_local = (
+                out_local.permute(1, 0, 2)
+                .reshape(in_shape[0], in_shape[2], in_shape[1], in_shape[3])
+                .permute(0, 2, 1, 3)
+            )
+        assert out_local.shape == in_shape
         return out_local
 
 
