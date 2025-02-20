@@ -36,13 +36,6 @@ class TaggingExperiment(BaseExperiment):
                     self.cfg.data.beam_reference = None
                     self.cfg.data.add_time_reference = False
 
-            if self.cfg.data.add_tagging_features:
-                self.cfg.model.in_reps += "+7x0n"  # other scalar features
-
-        LOGGER.info(
-            f"Representations: in_reps={self.cfg.model.in_reps}, out_reps={self.cfg.model.out_reps}"
-        )
-
     def init_data(self):
         raise NotImplementedError
 
@@ -254,6 +247,13 @@ class TaggingExperiment(BaseExperiment):
             self.cfg.data,
             self.cfg.model.lframesnet.spurion_lframes_replacements,
         )
+        if (
+            self.cfg.model.lframesnet.spurion_lframes_replacements is not None
+            and self.cfg.model.lframesnet.spurion_lframes_replacements != 0
+        ):
+            LOGGER.info(
+                f"Giving {self.cfg.model.lframesnet.spurion_lframes_replacements} vectors to the lframesnet instead of inserting it into data!"
+            )
         y_pred, tracker = self.model(embedding)
         y_pred = y_pred[:, 0]
         return y_pred, batch.label.to(self.dtype), tracker
@@ -267,7 +267,6 @@ class TopTaggingExperiment(TaggingExperiment):
         super().__init__(cfg)
         with open_dict(self.cfg):
             self.cfg.model.out_reps = "1x0n"
-            self.cfg.model.in_reps = "1x1n"  # energy-momentum vector
 
     def init_data(self):
         data_path = os.path.join(
