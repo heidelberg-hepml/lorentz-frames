@@ -40,8 +40,9 @@ class RandomLFrames(LFramesPredictor):
 
     def forward(self, fourmomenta, return_tracker=False):
         # general random transformation
-        matrix = rand_lorentz([1], std_eta=self.std_eta, device=fourmomenta.device)
-        matrix = matrix.repeat(fourmomenta.shape[0], 1, 1)
+        shape = fourmomenta.shape[:-2] + (1,)
+        matrix = rand_lorentz(shape, std_eta=self.std_eta, device=fourmomenta.device)
+        matrix = matrix.expand(*fourmomenta.shape[:-1], 4, 4)
 
         lframes = LFrames(
             is_global=True,
@@ -61,8 +62,9 @@ class RandomPhiLFrames(LFramesPredictor):
 
     def forward(self, fourmomenta, return_tracker=False):
         # random rotation around z axis
-        matrix = rand_phirotation([1], device=fourmomenta.device)
-        matrix = matrix.repeat(fourmomenta.shape[0], 1, 1)
+        shape = fourmomenta.shape[:-2] + (1,)
+        matrix = rand_phirotation(shape, device=fourmomenta.device)
+        matrix = matrix.expand(*fourmomenta.shape[:-1], 4, 4)
 
         lframes = LFrames(
             is_global=True,
