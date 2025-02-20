@@ -82,6 +82,9 @@ class LFrames:
             else:
                 self.inv = self.metric @ self.matrices.transpose(-1, -2) @ self.metric
 
+    def __repr__(self):
+        return repr(self.matrices)
+
     @property
     def device(self):
         return self.matrices.device
