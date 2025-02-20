@@ -85,6 +85,33 @@ class LFrames:
     def __repr__(self):
         return repr(self.matrices)
 
+    def reshape(self, *shape):
+        assert shape[-2:] == (4, 4)
+        return LFrames(
+            matrices=self.matrices.reshape(*shape),
+            is_global=self.is_global,
+            inv=self.inv.reshape(*shape),
+            det=self.det.reshape(*shape[:-2]),
+        )
+
+    def expand(self, *shape):
+        assert shape[-2:] == (4, 4)
+        return LFrames(
+            matrices=self.matrices.expand(*shape),
+            is_global=self.is_global,
+            inv=self.inv.expand(*shape),
+            det=self.det.expand(*shape[:-2]),
+        )
+
+    def repeat(self, *shape):
+        assert shape[-2:] == (1, 1)
+        return LFrames(
+            matrices=self.matrices.repeat(*shape),
+            is_global=self.is_global,
+            inv=self.inv.repeat(*shape),
+            det=self.det.repeat(*shape[:-2]),
+        )
+
     @property
     def device(self):
         return self.matrices.device
