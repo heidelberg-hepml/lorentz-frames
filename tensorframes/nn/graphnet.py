@@ -37,7 +37,7 @@ class EdgeConv(TFMessagePassing):
             else nn.Identity()
         )
 
-    def forward(self, x, lframes, edge_index, batch):
+    def forward(self, x, lframes, edge_index, batch=None):
         lframes = (lframes, lframes)
 
         x_aggr = self.propagate(
@@ -113,7 +113,7 @@ class TFGraphNet(nn.Module):
             ]
         )
 
-    def forward(self, inputs, lframes, edge_index, batch):
+    def forward(self, inputs, lframes, edge_index, batch=None):
         """Forward pass.
 
         Parameters
