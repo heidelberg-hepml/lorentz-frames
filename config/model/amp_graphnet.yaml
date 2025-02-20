@@ -1,0 +1,16 @@
+_target_: experiments.amplitudes.wrappers.GraphNetWrapper
+particle_type: null
+
+net:
+ _target_: tensorframes.nn.graphnet.TFGraphNet
+
+ in_reps: null
+ hidden_reps: "64x0n+16x1n"
+ out_reps: "1x0n"
+
+ num_blocks: 3
+ num_layers_mlp1: 3
+ num_layers_mlp2: 0
+
+defaults:
+ - lframesnet: identity

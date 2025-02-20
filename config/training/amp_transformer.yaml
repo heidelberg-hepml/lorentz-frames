@@ -1,0 +1,4 @@
+iterations: 1000000
+
+defaults:
+ - amp_default
