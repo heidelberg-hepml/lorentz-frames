@@ -48,6 +48,7 @@ class AmplitudeWrapper(nn.Module):
         features_local, _, _ = preprocess_momentum(
             fourmomenta_local, self.mom_mean, self.mom_std
         )
+        features_local = torch.arcsinh(features_local)  # suppress tails
 
         particle_type = self.encode_particle_type(fourmomenta.shape[0])
         return features_local, particle_type, lframes, tracker
