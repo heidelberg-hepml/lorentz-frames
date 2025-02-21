@@ -260,7 +260,7 @@ class TopTaggingExperiment(TaggingExperiment):
         with open_dict(self.cfg):
             self.cfg.model.out_reps = "1x0n"
 
-        if len(cfg.model.symmetry_breaking) != 0:
+        if len(cfg.model.get("symmetry_breaking", [])) != 0:
             assert all(
                 sb in ["vectors", "scalars", "affine", "basis"]
                 for sb in cfg.model.symmetry_breaking
