@@ -199,6 +199,8 @@ def rand_boost(
     Returns:
         final_trafo: torch.tensor of shape (*shape, 4, 4)
     """
+    assert std_eta > 0
+
     n_transforms = randint(*n_range)
     assert n_transforms > 0
 
