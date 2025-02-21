@@ -263,11 +263,15 @@ class TopTaggingExperiment(TaggingExperiment):
         if "basis" in cfg.model.symmetry_breaking:
             assert (
                 cfg.data.seperate_spurions is not False
-            ), "seperate spurions to use as basis"
+            ), "need seperate spurions to be True or 'both' to use as basis"
         if "affine" in cfg.model.symmetry_breaking:
             assert (
                 cfg.data.seperate_spurions is not False
-            ), "seperate spurions for the affine construction"
+            ), "need seperate spurions to be True or 'both' for the affine construction"
+        if "vectors" in cfg.model.symmetry_breaking:
+            assert (
+                cfg.data.seperate_spurions is not True
+            ), "need seperate spurions to be False or 'both' for the vector contruction"
 
     def init_data(self):
         data_path = os.path.join(
