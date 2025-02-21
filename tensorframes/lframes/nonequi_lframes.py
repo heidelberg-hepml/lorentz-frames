@@ -1,6 +1,6 @@
 import torch
 from tensorframes.lframes.lframes import LFrames
-from tensorframes.utils.transforms import transform, rand_lorentz, rand_phirotation
+from tensorframes.utils.transforms import rand_lorentz, rand_phirotation, rand_rotation
 
 
 class LFramesPredictor(torch.nn.Module):
@@ -42,6 +42,28 @@ class RandomLFrames(LFramesPredictor):
         # general random transformation
         shape = fourmomenta.shape[:-2] + (1,)
         matrix = rand_lorentz(shape, std_eta=self.std_eta, device=fourmomenta.device)
+        matrix = matrix.expand(*fourmomenta.shape[:-1], 4, 4)
+
+        lframes = LFrames(
+            is_global=True,
+            matrices=matrix,
+            device=fourmomenta.device,
+            dtype=fourmomenta.dtype,
+        )
+        return (lframes, {}) if return_tracker else lframes
+
+
+class RandomRotLFrames(LFramesPredictor):
+    """Randomly generates a rotated local frame for the whole batch,
+    corresponding to data augmentation."""
+
+    def __init__(self, std_eta=1.0):
+        super().__init__(is_global=True)
+
+    def forward(self, fourmomenta, return_tracker=False):
+        # general random transformation
+        shape = fourmomenta.shape[:-2] + (1,)
+        matrix = rand_rotation(shape, device=fourmomenta.device)
         matrix = matrix.expand(*fourmomenta.shape[:-1], 4, 4)
 
         lframes = LFrames(
