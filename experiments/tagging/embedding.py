@@ -74,7 +74,7 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
             (fourmomenta[..., 1:] ** 2).sum(dim=-1) + cfg_data.mass_reg**2
         ).sqrt()
 
-    # ADD ADDITIONAL TRUE SCALAR FEATURES HERE
+    # add extra scalar channels
     if cfg_data.add_scalar_features:
         extra_scalars = []
         for i, feature in enumerate(extra_scalars):
