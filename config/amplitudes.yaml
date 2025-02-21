@@ -20,5 +20,5 @@ plotting:
 
 defaults:
  - default
- - training: default
+ - training: amp_new_default
  - model: amp_transformer
