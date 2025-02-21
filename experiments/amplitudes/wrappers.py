@@ -19,7 +19,7 @@ class AmplitudeWrapper(nn.Module):
         super().__init__()
         self.register_buffer("particle_type", torch.tensor(particle_type))
         self.register_buffer("mom_mean", torch.tensor(0.0))
-        self.register_buffer("mom_std", torch.tensor(0.0))
+        self.register_buffer("mom_std", torch.tensor(1.0))
         if isinstance(lframesnet, partial):
             self.lframesnet = lframesnet(in_nodes=0)
         else:
