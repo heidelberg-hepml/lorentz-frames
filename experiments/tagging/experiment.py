@@ -245,7 +245,6 @@ class TaggingExperiment(BaseExperiment):
             batch.scalars,
             batch.ptr,
             self.cfg.data,
-            self.cfg.model.lframesnet.spurion_lframes_replacements,
         )
         y_pred, tracker = self.model(embedding)
         y_pred = y_pred[:, 0]
@@ -260,6 +259,15 @@ class TopTaggingExperiment(TaggingExperiment):
         super().__init__(cfg)
         with open_dict(self.cfg):
             self.cfg.model.out_reps = "1x0n"
+
+        if "basis" in cfg.model.symmetry_breaking:
+            assert (
+                cfg.data.seperate_spurions is not False
+            ), "seperate spurions to use as basis"
+        if "affine" in cfg.model.symmetry_breaking:
+            assert (
+                cfg.data.seperate_spurions is not False
+            ), "seperate spurions for the affine construction"
 
     def init_data(self):
         data_path = os.path.join(

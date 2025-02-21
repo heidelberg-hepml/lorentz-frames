@@ -16,7 +16,7 @@ class LearnedLFrames(LFramesPredictor):
         self,
         n_vectors,
         in_nodes,
-        spurion_lframes_replacements=None,
+        symmetry_breaking,
         *args,
         **kwargs,
     ):
@@ -32,9 +32,12 @@ class LearnedLFrames(LFramesPredictor):
         super().__init__()
 
         self.in_nodes = in_nodes
-        self.spurion_lframes_replacements = spurion_lframes_replacements
-        if spurion_lframes_replacements is not None:
-            n_vectors = n_vectors - spurion_lframes_replacements
+        self.symmetry_breaking = symmetry_breaking
+        if "basis" in symmetry_breaking:
+            # this 2 is a hyperparameter assuming that
+            n_vectors = n_vectors - 2
+
+        self.n_vectors = n_vectors
         self.equivectors = EquivariantVectors(
             n_vectors=n_vectors,
             in_nodes=in_nodes,
@@ -50,12 +53,6 @@ class LearnedLFrames(LFramesPredictor):
 
     def forward(self, fourmomenta, scalars, edge_index, spurions):
         assert scalars.shape[-1] == self.in_nodes
-        assert (
-            self.spurion_lframes_replacements is None
-            or self.spurion_lframes_replacements == spurions.shape[0]
-        )
-        if self.spurion_lframes_replacements is not None:
-            assert spurions is not None
 
         # calculate and standardize edge attributes
         assert (
@@ -70,15 +67,32 @@ class LearnedLFrames(LFramesPredictor):
             self.inv_std = edge_attr.std().clamp(min=1e-5)
         edge_attr = (edge_attr - self.inv_mean) / self.inv_std
 
+        assert (
+            spurions.shape[0] <= self.n_vectors
+        ), f"Only predict {self.n_vectors} vectors, can not add all {spurions.shape[0]} spurions."
+        spurions = (
+            torch.cat(
+                [
+                    spurions,
+                    torch.zeros(
+                        (self.n_vectors - spurions.shape[0], 4), device=spurions.device
+                    ),
+                ],
+                dim=0,
+            )
+            .repeat(fourmomenta.shape[0], 1, 1)
+            .reshape(fourmomenta.shape[0], -1)
+        )
         # call networks
         vecs = self.equivectors(
             x=scalars,
             fm=fourmomenta,
             edge_attr=edge_attr,
             edge_index=edge_index,
+            spurions=spurions,
         )
 
-        if self.spurion_lframes_replacements is not None:
+        if "basis" in self.symmetry_breaking and spurions.shape[0] != 0:
             vecs = torch.cat([vecs, spurions.repeat(vecs.shape[0], 1, 1)], dim=-2)
         return vecs
 

@@ -17,6 +17,7 @@ from tensorframes.lframes.lframes import InverseLFrames
 @pytest.mark.parametrize("num_blocks", [0, 1, 2])
 @pytest.mark.parametrize("attn_reps", REPS)
 @pytest.mark.parametrize("logm2_mean,logm2_std", LOGM2_MEAN_STD)
+@pytest.mark.parametrize("symmetry_breaking", [["scalar"]])
 def test_transformer_invariance_equivariance(
     LFramesPredictor,
     batch_dims,
@@ -25,18 +26,22 @@ def test_transformer_invariance_equivariance(
     logm2_std,
     logm2_mean,
     attn_reps,
+    symmetry_breaking,
 ):
     print(logm2_std, logm2_mean)
     dtype = torch.float64
 
     assert len(batch_dims) == 1
-    predictor = LFramesPredictor(hidden_channels=16, num_layers=1, in_nodes=0).to(
-        dtype=dtype
-    )
-    batch = torch.zeros(batch_dims, dtype=torch.long)
+    predictor = LFramesPredictor(
+        hidden_channels=16,
+        num_layers=1,
+        in_nodes=0,
+        symmetry_breaking=symmetry_breaking,
+    ).to(dtype=dtype)
+    spurions = torch.zeros((0, 4), dtype=torch.long)
     edge_index = dense_to_sparse(torch.ones(batch_dims[0], batch_dims[0]))[0]
     scalars = torch.zeros(*batch_dims, 0, dtype=dtype)
-    call_predictor = lambda fm: predictor(fm, scalars, edge_index, batch)
+    call_predictor = lambda fm: predictor(fm, scalars, edge_index, spurions)
 
     # define edgeconv
     in_reps = TensorReps("1x1n")

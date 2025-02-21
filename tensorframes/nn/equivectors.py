@@ -39,13 +39,23 @@ class EquivariantVectors(MessagePassing):
             dropout_prob=dropout_prob,
         )
 
-    def forward(self, x, fm, edge_attr, edge_index):
-        vecs = self.propagate(edge_index, x=x, fm=fm, edge_attr=edge_attr)
+    def forward(self, x, fm, edge_attr, edge_index, spurions):
+        """
+        Args:
+            x: scalar features shape: (batch, n_scalar)
+            fm: fourmomenta shape: (batch, 4)
+            edge_attr: edge attributes shape: (edges, n_edge_attr)
+            edge_index: edge indices shape: (edges, 2)
+            spurions: spurions for affine symmetry breaking shape: (n_vectors, 4)
+        """
+        vecs = self.propagate(
+            edge_index, x=x, fm=fm, edge_attr=edge_attr, spurions=spurions
+        )
         vecs = vecs.reshape(-1, self.n_vectors, 4)
         assert torch.isfinite(vecs).all()
         return vecs
 
-    def message(self, x_i, x_j, fm_i, fm_j, edge_attr):
+    def message(self, x_i, x_j, fm_i, fm_j, edge_attr, spurions_i):
         prefactor = torch.cat([x_i, x_j], dim=-1)
         prefactor = torch.cat([prefactor, edge_attr], dim=-1)
         prefactor = self.mlp(prefactor)
@@ -54,6 +64,7 @@ class EquivariantVectors(MessagePassing):
         fm_rel = self.operation(fm_i, fm_j)
 
         out = torch.einsum("...j,...k->...jk", prefactor, fm_rel)
+        out = out + spurions_i.reshape(out.shape)
         return out.flatten(-2, -1)
 
     def get_operation(self, operation):

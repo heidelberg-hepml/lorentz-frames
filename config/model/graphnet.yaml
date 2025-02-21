@@ -2,6 +2,7 @@ _target_: experiments.tagging.wrappers.GraphNetWrapper
 out_reps: null
 net_features: null
 lframesnet_features: null
+symmetry_breaking: []
 
 net:
  _target_: tensorframes.nn.graphnet.TFGraphNet

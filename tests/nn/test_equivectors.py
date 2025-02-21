@@ -63,6 +63,8 @@ def test_equivariance(
         batch_dims + [jet_size], logm2_std, logm2_mean, dtype=dtype
     ).flatten(0, 1)
 
+    spurions = torch.zeros((fm.shape[0], n_vectors * 4), dtype=torch.long)
+
     # careful: same global transformation for each jet
     random = rand_lorentz(batch_dims, dtype=dtype)
     random = random.unsqueeze(1).repeat(1, jet_size, 1, 1).view(*fm.shape, 4)
@@ -72,13 +74,19 @@ def test_equivariance(
     edge_attr_prime = calc_edge_attr(fm_prime)
     node_attr_prime = calc_node_attr(fm_prime)
     vecs_prime1 = equivectors(
-        node_attr_prime, fm_prime, edge_attr=edge_attr_prime, edge_index=edge_index
+        node_attr_prime,
+        fm_prime,
+        edge_attr=edge_attr_prime,
+        edge_index=edge_index,
+        spurions=spurions,
     )
 
     # path 2: predict vectors + global transform
     edge_attr = calc_edge_attr(fm)
     node_attr = calc_node_attr(fm)
-    vecs = equivectors(node_attr, fm, edge_attr=edge_attr, edge_index=edge_index)
+    vecs = equivectors(
+        node_attr, fm, edge_attr=edge_attr, edge_index=edge_index, spurions=spurions
+    )
     vecs_prime2 = torch.einsum("...ij,...kj->...ki", random, vecs)
 
     # test that edge attributes are invariant

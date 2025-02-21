@@ -52,10 +52,12 @@ class TaggerWrapper(nn.Module):
         lframesnet,
         net_features,
         lframesnet_features,
+        symmetry_breaking=[],
     ):
         super().__init__()
         self.net_features = net_features
         self.lframesnet_features = lframesnet_features
+        self.symmetry_breaking = symmetry_breaking
 
         assert len(net_features) != 0
         # decide which entries to use for the net
@@ -84,10 +86,17 @@ class TaggerWrapper(nn.Module):
             self.out_reps.mul_without_scalars == 0
         ), "out_reps must only contain scalars, but got out_reps={out_reps}"
 
+        if "scalar" in symmetry_breaking:
+            assert (
+                "tagging_features" in lframesnet_features
+            ), "need to give tagging_features to lframesnet for spurion symmetry breaking"
+
         if isinstance(lframesnet, partial):
             # lframesnet with learnable elements need the in_nodes (number of scalars in input) for the networks
             if issubclass(lframesnet.func, LearnedLFrames):
-                self.lframesnet = lframesnet(in_nodes=in_nodes)
+                self.lframesnet = lframesnet(
+                    in_nodes=in_nodes, symmetry_breaking=symmetry_breaking
+                )
             else:
                 self.lframesnet = lframesnet
         else:

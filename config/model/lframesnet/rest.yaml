@@ -1,9 +1,9 @@
 _target_: tensorframes.lframes.equi_lframes.RestLFrames
 _partial_: true
 in_nodes: null
+symmetry_breaking: []
 hidden_channels: 32
 num_layers: 2
-spurion_lframes_replacements: null
 ortho_kwargs:
  method: gramschmidt
  eps_norm: 1e-10

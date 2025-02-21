@@ -38,7 +38,7 @@ def get_ptr_from_batch(batch):
     )
 
 
-def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data, seperate_spurious):
+def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
     """
     Embed tagging data
     We use torch_geometric sparse representations to be more memory efficient
@@ -54,10 +54,8 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data, seperate_spurious):
         Indices of the first particle for each jet
         Also includes the first index after the batch ends
     cfg_data: settings for embedding
-    seperate_spurious: this allows to not add certain spurons to the data,
-        this should be done if the spurions are used to replace the equivectors
-        of the lframes and don't need to be added additionally, they are instead
-        returned seperately in embedding
+    seperate_spurions: {bool, "both"} if spurions should be given back seperately instead of added to the data,
+        by default they are added to the data. if "both", it will be given back seperately and added
 
     Returns
     -------
@@ -65,6 +63,7 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data, seperate_spurious):
         Embedded data
         Includes keys for fourmomenta (n_particle (+n_spurion if beam_token), n_vectors, 4), scalars and ptr
     """
+    seperate_spurions = cfg_data.seperate_spurions
     batchsize = len(ptr) - 1
     batch = get_batch_from_ptr(ptr)
     arange = torch.arange(batchsize, device=fourmomenta.device)
@@ -87,27 +86,21 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data, seperate_spurious):
         fourmomenta /= UNITS
 
     # beam reference
-    spurions = get_spurion(
-        cfg_data.beam_reference,
-        cfg_data.add_time_reference,
-        cfg_data.two_beams,
-        fourmomenta.device,
-        fourmomenta.dtype,
-    )
+    if seperate_spurions is True:
+        n_spurions = 0
+    elif seperate_spurions is False or seperate_spurions == "both":
+        spurions = get_spurion(
+            cfg_data.beam_reference,
+            cfg_data.add_time_reference,
+            cfg_data.two_beams,
+            fourmomenta.device,
+            fourmomenta.dtype,
+        )
+        n_spurions = spurions.shape[0]
+    else:
+        assert False, f"{seperate_spurions=} is not valid"
 
     fourmomenta = fourmomenta.unsqueeze(1)
-    n_spurions = spurions.shape[0]
-
-    if seperate_spurious is not None:
-        assert n_spurions >= seperate_spurious + int(
-            cfg_data.two_beams
-        ), f"Not enough spurions to add to the lframesnet"
-        n_spurions -= seperate_spurious
-        if cfg_data.two_beams:
-            spurions[:2] = spurions[[1, 0], :]  # swap out first two beams
-        spurions = spurions[:-seperate_spurious]
-        if n_spurions >= 2 and cfg_data.two_beams:
-            spurions[:2] = spurions[[1, 0], :]  # swap out first two beams
 
     is_spurion = torch.zeros(
         fourmomenta.shape[0] + n_spurions * batchsize,
@@ -152,34 +145,29 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data, seperate_spurious):
         dim=-1,
     )
 
-    # i want to avoid the two_beams vector when we use it as replacements for the lframe
-    # these are the spurions which can be used as replacements for equivectors in lframes
-    # it might make sense to add more parameters later to adjust them
-    unique_spurions = get_spurion(
-        cfg_data.beam_reference,
-        cfg_data.add_time_reference,
-        False,
-        fourmomenta.device,
-        fourmomenta.dtype,
-    )
-
-    if seperate_spurious is not None:
-        unique_spurions = unique_spurions[-seperate_spurious:]
+    if seperate_spurions is True or seperate_spurions == "both":
+        # i want to avoid the two_beams vector when we use it as replacements for the lframe
+        # these are the spurions which can be used as replacements for equivectors in lframes
+        # it might make sense to add more parameters later to adjust them
+        unique_spurions = get_spurion(
+            cfg_data.beam_reference,
+            cfg_data.add_time_reference,
+            False,
+            fourmomenta.device,
+            fourmomenta.dtype,
+        )
+    else:
+        unique_spurions = torch.empty(
+            0, 4, device=fourmomenta.device, dtype=fourmomenta.dtype
+        )
 
     # return dict
     batch = get_batch_from_ptr(ptr)
 
-    if cfg_data.add_tagging_features:
-        tagging_features = get_tagging_features
-    else:
-        tagging_features = lambda fourmomenta, _: torch.empty(
-            (fourmomenta.shape[0], 0), device=fourmomenta.device
-        )
-
     embedding = {
         "fourmomenta": fourmomenta,
         "scalars": scalars,
-        "tagging_features": tagging_features,
+        "tagging_features": get_tagging_features,
         "edge_index": edge_index,
         "batch": batch,
         "is_spurion": is_spurion,
