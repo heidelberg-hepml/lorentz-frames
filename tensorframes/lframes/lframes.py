@@ -30,7 +30,7 @@ class LFrames:
         Parameters
         ----------
             matrices: torch.tensor of shape (*dims, 4, 4)
-                Rotation matrices
+                Transformation matrices
             is_global: bool
                 Whether lframes are the same for all particles in the point cloud
             inv: torch.Tensor of shape (*dims, 4, 4)
@@ -60,7 +60,7 @@ class LFrames:
             assert matrices.shape[-2:] == (
                 4,
                 4,
-            ), f"Transformations must be of shape (..., 4, 4), but found {matrices.shape[-2:]} instead"
+            ), f"matrices must be of shape (..., 4, 4), but found {matrices.shape[-2:]} instead"
 
             self.matrices = matrices
             self.is_global = is_global
@@ -126,7 +126,7 @@ class LFrames:
 
 
 class InverseLFrames(LFrames):
-    """Inverse of a collection of Lorentz transformations."""
+    """Inverse of a collection of transformations."""
 
     def __init__(self, lframes: LFrames) -> None:
         super().__init__(
@@ -142,7 +142,7 @@ class InverseLFrames(LFrames):
 
 
 class IndexSelectLFrames(LFrames):
-    """Index-controlled selection of rotation matrices from an LFrames object."""
+    """Index-controlled selection of transformation matrices from an LFrames object."""
 
     def __init__(self, lframes: LFrames, indices: torch.Tensor):
         super().__init__(
