@@ -260,6 +260,11 @@ class TopTaggingExperiment(TaggingExperiment):
         with open_dict(self.cfg):
             self.cfg.model.out_reps = "1x0n"
 
+        if len(cfg.model.symmetry_breaking) != 0:
+            assert all(
+                sb in ["vectors", "scalars", "affine", "basis"]
+                for sb in cfg.model.symmetry_breaking
+            ), f"symmetry breaking should only contain some of the following methods: ['scalars', 'vectors', 'basis', 'affine']"
         if "basis" in cfg.model.symmetry_breaking:
             assert (
                 cfg.data.seperate_spurions is not False
