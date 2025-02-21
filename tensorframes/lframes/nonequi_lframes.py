@@ -39,7 +39,7 @@ class RandomLFrames(LFramesPredictor):
     """Randomly generates a local frame for the whole batch,
     corresponding to data augmentation."""
 
-    def __init__(self, std_eta=1.0):
+    def __init__(self, std_eta=0.5):
         super().__init__(is_global=True)
         self.std_eta = std_eta
 
@@ -106,7 +106,7 @@ class RandomBoostLFrames(LFramesPredictor):
     """Randomly generates a boosted local frame,
     corresponding to data augmentation."""
 
-    def __init__(self, std_eta=1.0):
+    def __init__(self, std_eta=0.5):
         super().__init__(is_global=True)
         self.std_eta = std_eta
 

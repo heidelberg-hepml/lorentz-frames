@@ -60,7 +60,7 @@ def transform(
 def rand_lorentz(
     shape: List[int],
     n_range: List[int] = [3, 5],
-    std_eta: float = 1,
+    std_eta: float = 0.5,
     device: str = "cpu",
     dtype: torch.dtype = torch.float32,
 ):
@@ -175,7 +175,7 @@ def rand_phirotation(
 def rand_boost(
     shape: List[int],
     n_range: List[int] = [3, 5],
-    std_eta: float = 1,
+    std_eta: float = 0.5,
     device: str = "cpu",
     dtype: torch.dtype = torch.float32,
 ):

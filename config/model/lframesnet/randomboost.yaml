@@ -1,1 +1,2 @@
 _target_: tensorframes.lframes.nonequi_lframes.RandomBoostLFrames
+std_eta: 0.5
