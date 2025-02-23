@@ -39,11 +39,7 @@ class AmplitudeWrapper(nn.Module):
 
         lframes, tracker = self.lframesnet(**kwargs)
 
-        # ugly solution, this should be changed later on
-        mat = lframes.matrices.reshape(-1, 4, 4)
-        lframes0 = LFrames(mat)
-        fourmomenta_local = self.trafo_fourmomenta(fourmomenta.reshape(-1, 4), lframes0)
-        fourmomenta_local = fourmomenta_local.reshape_as(fourmomenta)
+        fourmomenta_local = self.trafo_fourmomenta(fourmomenta, lframes)
 
         features_local, _, _ = preprocess_momentum(
             fourmomenta_local, self.mom_mean, self.mom_std
