@@ -32,12 +32,21 @@ class AmplitudeWrapper(nn.Module):
         self.mom_std = std
 
     def forward(self, fourmomenta):
-        kwargs = {"fourmomenta": fourmomenta, "return_tracker": True}
-        if not self.lframesnet.is_global:
-            scalars = torch.empty_like(fourmomenta[..., []])
-            raise NotImplementedError
-
-        lframes, tracker = self.lframesnet(**kwargs)
+        if self.lframesnet.is_global:
+            lframes, tracker = self.lframesnet(fourmomenta, return_tracker=True)
+        else:
+            shape = fourmomenta.shape
+            edge_index, batch = build_edge_index(fourmomenta)
+            fourmomenta_flat = fourmomenta.reshape(-1, 4)
+            scalars = torch.zeros_like(fourmomenta_flat[:, []])
+            lframes, tracker = self.lframesnet(
+                fourmomenta_flat,
+                scalars,
+                edge_index=edge_index,
+                batch=batch,
+                return_tracker=True,
+            )
+            lframes = lframes.reshape(*shape[:-1], 4, 4)
 
         fourmomenta_local = self.trafo_fourmomenta(fourmomenta, lframes)
 
