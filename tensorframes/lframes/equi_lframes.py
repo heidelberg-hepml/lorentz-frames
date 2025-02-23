@@ -34,7 +34,15 @@ class LearnedLFrames(LFramesPredictor):
         self.register_buffer("inv_mean", torch.zeros(1))
         self.register_buffer("inv_std", torch.ones(1))
 
-    def forward(self, fourmomenta, scalars, edge_index):
+    def forward(self, fourmomenta, scalars, edge_index, batch):
+        """
+        Parameters
+        ----------
+        fourmomenta: torch.tensor of shape (N, 4)
+        scalars: torch.tensor of shape (N, C)
+        edge_index: torch.tensor of shape (2, E)
+        batch: torch.tensor of shape (N,)
+        """
         assert scalars.shape[-1] == self.in_nodes
 
         # calculate and standardize edge attributes
@@ -53,6 +61,7 @@ class LearnedLFrames(LFramesPredictor):
             fm=fourmomenta,
             edge_attr=edge_attr,
             edge_index=edge_index,
+            batch=batch,
         )
         return vecs
 
@@ -73,8 +82,8 @@ class OrthogonalLearnedLFrames(LearnedLFrames):
         self.ortho_kwargs = ortho_kwargs
         super().__init__(*args, n_vectors=self.n_vectors, **kwargs)
 
-    def forward(self, fourmomenta, scalars, edge_index, batch, return_tracker=False):
-        vecs = super().forward(fourmomenta, scalars, edge_index)
+    def forward(self, fourmomenta, scalars, return_tracker=False, **kwargs):
+        vecs = super().forward(fourmomenta, scalars, **kwargs)
         vecs = [vecs[..., i, :] for i in range(self.n_vectors)]
 
         trafo, reg_lightlike, reg_coplanar = orthogonal_trafo(
@@ -104,8 +113,8 @@ class RestLFrames(LearnedLFrames):
 
         self.ortho_kwargs = ortho_kwargs
 
-    def forward(self, fourmomenta, scalars, edge_index, batch, return_tracker=False):
-        references = super().forward(fourmomenta, scalars, edge_index)
+    def forward(self, fourmomenta, scalars, return_tracker=False, **kwargs):
+        references = super().forward(fourmomenta, scalars, **kwargs)
         references = [references[..., i, :] for i in range(self.n_vectors)]
 
         trafo, reg_collinear = restframe_equivariant(
@@ -139,8 +148,8 @@ class LearnedRestLFrames(LearnedLFrames):
 
         self.ortho_kwargs = ortho_kwargs
 
-    def forward(self, fourmomenta, scalars, edge_index, batch, return_tracker=False):
-        vecs = super().forward(fourmomenta, scalars, edge_index)
+    def forward(self, fourmomenta, scalars, return_tracker=False, **kwargs):
+        vecs = super().forward(fourmomenta, scalars, **kwargs)
         fourmomenta = vecs[..., 0, :]
         references = [vecs[..., i, :] for i in range(1, self.n_vectors)]
 
