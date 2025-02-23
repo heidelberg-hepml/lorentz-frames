@@ -36,7 +36,7 @@ class AmplitudeWrapper(nn.Module):
             lframes, tracker = self.lframesnet(fourmomenta, return_tracker=True)
         else:
             shape = fourmomenta.shape
-            edge_index, batch = build_edge_index(fourmomenta)
+            edge_index, batch = build_edge_index(fourmomenta, remove_self_loops=True)
             fourmomenta_flat = fourmomenta.reshape(-1, 4)
             scalars = torch.zeros_like(fourmomenta_flat[:, []])
             lframes, tracker = self.lframesnet(
@@ -118,12 +118,16 @@ class GraphNetWrapper(AmplitudeWrapper):
         return amp, tracker
 
 
-def build_edge_index(features_ref):
+def build_edge_index(features_ref, remove_self_loops=False):
     batch_size, seq_len, _ = features_ref.shape
     device = features_ref.device
 
     nodes = torch.arange(seq_len, device=device)
     row, col = torch.meshgrid(nodes, nodes, indexing="ij")
+
+    if remove_self_loops:
+        mask = row != col
+        row, col = row[mask], col[mask]
     edge_index_single = torch.stack([row.flatten(), col.flatten()], dim=0)
 
     edge_index_global = []
