@@ -55,7 +55,7 @@ class LearnedLFrames(LFramesPredictor):
         if not self.edge_inited:
             self.edge_mean = edge_attr.mean()
             self.edge_std = edge_attr.std().clamp(min=1e-5)
-            self.edge.fill_(True)
+            self.edge_inited.fill_(True)
         edge_attr = (edge_attr - self.edge_mean) / self.edge_std
 
         # call networks
