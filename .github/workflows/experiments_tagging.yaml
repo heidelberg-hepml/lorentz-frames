@@ -1,4 +1,4 @@
-name: Trial experiments
+name: Tagging trial experiments
 
 on:
   push:
@@ -25,38 +25,22 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
-    - name: Tagging TFGraphNet + IdentityLFrames
+    - name: TFGraphNet + IdentityLFrames
       run: |
         python run.py save=false evaluate=false training.iterations=3
 
-    - name: Tagging TFGraphNet + OrthogonalLearnedLFrames
+    - name: TFGraphNet + OrthogonalLearnedLFrames
       run: |
         python run.py model/lframesnet=orthogonal save=false evaluate=false training.iterations=3
 
-    - name: Tagging TFGraphNet + LearnedRestLFrames
+    - name: TFGraphNet + LearnedRestLFrames
       run: |
         python run.py model/lframesnet=learnedrest save=false evaluate=false training.iterations=3
 
-    - name: Tagging TFGraphNet + RandomPhiLFrames
+    - name: TFGraphNet + RandomPhiLFrames
       run: |
         python run.py model/lframesnet=randomphi save=false evaluate=false training.iterations=3
 
-    - name: Tagging TFTransformer + OrthogonalLearnedLFrames
+    - name: TFTransformer + OrthogonalLearnedLFrames
       run: |
         python run.py model=transformer model/lframesnet=orthogonal save=false evaluate=false training.iterations=3
-
-    - name: Tagging ParticleNet + IdentityLFrames
-      run: |
-        python run.py model=baseparticlenet-lite save=false evaluate=false training.iterations=3
-
-    - name: Amplitudes MLP + IdentityLFrames
-      run: |
-        python run.py -cn amplitudes model=amp_mlp save=false evaluate=false training.iterations=3
-
-    - name: Amplitudes TFTransformer + IdentityLFrames
-      run: |
-        python run.py -cn amplitudes model=amp_transformer save=false evaluate=false training.iterations=3
-
-    - name: Amplitudes TFGraphNet + IdentityLFrames
-      run: |
-        python run.py -cn amplitudes model=amp_graphnet save=false evaluate=false training.iterations=3
