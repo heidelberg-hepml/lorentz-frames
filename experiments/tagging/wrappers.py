@@ -80,7 +80,11 @@ class TaggerWrapper(nn.Module):
             lframes, tracker = self.lframesnet(fourmomenta, return_tracker=True)
         else:
             lframes, tracker = self.lframesnet(
-                fourmomenta, scalars, edge_index, batch, return_tracker=True
+                fourmomenta,
+                scalars,
+                edge_index=edge_index,
+                batch=batch,
+                return_tracker=True,
             )
 
         # transform features into local frames
