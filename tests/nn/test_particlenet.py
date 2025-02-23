@@ -48,7 +48,9 @@ def test_edgeconvblock_invariance_equivariance(
     )
     batch = torch.zeros(batch_dims, dtype=torch.long)
     scalars = torch.zeros(*batch_dims, 0, dtype=dtype)
-    call_predictor = lambda fm: predictor(fm, scalars, edge_index, batch)
+    call_predictor = lambda fm: predictor(
+        fm, scalars, edge_index=edge_index, batch=batch
+    )
 
     # define edgeconv
     in_reps = TensorReps("1x1n")
