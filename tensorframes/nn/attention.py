@@ -31,13 +31,11 @@ class InvariantParticleAttention(torch.nn.Module):
         q_local, k_local, v_local: (H, N, C)
         """
 
-        # prepare lframes trafos
-        # have to add head dimension
-        matrices = lframes.matrices.unsqueeze(0).repeat(
-            q_local.shape[0], *(1,) * len(lframes.shape), 1, 1
-        )
-        matrices = to_nd(matrices, 3)
-        lframes = LFrames(matrices)
+        # reshape lframes + insert head dimension
+        lframes = lframes.reshape(-1, 4, 4)
+        lframes = lframes.expand(1, *lframes.shape)
+        lframes = lframes.repeat(q_local.shape[0], 1, 1, 1)
+        lframes = lframes.reshape(-1, 4, 4)
         inv_lframes = InverseLFrames(lframes)
         lower_inv_lframes = LowerIndices(inv_lframes)
 
