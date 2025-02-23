@@ -73,7 +73,9 @@ class LFrames:
         )
         if self.det is None:
             if self.is_identity:
-                self.det = torch.ones(self.shape, dtype=self.dtype, device=self.device)
+                self.det = torch.ones(
+                    self.shape[:-2], dtype=self.dtype, device=self.device
+                )
             else:
                 self.det = torch.linalg.det(self.matrices)
         if self.inv is None:
