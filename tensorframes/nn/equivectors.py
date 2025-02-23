@@ -39,8 +39,8 @@ class EquivariantVectors(MessagePassing):
             dropout_prob=dropout_prob,
         )
 
-    def forward(self, x, fm, edge_attr, edge_index):
-        vecs = self.propagate(edge_index, x=x, fm=fm, edge_attr=edge_attr)
+    def forward(self, x, fm, edge_attr, edge_index, batch):
+        vecs = self.propagate(edge_index, x=x, fm=fm, edge_attr=edge_attr, batch=batch)
         vecs = vecs.reshape(-1, self.n_vectors, 4)
         assert torch.isfinite(vecs).all()
         return vecs
