@@ -34,7 +34,7 @@ class LearnedLFrames(LFramesPredictor):
         self.register_buffer("edge_mean", torch.zeros(0))
         self.register_buffer("edge_std", torch.ones(1))
 
-    def forward(self, fourmomenta, scalars, edge_index, batch):
+    def forward(self, fourmomenta, scalars, edge_index, batch=None):
         """
         Parameters
         ----------
