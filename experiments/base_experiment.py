@@ -29,12 +29,14 @@ class BaseExperiment:
         # pass all exceptions to the logger
         try:
             self.run_mlflow()
-        except errors.ConfigAttributeError:
+        except errors.ConfigAttributeError as e:
             LOGGER.exception(
                 "Tried to access key that is not specified in the config files"
             )
-        except:
+            raise e
+        except Exception as e:
             LOGGER.exception("Exiting with error")
+            raise e
 
         # print buffered logger messages if failed
         if not experiments.logger.LOGGING_INITIALIZED:
