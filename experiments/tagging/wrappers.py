@@ -119,7 +119,7 @@ class TaggerWrapper(nn.Module):
             edge_index = get_edge_index_from_ptr(ptr)
 
         # transform features into local frames
-        fourmomenta_local = self.trafo_fourmomenta(fourmomenta.clone(), lframes)
+        fourmomenta_local = self.trafo_fourmomenta(fourmomenta, lframes)
         local_tagging_features = get_tagging_features(fourmomenta_local, batch)
 
         features_local = torch.cat([scalars, local_tagging_features], dim=-1)
