@@ -261,18 +261,16 @@ def get_tagging_features(fourmomenta, batch):
     """
 
     log_pt = get_pt(fourmomenta).unsqueeze(-1).log()
-    log_energy = get_energy_clamped(fourmomenta).unsqueeze(-1).log()
+    log_energy = fourmomenta[..., 0].unsqueeze(-1).log()
 
     jet = scatter(fourmomenta, index=batch, dim=0, reduce="sum").index_select(0, batch)
     log_pt_rel = (get_pt(fourmomenta).log() - get_pt(jet).log()).unsqueeze(-1)
-    log_energy_rel = (
-        get_energy_clamped(fourmomenta).log() - get_energy_clamped(jet).log()
-    ).unsqueeze(-1)
+    log_energy_rel = (fourmomenta[..., 0].log() - jet[..., 0].log()).unsqueeze(-1)
     phi_4, phi_jet = get_phi(fourmomenta), get_phi(jet)
     dphi = ((phi_4 - phi_jet + torch.pi) % (2 * torch.pi) - torch.pi).unsqueeze(-1)
     eta_4, eta_jet = get_eta(fourmomenta), get_eta(jet)
     deta = -(eta_4 - eta_jet).unsqueeze(-1)
-    dr = torch.sqrt(torch.clamp(dphi**2 + deta**2, min=1e-8))
+    dr = torch.sqrt(dphi**2 + deta**2)
     features = [
         log_pt,
         log_energy,
@@ -286,9 +284,6 @@ def get_tagging_features(fourmomenta, batch):
         mean, factor = SCALAR_FEATURES_PREPROCESSING[i]
         features[i] = (feature - mean) * factor
     return torch.cat(features, dim=-1)
-
-
-get_energy_clamped = lambda fm: fm[..., 0].clamp(min=eps)
 
 
 def get_edge_index_from_ptr(ptr):
