@@ -33,7 +33,7 @@ class TaggingExperiment(BaseExperiment):
             if "Learned" in self.cfg.model.lframesnet._target_:
                 if self.cfg.model.add_tagging_features_lframesnet:
                     in_nodes += 7
-                self.cfg.model.in_nodes = in_nodes
+                self.cfg.model.lframesnet.in_nodes = in_nodes
 
             if (
                 self.cfg.model._target_.rsplit(".", 1)[-1]

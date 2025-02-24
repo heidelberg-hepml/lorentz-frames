@@ -50,7 +50,6 @@ class TaggerWrapper(nn.Module):
         self,
         in_reps,
         out_reps,
-        in_nodes,
         lframesnet,
         add_tagging_features_lframesnet,
         symmetry_breaking=[],
@@ -69,9 +68,7 @@ class TaggerWrapper(nn.Module):
 
         if isinstance(lframesnet, partial):
             # lframesnet with learnable elements need the in_nodes (number of scalars in input) for the networks
-            self.lframesnet = lframesnet(
-                in_nodes=in_nodes, symmetry_breaking=symmetry_breaking
-            )
+            self.lframesnet = lframesnet(symmetry_breaking=symmetry_breaking)
         else:
             self.lframesnet = lframesnet
 
