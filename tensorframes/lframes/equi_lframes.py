@@ -50,9 +50,9 @@ class LearnedLFrames(LFramesPredictor):
         )
 
         # standardization parameters for edge attributes
-        self.register_buffer("inv_inited", torch.tensor(False, dtype=torch.bool))
-        self.register_buffer("inv_mean", torch.zeros(1))
-        self.register_buffer("inv_std", torch.ones(1))
+        self.register_buffer("edge_inited", torch.tensor(False, dtype=torch.bool))
+        self.register_buffer("edge_mean", torch.zeros(0))
+        self.register_buffer("edge_std", torch.ones(1))
         return
 
     def forward(self, fourmomenta, scalars, edge_index, spurions):
@@ -71,11 +71,14 @@ class LearnedLFrames(LFramesPredictor):
         mij2 = lorentz_squarednorm(
             fourmomenta[edge_index[0]] + fourmomenta[edge_index[1]]
         ).unsqueeze(-1)
-        edge_attr = mij2.clamp(min=1e-5).log()
-        if not self.inv_inited:
-            self.inv_mean = edge_attr.mean()
-            self.inv_std = edge_attr.std().clamp(min=1e-5)
-        edge_attr = (edge_attr - self.inv_mean) / self.inv_std
+        edge_attr = mij2.clamp(min=1e-10).log()
+
+        # standardization
+        if not self.edge_inited:
+            self.edge_mean = edge_attr.mean()
+            self.edge_std = edge_attr.std().clamp(min=1e-5)
+            self.edge_inited.fill_(True)
+        edge_attr = (edge_attr - self.edge_mean) / self.edge_std
 
         if self.spurion_strategy == "particle_add":
             assert (
