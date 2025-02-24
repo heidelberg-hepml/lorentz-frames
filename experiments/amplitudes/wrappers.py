@@ -7,7 +7,7 @@ from experiments.amplitudes.preprocessing import preprocess_momentum
 
 from tensorframes.reps.tensorreps import TensorReps
 from tensorframes.reps.tensorreps_transform import TensorRepsTransform
-from tensorframes.lframes.lframes import LFrames
+from tensorframes.utils.lorentz import lorentz_squarednorm
 
 
 class AmplitudeWrapper(nn.Module):
@@ -55,8 +55,10 @@ class AmplitudeWrapper(nn.Module):
         )
         features_local = torch.arcsinh(features_local)  # suppress tails
 
-        particle_type = self.encode_particle_type(fourmomenta.shape[0])
-        return features_local, particle_type, lframes, tracker
+        particle_type = self.encode_particle_type(fourmomenta.shape[0]).to(
+            features_local.dtype
+        )
+        return features_local, fourmomenta_local, particle_type, lframes, tracker
 
     def encode_particle_type(self, batchsize):
         particle_type = torch.nn.functional.one_hot(
@@ -72,7 +74,7 @@ class MLPWrapper(AmplitudeWrapper):
         self.net = net
 
     def forward(self, fourmomenta_global):
-        features_local, _, _, tracker = super().forward(fourmomenta_global)
+        features_local, _, _, _, tracker = super().forward(fourmomenta_global)
         features = features_local.view(features_local.shape[0], -1)
 
         amp = self.net(features)
@@ -85,7 +87,7 @@ class TransformerWrapper(AmplitudeWrapper):
         self.net = net
 
     def forward(self, fourmomenta_global):
-        features_local, particle_type, lframes, tracker = super().forward(
+        features_local, _, particle_type, lframes, tracker = super().forward(
             fourmomenta_global
         )
         features = torch.cat([features_local, particle_type], dim=-1)
@@ -96,26 +98,61 @@ class TransformerWrapper(AmplitudeWrapper):
 
 
 class GraphNetWrapper(AmplitudeWrapper):
-    def __init__(self, net, *args, **kwargs):
+    def __init__(self, net, include_edges, include_nodes, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.net = net
         self.aggregator = MeanAggregation()
+        self.include_edges = include_edges
+        self.include_nodes = include_nodes
+
+        if self.include_edges:
+            self.register_buffer("edge_inited", torch.tensor(False, dtype=torch.bool))
+            self.register_buffer("edge_mean", torch.zeros(0))
+            self.register_buffer("edge_std", torch.ones(1))
 
     def forward(self, fourmomenta_global):
-        features_local, particle_type, lframes, tracker = super().forward(
-            fourmomenta_global
+        (
+            features_local,
+            fourmomenta_local,
+            particle_type,
+            lframes,
+            tracker,
+        ) = super().forward(fourmomenta_global)
+
+        # select features
+        node_attr = particle_type
+        if self.include_nodes:
+            node_attr = torch.cat([node_attr, features_local], dim=-1)
+        edge_index, batch = build_edge_index(node_attr)
+        node_attr = node_attr.view(-1, node_attr.shape[-1])
+        lframes = lframes.reshape(-1, 4, 4)
+        if self.include_edges:
+            fourmomenta = fourmomenta_local.reshape(-1, 4)
+            edge_attr = self.get_edge_attr(fourmomenta, edge_index)
+        else:
+            edge_attr = None
+
+        output = self.net(
+            node_attr,
+            lframes,
+            edge_index=edge_index,
+            batch=batch,
+            edge_attr=edge_attr,
         )
-        features = torch.cat([features_local, particle_type], dim=-1)
-        edge_index, batch = build_edge_index(features)
-
-        # flatten over (batch_dim, seq_len)
-        features_flat = features.view(-1, features.shape[-1])
-        mat = lframes.matrices.reshape(-1, 4, 4)
-        lframes = LFrames(mat)
-
-        output = self.net(features_flat, lframes, edge_index=edge_index, batch=batch)
         amp = self.aggregator(output, index=batch)
         return amp, tracker
+
+    def get_edge_attr(self, fourmomenta, edge_index):
+        mij2 = lorentz_squarednorm(
+            fourmomenta[edge_index[0]] + fourmomenta[edge_index[1]]
+        )
+        edge_attr = mij2.clamp(min=1e-10).log()
+        if not self.edge_inited:
+            self.edge_mean = edge_attr.mean()
+            self.edge_std = edge_attr.std().clamp(min=1e-5)
+            self.edge_inited.fill_(True)
+        edge_attr = (edge_attr - self.edge_mean) / self.edge_std
+        return edge_attr.unsqueeze(-1)
 
 
 def build_edge_index(features_ref, remove_self_loops=False):

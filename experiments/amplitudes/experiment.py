@@ -45,8 +45,16 @@ class AmplitudeExperiment(BaseExperiment):
         modelname = self.cfg.model.net._target_.rsplit(".", 1)[-1]
         with open_dict(self.cfg):
             self.cfg.model.particle_type = particle_type
-            if modelname in ["TFTransformer", "TFGraphNet"]:
+            if modelname == "TFTransformer":
                 self.cfg.model.net.in_reps = f"{num_particle_types}x0n+1x1n"
+            elif modelname == "TFGraphNet":
+                assert self.cfg.model.include_nodes or self.cfg.model.include_edges
+                self.cfg.model.net.num_edge_attr = (
+                    1 if self.cfg.model.include_edges else 0
+                )
+                self.cfg.model.net.in_reps = f"{num_particle_types}x0n"
+                if self.cfg.model.include_nodes:
+                    self.cfg.model.net.in_reps += "+1x1n"
             elif modelname == "MLP":
                 self.cfg.model.net.in_shape = 4 * len(particle_type)
             else:
