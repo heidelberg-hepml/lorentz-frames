@@ -3,7 +3,6 @@ data:
  beam_reference: timelike
  two_beams: true
  add_time_reference: true
- add_scalar_features: true
  seperate_spurions: []
  mass_reg: 1e-2
 

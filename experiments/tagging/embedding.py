@@ -71,14 +71,6 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
             (fourmomenta[..., 1:] ** 2).sum(dim=-1) + cfg_data.mass_reg**2
         ).sqrt()
 
-    # add extra scalar channels
-    if cfg_data.add_scalar_features:
-        extra_scalars = []
-        for i, feature in enumerate(extra_scalars):
-            mean, factor = SCALAR_FEATURES_PREPROCESSING[i]
-            extra_scalars[i] = (feature - mean) * factor
-        scalars = torch.cat((scalars, *extra_scalars), dim=-1)
-
     if cfg_data.rescale_data:
         fourmomenta /= UNITS
 
@@ -243,7 +235,7 @@ def get_spurion(
         beam = torch.tensor(beam, device=device, dtype=dtype).reshape(1, 4)
         if two_beams:
             beam2 = beam.clone()
-            beam2[..., 3] = -1  # flip pzlog_pt
+            beam2[..., 3] = -1  # flip pz
             beam = torch.cat((beam, beam2), dim=0)
 
     elif beam_reference is None:
