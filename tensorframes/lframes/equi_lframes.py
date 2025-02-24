@@ -33,7 +33,7 @@ class LearnedLFrames(LFramesPredictor):
 
         self.in_nodes = in_nodes
         self.symmetry_breaking = symmetry_breaking
-        if "basis" in symmetry_breaking:
+        if symmetry_breaking == "basis":
             # this 2 is a hyperparameter assuming that
             n_vectors = n_vectors - 2
             assert (
@@ -79,7 +79,7 @@ class LearnedLFrames(LFramesPredictor):
             self.inv_std = edge_attr.std().clamp(min=1e-5)
         edge_attr = (edge_attr - self.inv_mean) / self.inv_std
 
-        if "affine" in self.symmetry_breaking:
+        if self.symmetry_breaking == "affine":
             assert (
                 spurions.shape[0] <= self.predicted_n_vectors
             ), f"Only predict {self.predicted_n_vectors} vectors, can not add all {spurions.shape[0]} spurions."
@@ -113,7 +113,7 @@ class LearnedLFrames(LFramesPredictor):
             spurions=expanded_spurions,
         )
 
-        if "basis" in self.symmetry_breaking:
+        if self.symmetry_breaking == "basis":
             vecs = torch.cat([vecs, spurions.repeat(vecs.shape[0], 1, 1)], dim=-2)
         return vecs
 

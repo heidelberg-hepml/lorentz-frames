@@ -52,7 +52,7 @@ class TaggerWrapper(nn.Module):
         out_reps,
         lframesnet,
         add_tagging_features_lframesnet,
-        symmetry_breaking=[],
+        symmetry_breaking=None,
     ):
         super().__init__()
         self.add_tagging_features_lframesnet = add_tagging_features_lframesnet
@@ -85,7 +85,7 @@ class TaggerWrapper(nn.Module):
         minimal_spurions = embedding["minimal_spurions"]
 
         # remove spurions from the data again and recompute attributes
-        if "vectors" not in self.symmetry_breaking:
+        if not self.symmetry_breaking == "vectors":
             fourmomenta = fourmomenta[~is_spurion]
             scalars = scalars[~is_spurion]
             global_tagging_features = global_tagging_features[~is_spurion]
@@ -120,7 +120,7 @@ class TaggerWrapper(nn.Module):
             )
 
         # if spurions have not already been removed, we have to do it for the model
-        if "vectors" in self.symmetry_breaking:
+        if self.symmetry_breaking == "vectors":
             fourmomenta = fourmomenta[~is_spurion]
             lframes = LFrames(lframes.matrices[~is_spurion])
             scalars = scalars[~is_spurion]

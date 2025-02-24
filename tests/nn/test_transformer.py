@@ -17,7 +17,7 @@ from tensorframes.lframes.lframes import InverseLFrames
 @pytest.mark.parametrize("num_blocks", [0, 1, 2])
 @pytest.mark.parametrize("attn_reps", REPS)
 @pytest.mark.parametrize("logm2_mean,logm2_std", LOGM2_MEAN_STD)
-@pytest.mark.parametrize("symmetry_breaking", [["scalar"]])
+@pytest.mark.parametrize("symmetry_breaking", [None])
 def test_transformer_invariance_equivariance(
     LFramesPredictor,
     batch_dims,

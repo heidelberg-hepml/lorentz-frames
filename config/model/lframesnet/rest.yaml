@@ -1,7 +1,7 @@
 _target_: tensorframes.lframes.equi_lframes.RestLFrames
 _partial_: true
 in_nodes: null
-symmetry_breaking: []
+symmetry_breaking: null
 hidden_channels: 32
 num_layers: 2
 ortho_kwargs:
