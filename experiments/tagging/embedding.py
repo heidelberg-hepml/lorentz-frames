@@ -7,7 +7,7 @@ from tensorframes.utils.hep import get_eta, get_phi, get_pt
 from experiments.tagging.dataset import EPS
 
 UNITS = 20  # We use units of 20 GeV for all tagging experiments
-eps = 1e-8
+
 # Preprocessing (mean, std) for scalar features
 # these are the defaults used in weaver
 SCALAR_FEATURES_PREPROCESSING = [
