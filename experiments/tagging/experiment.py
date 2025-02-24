@@ -40,6 +40,10 @@ class TaggingExperiment(BaseExperiment):
                     self.cfg.data.add_time_reference
                     and self.cfg.data.beam_reference is not None
                 )
+            if self.cfg.model.symmetry_breaking is not None:
+                LOGGER.info(
+                    f"Using symmetry breaking '{self.cfg.model.symmetry_breaking}'"
+                )
 
             if (
                 self.cfg.model._target_.rsplit(".", 1)[-1]

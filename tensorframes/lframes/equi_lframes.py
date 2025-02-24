@@ -69,7 +69,7 @@ class LearnedLFrames(LFramesPredictor):
         # calculate and standardize edge attributes
         assert (
             fourmomenta.shape[1] == 4
-        ), f"fourmomenta vector does not have 4 components"
+        )
         mij2 = lorentz_squarednorm(
             fourmomenta[edge_index[0]] + fourmomenta[edge_index[1]]
         ).unsqueeze(-1)
