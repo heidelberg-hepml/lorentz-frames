@@ -123,7 +123,7 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
 
     edge_index = get_edge_index_from_ptr(ptr)
 
-    # required for symmetry_breaking = basis and affine
+    # required for spurion_strategy = basis_triplet and particle_add
     minimal_spurions = get_spurion(
         cfg_data.beam_reference,
         cfg_data.add_time_reference,

@@ -16,7 +16,7 @@ class LearnedLFrames(LFramesPredictor):
         self,
         n_vectors,
         in_nodes,
-        symmetry_breaking,
+        spurion_strategy,
         *args,
         **kwargs,
     ):
@@ -26,14 +26,14 @@ class LearnedLFrames(LFramesPredictor):
         Args:
             n_vectors: The number of vectors to predict, this is usually 3, when the last vector is derived per cross product of the other 3 or 4
             in_nodes: number of in_nodes for network prediction of the equivariant networks
-            symmetry_breaking: string None, "vectors", "affine", "basis" indicating the type of symmetry breaking used
+            spurion_strategy: string None, "particle_append", "particle_add", "basis_triplet" indicating the type of symmetry breaking used
 
         """
         super().__init__()
 
         self.in_nodes = in_nodes
-        self.symmetry_breaking = symmetry_breaking
-        if symmetry_breaking == "basis":
+        self.spurion_strategy = spurion_strategy
+        if spurion_strategy == "basis_triplet":
             # this 2 is a hyperparameter assuming that
             n_vectors = n_vectors - 2
             assert (
@@ -67,9 +67,7 @@ class LearnedLFrames(LFramesPredictor):
         assert scalars.shape[-1] == self.in_nodes
 
         # calculate and standardize edge attributes
-        assert (
-            fourmomenta.shape[1] == 4
-        )
+        assert fourmomenta.shape[1] == 4
         mij2 = lorentz_squarednorm(
             fourmomenta[edge_index[0]] + fourmomenta[edge_index[1]]
         ).unsqueeze(-1)
@@ -79,7 +77,7 @@ class LearnedLFrames(LFramesPredictor):
             self.inv_std = edge_attr.std().clamp(min=1e-5)
         edge_attr = (edge_attr - self.inv_mean) / self.inv_std
 
-        if self.symmetry_breaking == "affine":
+        if self.spurion_strategy == "particle_add":
             assert (
                 spurions.shape[0] <= self.predicted_n_vectors
             ), f"Only predict {self.predicted_n_vectors} vectors, can not add all {spurions.shape[0]} spurions."
@@ -113,7 +111,7 @@ class LearnedLFrames(LFramesPredictor):
             spurions=expanded_spurions,
         )
 
-        if self.symmetry_breaking == "basis":
+        if self.spurion_strategy == "basis_triplet":
             vecs = torch.cat([vecs, spurions.repeat(vecs.shape[0], 1, 1)], dim=-2)
         return vecs
 

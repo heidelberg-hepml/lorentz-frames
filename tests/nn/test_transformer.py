@@ -17,7 +17,7 @@ from tensorframes.lframes.lframes import InverseLFrames
 @pytest.mark.parametrize("num_blocks", [0, 1, 2])
 @pytest.mark.parametrize("attn_reps", REPS)
 @pytest.mark.parametrize("logm2_mean,logm2_std", LOGM2_MEAN_STD)
-@pytest.mark.parametrize("symmetry_breaking", [None])
+@pytest.mark.parametrize("spurion_strategy", [None])
 def test_transformer_invariance_equivariance(
     LFramesPredictor,
     batch_dims,
@@ -26,7 +26,7 @@ def test_transformer_invariance_equivariance(
     logm2_std,
     logm2_mean,
     attn_reps,
-    symmetry_breaking,
+    spurion_strategy,
 ):
     print(logm2_std, logm2_mean)
     dtype = torch.float64
@@ -36,7 +36,7 @@ def test_transformer_invariance_equivariance(
         hidden_channels=16,
         num_layers=1,
         in_nodes=0,
-        symmetry_breaking=symmetry_breaking,
+        spurion_strategy=spurion_strategy,
     ).to(dtype=dtype)
     spurions = torch.zeros((0, 4), dtype=torch.long)
     edge_index = dense_to_sparse(torch.ones(batch_dims[0], batch_dims[0]))[0]

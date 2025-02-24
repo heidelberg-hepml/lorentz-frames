@@ -52,11 +52,19 @@ class TaggerWrapper(nn.Module):
         out_reps,
         lframesnet,
         add_tagging_features_lframesnet,
-        symmetry_breaking=None,
+        spurion_strategy=None,
     ):
+        """
+        Constructor
+        Args:
+            in_reps: string representation for the model input
+            out_reps: string representation for the model output
+            lframesnet: lframesclass
+            add_taggin_features_lframesnet: bool whether to include the tagging features in the lframesnet
+            spurion_strategy: {None, "particle_append", "basis_triplet", affine"} which spurion_strategy methode to use, refer to paper"""
         super().__init__()
         self.add_tagging_features_lframesnet = add_tagging_features_lframesnet
-        self.symmetry_breaking = symmetry_breaking
+        self.spurion_strategy = spurion_strategy
 
         # this is the input and output for the net
         self.in_reps = TensorReps(in_reps)
@@ -68,7 +76,7 @@ class TaggerWrapper(nn.Module):
 
         if isinstance(lframesnet, partial):
             # lframesnet with learnable elements need the in_nodes (number of scalars in input) for the networks
-            self.lframesnet = lframesnet(symmetry_breaking=symmetry_breaking)
+            self.lframesnet = lframesnet(spurion_strategy=spurion_strategy)
         else:
             self.lframesnet = lframesnet
 
@@ -93,7 +101,7 @@ class TaggerWrapper(nn.Module):
         ptr_nospurions = get_ptr_from_batch(batch_nospurions)
         edge_index_nospurions = get_edge_index_from_ptr(ptr_nospurions)
 
-        if self.symmetry_breaking == "vectors":
+        if self.spurion_strategy == "particle_append":
             if self.lframesnet.is_global:
                 lframes, tracker = self.lframesnet(fourmomenta, return_tracker=True)
             else:

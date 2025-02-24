@@ -17,7 +17,7 @@ from tensorframes.lframes.lframes import InverseLFrames
 @pytest.mark.parametrize("num_layers_mlp2", range(0, 2))
 @pytest.mark.parametrize("hidden_reps", REPS)
 @pytest.mark.parametrize("logm2_mean,logm2_std", LOGM2_MEAN_STD)
-@pytest.mark.parametrize("symmetry_breaking", [None])
+@pytest.mark.parametrize("spurion_strategy", [None])
 def test_edgeconv_invariance_equivariance(
     LFramesPredictor,
     batch_dims,
@@ -26,7 +26,7 @@ def test_edgeconv_invariance_equivariance(
     logm2_std,
     logm2_mean,
     hidden_reps,
-    symmetry_breaking,
+    spurion_strategy,
 ):
     dtype = torch.float64
 
@@ -37,7 +37,7 @@ def test_edgeconv_invariance_equivariance(
         hidden_channels=16,
         num_layers=1,
         in_nodes=0,
-        symmetry_breaking=symmetry_breaking,
+        spurion_strategy=spurion_strategy,
     ).to(dtype=dtype)
     spurions = torch.zeros((0, 4), dtype=torch.long)
     scalars = torch.zeros(*batch_dims, 0, dtype=dtype)
@@ -95,7 +95,7 @@ def test_edgeconv_invariance_equivariance(
 @pytest.mark.parametrize("num_blocks", [0, 1, 2])
 @pytest.mark.parametrize("hidden_reps", REPS)
 @pytest.mark.parametrize("logm2_mean,logm2_std", LOGM2_MEAN_STD)
-@pytest.mark.parametrize("symmetry_breaking", [None])
+@pytest.mark.parametrize("spurion_strategy", [None])
 def test_graphnet_invariance_equivariance(
     LFramesPredictor,
     batch_dims,
@@ -105,7 +105,7 @@ def test_graphnet_invariance_equivariance(
     logm2_std,
     logm2_mean,
     hidden_reps,
-    symmetry_breaking,
+    spurion_strategy,
 ):
     dtype = torch.float64
 
@@ -116,7 +116,7 @@ def test_graphnet_invariance_equivariance(
         hidden_channels=16,
         num_layers=1,
         in_nodes=0,
-        symmetry_breaking=symmetry_breaking,
+        spurion_strategy=spurion_strategy,
     ).to(dtype=dtype)
     spurions = torch.zeros((0, 4), dtype=torch.long)
     scalars = torch.zeros(*batch_dims, 0, dtype=dtype)

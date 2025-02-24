@@ -35,14 +35,14 @@ class TaggingExperiment(BaseExperiment):
                     in_nodes += 7
                 self.cfg.model.lframesnet.in_nodes = in_nodes
 
-            if self.cfg.model.symmetry_breaking == "basis":
+            if self.cfg.model.spurion_strategy == "basis_triplet":
                 assert (
                     self.cfg.data.add_time_reference
                     and self.cfg.data.beam_reference is not None
                 )
-            if self.cfg.model.symmetry_breaking is not None:
+            if self.cfg.model.spurion_strategy is not None:
                 LOGGER.info(
-                    f"Using symmetry breaking '{self.cfg.model.symmetry_breaking}'"
+                    f"Using symmetry breaking '{self.cfg.model.spurion_strategy}'"
                 )
 
             if (
@@ -284,7 +284,12 @@ class TopTaggingExperiment(TaggingExperiment):
         with open_dict(self.cfg):
             self.cfg.model.out_reps = "1x0n"
 
-            assert cfg.data.symmetry_breaking in [None, "affine", "vectors", "basis"]
+            assert cfg.data.spurion_strategy in [
+                None,
+                "particle_add",
+                "particle_append",
+                "basis_triplet",
+            ]
 
             # move argument into model config
             cfg.model.add_tagging_features_lframesnet = (
@@ -295,7 +300,13 @@ class TopTaggingExperiment(TaggingExperiment):
                 "experiments.tagging.wrappers.GraphNetWrapper",
                 "experiments.tagging.wrappers.TransformerWrapper",
             ]:
-                cfg.model.symmetry_breaking = cfg.data.symmetry_breaking
+                cfg.model.spurion_strategy = cfg.data.spurion_strategy
+            if cfg.model.lframesnet._target_ in [
+                "tensorframes.lframes.equi_lframes.LearnedRestLFrames",
+                "tensorframes.lframes.equi_lframes.OrthogonalLearnedLFrames",
+                "tensorframes.lframes.equi_lframes.RestLFrames",
+            ]:
+                cfg.model.lframesnet.spurion_strategy = cfg.data.spurion_strategy
 
     def init_data(self):
         data_path = os.path.join(
