@@ -121,14 +121,7 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
 
     # construct edge_index (dark art)
 
-    diffs = torch.diff(ptr)
-    edge_index = torch.cat(
-        [
-            dense_to_sparse(torch.ones(d, d, device=diffs.device))[0] + diffs[:i].sum()
-            for i, d in enumerate(diffs)
-        ],
-        dim=-1,
-    )
+    edge_index = get_edge_index_from_ptr(ptr)
 
     # required for symmetry_breaking = basis and affine
     minimal_spurions = get_spurion(
@@ -296,3 +289,15 @@ def get_tagging_features(fourmomenta, batch):
 
 
 get_energy_clamped = lambda fm: fm[..., 0].clamp(min=eps)
+
+
+def get_edge_index_from_ptr(ptr):
+    diffs = torch.diff(ptr)
+    edge_index = torch.cat(
+        [
+            dense_to_sparse(torch.ones(d, d, device=diffs.device))[0] + diffs[:i].sum()
+            for i, d in enumerate(diffs)
+        ],
+        dim=-1,
+    )
+    return edge_index

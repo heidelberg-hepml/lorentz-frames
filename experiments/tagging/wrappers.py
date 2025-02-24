@@ -13,7 +13,7 @@ from tensorframes.reps.tensorreps import TensorReps
 from tensorframes.reps.tensorreps_transform import TensorRepsTransform
 from tensorframes.utils.hep import EPPP_to_PtPhiEtaM2
 from tensorframes.lframes.equi_lframes import LearnedLFrames
-from experiments.tagging.embedding import get_tagging_features
+from experiments.tagging.embedding import get_tagging_features, get_edge_index_from_ptr
 from experiments.logger import LOGGER
 
 
@@ -92,15 +92,7 @@ class TaggerWrapper(nn.Module):
 
             batch = batch[~is_spurion]
             ptr = get_ptr_from_batch(batch)
-            diffs = torch.diff(ptr)
-            edge_index = torch.cat(
-                [
-                    dense_to_sparse(torch.ones(d, d, device=diffs.device))[0]
-                    + diffs[:i].sum()
-                    for i, d in enumerate(diffs)
-                ],
-                dim=-1,
-            )
+            edge_index = get_edge_index_from_ptr(ptr)
 
         if self.lframesnet.is_global:
             lframes, tracker = self.lframesnet(fourmomenta, return_tracker=True)
@@ -124,15 +116,7 @@ class TaggerWrapper(nn.Module):
             scalars = scalars[~is_spurion]
             batch = batch[~is_spurion]
             ptr = get_ptr_from_batch(batch)
-            diffs = torch.diff(ptr)
-            edge_index = torch.cat(
-                [
-                    dense_to_sparse(torch.ones(d, d, device=diffs.device))[0]
-                    + diffs[:i].sum()
-                    for i, d in enumerate(diffs)
-                ],
-                dim=-1,
-            )
+            edge_index = get_edge_index_from_ptr(ptr)
 
         # transform features into local frames
         fourmomenta_local = self.trafo_fourmomenta(fourmomenta.clone(), lframes)
