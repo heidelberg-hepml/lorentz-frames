@@ -7,7 +7,7 @@ from tensorframes.utils.hep import get_eta, get_phi, get_pt
 from experiments.tagging.dataset import EPS
 
 UNITS = 20  # We use units of 20 GeV for all tagging experiments
-
+eps = 1e-8
 # Preprocessing (mean, std) for scalar features
 # these are the defaults used in weaver
 SCALAR_FEATURES_PREPROCESSING = [
@@ -267,15 +267,13 @@ def get_tagging_features(fourmomenta, batch):
         Features: log_pt, log_energy, log_pt_rel, log_energy_rel, dphi, deta, dr
     """
 
-    log_pt = get_pt(fourmomenta).unsqueeze(-1).clamp(min=1e-8).log()
-    log_energy = fourmomenta[..., 0].unsqueeze(-1).clamp(min=1e-8).log()
+    log_pt = get_pt(fourmomenta).unsqueeze(-1).log()
+    log_energy = get_energy_clamped(fourmomenta).unsqueeze(-1).log()
 
     jet = scatter(fourmomenta, index=batch, dim=0, reduce="sum").index_select(0, batch)
-    log_pt_rel = (
-        get_pt(fourmomenta).clamp(min=1e-8).log() - get_pt(jet).clamp(min=1e-8).log()
-    ).unsqueeze(-1)
+    log_pt_rel = (get_pt(fourmomenta).log() - get_pt(jet).log()).unsqueeze(-1)
     log_energy_rel = (
-        fourmomenta[..., 0].clamp(min=1e-8).log() - jet[..., 0].clamp(min=1e-8).log()
+        get_energy_clamped(fourmomenta).log() - get_energy_clamped(jet).log()
     ).unsqueeze(-1)
     phi_4, phi_jet = get_phi(fourmomenta), get_phi(jet)
     dphi = ((phi_4 - phi_jet + torch.pi) % (2 * torch.pi) - torch.pi).unsqueeze(-1)
@@ -295,3 +293,6 @@ def get_tagging_features(fourmomenta, batch):
         mean, factor = SCALAR_FEATURES_PREPROCESSING[i]
         features[i] = (feature - mean) * factor
     return torch.cat(features, dim=-1)
+
+
+get_energy_clamped = lambda fm: fm[..., 0].clamp(min=eps)
