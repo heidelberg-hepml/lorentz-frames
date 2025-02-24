@@ -36,7 +36,10 @@ class TaggingExperiment(BaseExperiment):
                 self.cfg.model.lframesnet.in_nodes = in_nodes
 
             if self.cfg.model.symmetry_breaking == "basis":
-                assert self.cfg.data.add_time_reference and self.cfg.data.beam_reference is not None
+                assert (
+                    self.cfg.data.add_time_reference
+                    and self.cfg.data.beam_reference is not None
+                )
 
             if (
                 self.cfg.model._target_.rsplit(".", 1)[-1]
@@ -284,7 +287,10 @@ class TopTaggingExperiment(TaggingExperiment):
                 cfg.data.add_tagging_features_lframesnet
             )
 
-            if cfg.model._target_ in ["experiments.tagging.wrappers.GraphNetWrapper", "experiments.tagging.wrappers.TransformerWrapper"]:
+            if cfg.model._target_ in [
+                "experiments.tagging.wrappers.GraphNetWrapper",
+                "experiments.tagging.wrappers.TransformerWrapper",
+            ]:
                 cfg.model.symmetry_breaking = cfg.data.symmetry_breaking
 
     def init_data(self):
