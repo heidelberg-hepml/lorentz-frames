@@ -35,14 +35,14 @@ class TaggingExperiment(BaseExperiment):
                     in_nodes += 7
                 self.cfg.model.lframesnet.in_nodes = in_nodes
 
-            if self.cfg.model.spurion_strategy == "basis_triplet":
+            if self.cfg.data.spurion_strategy == "basis_triplet":
                 assert (
                     self.cfg.data.add_time_reference
                     and self.cfg.data.beam_reference is not None
                 )
-            if self.cfg.model.spurion_strategy is not None:
+            if self.cfg.data.spurion_strategy is not None:
                 LOGGER.info(
-                    f"Using symmetry breaking '{self.cfg.model.spurion_strategy}'"
+                    f"Using symmetry breaking '{self.cfg.data.spurion_strategy}'"
                 )
 
             if (
