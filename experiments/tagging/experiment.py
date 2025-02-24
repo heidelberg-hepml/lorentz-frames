@@ -29,10 +29,11 @@ class TaggingExperiment(BaseExperiment):
 
             # decide which entries to use for the lframesnet
             in_nodes = 0
-            if self.cfg.model.add_tagging_features_lframesnet:
-                in_nodes += 7
-            self.cfg.model.in_nodes = in_nodes
-            LOGGER.info(f"LFramesNet: in: {in_nodes}")
+
+            if "Learned" in self.cfg.model.lframesnet._target_:
+                if self.cfg.model.add_tagging_features_lframesnet:
+                    in_nodes += 7
+                self.cfg.model.in_nodes = in_nodes
 
             if (
                 self.cfg.model._target_.rsplit(".", 1)[-1]
