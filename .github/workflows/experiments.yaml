@@ -55,12 +55,12 @@ jobs:
 
     - name: Run TFGraphNet + OrthogonalLearnedLFrames with Vector Symmetry Breaking
       run: |
-        python run.py model/lframesnet=orthogonal save=false evaluate=false training.iterations=3 model.spurion_strategy=particle_append
+        python run.py model/lframesnet=orthogonal save=false evaluate=false training.iterations=3 data.spurion_strategy=particle_append
       
     - name: Run TFGraphNet + OrthogonalLearnedLFrames with affine Symmetry Breaking
       run: |
-        python run.py model/lframesnet=orthogonal save=false evaluate=false training.iterations=3 model.spurion_strategy=particle_add
+        python run.py model/lframesnet=orthogonal save=false evaluate=false training.iterations=3 data.spurion_strategy=particle_add
 
     - name: Run TFGraphNet + OrthogonalLearnedLFrames with basis Symmetry Breaking
       run: |
-        python run.py model/lframesnet=orthogonal save=false evaluate=false training.iterations=3 model.spurion_strategy=basis_triplet
+        python run.py model/lframesnet=orthogonal save=false evaluate=false training.iterations=3 data.spurion_strategy=basis_triplet
