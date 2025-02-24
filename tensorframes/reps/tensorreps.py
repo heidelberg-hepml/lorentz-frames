@@ -106,9 +106,6 @@ class TensorReps(Tuple):
                 tensor_reps = parse_tensorreps_string(input)
             except Exception:
                 raise ValueError(f"Invalid tensor_reps string {input}")
-        elif isinstance(input, dict):
-            input_string = "+".join(f"{v}x{k}" for k, v in input.items())
-            tensor_reps = TensorReps(input_string)
         else:
             raise ValueError(f"Invalid input: {input} is of type {type(input)}")
 
@@ -232,16 +229,6 @@ class TensorReps(Tuple):
         return all(
             self[i].rep.order != self[i + 1].rep.order for i in range(len(self[:-1]))
         )
-
-    def to_dict(self):
-        """
-        Returns the TensorReps as a dict, only works when it is sorted and simplified
-        """
-        assert (
-            self.is_simplified
-        ), f"Can only return TensorReps if the object is simplified to avoid degenerate keys in dict"
-
-        return {str(mul_rep[1]): mul_rep[0] for mul_rep in self}
 
 
 def parse_tensorreps_string(input):
