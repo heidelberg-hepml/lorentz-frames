@@ -85,50 +85,67 @@ class TaggerWrapper(nn.Module):
         minimal_spurions = embedding["minimal_spurions"]
 
         # remove spurions from the data again and recompute attributes
-        if not self.symmetry_breaking == "vectors":
-            fourmomenta = fourmomenta[~is_spurion]
-            scalars = scalars[~is_spurion]
-            global_tagging_features = global_tagging_features[~is_spurion]
+        fourmomenta_nospurions = fourmomenta[~is_spurion]
+        scalars_nospurions = scalars[~is_spurion]
+        global_tagging_features_nospurions = global_tagging_features[~is_spurion]
 
-            batch = batch[~is_spurion]
-            ptr = get_ptr_from_batch(batch)
-            edge_index = get_edge_index_from_ptr(ptr)
+        batch_nospurions = batch[~is_spurion]
+        ptr_nospurions = get_ptr_from_batch(batch_nospurions)
+        edge_index_nospurions = get_edge_index_from_ptr(ptr_nospurions)
 
-        if self.lframesnet.is_global:
-            lframes, tracker = self.lframesnet(fourmomenta, return_tracker=True)
-        else:
-            if self.add_tagging_features_lframesnet:
-                scalar_features = torch.cat([scalars, global_tagging_features], dim=-1)
-            else:
-                scalar_features = scalars
-            lframes, tracker = self.lframesnet(
-                fourmomenta,
-                scalar_features,
-                edge_index,
-                spurions=minimal_spurions,
-                return_tracker=True,
-            )
-
-        # if spurions have not already been removed, we have to do it for the model
         if self.symmetry_breaking == "vectors":
-            fourmomenta = fourmomenta[~is_spurion]
-            lframes = LFrames(lframes.matrices[~is_spurion])
-            scalars = scalars[~is_spurion]
-            batch = batch[~is_spurion]
-            ptr = get_ptr_from_batch(batch)
-            edge_index = get_edge_index_from_ptr(ptr)
+            if self.lframesnet.is_global:
+                lframes, tracker = self.lframesnet(fourmomenta, return_tracker=True)
+            else:
+                if self.add_tagging_features_lframesnet:
+                    scalar_features = torch.cat(
+                        [scalars, global_tagging_features], dim=-1
+                    )
+                else:
+                    scalar_features = scalars
+                lframes, tracker = self.lframesnet(
+                    fourmomenta,
+                    scalar_features,
+                    edge_index,
+                    spurions=minimal_spurions,
+                    return_tracker=True,
+                )
+            lframes_nospurions = LFrames(lframes.matrices[~is_spurion])
+        else:
+            if self.lframesnet.is_global:
+                lframes_nospurions, tracker = self.lframesnet(
+                    fourmomenta_nospurions, return_tracker=True
+                )
+            else:
+                if self.add_tagging_features_lframesnet:
+                    scalar_features_nospurions = torch.cat(
+                        [scalars_nospurions, global_tagging_features_nospurions], dim=-1
+                    )
+                else:
+                    scalar_features_nospurions = scalars_nospurions
+                lframes_nospurions, tracker = self.lframesnet(
+                    fourmomenta_nospurions,
+                    scalar_features_nospurions,
+                    edge_index_nospurions,
+                    spurions=minimal_spurions,
+                    return_tracker=True,
+                )
 
         # transform features into local frames
-        fourmomenta_local = self.trafo_fourmomenta(fourmomenta, lframes)
-        local_tagging_features = get_tagging_features(fourmomenta_local, batch)
+        fourmomenta_local_nospurions = self.trafo_fourmomenta(
+            fourmomenta_nospurions, lframes_nospurions
+        )
+        local_tagging_features = get_tagging_features(
+            fourmomenta_local_nospurions, batch_nospurions
+        )
 
-        features_local = torch.cat([scalars, local_tagging_features], dim=-1)
+        features_local = torch.cat([scalars_nospurions, local_tagging_features], dim=-1)
 
         return (
             features_local,
-            lframes,
-            edge_index,
-            batch,
+            lframes_nospurions,
+            edge_index_nospurions,
+            batch_nospurions,
             tracker,
         )
 
