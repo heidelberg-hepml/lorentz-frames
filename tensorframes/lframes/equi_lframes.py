@@ -26,7 +26,7 @@ class LearnedLFrames(LFramesPredictor):
         Args:
             n_vectors: The number of vectors to predict, this is usually 3, when the last vector is derived per cross product of the other 3 or 4
             in_nodes: number of in_nodes for network prediction of the equivariant networks
-            spurion_lframes: number of spurions to replace some of the otherwise predicted vectors
+            symmetry_breaking: string None, "vectors", "affine", "basis" indicating the type of symmetry breaking used
 
         """
         super().__init__()
