@@ -1,7 +1,7 @@
 _target_: experiments.tagging.wrappers.GraphNetWrapper
+in_reps: null
 out_reps: null
-net_features: null
-lframesnet_features: null
+add_tagging_features_lframesnet: true
 symmetry_breaking: []
 
 net:

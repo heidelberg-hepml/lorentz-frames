@@ -36,10 +36,13 @@ class LearnedLFrames(LFramesPredictor):
         if "basis" in symmetry_breaking:
             # this 2 is a hyperparameter assuming that
             n_vectors = n_vectors - 2
+            assert (
+                n_vectors >= 0
+            ), f"Need to predict at least 1 vector, using basis means using 2 spurions instead of predicting them."
 
-        self.n_vectors = n_vectors
+        self.predicted_n_vectors = n_vectors
         self.equivectors = EquivariantVectors(
-            n_vectors=n_vectors,
+            n_vectors=self.predicted_n_vectors,
             in_nodes=in_nodes,
             in_edges=1,
             *args,
@@ -50,8 +53,17 @@ class LearnedLFrames(LFramesPredictor):
         self.register_buffer("inv_inited", torch.tensor(False, dtype=torch.bool))
         self.register_buffer("inv_mean", torch.zeros(1))
         self.register_buffer("inv_std", torch.ones(1))
+        return
 
     def forward(self, fourmomenta, scalars, edge_index, spurions):
+        """
+        Args:
+            fourmomenta: (batch, 4)
+            scalars: scalar and tagging_features in frame (batch, n_scalar)
+            edge_index: edges (2, edge_index)
+            spurions: all spurions (n_spurions, 4)
+        Returns:
+            vecs: predicted and combined with spurions if basis symmetry breaking vectors (batch, num_vecs, 4)"""
         assert scalars.shape[-1] == self.in_nodes
 
         # calculate and standardize edge attributes
@@ -67,32 +79,41 @@ class LearnedLFrames(LFramesPredictor):
             self.inv_std = edge_attr.std().clamp(min=1e-5)
         edge_attr = (edge_attr - self.inv_mean) / self.inv_std
 
-        assert (
-            spurions.shape[0] <= self.n_vectors
-        ), f"Only predict {self.n_vectors} vectors, can not add all {spurions.shape[0]} spurions."
-        spurions = (
-            torch.cat(
-                [
-                    spurions,
-                    torch.zeros(
-                        (self.n_vectors - spurions.shape[0], 4), device=spurions.device
-                    ),
-                ],
-                dim=0,
+        if "affine" in self.symmetry_breaking:
+            assert (
+                spurions.shape[0] <= self.predicted_n_vectors
+            ), f"Only predict {self.predicted_n_vectors} vectors, can not add all {spurions.shape[0]} spurions."
+            expanded_spurions = (
+                torch.cat(
+                    [
+                        spurions,
+                        torch.zeros(
+                            (self.predicted_n_vectors - spurions.shape[0], 4),
+                            device=spurions.device,
+                        ),
+                    ],
+                    dim=0,
+                )
+                .repeat(fourmomenta.shape[0], 1, 1)
+                .reshape(fourmomenta.shape[0], -1)
             )
-            .repeat(fourmomenta.shape[0], 1, 1)
-            .reshape(fourmomenta.shape[0], -1)
-        )
+        else:
+            expanded_spurions = torch.zeros(
+                fourmomenta.shape[0],
+                4 * self.predicted_n_vectors,
+                device=fourmomenta.device,
+            )
+
         # call networks
         vecs = self.equivectors(
             x=scalars,
             fm=fourmomenta,
             edge_attr=edge_attr,
             edge_index=edge_index,
-            spurions=spurions,
+            spurions=expanded_spurions,
         )
 
-        if "basis" in self.symmetry_breaking and spurions.shape[0] != 0:
+        if "basis" in self.symmetry_breaking:
             vecs = torch.cat([vecs, spurions.repeat(vecs.shape[0], 1, 1)], dim=-2)
         return vecs
 

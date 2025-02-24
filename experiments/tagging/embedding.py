@@ -32,7 +32,7 @@ def get_ptr_from_batch(batch):
         [
             torch.tensor([0], device=batch.device),
             torch.where(batch[1:] - batch[:-1] != 0)[0] + 1,
-            torch.tensor([batch.shape[0] - 1], device=batch.device),
+            torch.tensor([batch.shape[0]], device=batch.device),
         ],
         0,
     )
@@ -54,8 +54,6 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
         Indices of the first particle for each jet
         Also includes the first index after the batch ends
     cfg_data: settings for embedding
-    seperate_spurions: {bool, "both"} if spurions should be given back seperately instead of added to the data,
-        by default they are added to the data. if "both", it will be given back seperately and added
 
     Returns
     -------
@@ -63,7 +61,6 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
         Embedded data
         Includes keys for fourmomenta (n_particle (+n_spurion if beam_token), n_vectors, 4), scalars and ptr
     """
-    seperate_spurions = cfg_data.seperate_spurions
     batchsize = len(ptr) - 1
     batch = get_batch_from_ptr(ptr)
     arange = torch.arange(batchsize, device=fourmomenta.device)
@@ -86,21 +83,16 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
         fourmomenta /= UNITS
 
     # beam reference
-    if seperate_spurions is True:
-        n_spurions = 0
-    elif seperate_spurions is False or seperate_spurions == "both":
-        spurions = get_spurion(
-            cfg_data.beam_reference,
-            cfg_data.add_time_reference,
-            cfg_data.two_beams,
-            fourmomenta.device,
-            fourmomenta.dtype,
-        )
-        n_spurions = spurions.shape[0]
-    else:
-        assert False, f"{seperate_spurions=} is not valid"
 
-    fourmomenta = fourmomenta.unsqueeze(1)
+    spurions = get_spurion(
+        cfg_data.beam_reference,
+        cfg_data.add_time_reference,
+        cfg_data.two_beams,
+        fourmomenta.device,
+        fourmomenta.dtype,
+    )
+
+    n_spurions = spurions.shape[0]
 
     is_spurion = torch.zeros(
         fourmomenta.shape[0] + n_spurions * batchsize,
@@ -122,7 +114,7 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
             device=fourmomenta.device,
         )
         fourmomenta[~is_spurion] = fourmomenta_buffer
-        fourmomenta[is_spurion] = spurions.repeat(batchsize, 1).unsqueeze(1)
+        fourmomenta[is_spurion] = spurions.repeat(batchsize, 1)
 
         scalars_buffer = scalars.clone()
         scalars = torch.zeros(
@@ -136,6 +128,7 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
         ptr[1:] = ptr[1:] + (arange + 1) * n_spurions
 
     # construct edge_index (dark art)
+
     diffs = torch.diff(ptr)
     edge_index = torch.cat(
         [
@@ -145,76 +138,33 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
         dim=-1,
     )
 
-    if seperate_spurions is True or seperate_spurions == "both":
-        # i want to avoid the two_beams vector when we use it as replacements for the lframe
-        # these are the spurions which can be used as replacements for equivectors in lframes
-        # it might make sense to add more parameters later to adjust them
-        unique_spurions = get_spurion(
-            cfg_data.beam_reference,
-            cfg_data.add_time_reference,
-            False,
-            fourmomenta.device,
-            fourmomenta.dtype,
-        )
-    else:
-        unique_spurions = torch.empty(
-            0, 4, device=fourmomenta.device, dtype=fourmomenta.dtype
-        )
+    # i want to avoid the two_beams vector when we use it as replacements for the lframe
+    # these are the spurions which can be used as replacements for equivectors in lframes
+    # it might make sense to add more parameters later to adjust them
+    unique_spurions = get_spurion(
+        cfg_data.beam_reference,
+        cfg_data.add_time_reference,
+        False,
+        fourmomenta.device,
+        fourmomenta.dtype,
+    )
 
-    # return dict
     batch = get_batch_from_ptr(ptr)
+    global_tagging_features = get_tagging_features(fourmomenta, batch)
+    global_tagging_features[is_spurion] = torch.zeros_like(
+        global_tagging_features[is_spurion]
+    )
 
     embedding = {
         "fourmomenta": fourmomenta,
         "scalars": scalars,
-        "tagging_features": get_tagging_features,
+        "global_tagging_features": global_tagging_features,
         "edge_index": edge_index,
         "batch": batch,
         "is_spurion": is_spurion,
         "spurions": unique_spurions,
     }
     return embedding
-
-
-def get_tagging_features(fourmomenta, batch):
-    """
-    Compute features typically used in jet tagging
-    Parameters
-    ----------
-    fourmomenta: torch.tensor of shape (n_particles, 4)
-        Fourmomenta in the format (E, px, py, pz)
-    batch: torch.tensor of shape (n_particles)
-        Batch index for each particle
-    Returns
-    -------
-    features: torch.tensor of shape (n_particles, n_features)
-        Features: log_pt, log_energy, log_pt_rel, log_energy_rel, dphi, deta, dr
-    """
-
-    log_pt = get_pt(fourmomenta).unsqueeze(-1).log()
-    log_energy = fourmomenta[..., 0].unsqueeze(-1).log()
-
-    jet = scatter(fourmomenta, index=batch, dim=0, reduce="sum").index_select(0, batch)
-    log_pt_rel = (get_pt(fourmomenta).log() - get_pt(jet).log()).unsqueeze(-1)
-    log_energy_rel = (fourmomenta[..., 0].log() - jet[..., 0].log()).unsqueeze(-1)
-    phi_4, phi_jet = get_phi(fourmomenta), get_phi(jet)
-    dphi = ((phi_4 - phi_jet + torch.pi) % (2 * torch.pi) - torch.pi).unsqueeze(-1)
-    eta_4, eta_jet = get_eta(fourmomenta), get_eta(jet)
-    deta = -(eta_4 - eta_jet).unsqueeze(-1)
-    dr = torch.sqrt(torch.clamp(dphi**2 + deta**2, min=1e-8))
-    features = [
-        log_pt,
-        log_energy,
-        log_pt_rel,
-        log_energy_rel,
-        dphi,
-        deta,
-        dr,
-    ]
-    for i, feature in enumerate(features):
-        mean, factor = SCALAR_FEATURES_PREPROCESSING[i]
-        features[i] = (feature - mean) * factor
-    return torch.cat(features, dim=-1)[:, 0]
 
 
 def dense_to_sparse_jet(fourmomenta_dense, scalars_dense):
@@ -310,3 +260,48 @@ def get_spurion(
 
     spurion = torch.cat((beam, time), dim=-2)
     return spurion
+
+
+def get_tagging_features(fourmomenta, batch):
+    """
+    Compute features typically used in jet tagging
+    Parameters
+    ----------
+    fourmomenta: torch.tensor of shape (n_particles, 4)
+        Fourmomenta in the format (E, px, py, pz)
+    batch: torch.tensor of shape (n_particles)
+        Batch index for each particle
+    Returns
+    -------
+    features: torch.tensor of shape (n_particles, n_features)
+        Features: log_pt, log_energy, log_pt_rel, log_energy_rel, dphi, deta, dr
+    """
+
+    log_pt = get_pt(fourmomenta).unsqueeze(-1).clamp(min=1e-8).log()
+    log_energy = fourmomenta[..., 0].unsqueeze(-1).clamp(min=1e-8).log()
+
+    jet = scatter(fourmomenta, index=batch, dim=0, reduce="sum").index_select(0, batch)
+    log_pt_rel = (
+        get_pt(fourmomenta).clamp(min=1e-8).log() - get_pt(jet).clamp(min=1e-8).log()
+    ).unsqueeze(-1)
+    log_energy_rel = (
+        fourmomenta[..., 0].clamp(min=1e-8).log() - jet[..., 0].clamp(min=1e-8).log()
+    ).unsqueeze(-1)
+    phi_4, phi_jet = get_phi(fourmomenta), get_phi(jet)
+    dphi = ((phi_4 - phi_jet + torch.pi) % (2 * torch.pi) - torch.pi).unsqueeze(-1)
+    eta_4, eta_jet = get_eta(fourmomenta), get_eta(jet)
+    deta = -(eta_4 - eta_jet).unsqueeze(-1)
+    dr = torch.sqrt(torch.clamp(dphi**2 + deta**2, min=1e-8))
+    features = [
+        log_pt,
+        log_energy,
+        log_pt_rel,
+        log_energy_rel,
+        dphi,
+        deta,
+        dr,
+    ]
+    for i, feature in enumerate(features):
+        mean, factor = SCALAR_FEATURES_PREPROCESSING[i]
+        features[i] = (feature - mean) * factor
+    return torch.cat(features, dim=-1)

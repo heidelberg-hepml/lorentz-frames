@@ -24,13 +24,13 @@ def PtPhiEtaM2_to_EPPP(x):
     px = pt * torch.cos(phi)
     py = pt * torch.sin(phi)
     pz = pt * torch.sinh(eta)
-    E = torch.sqrt(m2 + pt**2 * torch.cosh(eta) ** 2)
+    E = torch.sqrt((m2 + pt**2 * torch.cosh(eta) ** 2).clamp(min=EPS))
     return torch.stack((E, px, py, pz), dim=-1)
 
 
 def get_pt(p):
     # transverse momentum
-    return torch.sqrt(p[..., 1] ** 2 + p[..., 2] ** 2)
+    return torch.sqrt((p[..., 1] ** 2 + p[..., 2] ** 2).clamp(min=EPS))
 
 
 def avoid_zero(x, eps=EPS):
@@ -45,7 +45,7 @@ def get_phi(p):
 
 def get_eta(p):
     # rapidity
-    p_abs = torch.sqrt(torch.sum(p[..., 1:] ** 2, dim=-1)).clamp(min=EPS)
+    p_abs = torch.sqrt(torch.sum(p[..., 1:] ** 2, dim=-1).clamp(min=EPS))
     return stable_arctanh(p[..., 3] / p_abs)
 
 
@@ -59,4 +59,4 @@ def get_deltaR(v1, v2):
 
     delta_y = eta1 - eta2
     delta_phi = (phi1 - phi2 + torch.pi) % (2 * torch.pi) - torch.pi
-    return torch.sqrt(delta_y**2 + delta_phi**2)
+    return torch.sqrt((delta_y**2 + delta_phi**2).clamp(min=EPS))

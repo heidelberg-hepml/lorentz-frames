@@ -21,6 +21,19 @@ class TaggingExperiment(BaseExperiment):
 
     def init_physics(self):
         with open_dict(self.cfg):
+
+            # decide which entries to use for the net
+            in_reps = "7x0n"
+            self.cfg.model.in_reps = in_reps
+            LOGGER.info(f"Net: Input: {in_reps}; Output: {self.cfg.model.out_reps} ")
+
+            # decide which entries to use for the lframesnet
+            in_nodes = 0
+            if self.cfg.model.add_tagging_features_lframesnet:
+                in_nodes += 7
+            self.cfg.model.in_nodes = in_nodes
+            LOGGER.info(f"LFramesNet: in: {in_nodes}")
+
             if (
                 self.cfg.model._target_.rsplit(".", 1)[-1]
                 == "BaselineParticleNetWrapper"
@@ -259,24 +272,6 @@ class TopTaggingExperiment(TaggingExperiment):
         super().__init__(cfg)
         with open_dict(self.cfg):
             self.cfg.model.out_reps = "1x0n"
-
-        if len(cfg.model.get("symmetry_breaking", [])) != 0:
-            assert all(
-                sb in ["vectors", "scalars", "affine", "basis"]
-                for sb in cfg.model.symmetry_breaking
-            ), f"symmetry breaking should only contain some of the following methods: ['scalars', 'vectors', 'basis', 'affine']"
-        if "basis" in cfg.model.symmetry_breaking:
-            assert (
-                cfg.data.seperate_spurions is not False
-            ), "need seperate spurions to be True or 'both' to use as basis"
-        if "affine" in cfg.model.symmetry_breaking:
-            assert (
-                cfg.data.seperate_spurions is not False
-            ), "need seperate spurions to be True or 'both' for the affine construction"
-        if "vectors" in cfg.model.symmetry_breaking:
-            assert (
-                cfg.data.seperate_spurions is not True
-            ), "need seperate spurions to be False or 'both' for the vector contruction"
 
     def init_data(self):
         data_path = os.path.join(

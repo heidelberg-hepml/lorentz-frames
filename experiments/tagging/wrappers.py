@@ -48,57 +48,30 @@ def attention_mask(batch, materialize=False):
 class TaggerWrapper(nn.Module):
     def __init__(
         self,
+        in_reps,
         out_reps,
+        in_nodes,
         lframesnet,
-        net_features,
-        lframesnet_features,
+        add_tagging_features_lframesnet,
         symmetry_breaking=[],
     ):
         super().__init__()
-        self.net_features = net_features
-        self.lframesnet_features = lframesnet_features
+        self.add_tagging_features_lframesnet = add_tagging_features_lframesnet
         self.symmetry_breaking = symmetry_breaking
 
-        assert len(net_features) != 0
-        # decide which entries to use for the net
-        in_reps = "0x0n"
-        if "scalar" in net_features:
-            in_reps += "+0x0n"
-        if "tagging_features" in net_features:
-            in_reps += "+7x0n"
-        if "fourmomenta" in net_features:
-            in_reps += "+1x1n"
+        # this is the input and output for the net
         self.in_reps = TensorReps(in_reps)
-        LOGGER.info(f"Net: Input: {in_reps} ({net_features}); Output: {out_reps} ")
-
-        # this is the output for the net
         self.out_reps = TensorReps(out_reps)
-
-        # decide which entries to use for the lframesnet
-        in_nodes = 0
-        if "scalar" in lframesnet_features:
-            in_nodes += 0
-        if "tagging_features" in lframesnet_features:
-            in_nodes += 7
-        LOGGER.info(f"LFramesNet: in: {in_nodes} -> out: 4 vectors")
 
         assert (
             self.out_reps.mul_without_scalars == 0
         ), "out_reps must only contain scalars, but got out_reps={out_reps}"
 
-        if "scalar" in symmetry_breaking:
-            assert (
-                "tagging_features" in lframesnet_features
-            ), "need to give tagging_features to lframesnet for spurion symmetry breaking"
-
         if isinstance(lframesnet, partial):
             # lframesnet with learnable elements need the in_nodes (number of scalars in input) for the networks
-            if issubclass(lframesnet.func, LearnedLFrames):
-                self.lframesnet = lframesnet(
-                    in_nodes=in_nodes, symmetry_breaking=symmetry_breaking
-                )
-            else:
-                self.lframesnet = lframesnet
+            self.lframesnet = lframesnet(
+                in_nodes=in_nodes, symmetry_breaking=symmetry_breaking
+            )
         else:
             self.lframesnet = lframesnet
 
@@ -108,35 +81,39 @@ class TaggerWrapper(nn.Module):
         # extract embedding
         fourmomenta = embedding["fourmomenta"]
         scalars = embedding["scalars"]
-        tagging_features = embedding["tagging_features"]
+        global_tagging_features = embedding["global_tagging_features"]
         edge_index = embedding["edge_index"]
         batch = embedding["batch"]
         is_spurion = embedding["is_spurion"]
         spurions = embedding["spurions"]
 
-        # compute tagging features in global frame
-        tagging_features_global = tagging_features(fourmomenta, batch)
-        tagging_features_global[is_spurion] = torch.zeros_like(
-            tagging_features_global[is_spurion]
-        )
+        # remove spurions from the data again and recompute attributes
+        if "vectors" not in self.symmetry_breaking:
+            fourmomenta = fourmomenta[~is_spurion]
+            scalars = scalars[~is_spurion]
+            global_tagging_features = global_tagging_features[~is_spurion]
 
-        # construct lframes
-        fourmomenta = fourmomenta.reshape(fourmomenta.shape[0], -1)
+            batch = batch[~is_spurion]
+            ptr = get_ptr_from_batch(batch)
+            diffs = torch.diff(ptr)
+            edge_index = torch.cat(
+                [
+                    dense_to_sparse(torch.ones(d, d, device=diffs.device))[0]
+                    + diffs[:i].sum()
+                    for i, d in enumerate(diffs)
+                ],
+                dim=-1,
+            )
+
         if self.lframesnet.is_global:
             lframes, tracker = self.lframesnet(fourmomenta, return_tracker=True)
         else:
-            scalar_features = []
-            if "scalar" in self.lframesnet_features:
-                scalar_features.append(scalars)
-            if "tagging_features" in self.lframesnet_features:
-                scalar_features.append(tagging_features_global)
-            if len(scalar_features) != 0:
-                scalar_features = torch.cat(scalar_features, dim=-1)
+            if self.add_tagging_features_lframesnet:
+                scalar_features = global_tagging_features
             else:
                 scalar_features = torch.empty(
                     (fourmomenta.shape[0], 0), device=fourmomenta.device
                 )
-
             lframes, tracker = self.lframesnet(
                 fourmomenta,
                 scalar_features,
@@ -145,45 +122,28 @@ class TaggerWrapper(nn.Module):
                 return_tracker=True,
             )
 
+        # if spurions have not already been removed, we have to do it for the model
+        if "vectors" in self.symmetry_breaking:
+            fourmomenta = fourmomenta[~is_spurion]
+            lframes = LFrames(lframes.matrices[~is_spurion])
+            scalars = scalars[~is_spurion]
+            batch = batch[~is_spurion]
+            ptr = get_ptr_from_batch(batch)
+            diffs = torch.diff(ptr)
+            edge_index = torch.cat(
+                [
+                    dense_to_sparse(torch.ones(d, d, device=diffs.device))[0]
+                    + diffs[:i].sum()
+                    for i, d in enumerate(diffs)
+                ],
+                dim=-1,
+            )
+
         # transform features into local frames
         fourmomenta_local = self.trafo_fourmomenta(fourmomenta.clone(), lframes)
-        fourmomenta_local = fourmomenta_local.reshape(fourmomenta.shape[0], -1, 4)
-        fourmomenta_local = fourmomenta_local[~is_spurion]
-        batch = batch[~is_spurion]
-        lframes = LFrames(lframes.matrices[~is_spurion])
+        local_tagging_features = get_tagging_features(fourmomenta_local, batch)
 
-        features_local = []
-        if "scalars" in self.net_features:
-            scalars = scalars[~is_spurion]
-            features_local.append(scalars)
-
-        if "tagging_features" in self.net_features:
-            # compute tagging features in local fourmomenta_localframes
-            tagging_features_local = tagging_features(fourmomenta_local, batch)
-            features_local.append(tagging_features_local)
-
-        if "fourmomenta" in self.net_features:
-            features_local.append(
-                fourmomenta_local.reshape(fourmomenta_local.shape[0], 4)
-            )
-
-        if len(features_local) != 0:
-            features_local = torch.cat(features_local, dim=-1)
-        else:
-            features_local = torch.empty(
-                (fourmomenta_local.shape[0], 0), device=fourmomenta.device
-            )
-
-        ptr = get_ptr_from_batch(batch)
-        diffs = torch.diff(ptr)
-        edge_index = torch.cat(
-            [
-                dense_to_sparse(torch.ones(d, d, device=diffs.device))[0]
-                + diffs[:i].sum()
-                for i, d in enumerate(diffs)
-            ],
-            dim=-1,
-        )
+        features_local = torch.cat([scalars, local_tagging_features], dim=-1)
 
         # note : this should be removed later, but it seems not to harm performance much
         if not torch.isfinite(features_local).all():

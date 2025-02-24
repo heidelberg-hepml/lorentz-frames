@@ -46,7 +46,7 @@ class EquivariantVectors(MessagePassing):
             fm: fourmomenta shape: (batch, 4)
             edge_attr: edge attributes shape: (edges, n_edge_attr)
             edge_index: edge indices shape: (edges, 2)
-            spurions: spurions for affine symmetry breaking shape: (n_vectors, 4)
+            spurions: spurions for affine symmetry breaking shape: (batch, n_vectors* 4)
         """
         vecs = self.propagate(
             edge_index, x=x, fm=fm, edge_attr=edge_attr, spurions=spurions
