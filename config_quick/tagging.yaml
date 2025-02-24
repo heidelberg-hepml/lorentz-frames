@@ -1,5 +1,6 @@
 data:
  add_tagging_features_lframesnet: false
+ symmetry_breaking: null
  rescale_data: true
  beam_reference: timelike
  two_beams: true
