@@ -1,4 +1,5 @@
 _target_: experiments.tagging.wrappers.TransformerWrapper
+symmetry_breaking: []
 
 net:
  _target_: tensorframes.nn.transformer.TFTransformer

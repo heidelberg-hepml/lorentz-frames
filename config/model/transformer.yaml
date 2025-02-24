@@ -1,5 +1,4 @@
 _target_: experiments.tagging.wrappers.TransformerWrapper
-add_tagging_features_lframesnet: true
 symmetry_breaking: []
 
 net:

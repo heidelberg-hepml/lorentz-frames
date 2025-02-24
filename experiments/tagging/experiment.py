@@ -273,6 +273,9 @@ class TopTaggingExperiment(TaggingExperiment):
         with open_dict(self.cfg):
             self.cfg.model.out_reps = "1x0n"
 
+            # move argument into model config
+            cfg.model.add_tagging_features_lframesnet = cfg.data.add_tagging_features_lframesnet
+
     def init_data(self):
         data_path = os.path.join(
             self.cfg.data.data_dir, f"toptagging_{self.cfg.data.dataset}.npz"
