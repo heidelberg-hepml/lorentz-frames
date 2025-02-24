@@ -124,14 +124,6 @@ class TaggerWrapper(nn.Module):
 
         features_local = torch.cat([scalars, local_tagging_features], dim=-1)
 
-        # note : this should be removed later, but it seems not to harm performance much
-        if not torch.isfinite(features_local).all():
-            mask = torch.isfinite(features_local).all(dim=-1)
-            LOGGER.warning(
-                f"{features_local=}, {features_local[~mask]=}, {torch.where(~mask)=} {fourmomenta_local[~mask]=}"
-            )
-            assert False
-
         return (
             features_local,
             lframes,
@@ -324,13 +316,6 @@ class GraphNetWrapper(AggregatedTaggerWrapper):
             inputs=features_local, lframes=lframes, edge_index=edge_index
         )
 
-        # note : this should be removed later, but it seems not to harm performance much
-        if not torch.isfinite(outputs).all():
-            mask = torch.isfinite(outputs).all(dim=-1)
-            LOGGER.warning(
-                f"{features_local[~mask]=}, {outputs[~mask]=}, {torch.where(~mask)=}"
-            )
-            assert False
         # aggregation
         score = self.extract_score(outputs, batch)
         return score, tracker
