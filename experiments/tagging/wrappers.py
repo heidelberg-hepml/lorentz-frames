@@ -106,11 +106,9 @@ class TaggerWrapper(nn.Module):
             lframes, tracker = self.lframesnet(fourmomenta, return_tracker=True)
         else:
             if self.add_tagging_features_lframesnet:
-                scalar_features = global_tagging_features
+                scalar_features = torch.cat([scalars, global_tagging_features], dim=-1)
             else:
-                scalar_features = torch.empty(
-                    (fourmomenta.shape[0], 0), device=fourmomenta.device
-                )
+                scalar_features = scalars
             lframes, tracker = self.lframesnet(
                 fourmomenta,
                 scalar_features,
