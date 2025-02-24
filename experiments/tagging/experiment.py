@@ -274,7 +274,9 @@ class TopTaggingExperiment(TaggingExperiment):
             self.cfg.model.out_reps = "1x0n"
 
             # move argument into model config
-            cfg.model.add_tagging_features_lframesnet = cfg.data.add_tagging_features_lframesnet
+            cfg.model.add_tagging_features_lframesnet = (
+                cfg.data.add_tagging_features_lframesnet
+            )
 
     def init_data(self):
         data_path = os.path.join(

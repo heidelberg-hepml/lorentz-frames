@@ -85,7 +85,7 @@ class TaggerWrapper(nn.Module):
         edge_index = embedding["edge_index"]
         batch = embedding["batch"]
         is_spurion = embedding["is_spurion"]
-        spurions = embedding["spurions"]
+        minimal_spurions = embedding["minimal_spurions"]
 
         # remove spurions from the data again and recompute attributes
         if "vectors" not in self.symmetry_breaking:
@@ -118,7 +118,7 @@ class TaggerWrapper(nn.Module):
                 fourmomenta,
                 scalar_features,
                 edge_index,
-                spurions=spurions,
+                spurions=minimal_spurions,
                 return_tracker=True,
             )
 
