@@ -184,10 +184,7 @@ class TensorReps(Tuple):
         """
 
         tensor_reps = TensorReps(tensor_reps)
-        if simplify:
-            return TensorReps(super().__add__(tensor_reps)).simplify()
-        else:
-            return TensorReps(super().__add__(tensor_reps))
+        return TensorReps(super().__add__(tensor_reps), simplify=simplify)
 
     def sort(self):
         """Sorts the tensor reps by the order of the reps.
