@@ -1,4 +1,5 @@
 lr: 1e-4
+batchsize: 1024
 
 defaults:
  - amp_new_default
