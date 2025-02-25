@@ -1,4 +1,2 @@
-lr: 3e-4
-
 defaults:
  - amp_new_default
