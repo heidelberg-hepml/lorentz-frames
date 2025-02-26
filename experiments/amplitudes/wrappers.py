@@ -140,18 +140,19 @@ class GraphNetWrapper(AmplitudeWrapper):
     def init_preprocessing(self, fourmomenta):
         super().init_preprocessing(fourmomenta)
 
-        # edge feature standardization parameters
-        if self.in_invariant:
-            fourmomenta = fourmomenta[..., IN_PARTICLES:, :]
-        edge_index, _ = build_edge_index(fourmomenta)
-        fourmomenta = fourmomenta.reshape(-1, 4)
-        mij2 = lorentz_squarednorm(
-            fourmomenta[edge_index[0]] + fourmomenta[edge_index[1]]
-        )
-        edge_attr = mij2.clamp(min=1e-10).log()
-        self.edge_mean = edge_attr.mean()
-        self.edge_std = edge_attr.std().clamp(min=1e-10)
-        self.edge_inited.fill_(True)
+        if self.include_edges:
+            # edge feature standardization parameters
+            if self.in_invariant:
+                fourmomenta = fourmomenta[..., IN_PARTICLES:, :]
+            edge_index, _ = build_edge_index(fourmomenta)
+            fourmomenta = fourmomenta.reshape(-1, 4)
+            mij2 = lorentz_squarednorm(
+                fourmomenta[edge_index[0]] + fourmomenta[edge_index[1]]
+            )
+            edge_attr = mij2.clamp(min=1e-10).log()
+            self.edge_mean = edge_attr.mean()
+            self.edge_std = edge_attr.std().clamp(min=1e-10)
+            self.edge_inited.fill_(True)
 
     def forward(self, fourmomenta_global):
         (
