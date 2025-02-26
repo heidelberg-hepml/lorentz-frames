@@ -1,9 +1,9 @@
 import torch
 from torch import nn
-from functools import partial
 from torch_geometric.nn.aggr import MeanAggregation
 
-from experiments.amplitudes.utils import preprocess_momentum
+from experiments.amplitudes.utils import preprocess_momentum, encode_event
+from experiments.amplitudes.constants import IN_PARTICLES
 
 from tensorframes.reps.tensorreps import TensorReps
 from tensorframes.reps.tensorreps_transform import TensorRepsTransform
@@ -14,34 +14,48 @@ class AmplitudeWrapper(nn.Module):
     def __init__(
         self,
         particle_type,
+        in_invariant,
         lframesnet,
     ):
         super().__init__()
+        if in_invariant:
+            particle_type = particle_type[IN_PARTICLES:]
+        self.in_invariant = in_invariant
         self.register_buffer("particle_type", torch.tensor(particle_type))
         self.register_buffer("mom_mean", torch.tensor(0.0))
         self.register_buffer("mom_std", torch.tensor(1.0))
-        if isinstance(lframesnet, partial):
-            self.lframesnet = lframesnet(in_nodes=0)
-        else:
-            self.lframesnet = lframesnet
+        self.lframesnet = lframesnet
 
         self.trafo_fourmomenta = TensorRepsTransform(TensorReps("1x1n"))
 
-    def init_momentum_preprocessing(self, mean, std):
-        self.mom_mean = mean
-        self.mom_std = std
+    def init_preprocessing(self, fourmomenta):
+        if self.in_invariant:
+            fourmomenta = fourmomenta[..., IN_PARTICLES:, :]
+        _, self.mom_mean, self.mom_std = preprocess_momentum(fourmomenta)
 
     def forward(self, fourmomenta):
+        if self.in_invariant:
+            in_invariant, fourmomenta = encode_event(fourmomenta)
+        else:
+            in_invariant = torch.zeros_like(fourmomenta[:, 0, []])
+        particle_type = self.encode_particle_type(fourmomenta.shape[0]).to(
+            fourmomenta.dtype
+        )
+
         if self.lframesnet.is_global:
             lframes, tracker = self.lframesnet(fourmomenta, return_tracker=True)
         else:
             shape = fourmomenta.shape
             edge_index, batch = build_edge_index(fourmomenta, remove_self_loops=True)
             fourmomenta_flat = fourmomenta.reshape(-1, 4)
-            scalars = torch.zeros_like(fourmomenta_flat[:, []])
+            in_invariant_prepare = in_invariant.unsqueeze(-2).repeat(
+                1, fourmomenta.shape[1], 1
+            )
+            node_features = torch.cat((in_invariant_prepare, particle_type), dim=-1)
+            node_features_flat = node_features.reshape(-1, node_features.shape[-1])
             lframes, tracker = self.lframesnet(
                 fourmomenta_flat,
-                scalars,
+                node_features_flat,
                 edge_index=edge_index,
                 batch=batch,
                 return_tracker=True,
@@ -49,16 +63,18 @@ class AmplitudeWrapper(nn.Module):
             lframes = lframes.reshape(*shape[:-1], 4, 4)
 
         fourmomenta_local = self.trafo_fourmomenta(fourmomenta, lframes)
-
         features_local, _, _ = preprocess_momentum(
             fourmomenta_local, self.mom_mean, self.mom_std
         )
         features_local = torch.arcsinh(features_local)  # suppress tails
-
-        particle_type = self.encode_particle_type(fourmomenta.shape[0]).to(
-            features_local.dtype
+        return (
+            features_local,
+            fourmomenta_local,
+            particle_type,
+            in_invariant,
+            lframes,
+            tracker,
         )
-        return features_local, fourmomenta_local, particle_type, lframes, tracker
 
     def encode_particle_type(self, batchsize):
         particle_type = torch.nn.functional.one_hot(
@@ -74,8 +90,11 @@ class MLPWrapper(AmplitudeWrapper):
         self.net = net
 
     def forward(self, fourmomenta_global):
-        features_local, _, _, _, tracker = super().forward(fourmomenta_global)
+        features_local, _, _, in_invariant_flat, _, tracker = super().forward(
+            fourmomenta_global
+        )
         features = features_local.view(features_local.shape[0], -1)
+        features = torch.cat([features, in_invariant_flat], dim=-1)
 
         amp = self.net(features)
         return amp, tracker
@@ -87,10 +106,18 @@ class TransformerWrapper(AmplitudeWrapper):
         self.net = net
 
     def forward(self, fourmomenta_global):
-        features_local, _, particle_type, lframes, tracker = super().forward(
-            fourmomenta_global
+        (
+            features_local,
+            _,
+            particle_type,
+            in_invariant_flat,
+            lframes,
+            tracker,
+        ) = super().forward(fourmomenta_global)
+        in_invariant_flat = in_invariant_flat.unsqueeze(-2).repeat(
+            1, features_local.shape[1], 1
         )
-        features = torch.cat([features_local, particle_type], dim=-1)
+        features = torch.cat([features_local, particle_type, in_invariant_flat], dim=-1)
 
         output = self.net(features, lframes)
         amp = output.mean(dim=-2)
@@ -110,17 +137,35 @@ class GraphNetWrapper(AmplitudeWrapper):
             self.register_buffer("edge_mean", torch.zeros(0))
             self.register_buffer("edge_std", torch.ones(1))
 
+    def init_preprocessing(self, fourmomenta):
+        super().init_preprocessing(fourmomenta)
+
+        # edge feature standardization parameters
+        if self.in_invariant:
+            fourmomenta = fourmomenta[..., IN_PARTICLES:, :]
+        edge_index, _ = build_edge_index(fourmomenta)
+        fourmomenta = fourmomenta.reshape(-1, 4)
+        mij2 = lorentz_squarednorm(
+            fourmomenta[edge_index[0]] + fourmomenta[edge_index[1]]
+        )
+        edge_attr = mij2.clamp(min=1e-10).log()
+        self.edge_mean = edge_attr.mean()
+        self.edge_std = edge_attr.std().clamp(min=1e-10)
+        self.edge_inited.fill_(True)
+
     def forward(self, fourmomenta_global):
         (
             features_local,
             fourmomenta_local,
             particle_type,
+            in_invariant,
             lframes,
             tracker,
         ) = super().forward(fourmomenta_global)
 
         # select features
-        node_attr = particle_type
+        in_invariant = in_invariant.unsqueeze(-2).repeat(1, features_local.shape[1], 1)
+        node_attr = torch.cat([in_invariant, particle_type], dim=-1)
         if self.include_nodes:
             node_attr = torch.cat([node_attr, features_local], dim=-1)
         edge_index, batch = build_edge_index(node_attr)
@@ -147,10 +192,6 @@ class GraphNetWrapper(AmplitudeWrapper):
             fourmomenta[edge_index[0]] + fourmomenta[edge_index[1]]
         )
         edge_attr = mij2.clamp(min=1e-10).log()
-        if not self.edge_inited:
-            self.edge_mean = edge_attr.mean()
-            self.edge_std = edge_attr.std().clamp(min=1e-5)
-            self.edge_inited.fill_(True)
         edge_attr = (edge_attr - self.edge_mean) / self.edge_std
         return edge_attr.unsqueeze(-1)
 

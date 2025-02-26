@@ -1,36 +1,18 @@
 import os, time
 import numpy as np
 import torch
-from omegaconf import open_dict
+from omegaconf import open_dict, OmegaConf
 
 from experiments.base_experiment import BaseExperiment
 from experiments.amplitudes.utils import (
     preprocess_amplitude,
     undo_preprocess_amplitude,
-    preprocess_momentum,
 )
+from experiments.amplitudes.constants import PARTICLE_TYPE, DATASET_TITLE, IN_PARTICLES
 from experiments.amplitudes.plots import plot_mixer
 from experiments.logger import LOGGER
 from experiments.mlflow import log_mlflow
 
-PARTICLE_TYPE = {
-    "aag": [0, 0, 1, 1, 0],
-    "aagg": [0, 0, 1, 1, 0, 0],
-    "zg": [0, 0, 1, 2],
-    "zgg": [0, 0, 1, 2, 2],
-    "zggg": [0, 0, 1, 2, 2, 2],
-    "zgggg": [0, 0, 1, 2, 2, 2, 2],
-    "zggggg": [0, 0, 1, 2, 2, 2, 2, 2],
-}
-DATASET_TITLE = {
-    "aag": r"$gg\to\gamma\gamma g$",
-    "aagg": r"$gg\to\gamma\gamma gg$",
-    "zg": r"$q\bar q\to Zg$",
-    "zgg": r"$q\bar q\to Zgg$",
-    "zggg": r"$q\bar q\to Zggg$",
-    "zgggg": r"$q\bar q\to Zgggg$",
-    "zggggg": r"$q\bar q \to Zggggg$",
-}
 MODEL_TITLE = {"TFTransformer": "Tr", "MLP": "MLP", "TFGraphNet": "GN"}
 
 
@@ -45,8 +27,21 @@ class AmplitudeExperiment(BaseExperiment):
         modelname = self.cfg.model.net._target_.rsplit(".", 1)[-1]
         with open_dict(self.cfg):
             self.cfg.model.particle_type = particle_type
+            self.cfg.model.in_invariant = self.cfg.data.in_invariant
+
+            learnable_lframesnet = (
+                OmegaConf.select(self.cfg.model.lframesnet, "ortho_kwargs") is not None
+            )
+            if learnable_lframesnet:
+                self.cfg.model.lframesnet._partial_ = False
+                self.cfg.model.lframesnet.in_nodes = num_particle_types
+                if self.cfg.data.in_invariant:
+                    self.cfg.model.lframesnet.in_nodes += 1
+
             if modelname == "TFTransformer":
                 self.cfg.model.net.in_reps = f"{num_particle_types}x0n+1x1n"
+                if self.cfg.data.in_invariant:
+                    self.cfg.model.net.in_reps += "+1x0n"
             elif modelname == "TFGraphNet":
                 assert self.cfg.model.include_nodes or self.cfg.model.include_edges
                 self.cfg.model.net.num_edge_attr = (
@@ -55,8 +50,13 @@ class AmplitudeExperiment(BaseExperiment):
                 self.cfg.model.net.in_reps = f"{num_particle_types}x0n"
                 if self.cfg.model.include_nodes:
                     self.cfg.model.net.in_reps += "+1x1n"
+                if self.cfg.data.in_invariant:
+                    self.cfg.model.net.in_reps += "+1x0n"
             elif modelname == "MLP":
                 self.cfg.model.net.in_shape = 4 * len(particle_type)
+                if self.cfg.data.in_invariant:
+                    self.cfg.model.net.in_shape -= 4 * IN_PARTICLES
+                    self.cfg.model.net.in_shape += 1
             else:
                 raise ValueError(f"Model {modelname} not implemented")
         LOGGER.info(f"Using particle_type={particle_type}")
@@ -89,10 +89,8 @@ class AmplitudeExperiment(BaseExperiment):
             self.amplitude
         )
         self.momentum_prepd = self.momentum / self.momentum.std()
-        if self.cfg.data.preprocess_momentum:
-            _, mom_mean, mom_std = preprocess_momentum(self.momentum_prepd)
-            self.model.init_momentum_preprocessing(mom_mean, mom_std)
-            self.model.to(device=self.device, dtype=self.dtype)
+        self.model.init_preprocessing(self.momentum_prepd)
+        self.model.to(device=self.device, dtype=self.dtype)
 
     def _init_dataloader(self):
         assert sum(self.cfg.data.train_test_val) <= 1
