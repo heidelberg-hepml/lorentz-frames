@@ -260,8 +260,6 @@ class BaselineParticleNetWrapper(TaggerWrapper):
             batch,
             tracker,
         ) = super().forward(embedding)
-        features_local = features_local.unsqueeze(1)
-
         # ParticleNet uses L2 norm in (phi, eta) for kNN
         phieta_local = features_local[..., [4, 5]]
 
