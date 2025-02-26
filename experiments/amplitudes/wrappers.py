@@ -3,7 +3,7 @@ from torch import nn
 from functools import partial
 from torch_geometric.nn.aggr import MeanAggregation
 
-from experiments.amplitudes.preprocessing import preprocess_momentum
+from experiments.amplitudes.utils import preprocess_momentum
 
 from tensorframes.reps.tensorreps import TensorReps
 from tensorframes.reps.tensorreps_transform import TensorRepsTransform

@@ -4,7 +4,7 @@ import torch
 from omegaconf import open_dict
 
 from experiments.base_experiment import BaseExperiment
-from experiments.amplitudes.preprocessing import (
+from experiments.amplitudes.utils import (
     preprocess_amplitude,
     undo_preprocess_amplitude,
     preprocess_momentum,
