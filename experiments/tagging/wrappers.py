@@ -5,16 +5,12 @@ from torch_geometric.nn.aggr import MeanAggregation
 from functools import partial
 from torch_geometric.utils import to_dense_batch
 from xformers.ops.fmha import BlockDiagonalMask
-from torch_geometric.utils import dense_to_sparse
 
 from tensorframes.lframes.lframes import LFrames
 from experiments.tagging.embedding import get_ptr_from_batch
 from tensorframes.reps.tensorreps import TensorReps
 from tensorframes.reps.tensorreps_transform import TensorRepsTransform
-from tensorframes.utils.hep import EPPP_to_PtPhiEtaM2
-from tensorframes.lframes.equi_lframes import LearnedLFrames
 from experiments.tagging.embedding import get_tagging_features, get_edge_index_from_ptr
-from experiments.logger import LOGGER
 
 
 def attention_mask(batch, materialize=False):
