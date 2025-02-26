@@ -67,34 +67,32 @@ class TFGraphNet(nn.Module):
 
     Parameters
     ----------
-    in_reps : str
-        Input representation.
+    in_channels : int
+        Number of input channels.
     hidden_reps : str
         Representation during message passing.
-    out_reps : str
-        Output representation.
+    out_channels : int
+        Number of output channels.
     num_blocks : int
         Number of EdgeConv blocks.
     """
 
     def __init__(
         self,
-        in_reps: str,
+        in_channels: int,
         hidden_reps: str,
-        out_reps: str,
+        out_channels: int,
         num_blocks: int,
         *args,
         checkpoint_blocks=False,
         **kwargs,
     ):
         super().__init__()
-        in_reps = TensorReps(in_reps)
         hidden_reps = TensorReps(hidden_reps)
-        out_reps = TensorReps(out_reps)
         self.checkpoint_blocks = checkpoint_blocks
 
-        self.linear_in = nn.Linear(in_reps.dim, hidden_reps.dim)
-        self.linear_out = nn.Linear(hidden_reps.dim, out_reps.dim)
+        self.linear_in = nn.Linear(in_channels, hidden_reps.dim)
+        self.linear_out = nn.Linear(hidden_reps.dim, out_channels)
         self.blocks = nn.ModuleList(
             [
                 EdgeConv(
@@ -111,7 +109,7 @@ class TFGraphNet(nn.Module):
 
         Parameters
         ----------
-        inputs : Tensor with shape (..., num_items, in_reps.dim)
+        inputs : Tensor with shape (..., num_items, in_channels)
             Input data
         lframes : LFrames
             Local frames used for message passing
@@ -121,7 +119,7 @@ class TFGraphNet(nn.Module):
 
         Returns
         -------
-        outputs : Tensor with shape (..., num_items, out_reps.dim)
+        outputs : Tensor with shape (..., num_items, out_channels)
             Outputs
         """
         x = self.linear_in(inputs)
