@@ -16,7 +16,7 @@ class LearnedLFrames(LFramesPredictor):
         self,
         n_vectors,
         in_nodes,
-        spurion_strategy,
+        spurion_strategy=None,
         *args,
         **kwargs,
     ):
@@ -99,11 +99,7 @@ class LearnedLFrames(LFramesPredictor):
                 .reshape(fourmomenta.shape[0], -1)
             )
         else:
-            expanded_spurions = torch.zeros(
-                fourmomenta.shape[0],
-                4 * self.predicted_n_vectors,
-                device=fourmomenta.device,
-            )
+            expanded_spurions = None
 
         # call networks
         vecs = self.equivectors(

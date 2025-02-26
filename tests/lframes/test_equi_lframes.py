@@ -13,24 +13,18 @@ from tensorframes.lframes.lframes import LFrames
 @pytest.mark.parametrize("LFramesPredictor", LFRAMES_PREDICTOR)
 @pytest.mark.parametrize("batch_dims", [[10]])
 @pytest.mark.parametrize("logm2_mean,logm2_std", LOGM2_MEAN_STD)
-@pytest.mark.parametrize("spurion_strategy", [None])
-def test_lframes_transformation(
-    LFramesPredictor, batch_dims, logm2_std, logm2_mean, spurion_strategy
-):
+def test_lframes_transformation(LFramesPredictor, batch_dims, logm2_std, logm2_mean):
     dtype = torch.float64
 
     # preparations
     assert len(batch_dims) == 1
-    predictor = LFramesPredictor(
-        hidden_channels=16,
-        num_layers=1,
-        in_nodes=0,
-        spurion_strategy=spurion_strategy,
-    ).to(dtype=dtype)
-    spurions = torch.zeros((0, 4), dtype=torch.long)
+    predictor = LFramesPredictor(hidden_channels=16, num_layers=1, in_nodes=0).to(
+        dtype=dtype
+    )
+    batch = torch.zeros(batch_dims, dtype=torch.long)
     edge_index = dense_to_sparse(torch.ones(batch_dims[0], batch_dims[0]))[0]
     scalars = torch.zeros(*batch_dims, 0, dtype=dtype)
-    call_predictor = lambda fm: predictor(fm, scalars, edge_index, spurions)
+    call_predictor = lambda fm: predictor(fm, scalars, edge_index, batch)
 
     # sample Lorentz vectors
     fm = sample_particle(batch_dims, logm2_std, logm2_mean, dtype=dtype)
@@ -62,24 +56,18 @@ def test_lframes_transformation(
 @pytest.mark.parametrize("LFramesPredictor", LFRAMES_PREDICTOR)
 @pytest.mark.parametrize("batch_dims", [[10]])
 @pytest.mark.parametrize("logm2_mean,logm2_std", LOGM2_MEAN_STD)
-@pytest.mark.parametrize("spurion_strategy", [None])
-def test_feature_invariance(
-    LFramesPredictor, batch_dims, logm2_std, logm2_mean, spurion_strategy
-):
+def test_feature_invariance(LFramesPredictor, batch_dims, logm2_std, logm2_mean):
     dtype = torch.float64
 
     # preparations
     assert len(batch_dims) == 1
-    predictor = LFramesPredictor(
-        hidden_channels=16,
-        num_layers=1,
-        in_nodes=0,
-        spurion_strategy=spurion_strategy,
-    ).to(dtype=dtype)
-    spurions = torch.zeros((0, 4), dtype=torch.long)
+    predictor = LFramesPredictor(hidden_channels=16, num_layers=1, in_nodes=0).to(
+        dtype=dtype
+    )
+    batch = torch.zeros(batch_dims, dtype=torch.long)
     edge_index = dense_to_sparse(torch.ones(batch_dims[0], batch_dims[0]))[0]
     scalars = torch.zeros(*batch_dims, 0, dtype=dtype)
-    call_predictor = lambda fm: predictor(fm, scalars, edge_index, spurions=spurions)
+    call_predictor = lambda fm: predictor(fm, scalars, edge_index, batch)
 
     reps = TensorReps("1x1n")
     trafo = TensorRepsTransform(TensorReps(reps))

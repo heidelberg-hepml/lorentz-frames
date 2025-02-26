@@ -16,29 +16,24 @@ from tensorframes.utils.transforms import rand_lorentz
 @pytest.mark.parametrize("batch_dims", [[10]])
 @pytest.mark.parametrize("hidden_reps", REPS)
 @pytest.mark.parametrize("logm2_mean,logm2_std", LOGM2_MEAN_STD)
-@pytest.mark.parametrize("spurion_strategy", [None])
 def test_invariance_equivariance(
     LFramesPredictor,
     batch_dims,
     hidden_reps,
     logm2_std,
     logm2_mean,
-    spurion_strategy,
 ):
     dtype = torch.float64
 
     # preparations
     assert len(batch_dims) == 1
-    predictor = LFramesPredictor(
-        hidden_channels=16,
-        num_layers=1,
-        in_nodes=0,
-        spurion_strategy=spurion_strategy,
-    ).to(dtype=dtype)
-    spurions = torch.zeros((0, 4), dtype=torch.long)
+    predictor = LFramesPredictor(hidden_channels=16, num_layers=1, in_nodes=0).to(
+        dtype=dtype
+    )
+    batch = torch.zeros(batch_dims, dtype=torch.long)
     edge_index = dense_to_sparse(torch.ones(batch_dims[0], batch_dims[0]))[0]
     scalars = torch.zeros(*batch_dims, 0, dtype=dtype)
-    call_predictor = lambda fm: predictor(fm, scalars, edge_index, spurions)
+    call_predictor = lambda fm: predictor(fm, scalars, edge_index, batch)
 
     # preparations
     in_reps = TensorReps("1x1n")
