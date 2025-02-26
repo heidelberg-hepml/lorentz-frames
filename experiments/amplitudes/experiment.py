@@ -193,12 +193,12 @@ class AmplitudeExperiment(BaseExperiment):
         )
 
         # MSE over raw amplitudes
-        mse = torch.mean((amp_model - amp_truth) ** 2)
+        mse_raw = torch.mean((amp_model - amp_truth) ** 2)
 
         if self.cfg.use_mlflow:
             log_dict = {
-                f"eval.{title}.mse": mse_prepd,
-                f"eval.{title}.mse_raw": mse,
+                f"eval.{title}.mse_prepd": mse_prepd,
+                f"eval.{title}.mse_raw": mse_raw,
             }
             for key, value in log_dict.items():
                 log_mlflow(key, value)
@@ -207,7 +207,7 @@ class AmplitudeExperiment(BaseExperiment):
             "raw": {
                 "truth": amp_truth.numpy(),
                 "prediction": amp_model.numpy(),
-                "mse": mse,
+                "mse": mse_raw,
             },
             "prepd": {
                 "truth": amp_truth_prepd.numpy(),
