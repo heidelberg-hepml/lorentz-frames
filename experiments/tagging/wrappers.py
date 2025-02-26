@@ -135,6 +135,7 @@ class TaggerWrapper(nn.Module):
                     fourmomenta_nospurions,
                     scalar_features_nospurions,
                     edge_index_nospurions,
+                    batch=batch_nospurions,
                     spurions=minimal_spurions,
                     return_tracker=True,
                 )

@@ -39,7 +39,7 @@ class EquivariantVectors(MessagePassing):
             dropout_prob=dropout_prob,
         )
 
-    def forward(self, x, fm, edge_attr, edge_index, spurions=None):
+    def forward(self, x, fm, edge_attr, edge_index, spurions=None, batch=None):
         """
         Args:
             x: scalar features shape: (batch, n_scalar)
@@ -47,11 +47,12 @@ class EquivariantVectors(MessagePassing):
             edge_attr: edge attributes shape: (edges, n_edge_attr)
             edge_index: edge indices shape: (edges, 2)
             spurions: spurions for affine symmetry breaking shape: (batch, n_vectors* 4)
+            batch: batch indices shape: (nodes,)
         """
         if spurions==None:
             spurions=torch.full((fm.shape[0], self.n_vectors*4), 0.0, device=fm.device)
         vecs = self.propagate(
-            edge_index, x=x, fm=fm, edge_attr=edge_attr, spurions=spurions
+            edge_index, x=x, fm=fm, edge_attr=edge_attr, spurions=spurions, batch=batch,
         )
         vecs = vecs.reshape(-1, self.n_vectors, 4)
         assert torch.isfinite(vecs).all()

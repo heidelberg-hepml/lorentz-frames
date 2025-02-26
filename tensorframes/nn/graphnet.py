@@ -15,11 +15,12 @@ class EdgeConv(TFMessagePassing):
         num_layers_mlp1,
         num_layers_mlp2,
         aggr="add",
+        num_edge_attr=0,
         dropout_prob=None,
     ):
         super().__init__(aggr=aggr, params_dict={"x": {"type": "local", "rep": reps}})
         self.mlp1 = MLP(
-            in_shape=[reps.dim * 2],
+            in_shape=[reps.dim * 2 + num_edge_attr],
             out_shape=[reps.dim],
             hidden_layers=num_layers_mlp1,
             hidden_channels=reps.dim,
@@ -37,20 +38,24 @@ class EdgeConv(TFMessagePassing):
             else nn.Identity()
         )
 
-    def forward(self, x, lframes, edge_index):
+    def forward(self, x, lframes, edge_index, batch=None, edge_attr=None):
         lframes = (lframes, lframes)
 
         x_aggr = self.propagate(
             edge_index,
             x=x,
             lframes=lframes,
+            edge_attr=edge_attr,
+            batch=batch,
         )
         x_aggr = self.mlp2(x_aggr)
         return x_aggr
 
-    def message(self, x_i, x_j, lframes_i, lframes_j):
+    def message(self, x_i, x_j, lframes_i, lframes_j, edge_attr=None):
         x = x_j
         x = torch.cat((x, x_i), dim=-1)
+        if edge_attr is not None:
+            x = torch.cat((x, edge_attr), dim=-1)
         x = self.mlp1(x)
         return x
 
@@ -69,14 +74,7 @@ class TFGraphNet(nn.Module):
     out_reps : str
         Output representation.
     num_blocks : int
-        Number of transformer blocks.
-    num_heads : int
-        Number of attention heads.
-    increase_hidden_channels : int
-        Factor by which the key, query, and value size is increased over the default value of
-        hidden_channels / num_heads.
-    multi_query : bool
-        Use multi-query attention instead of multi-head attention.
+        Number of EdgeConv blocks.
     """
 
     def __init__(
@@ -85,11 +83,9 @@ class TFGraphNet(nn.Module):
         hidden_reps: str,
         out_reps: str,
         num_blocks: int,
-        num_layers_mlp1: int = 2,
-        num_layers_mlp2: int = 0,
-        aggr="add",
+        *args,
         checkpoint_blocks=False,
-        dropout_prob=None,
+        **kwargs,
     ):
         super().__init__()
         in_reps = TensorReps(in_reps)
@@ -103,16 +99,14 @@ class TFGraphNet(nn.Module):
             [
                 EdgeConv(
                     hidden_reps,
-                    num_layers_mlp1,
-                    num_layers_mlp2,
-                    aggr=aggr,
-                    dropout_prob=dropout_prob,
+                    *args,
+                    **kwargs,
                 )
                 for _ in range(num_blocks)
             ]
         )
 
-    def forward(self, inputs, lframes, edge_index):
+    def forward(self, inputs, lframes, edge_index, batch=None, edge_attr=None):
         """Forward pass.
 
         Parameters
@@ -122,6 +116,8 @@ class TFGraphNet(nn.Module):
         lframes : LFrames
             Local frames used for message passing
         edge_index : Tensor with shape (2, num_edges)
+        batch : Tensor with shape (num_items,)
+        edge_attr : Tensor with shape (..., num_items, num_edge_attr)
 
         Returns
         -------
@@ -136,12 +132,16 @@ class TFGraphNet(nn.Module):
                     x=x,
                     lframes=lframes,
                     edge_index=edge_index,
+                    batch=batch,
+                    edge_attr=edge_attr,
                 )
             else:
                 x = block(
                     x=x,
                     lframes=lframes,
                     edge_index=edge_index,
+                    batch=batch,
+                    edge_attr=edge_attr,
                 )
         outputs = self.linear_out(x)
         return outputs
