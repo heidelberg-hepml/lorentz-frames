@@ -1,5 +1,5 @@
 iterations: 200000
-batchsize: 2048
+batchsize: 1024
 
 optimizer: Adam
 betas: [.99, .999]

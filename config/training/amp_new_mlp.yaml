@@ -1,5 +1,4 @@
 iterations: 400000
-batchsize: 2048
 
 defaults:
  - amp_new_default
