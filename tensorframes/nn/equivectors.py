@@ -49,10 +49,17 @@ class EquivariantVectors(MessagePassing):
             spurions: spurions for affine symmetry breaking shape: (batch, n_vectors* 4)
             batch: batch indices shape: (nodes,)
         """
-        if spurions==None:
-            spurions=torch.full((fm.shape[0], self.n_vectors*4), 0.0, device=fm.device)
+        if spurions == None:
+            spurions = torch.full(
+                (fm.shape[0], self.n_vectors * 4), 0.0, device=fm.device
+            )
         vecs = self.propagate(
-            edge_index, x=x, fm=fm, edge_attr=edge_attr, spurions=spurions, batch=batch,
+            edge_index,
+            x=x,
+            fm=fm,
+            edge_attr=edge_attr,
+            spurions=spurions,
+            batch=batch,
         )
         vecs = vecs.reshape(-1, self.n_vectors, 4)
         assert torch.isfinite(vecs).all()
