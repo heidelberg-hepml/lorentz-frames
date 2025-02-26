@@ -54,7 +54,7 @@ class AmplitudeExperiment(BaseExperiment):
                 )
                 self.cfg.model.net.in_channels = num_particle_types
                 if self.cfg.model.include_nodes:
-                    self.cfg.model.net.inchannels += 4
+                    self.cfg.model.net.in_channels += 4
             elif modelname == "MLP":
                 self.cfg.model.net.in_shape = 4 * len(particle_type)
             else:
