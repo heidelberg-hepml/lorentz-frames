@@ -32,7 +32,7 @@ class AmplitudeWrapper(nn.Module):
         self.mom_std = std
 
     def forward(self, fourmomenta):
-        if self.lframesnet.is_global:
+        if not self.lframesnet.is_learnable:
             lframes, tracker = self.lframesnet(fourmomenta, return_tracker=True)
         else:
             shape = fourmomenta.shape

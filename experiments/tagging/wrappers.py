@@ -75,7 +75,7 @@ class TaggerWrapper(nn.Module):
 
         # construct lframes
         fourmomenta = fourmomenta.reshape(fourmomenta.shape[0], -1)
-        if self.lframesnet.is_global:
+        if not self.lframesnet.is_learnable:
             lframes, tracker = self.lframesnet(fourmomenta, return_tracker=True)
         else:
             lframes, tracker = self.lframesnet(

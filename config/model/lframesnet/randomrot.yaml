@@ -1,1 +1,2 @@
 _target_: tensorframes.lframes.nonequi_lframes.RandomRotLFrames
+is_global: true

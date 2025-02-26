@@ -9,9 +9,10 @@ from tensorframes.utils.transforms import (
 
 
 class LFramesPredictor(torch.nn.Module):
-    def __init__(self, is_global=False) -> None:
+    def __init__(self, is_global=False, is_learnable=True) -> None:
         super().__init__()
         self.is_global = is_global
+        self.is_learnable = is_learnable
 
     def forward(self, *args, **kwargs):
         raise NotImplementedError
@@ -21,7 +22,7 @@ class IdentityLFrames(LFramesPredictor):
     """Identity local frames, corresponding to non-equivariant networks"""
 
     def __init__(self):
-        super().__init__(is_global=True)
+        super().__init__(is_global=True, is_learnable=False)
 
     def forward(self, fourmomenta, return_tracker=False):
         lframes = LFrames(
@@ -39,13 +40,16 @@ class RandomLFrames(LFramesPredictor):
     """Randomly generates a local frame for the whole batch,
     corresponding to data augmentation."""
 
-    def __init__(self, std_eta=0.5):
-        super().__init__(is_global=True)
+    def __init__(self, is_global=True, std_eta=0.5):
+        super().__init__(is_global=is_global, is_learnable=False)
+        self.is_global = is_global
         self.std_eta = std_eta
 
     def forward(self, fourmomenta, return_tracker=False):
         # general random transformation
-        shape = fourmomenta.shape[:-2] + (1,)
+        shape = (
+            fourmomenta.shape[:-2] + (1,) if self.is_global else fourmomenta.shape[:-1]
+        )
         matrix = rand_lorentz(shape, std_eta=self.std_eta, device=fourmomenta.device)
         matrix = matrix.expand(*fourmomenta.shape[:-1], 4, 4)
 
@@ -62,12 +66,15 @@ class RandomRotLFrames(LFramesPredictor):
     """Randomly generates a rotated local frame,
     corresponding to data augmentation."""
 
-    def __init__(self, std_eta=1.0):
-        super().__init__(is_global=True)
+    def __init__(self, is_global=True):
+        super().__init__(is_global=is_global, is_learnable=False)
+        self.is_global = is_global
 
     def forward(self, fourmomenta, return_tracker=False):
         # random rotation
-        shape = fourmomenta.shape[:-2] + (1,)
+        shape = (
+            fourmomenta.shape[:-2] + (1,) if self.is_global else fourmomenta.shape[:-1]
+        )
         matrix = rand_rotation(shape, device=fourmomenta.device)
         matrix = matrix.expand(*fourmomenta.shape[:-1], 4, 4)
 
@@ -84,12 +91,15 @@ class RandomPhiLFrames(LFramesPredictor):
     """Randomly generates a phi-rotated local frame,
     corresponding to data augmentation with rotations around the z axis."""
 
-    def __init__(self):
-        super().__init__(is_global=True)
+    def __init__(self, is_global=True):
+        super().__init__(is_global=is_global, is_learnable=False)
+        self.is_global = is_global
 
     def forward(self, fourmomenta, return_tracker=False):
         # random rotation around z axis
-        shape = fourmomenta.shape[:-2] + (1,)
+        shape = (
+            fourmomenta.shape[:-2] + (1,) if self.is_global else fourmomenta.shape[:-1]
+        )
         matrix = rand_phirotation(shape, device=fourmomenta.device)
         matrix = matrix.expand(*fourmomenta.shape[:-1], 4, 4)
 
@@ -106,13 +116,16 @@ class RandomBoostLFrames(LFramesPredictor):
     """Randomly generates a boosted local frame,
     corresponding to data augmentation."""
 
-    def __init__(self, std_eta=0.5):
-        super().__init__(is_global=True)
+    def __init__(self, is_global=True, std_eta=0.5):
+        super().__init__(is_global=is_global, is_learnable=False)
+        self.is_global = is_global
         self.std_eta = std_eta
 
     def forward(self, fourmomenta, return_tracker=False):
         # random boost
-        shape = fourmomenta.shape[:-2] + (1,)
+        shape = (
+            fourmomenta.shape[:-2] + (1,) if self.is_global else fourmomenta.shape[:-1]
+        )
         matrix = rand_boost(shape, std_eta=self.std_eta, device=fourmomenta.device)
         matrix = matrix.expand(*fourmomenta.shape[:-1], 4, 4)
 
