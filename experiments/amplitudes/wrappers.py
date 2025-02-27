@@ -117,8 +117,7 @@ class TransformerWrapper(AmplitudeWrapper):
         in_invariant_flat = in_invariant_flat.unsqueeze(-2).repeat(
             1, features_local.shape[1], 1
         )
-        features = torch.cat([features_local, particle_type, in_invariant_flat], dim=-1)
-
+        features = torch.cat([features_local, in_invariant_flat, particle_type], dim=-1)
         output = self.net(features, lframes)
         amp = output.mean(dim=-2)
         return amp, tracker
@@ -168,7 +167,7 @@ class GraphNetWrapper(AmplitudeWrapper):
         in_invariant = in_invariant.unsqueeze(-2).repeat(1, features_local.shape[1], 1)
         node_attr = torch.cat([in_invariant, particle_type], dim=-1)
         if self.include_nodes:
-            node_attr = torch.cat([node_attr, features_local], dim=-1)
+            node_attr = torch.cat([features_local, node_attr], dim=-1)
         edge_index, batch = build_edge_index(node_attr)
         node_attr = node_attr.view(-1, node_attr.shape[-1])
         lframes = lframes.reshape(-1, 4, 4)
