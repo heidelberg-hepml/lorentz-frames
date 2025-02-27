@@ -35,6 +35,9 @@ class IdentityLFrames(LFramesPredictor):
 
         return (lframes, {}) if return_tracker else lframes
 
+    def __repr__(self):
+        return "IdentityLFrames()"
+
 
 class RandomLFrames(LFramesPredictor):
     """Randomly generates a local frame for the whole batch,
@@ -74,3 +77,10 @@ class RandomLFrames(LFramesPredictor):
             dtype=fourmomenta.dtype,
         )
         return (lframes, {}) if return_tracker else lframes
+
+    def __repr__(self):
+        string = f"RandomLFrames(transform_type={self.transform_type}, is_global={self.is_global}"
+        if self.transform_type in ["lorentz", "boost"]:
+            string += f", std_eta={self.std_eta}"
+        string += ")"
+        return string
