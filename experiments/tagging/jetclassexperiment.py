@@ -44,7 +44,7 @@ class JetClassTaggingExperiment(TaggingExperiment):
                 self.cfg.data.data_config = (
                     "experiments/tagging/miniweaver/configs_jetclass/fourmomenta.yaml"
                 )
-            elif self.cfg.data.features == "pid"
+            elif self.cfg.data.features == "pid":
                 self.cfg.model.in_channels += 6
                 self.cfg.data.data_config = (
                     "experiments/tagging/miniweaver/configs_jetclass/pid.yaml"
