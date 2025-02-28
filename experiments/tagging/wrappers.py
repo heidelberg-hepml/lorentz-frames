@@ -247,9 +247,7 @@ class BaselineParTWrapper(TaggerWrapper):
         fourmomenta_local = fourmomenta_local[..., 0, :]
         features_local = get_tagging_features(fourmomenta_local, batch)
         fourmomenta_local *= UNITS  # ParT wants unscaled fourmomenta
-        fourmomenta_local = fourmomenta_local[
-            ..., [1, 2, 3, 0]
-        ]  # need (px, py, pz, E) order
+        fourmomenta_local = fourmomenta_local[..., [1, 2, 3, 0]]  # need (px, py, pz, E)
 
         fourmomenta_local, mask = to_dense_batch(fourmomenta_local, batch)
         features_local, _ = to_dense_batch(features_local, batch)
