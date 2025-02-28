@@ -115,7 +115,7 @@ class TaggerWrapper(nn.Module):
         edge_index_nospurions = get_edge_index_from_ptr(ptr_nospurions)
 
         if self.lframesnet.is_global:
-            lframes, tracker = self.lframesnet(
+            lframes_nospurions, tracker = self.lframesnet(
                 fourmomenta_nospurions, return_tracker=True
             )
         elif self.spurion_strategy == "particle_append":
