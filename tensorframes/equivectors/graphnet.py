@@ -5,10 +5,8 @@ from torch_geometric.nn import MessagePassing
 from tensorframes.nn.mlp import MLP
 
 
-class EquivariantVectors(MessagePassing):
+class EquivariantGraphNet(MessagePassing):
     """
-    Equivariantly predict learned vectors
-
     Node and edge attributes are supported,
     the most basic setting is to only use edge attributes
     corresponding to the invariant masses m_{ij} of pairs

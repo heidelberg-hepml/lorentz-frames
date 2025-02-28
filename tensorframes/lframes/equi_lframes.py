@@ -3,7 +3,7 @@ import torch
 from tensorframes.lframes.lframes import LFrames
 from tensorframes.lframes.nonequi_lframes import LFramesPredictor
 from tensorframes.utils.restframe import restframe_equivariant
-from tensorframes.nn.equivectors import EquivariantVectors
+from tensorframes.equivectors.graphnet import EquivariantGraphNet
 from tensorframes.utils.lorentz import lorentz_squarednorm
 from tensorframes.utils.orthogonalize import orthogonal_trafo
 
@@ -23,7 +23,7 @@ class LearnedLFrames(LFramesPredictor):
         super().__init__()
         self.in_nodes = in_nodes
         self.ortho_kwargs = ortho_kwargs
-        self.equivectors = EquivariantVectors(
+        self.equivectors = EquivariantGraphNet(
             n_vectors=n_vectors,
             in_nodes=in_nodes,
             in_edges=1,

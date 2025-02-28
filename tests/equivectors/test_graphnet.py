@@ -4,7 +4,7 @@ from torch_geometric.utils import dense_to_sparse
 from tests.constants import TOLERANCES, LOGM2_MEAN_STD
 from tests.helpers import sample_particle
 
-from tensorframes.nn.equivectors import EquivariantVectors
+from tensorframes.equivectors.graphnet import EquivariantGraphNet
 from tensorframes.utils.lorentz import lorentz_inner
 from tensorframes.utils.transforms import rand_lorentz
 
@@ -49,7 +49,7 @@ def test_equivariance(
     calc_edge_attr = lambda fm: lorentz_inner(
         fm[edge_index[1]], fm[edge_index[0]]
     ).unsqueeze(-1)
-    equivectors = EquivariantVectors(
+    equivectors = EquivariantGraphNet(
         n_vectors,
         in_nodes,
         in_edges,
