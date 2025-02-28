@@ -29,20 +29,22 @@ class JetClassTaggingExperiment(TaggingExperiment):
 
             if self.cfg.data.features == "fourmomenta":
                 self.cfg.data.data_config = (
-                    "experiments/tagging/miniweaver/fourmomenta.yaml"
+                    "experiments/tagging/miniweaver/configs_topxl/fourmomenta.yaml"
                 )
             elif self.cfg.data.features == "pid":
                 self.cfg.model.in_reps += "+6x0n"
-                self.cfg.data.data_config = "experiments/tagging/miniweaver/pid.yaml"
+                self.cfg.data.data_config = (
+                    "experiments/tagging/miniweaver/configs_topxl/pid.yaml"
+                )
             elif self.cfg.data.features == "displacements":
                 self.cfg.model.in_reps += "+4x0n"
                 self.cfg.data.data_config = (
-                    "experiments/tagging/miniweaver/displacements.yaml"
+                    "experiments/tagging/miniweaver/configs_topxl/displacements.yaml"
                 )
             elif self.cfg.data.features == "default":
                 self.cfg.model.in_reps += "+10x0n"
                 self.cfg.data.data_config = (
-                    "experiments/tagging/miniweaver/default.yaml"
+                    "experiments/tagging/miniweaver/configs_topxl/default.yaml"
                 )
             else:
                 raise ValueError(
