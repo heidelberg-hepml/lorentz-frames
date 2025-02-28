@@ -37,9 +37,9 @@ jobs:
       run: |
         python run.py model/lframesnet=learnedrest save=false evaluate=false training.iterations=3
 
-    - name: TFGraphNet + RandomPhiLFrames
+    - name: TFGraphNet + RandomLFrames
       run: |
-        python run.py model/lframesnet=randomphi save=false evaluate=false training.iterations=3
+        python run.py model/lframesnet=randomxyrotation save=false evaluate=false training.iterations=3
 
     - name: TFTransformer + OrthogonalLearnedLFrames
       run: |

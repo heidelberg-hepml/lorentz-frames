@@ -39,7 +39,23 @@ jobs:
 
     - name: TFTransformer + RandomLFrames
       run: |
-        python run.py -cn amplitudes model=amp_transformer model/lframesnet=random save=false evaluate=false training.iterations=3
+        python run.py -cn amplitudes model=amp_transformer model/lframesnet=randomlorentz save=false evaluate=false training.iterations=3
+
+    - name: TFTransformer + local RandomLFrames
+      run: |
+        python run.py -cn amplitudes model=amp_transformer model/lframesnet=randomlorentz model.lframesnet.is_global=false save=false evaluate=false training.iterations=3
+
+    - name: TFTransformer + RandomLFrames (boost)
+      run: |
+        python run.py -cn amplitudes model=amp_transformer model/lframesnet=randomboost save=false evaluate=false training.iterations=3
+
+    - name: TFTransformer + RandomLFrames (rotation)
+      run: |
+        python run.py -cn amplitudes model=amp_transformer model/lframesnet=randomrotation save=false evaluate=false training.iterations=3
+
+    - name: TFTransformer + RandomLFrames (xyrotation)
+      run: |
+        python run.py -cn amplitudes model=amp_transformer model/lframesnet=randomxyrotation save=false evaluate=false training.iterations=3
 
     - name: TFGraphNet (nodes+edges) + IdentityLFrames
       run: |
