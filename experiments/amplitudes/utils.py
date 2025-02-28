@@ -5,9 +5,9 @@ from experiments.amplitudes.constants import IN_PARTICLES
 
 
 def preprocess_momentum(momentum, mean=None, std=None):
-    # use a common mean() and std() for all components in E, px, py, pz
-    # otherwise we have std_E=std_pz=10*std_px=10*std_py
-    # and we get large values from data augmentations because e.g. pz->px
+    # use common mean() and std() for all components in E, px, py, pz
+    # otherwise std_E=std_pz=10*std_px=10*std_py
+    # and get large values from data augmentations because e.g. pz->px
     if mean is None or std is None:
         mean = momentum.mean()
         std = momentum.std().clamp(min=1e-2)
