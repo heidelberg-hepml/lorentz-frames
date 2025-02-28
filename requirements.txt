@@ -22,6 +22,8 @@ matplotlib
 # project-specific
 xformers
 torch-cluster>=1.6.3 # have to install this in a second step after everything else, otherwise get error
+einops==0.6.1 # for GATr
+opt_einsum>=3.3.0 # for GATr
 
 #weaver packages
 tqdm>=4.41.0
