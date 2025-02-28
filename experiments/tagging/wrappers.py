@@ -58,7 +58,7 @@ class TaggerWrapper(nn.Module):
             if issubclass(lframesnet.func, LearnedLFrames):
                 self.lframesnet = lframesnet(
                     in_nodes=self.in_channels - 4
-                )  # ugly solution assuming that beam_token=True
+                )  # TODO Closely related to spurions, changed by future PR#16
             else:
                 self.lframesnet = lframesnet
         else:
