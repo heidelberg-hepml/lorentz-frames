@@ -11,6 +11,7 @@ from experiments.tagging.embedding import get_ptr_from_batch
 from tensorframes.reps.tensorreps import TensorReps
 from tensorframes.reps.tensorreps_transform import TensorRepsTransform
 from experiments.tagging.embedding import get_tagging_features, get_edge_index_from_ptr
+from experiments.logger import LOGGER
 
 
 def attention_mask(batch, materialize=False):
@@ -53,8 +54,8 @@ class TaggerWrapper(nn.Module):
         """
         Constructor
         Args:
-            in_reps: string representation for the model input
-            out_reps: string representation for the model output
+            in_channels: string representation for the model input
+            out_channels: string representation for the model output
             lframesnet: lframesclass
             add_taggin_features_lframesnet: bool whether to include the tagging features in the lframesnet
             spurion_strategy: {None, "particle_append", "basis_triplet", affine"} which spurion_strategy methode to use, refer to paper"""
@@ -67,8 +68,8 @@ class TaggerWrapper(nn.Module):
         self.out_channels = out_channels
 
         assert (
-            self.out_reps.mul_without_scalars == 0
-        ), "out_reps must only contain scalars, but got out_reps={out_reps}"
+            self.out_channels == 1
+        ), "out_channels must only contain scalars, but got out_channels={out_channels}"
 
         if isinstance(lframesnet, partial):
             # lframesnet with learnable elements need the in_nodes (number of scalars in input) for the networks
@@ -89,10 +90,19 @@ class TaggerWrapper(nn.Module):
         is_spurion = embedding["is_spurion"]
         minimal_spurions = embedding["minimal_spurions"]
 
+        assert (
+            torch.where(is_spurion)[0]
+            == torch.where((fourmomenta == 0.0).any(dim=-1))[0]
+        ).all()
+
         # remove spurions from the data again and recompute attributes
         fourmomenta_nospurions = fourmomenta[~is_spurion]
         scalars_nospurions = scalars[~is_spurion]
         global_tagging_features_nospurions = global_tagging_features[~is_spurion]
+
+        possible_spurions = (fourmomenta_nospurions == 0).any(dim=-1)
+        if possible_spurions.any():
+            LOGGER.info(f"{torch.where(possible_spurions)=}")
 
         batch_nospurions = batch[~is_spurion]
         ptr_nospurions = get_ptr_from_batch(batch_nospurions)
@@ -147,6 +157,39 @@ class TaggerWrapper(nn.Module):
         )
 
         features_local = torch.cat([scalars_nospurions, local_tagging_features], dim=-1)
+
+        # note : this should be removed later, but it seems not to harm performance much
+        if not torch.isfinite(features_local).all():
+            mask = torch.isfinite(features_local).all(dim=-1)
+
+            a = fourmomenta_nospurions.reshape(-1, 1, 4)
+            mat = lframes_nospurions.matrices.reshape(-1, 4, 4)
+            output_manual = torch.einsum("aAB,aDB->aDA", mat, a)
+
+            output_manual_element = torch.einsum(
+                "AB,DB->DA", mat[~mask][0], a[~mask][0]
+            )
+
+            output_trafo = self.trafo_fourmomenta(
+                fourmomenta_nospurions[~mask], LFrames(mat[~mask])
+            )
+
+            LOGGER.warning(
+                f"{fourmomenta_local_nospurions.shape=}, {fourmomenta_nospurions.shape=}, {lframes_nospurions.matrices.shape=}"
+            )
+            LOGGER.warning(
+                f"{scalar_features_nospurions=}, {features_local=}, {features_local[~mask]=}, {torch.where(~mask)=}, {fourmomenta_local_nospurions[~mask]=}"
+            )
+            LOGGER.warning(
+                f"{fourmomenta_nospurions[~mask]=}, {lframes_nospurions.matrices[~mask]=}, {mask.shape=}"
+            )
+            LOGGER.warning(
+                f"{fourmomenta_local_nospurions[0]=}, {fourmomenta_nospurions[0]=}, {lframes_nospurions.matrices[0]=}"
+            )
+            LOGGER.warning(
+                f"{output_manual.shape=}, {output_manual[~mask]=}, {output_trafo.shape=}, {output_trafo=}, {output_manual_element=}"
+            )
+            assert False
 
         return (
             features_local,

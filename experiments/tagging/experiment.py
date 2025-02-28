@@ -25,7 +25,9 @@ class TaggingExperiment(BaseExperiment):
             # decide which entries to use for the net
             in_channels = 7
             self.cfg.model.in_channels = in_channels
-            LOGGER.info(f"Net: Input: {in_channels}; Output: {self.cfg.model.out_channels} ")
+            LOGGER.info(
+                f"Net: Input: {in_channels}; Output: {self.cfg.model.out_channels} "
+            )
 
             # decide which entries to use for the lframesnet
             in_nodes = 0
