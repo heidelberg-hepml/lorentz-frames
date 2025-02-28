@@ -44,8 +44,8 @@ def attention_mask(batch, materialize=False):
 class TaggerWrapper(nn.Module):
     def __init__(
         self,
-        in_reps,
-        out_reps,
+        in_channels,
+        out_channels,
         lframesnet,
         add_tagging_features_lframesnet,
         spurion_strategy=None,
@@ -63,8 +63,8 @@ class TaggerWrapper(nn.Module):
         self.spurion_strategy = spurion_strategy
 
         # this is the input and output for the net
-        self.in_reps = TensorReps(in_reps)
-        self.out_reps = TensorReps(out_reps)
+        self.in_channels = in_channels
+        self.out_channels = out_channels
 
         assert (
             self.out_reps.mul_without_scalars == 0
@@ -73,6 +73,7 @@ class TaggerWrapper(nn.Module):
         if isinstance(lframesnet, partial):
             # lframesnet with learnable elements need the in_nodes (number of scalars in input) for the networks
             self.lframesnet = lframesnet(spurion_strategy=spurion_strategy)
+
         else:
             self.lframesnet = lframesnet
 
@@ -115,6 +116,7 @@ class TaggerWrapper(nn.Module):
                     return_tracker=True,
                 )
             lframes_nospurions = LFrames(lframes.matrices[~is_spurion])
+
         else:
             if self.lframesnet.is_global:
                 lframes_nospurions, tracker = self.lframesnet(
@@ -177,7 +179,7 @@ class BaselineTransformerWrapper(AggregatedTaggerWrapper):
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
-        self.net = net(in_channels=self.in_reps.dim, num_classes=self.out_reps.dim)
+        self.net = net(in_channels=self.in_channels, num_classes=self.out_channels)
         assert (
             self.lframesnet.is_global
         ), "Non-equivariant model can only handle global lframes"
@@ -214,7 +216,7 @@ class BaselineGraphNetWrapper(AggregatedTaggerWrapper):
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
-        self.net = net(in_channels=self.in_reps.dim, num_classes=self.out_reps.dim)
+        self.net = net(in_channels=self.in_channels, num_classes=self.out_channels)
         assert (
             self.lframesnet.is_global
         ), "Non-equivariant model can only handle global lframes"
@@ -250,7 +252,7 @@ class BaselineParticleNetWrapper(TaggerWrapper):
         # 7 input features are computed from fourmomenta_local
         # scalars are ignored in this model (for now, thats a design choice)
         num_inputs = 7
-        self.net = net(features_dims=num_inputs, num_classes=self.out_reps.dim)
+        self.net = net(features_dims=num_inputs, num_classes=self.out_channels)
 
     def forward(self, embedding):
         (
@@ -289,7 +291,7 @@ class BaselineParTWrapper(TaggerWrapper):
         assert (
             self.lframesnet.is_global
         ), "Non-equivariant model can only handle global lframes"
-        self.net = net(input_dim=self.in_reps.dim, num_classes=self.out_reps.dim)
+        self.net = net(input_dim=self.in_channels, num_classes=self.out_channels)
 
     def forward(self, embedding):
         (
@@ -320,7 +322,7 @@ class GraphNetWrapper(AggregatedTaggerWrapper):
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
-        self.net = net(in_reps=self.in_reps, out_reps=self.out_reps)
+        self.net = net(in_channels=self.in_channels, out_channels=self.out_channels)
 
     def forward(self, embedding):
         (
@@ -349,7 +351,7 @@ class TransformerWrapper(AggregatedTaggerWrapper):
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
-        self.net = net(in_reps=self.in_reps, out_reps=self.out_reps)
+        self.net = net(in_channels=self.in_channels, out_channels=self.out_channels)
 
     def forward(self, embedding):
         (

@@ -8,22 +8,32 @@ from tensorframes.reps.tensorreps_transform import TensorRepsTransform
 from tensorframes.lframes.nonequi_lframes import (
     IdentityLFrames,
     RandomLFrames,
-    RandomPhiLFrames,
 )
 
 
 @pytest.mark.parametrize(
-    "LFramesPredictor", [IdentityLFrames, RandomLFrames, RandomPhiLFrames]
+    "LFramesPredictor,transform_type",
+    [
+        (IdentityLFrames, None),
+        (RandomLFrames, "lorentz"),
+        (RandomLFrames, "rotation"),
+        (RandomLFrames, "boost"),
+        (RandomLFrames, "xyrotation"),
+    ],
 )
 @pytest.mark.parametrize("batch_dims", [[1000]])
 @pytest.mark.parametrize("logm2_mean,logm2_std", LOGM2_MEAN_STD)
-def test_vectors(LFramesPredictor, batch_dims, logm2_mean, logm2_std):
+def test_vectors(LFramesPredictor, transform_type, batch_dims, logm2_mean, logm2_std):
     dtype = torch.float32
 
     fm = sample_particle(batch_dims, logm2_std, logm2_mean, dtype=dtype)
 
     # predict local frames
-    predictor = LFramesPredictor()
+    predictor = (
+        LFramesPredictor(transform_type=transform_type)
+        if LFramesPredictor == RandomLFrames
+        else LFramesPredictor()
+    )
     lframes = predictor(fm)
 
     # transform into local frames
@@ -34,6 +44,9 @@ def test_vectors(LFramesPredictor, batch_dims, logm2_mean, logm2_std):
     if LFramesPredictor == IdentityLFrames:
         # fourmomenta should not change
         torch.testing.assert_close(fm_local, fm, **TOLERANCES)
-    elif LFramesPredictor == RandomPhiLFrames:
+    elif type == "rotation":
+        # energy and pz should not change
+        torch.testing.assert_close(fm_local[..., [0]], fm[..., [0]], **TOLERANCES)
+    elif type == "xyrotation":
         # energy and pz should not change
         torch.testing.assert_close(fm_local[..., [0, 3]], fm[..., [0, 3]], **TOLERANCES)

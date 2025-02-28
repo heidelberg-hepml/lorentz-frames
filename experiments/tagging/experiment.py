@@ -23,9 +23,9 @@ class TaggingExperiment(BaseExperiment):
         with open_dict(self.cfg):
 
             # decide which entries to use for the net
-            in_reps = "7x0n"
-            self.cfg.model.in_reps = in_reps
-            LOGGER.info(f"Net: Input: {in_reps}; Output: {self.cfg.model.out_reps} ")
+            in_channels = 7
+            self.cfg.model.in_channels = in_channels
+            LOGGER.info(f"Net: Input: {in_channels}; Output: {self.cfg.model.out_channels} ")
 
             # decide which entries to use for the lframesnet
             in_nodes = 0
@@ -49,7 +49,7 @@ class TaggingExperiment(BaseExperiment):
                 self.cfg.model._target_.rsplit(".", 1)[-1]
                 == "BaselineParticleNetWrapper"
             ):
-                # Note: cfg.data.add_scalar_features not supported for net inputs; in_reps currently hard-coded
+                # Note: cfg.data.add_scalar_features not supported for net inputs; in_channels currently hard-coded
                 if (
                     self.cfg.data.beam_reference is not None
                     or self.cfg.data.add_time_reference
@@ -282,7 +282,7 @@ class TopTaggingExperiment(TaggingExperiment):
     def __init__(self, cfg):
         super().__init__(cfg)
         with open_dict(self.cfg):
-            self.cfg.model.out_reps = "1x0n"
+            self.cfg.model.out_channels = 1
 
             assert cfg.data.spurion_strategy in [
                 None,

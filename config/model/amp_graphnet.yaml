@@ -6,9 +6,9 @@ include_edges: true
 net:
  _target_: tensorframes.nn.graphnet.TFGraphNet
 
- in_reps: null
+ in_channels: null
  hidden_reps: "64x0n+16x1n"
- out_reps: "1x0n"
+ out_channels: 1
  num_edge_attr: null
 
  num_blocks: 3
