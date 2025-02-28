@@ -37,25 +37,25 @@ class JetClassTaggingExperiment(TaggingExperiment):
             "ZToQQ",
         ]
         with open_dict(self.cfg):
-            self.cfg.model.out_reps = f"{len(self.class_names)}x0n"
-            self.cfg.model.in_reps = "1x1n"  # energy-momentum vector
+            self.cfg.model.out_channels = self.class_names
+            self.cfg.model.in_channels = 4  # energy-momentum vector
 
             if self.cfg.data.features == "fourmomenta":
                 self.cfg.data.data_config = (
                     "experiments/tagging/miniweaver/configs_jetclass/fourmomenta.yaml"
                 )
-            elif self.cfg.data.features == "pid":
-                self.cfg.model.in_reps += "+6x0n"
+            elif self.cfg.data.features == "pid"
+                self.cfg.model.in_channels += 6
                 self.cfg.data.data_config = (
                     "experiments/tagging/miniweaver/configs_jetclass/pid.yaml"
                 )
             elif self.cfg.data.features == "displacements":
-                self.cfg.model.in_reps += "+4x0n"
+                self.cfg.model.in_channels += 4
                 self.cfg.data.data_config = (
                     "experiments/tagging/miniweaver/configs_jetclass/displacements.yaml"
                 )
             elif self.cfg.data.features == "default":
-                self.cfg.model.in_reps += "+10x0n"
+                self.cfg.model.in_channels += 10
                 self.cfg.data.data_config = (
                     "experiments/tagging/miniweaver/config_jetclass/default.yaml"
                 )

@@ -1,0 +1,26 @@
+iterations: 200000
+batchsize: 1024
+
+optimizer: Adam
+betas: [.99, .999]
+eps: 1e-8
+weight_decay: 0
+
+lr: 1e-3
+scheduler: ReduceLROnPlateau
+scheduler_scale: 1
+cosanneal_eta_min: 0
+reduceplateau_factor: 0.3
+reduceplateau_patience: 10
+onecycle_max_lr: 10
+onecycle_pct_start: 0.3
+
+es_patience: 20
+es_load_best_model: true
+
+log_every_n_steps: 1000
+validate_every_n_steps: 1000
+
+clip_grad_norm: 5
+clip_grad_value: null
+max_grad_norm: null

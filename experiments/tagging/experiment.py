@@ -21,8 +21,23 @@ class TaggingExperiment(BaseExperiment):
 
     def init_physics(self):
         with open_dict(self.cfg):
+            if (
+                self.cfg.model._target_.rsplit(".", 1)[-1]
+                == "BaselineParticleNetWrapper"
+            ):
+                # Note: cfg.data.add_scalar_features not supported for net inputs; in_channels currently hard-coded
+                if (
+                    self.cfg.data.beam_reference is not None
+                    or self.cfg.data.add_time_reference
+                ):
+                    LOGGER.warning(
+                        "Spurions not supported for BaselineParticleNetWrapper (yield nan/inf in get_tagging_features), removing them"
+                    )
+                    self.cfg.data.beam_reference = None
+                    self.cfg.data.add_time_reference = False
+
             if self.cfg.data.add_scalar_features:
-                self.cfg.model.in_reps += "+7x0n"  # other scalar features
+                self.cfg.model.in_channels += 7  # other scalar features
 
             if not self.cfg.data.beam_token:
                 num_spurions = 0
@@ -34,11 +49,7 @@ class TaggingExperiment(BaseExperiment):
                 )
                 num_spurions += 1 if self.cfg.data.two_beams else 0
                 num_spurions += 1 if self.cfg.data.add_time_reference else 0
-                self.cfg.model.in_reps += f"+{num_spurions}x1n"
-
-        LOGGER.info(
-            f"Representations: in_reps={self.cfg.model.in_reps}, out_reps={self.cfg.model.out_reps}"
-        )
+                self.cfg.model.in_channels += num_spurions * 4
 
     def init_data(self):
         raise NotImplementedError
@@ -257,8 +268,8 @@ class TopTaggingExperiment(TaggingExperiment):
     def __init__(self, cfg):
         super().__init__(cfg)
         with open_dict(self.cfg):
-            self.cfg.model.out_reps = "1x0n"
-            self.cfg.model.in_reps = "1x1n"  # energy-momentum vector
+            self.cfg.model.out_channels = 1
+            self.cfg.model.in_channels = 4  # energy-momentum vector
 
     def init_data(self):
         data_path = os.path.join(

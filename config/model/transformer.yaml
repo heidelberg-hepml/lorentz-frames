@@ -4,9 +4,9 @@ net:
  _target_: tensorframes.nn.transformer.TFTransformer
  _partial_: true
 
- in_reps: null
+ in_channels: null
  attn_reps: "8x0n+2x1n" # reps can be varied, but number of channels should stay fixed
- out_reps: null
+ out_channels: null
 
  num_blocks: 8
  num_heads: 8

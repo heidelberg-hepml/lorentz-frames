@@ -1,12 +1,18 @@
 import torch
 from tensorframes.lframes.lframes import LFrames
-from tensorframes.utils.transforms import transform, rand_lorentz, rand_phirotation
+from tensorframes.utils.transforms import (
+    rand_lorentz,
+    rand_rotation,
+    rand_phirotation,
+    rand_boost,
+)
 
 
 class LFramesPredictor(torch.nn.Module):
-    def __init__(self, is_global=False) -> None:
+    def __init__(self, is_global=False, is_learnable=True) -> None:
         super().__init__()
         self.is_global = is_global
+        self.is_learnable = is_learnable
 
     def forward(self, *args, **kwargs):
         raise NotImplementedError
@@ -16,7 +22,7 @@ class IdentityLFrames(LFramesPredictor):
     """Identity local frames, corresponding to non-equivariant networks"""
 
     def __init__(self):
-        super().__init__(is_global=True)
+        super().__init__(is_global=True, is_learnable=False)
 
     def forward(self, fourmomenta, return_tracker=False):
         lframes = LFrames(
@@ -29,45 +35,52 @@ class IdentityLFrames(LFramesPredictor):
 
         return (lframes, {}) if return_tracker else lframes
 
+    def __repr__(self):
+        return "IdentityLFrames()"
+
 
 class RandomLFrames(LFramesPredictor):
     """Randomly generates a local frame for the whole batch,
     corresponding to data augmentation."""
 
-    def __init__(self, std_eta=1.0):
-        super().__init__(is_global=True)
+    def __init__(self, transform_type="lorentz", is_global=True, std_eta=0.5):
+        super().__init__(is_global=is_global, is_learnable=False)
+        self.is_global = is_global
         self.std_eta = std_eta
+        self.transform_type = transform_type
+
+    def transform(self, shape, device):
+        if self.transform_type == "lorentz":
+            return rand_lorentz(shape, std_eta=self.std_eta, device=device)
+        elif self.transform_type == "rotation":
+            return rand_rotation(shape, device=device)
+        elif self.transform_type == "boost":
+            return rand_boost(shape, std_eta=self.std_eta, device=device)
+        elif self.transform_type == "xyrotation":
+            return rand_phirotation(shape, device=device)
+        else:
+            raise ValueError(
+                f"Transformation type {self.transform_type} not implemented"
+            )
 
     def forward(self, fourmomenta, return_tracker=False):
-        # general random transformation
-        matrix = rand_lorentz([1], std_eta=self.std_eta, device=fourmomenta.device)
-        matrix = matrix.repeat(fourmomenta.shape[0], 1, 1)
+        shape = (
+            fourmomenta.shape[:-2] + (1,) if self.is_global else fourmomenta.shape[:-1]
+        )
+        matrix = self.transform(shape, device=fourmomenta.device)
+        matrix = matrix.expand(*fourmomenta.shape[:-1], 4, 4)
 
         lframes = LFrames(
-            is_global=True,
+            is_global=self.is_global,
             matrices=matrix,
             device=fourmomenta.device,
             dtype=fourmomenta.dtype,
         )
         return (lframes, {}) if return_tracker else lframes
 
-
-class RandomPhiLFrames(LFramesPredictor):
-    """Randomly generates a phi-rotated local frame for the whole batch,
-    corresponding to data augmentation with rotations around the z axis."""
-
-    def __init__(self):
-        super().__init__(is_global=True)
-
-    def forward(self, fourmomenta, return_tracker=False):
-        # random rotation around z axis
-        matrix = rand_phirotation([1], device=fourmomenta.device)
-        matrix = matrix.repeat(fourmomenta.shape[0], 1, 1)
-
-        lframes = LFrames(
-            is_global=True,
-            matrices=matrix,
-            device=fourmomenta.device,
-            dtype=fourmomenta.dtype,
-        )
-        return (lframes, {}) if return_tracker else lframes
+    def __repr__(self):
+        string = f"RandomLFrames(transform_type={self.transform_type}, is_global={self.is_global}"
+        if self.transform_type in ["lorentz", "boost"]:
+            string += f", std_eta={self.std_eta}"
+        string += ")"
+        return string

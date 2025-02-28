@@ -1,0 +1,13 @@
+_target_: experiments.amplitudes.wrappers.MLPWrapper
+particle_type: null
+
+net:
+ _target_: tensorframes.nn.mlp.MLP
+
+ in_shape: null
+ out_shape: 1
+ hidden_channels: 128
+ hidden_layers: 3
+
+defaults:
+ - lframesnet: identity
