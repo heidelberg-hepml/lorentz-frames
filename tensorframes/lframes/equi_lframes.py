@@ -17,10 +17,12 @@ class LearnedLFrames(LFramesPredictor):
         n_vectors,
         in_nodes,
         *args,
+        ortho_kwargs={},
         **kwargs,
     ):
         super().__init__()
         self.in_nodes = in_nodes
+        self.ortho_kwargs = ortho_kwargs
         self.equivectors = EquivariantVectors(
             n_vectors=n_vectors,
             in_nodes=in_nodes,
@@ -30,22 +32,33 @@ class LearnedLFrames(LFramesPredictor):
         )
 
         # standardization parameters for edge attributes
-        self.register_buffer("inv_inited", torch.tensor(False, dtype=torch.bool))
-        self.register_buffer("inv_mean", torch.zeros(1))
-        self.register_buffer("inv_std", torch.ones(1))
+        self.register_buffer("edge_inited", torch.tensor(False, dtype=torch.bool))
+        self.register_buffer("edge_mean", torch.zeros(0))
+        self.register_buffer("edge_std", torch.ones(1))
 
-    def forward(self, fourmomenta, scalars, edge_index):
+    def forward(self, fourmomenta, scalars, edge_index, batch=None):
+        """
+        Parameters
+        ----------
+        fourmomenta: torch.tensor of shape (N, 4)
+        scalars: torch.tensor of shape (N, C)
+        edge_index: torch.tensor of shape (2, E)
+        batch: torch.tensor of shape (N,)
+        """
         assert scalars.shape[-1] == self.in_nodes
 
         # calculate and standardize edge attributes
         mij2 = lorentz_squarednorm(
             fourmomenta[edge_index[0]] + fourmomenta[edge_index[1]]
         ).unsqueeze(-1)
-        edge_attr = mij2.clamp(min=1e-5).log()
-        if not self.inv_inited:
-            self.inv_mean = edge_attr.mean()
-            self.inv_std = edge_attr.std().clamp(min=1e-5)
-        edge_attr = (edge_attr - self.inv_mean) / self.inv_std
+        edge_attr = mij2.clamp(min=1e-10).log()
+
+        # standardization
+        if not self.edge_inited:
+            self.edge_mean = edge_attr.mean()
+            self.edge_std = edge_attr.std().clamp(min=1e-5)
+            self.edge_inited.fill_(True)
+        edge_attr = (edge_attr - self.edge_mean) / self.edge_std
 
         # call networks
         vecs = self.equivectors(
@@ -53,8 +66,15 @@ class LearnedLFrames(LFramesPredictor):
             fm=fourmomenta,
             edge_attr=edge_attr,
             edge_index=edge_index,
+            batch=batch,
         )
         return vecs
+
+    def __repr__(self):
+        classname = self.__class__.__name__
+        method = self.ortho_kwargs["method"]
+        string = f"{classname}(method={method})"
+        return string
 
 
 class OrthogonalLearnedLFrames(LearnedLFrames):
@@ -66,15 +86,13 @@ class OrthogonalLearnedLFrames(LearnedLFrames):
     def __init__(
         self,
         *args,
-        ortho_kwargs={},
         **kwargs,
     ):
         self.n_vectors = 3
-        self.ortho_kwargs = ortho_kwargs
         super().__init__(*args, n_vectors=self.n_vectors, **kwargs)
 
-    def forward(self, fourmomenta, scalars, edge_index, batch, return_tracker=False):
-        vecs = super().forward(fourmomenta, scalars, edge_index)
+    def forward(self, fourmomenta, scalars, return_tracker=False, **kwargs):
+        vecs = super().forward(fourmomenta, scalars, **kwargs)
         vecs = [vecs[..., i, :] for i in range(self.n_vectors)]
 
         trafo, reg_lightlike, reg_coplanar = orthogonal_trafo(
@@ -92,7 +110,6 @@ class RestLFrames(LearnedLFrames):
     def __init__(
         self,
         *args,
-        ortho_kwargs={},
         **kwargs,
     ):
         self.n_vectors = 2
@@ -102,10 +119,8 @@ class RestLFrames(LearnedLFrames):
             **kwargs,
         )
 
-        self.ortho_kwargs = ortho_kwargs
-
-    def forward(self, fourmomenta, scalars, edge_index, batch, return_tracker=False):
-        references = super().forward(fourmomenta, scalars, edge_index)
+    def forward(self, fourmomenta, scalars, return_tracker=False, **kwargs):
+        references = super().forward(fourmomenta, scalars, **kwargs)
         references = [references[..., i, :] for i in range(self.n_vectors)]
 
         trafo, reg_collinear = restframe_equivariant(
@@ -125,7 +140,6 @@ class LearnedRestLFrames(LearnedLFrames):
     def __init__(
         self,
         *args,
-        ortho_kwargs={},
         **kwargs,
     ):
         self.n_vectors = 3
@@ -137,10 +151,8 @@ class LearnedRestLFrames(LearnedLFrames):
             **kwargs,
         )
 
-        self.ortho_kwargs = ortho_kwargs
-
-    def forward(self, fourmomenta, scalars, edge_index, batch, return_tracker=False):
-        vecs = super().forward(fourmomenta, scalars, edge_index)
+    def forward(self, fourmomenta, scalars, return_tracker=False, **kwargs):
+        vecs = super().forward(fourmomenta, scalars, **kwargs)
         fourmomenta = vecs[..., 0, :]
         references = [vecs[..., i, :] for i in range(1, self.n_vectors)]
 

@@ -29,12 +29,14 @@ class BaseExperiment:
         # pass all exceptions to the logger
         try:
             self.run_mlflow()
-        except errors.ConfigAttributeError:
+        except errors.ConfigAttributeError as e:
             LOGGER.exception(
                 "Tried to access key that is not specified in the config files"
             )
-        except:
+            raise e
+        except Exception as e:
             LOGGER.exception("Exiting with error")
+            raise e
 
         # print buffered logger messages if failed
         if not experiments.logger.LOGGING_INITIALIZED:
@@ -110,7 +112,7 @@ class BaseExperiment:
             p.numel() for p in self.model.lframesnet.parameters() if p.requires_grad
         )
         LOGGER.info(
-            f"LFrames approach: {type(self.model.lframesnet).__name__} ({num_parameters_lframesnet} learnable parameters)"
+            f"LFrames approach: {self.model.lframesnet} ({num_parameters_lframesnet} learnable parameters)"
         )
 
         if self.cfg.ema:

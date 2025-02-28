@@ -1,0 +1,3 @@
+_target_: tensorframes.lframes.nonequi_lframes.RandomLFrames
+is_global: true
+transform_type: rotation

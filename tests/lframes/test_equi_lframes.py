@@ -24,7 +24,9 @@ def test_lframes_transformation(LFramesPredictor, batch_dims, logm2_std, logm2_m
     batch = torch.zeros(batch_dims, dtype=torch.long)
     edge_index = dense_to_sparse(torch.ones(batch_dims[0], batch_dims[0]))[0]
     scalars = torch.zeros(*batch_dims, 0, dtype=dtype)
-    call_predictor = lambda fm: predictor(fm, scalars, edge_index, batch)
+    call_predictor = lambda fm: predictor(
+        fm, scalars, edge_index=edge_index, batch=batch
+    )
 
     # sample Lorentz vectors
     fm = sample_particle(batch_dims, logm2_std, logm2_mean, dtype=dtype)
@@ -67,7 +69,9 @@ def test_feature_invariance(LFramesPredictor, batch_dims, logm2_std, logm2_mean)
     batch = torch.zeros(batch_dims, dtype=torch.long)
     edge_index = dense_to_sparse(torch.ones(batch_dims[0], batch_dims[0]))[0]
     scalars = torch.zeros(*batch_dims, 0, dtype=dtype)
-    call_predictor = lambda fm: predictor(fm, scalars, edge_index, batch)
+    call_predictor = lambda fm: predictor(
+        fm, scalars, edge_index=edge_index, batch=batch
+    )
 
     reps = TensorReps("1x1n")
     trafo = TensorRepsTransform(TensorReps(reps))

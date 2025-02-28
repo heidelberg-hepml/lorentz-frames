@@ -33,7 +33,9 @@ def test_invariance_equivariance(
     batch = torch.zeros(batch_dims, dtype=torch.long)
     edge_index = dense_to_sparse(torch.ones(batch_dims[0], batch_dims[0]))[0]
     scalars = torch.zeros(*batch_dims, 0, dtype=dtype)
-    call_predictor = lambda fm: predictor(fm, scalars, edge_index, batch)
+    call_predictor = lambda fm: predictor(
+        fm, scalars, edge_index=edge_index, batch=batch
+    )
 
     # preparations
     in_reps = TensorReps("1x1n")

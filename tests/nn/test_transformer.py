@@ -36,15 +36,17 @@ def test_transformer_invariance_equivariance(
     batch = torch.zeros(batch_dims, dtype=torch.long)
     edge_index = dense_to_sparse(torch.ones(batch_dims[0], batch_dims[0]))[0]
     scalars = torch.zeros(*batch_dims, 0, dtype=dtype)
-    call_predictor = lambda fm: predictor(fm, scalars, edge_index, batch)
+    call_predictor = lambda fm: predictor(
+        fm, scalars, edge_index=edge_index, batch=batch
+    )
 
     # define edgeconv
     in_reps = TensorReps("1x1n")
     trafo = TensorRepsTransform(TensorReps(in_reps))
     net = TFTransformer(
-        in_reps=in_reps,
+        in_channels=in_reps.dim,
         attn_reps=attn_reps,
-        out_reps=in_reps,
+        out_channels=in_reps.dim,
         num_blocks=num_blocks,
         num_heads=num_heads,
     ).to(dtype=dtype)

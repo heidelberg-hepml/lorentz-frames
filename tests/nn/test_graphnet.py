@@ -36,7 +36,9 @@ def test_edgeconv_invariance_equivariance(
     )
     batch = torch.zeros(batch_dims, dtype=torch.long)
     scalars = torch.zeros(*batch_dims, 0, dtype=dtype)
-    call_predictor = lambda fm: predictor(fm, scalars, edge_index, batch)
+    call_predictor = lambda fm: predictor(
+        fm, scalars, edge_index=edge_index, batch=batch
+    )
 
     # define edgeconv
     in_reps = TensorReps("1x1n")
@@ -110,15 +112,17 @@ def test_graphnet_invariance_equivariance(
     )
     batch = torch.zeros(batch_dims, dtype=torch.long)
     scalars = torch.zeros(*batch_dims, 0, dtype=dtype)
-    call_predictor = lambda fm: predictor(fm, scalars, edge_index, batch)
+    call_predictor = lambda fm: predictor(
+        fm, scalars, edge_index=edge_index, batch=batch
+    )
 
     # define edgeconv
     in_reps = TensorReps("1x1n")
     trafo = TensorRepsTransform(TensorReps(in_reps))
     graphnet = TFGraphNet(
-        in_reps=in_reps,
+        in_channels=in_reps.dim,
         hidden_reps=hidden_reps,
-        out_reps=in_reps,
+        out_channels=in_reps.dim,
         num_blocks=num_blocks,
         num_layers_mlp1=num_layers_mlp1,
         num_layers_mlp2=num_layers_mlp2,

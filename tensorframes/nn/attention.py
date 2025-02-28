@@ -23,55 +23,60 @@ class InvariantParticleAttention(torch.nn.Module):
         super().__init__()
         self.transform = TensorRepsTransform(TensorReps(attn_reps))
 
-    def forward(
-        self, q_local, k_local, v_local, lframes, attn_mask=None, is_causal=False
-    ):
+    def forward(self, q_local, k_local, v_local, lframes, **attn_kwargs):
         """
-        dimensions: H (head), N (particles), C (channels)
-        q_local, k_local, v_local: (H, N, C)
-        """
+        Strategy
+        1) Transform q, k, v into global frame
+        2) Apply attention in global frame
+        3) Transform output back into local frame
 
-        # prepare lframes trafos
-        # have to add head dimension
-        matrices = lframes.matrices.unsqueeze(0).repeat(
-            q_local.shape[0], *(1,) * len(lframes.shape), 1, 1
-        )
-        matrices = to_nd(matrices, 3)
-        lframes = LFrames(matrices)
+        Comments
+        - dimensions: *dims (optional), H (head), N (particles), C (channels)
+        - TODO: dynamically reshape attn_mask for default torch attention (in attn function?)
+
+        Parameters
+        ----------
+        q_local: torch.tensor of shape (*dims, H, N, C)
+        k_local: torch.tensor of shape (*dims, H, N, C)
+        v_local: torch.tensor of shape (*dims, H, N, C)
+        lframes: (*dims, N, 4, 4)
+        attn_kwargs: dict
+            Optional arguments that are passed on to attention
+        """
+        # check input shapes
+        assert q_local.shape == k_local.shape == v_local.shape
+        assert q_local.shape[:-3] == lframes.shape[:-3]  # *dims match
+        assert q_local.shape[-2] == lframes.shape[-3]  # N matches
+
+        # insert lframes head dimension
+        lframes = lframes.reshape(*q_local.shape[:-3], 1, lframes.shape[-3], 4, 4)
+        lframes = lframes.expand(*q_local.shape[:-1], 4, 4)
+
         inv_lframes = InverseLFrames(lframes)
         lower_inv_lframes = LowerIndices(inv_lframes)
 
-        # transform q, k, v into global frame
-        shape_in = q_local.shape
-        q_local, k_local, v_local = (
-            to_nd(q_local, 2),
-            to_nd(k_local, 2),
-            to_nd(v_local, 2),
-        )  # (H*N, C)
         q_global = self.transform(q_local, inv_lframes)
         k_global = self.transform(k_local, lower_inv_lframes)
         v_global = self.transform(v_local, inv_lframes)
-        q_global, k_global, v_global = (
-            q_global.view(*shape_in),
-            k_global.view(*shape_in),
-            v_global.view(*shape_in),
-        )  # (H, N, C)
+
+        # (B, H, N, C) format required for xformers
+        shape = q_global.shape
+        q_global = q_global.reshape(-1, *shape[-3:])
+        k_global = k_global.reshape(-1, *shape[-3:])
+        v_global = v_global.reshape(-1, *shape[-3:])
 
         # attention (in global frame)
-        q_global, k_global, v_global = (
-            to_nd(q_global, 4),
-            to_nd(k_global, 4),
-            to_nd(v_global, 4),
-        )  # (1, H, N, C) format required for xformers
         out_global = scaled_dot_product_attention(
-            q_global, k_global, v_global, attn_mask=attn_mask, is_causal=is_causal
+            q_global,
+            k_global,
+            v_global,
+            **attn_kwargs,
         )
-        out_global = out_global.view(*shape_in)  # (H, N, C)
+
+        out_global = out_global.view(*shape)  # (*dims, H, N, C)
 
         # transform out back into local frame
-        out_global = to_nd(out_global, 2)
         out_local = self.transform(out_global, lframes)
-        out_local = out_local.view(*shape_in)
         return out_local
 
 
