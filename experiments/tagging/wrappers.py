@@ -48,17 +48,21 @@ class TaggerWrapper(nn.Module):
         in_channels,
         out_channels,
         lframesnet,
-        add_tagging_features_lframesnet,
+        add_tagging_features_lframesnet=False,
         spurion_strategy=None,
     ):
         """
-        Constructor
         Args:
             in_channels: string representation for the model input
             out_channels: string representation for the model output
             lframesnet: lframesclass
             add_taggin_features_lframesnet: bool whether to include the tagging features in the lframesnet
-            spurion_strategy: {None, "particle_append", "basis_triplet", affine"} which spurion_strategy methode to use, refer to paper"""
+            spurion_strategy: {None, "particle_append", "basis_triplet", particle_add"} which spurion_strategy methode to use in the lframesnet, refer to paper
+                None: apply no symmetry breaking through vector features
+                particle_append: include spurions as elements in the data
+                basis_triplet: use the spurions instead of equivariantly predicted vectors in the lframes
+                particle_add: add the vectors ot the predicted vectors during prediction of the equivectors
+        """
         super().__init__()
         self.add_tagging_features_lframesnet = add_tagging_features_lframesnet
         self.spurion_strategy = spurion_strategy
@@ -82,71 +86,75 @@ class TaggerWrapper(nn.Module):
 
     def forward(self, embedding):
         # extract embedding
-        fourmomenta = embedding["fourmomenta"]
-        scalars = embedding["scalars"]
-        global_tagging_features = embedding["global_tagging_features"]
-        edge_index = embedding["edge_index"]
-        batch = embedding["batch"]
+        fourmomenta_withspurions = embedding["fourmomenta"]
+        scalars_withspurions = embedding["scalars"]
+        global_tagging_features_withspurions = embedding["global_tagging_features"]
+        edge_index_withspurions = embedding["edge_index"]
+        batch_withspurions = embedding["batch"]
         is_spurion = embedding["is_spurion"]
         minimal_spurions = embedding["minimal_spurions"]
 
         assert (
             torch.where(is_spurion)[0]
-            == torch.where((fourmomenta == 0.0).any(dim=-1))[0]
+            == torch.where((fourmomenta_withspurions == 0.0).any(dim=-1))[0]
         ).all()
 
         # remove spurions from the data again and recompute attributes
-        fourmomenta_nospurions = fourmomenta[~is_spurion]
-        scalars_nospurions = scalars[~is_spurion]
-        global_tagging_features_nospurions = global_tagging_features[~is_spurion]
+        fourmomenta_nospurions = fourmomenta_withspurions[~is_spurion]
+        scalars_nospurions = scalars_withspurions[~is_spurion]
+        global_tagging_features_nospurions = global_tagging_features_withspurions[
+            ~is_spurion
+        ]
 
         possible_spurions = (fourmomenta_nospurions == 0).any(dim=-1)
         if possible_spurions.any():
             LOGGER.info(f"{torch.where(possible_spurions)=}")
 
-        batch_nospurions = batch[~is_spurion]
+        batch_nospurions = batch_withspurions[~is_spurion]
         ptr_nospurions = get_ptr_from_batch(batch_nospurions)
         edge_index_nospurions = get_edge_index_from_ptr(ptr_nospurions)
 
-        if self.spurion_strategy == "particle_append":
-            if self.lframesnet.is_global:
-                lframes, tracker = self.lframesnet(fourmomenta, return_tracker=True)
-            else:
-                if self.add_tagging_features_lframesnet:
-                    scalar_features = torch.cat(
-                        [scalars, global_tagging_features], dim=-1
-                    )
-                else:
-                    scalar_features = scalars
-                lframes, tracker = self.lframesnet(
-                    fourmomenta,
-                    scalar_features,
-                    edge_index,
-                    spurions=minimal_spurions,
-                    return_tracker=True,
+        if self.lframesnet.is_global:
+            lframes, tracker = self.lframesnet(
+                fourmomenta_nospurions, return_tracker=True
+            )
+        elif self.spurion_strategy == "particle_append":
+            if self.add_tagging_features_lframesnet:
+                scalar_features = torch.cat(
+                    [scalars_withspurions, global_tagging_features_withspurions], dim=-1
                 )
-            lframes_nospurions = LFrames(lframes.matrices[~is_spurion])
+            else:
+                scalar_features = scalars_withspurions
+            lframes, tracker = self.lframesnet(
+                fourmomenta_withspurions,
+                scalar_features,
+                edge_index_withspurions,
+                spurions=minimal_spurions,
+                return_tracker=True,
+            )
 
+            lframes_nospurions = LFrames(
+                lframes.matrices[~is_spurion],
+                is_global=lframes.is_global,
+                det=lframes.det[~is_spurion],
+                inv=lframes.inv[~is_spurion],
+                is_identity=lframes.is_identity,
+            )
         else:
-            if self.lframesnet.is_global:
-                lframes_nospurions, tracker = self.lframesnet(
-                    fourmomenta_nospurions, return_tracker=True
+            if self.add_tagging_features_lframesnet:
+                scalar_features_nospurions = torch.cat(
+                    [scalars_nospurions, global_tagging_features_nospurions], dim=-1
                 )
             else:
-                if self.add_tagging_features_lframesnet:
-                    scalar_features_nospurions = torch.cat(
-                        [scalars_nospurions, global_tagging_features_nospurions], dim=-1
-                    )
-                else:
-                    scalar_features_nospurions = scalars_nospurions
-                lframes_nospurions, tracker = self.lframesnet(
-                    fourmomenta_nospurions,
-                    scalar_features_nospurions,
-                    edge_index_nospurions,
-                    batch=batch_nospurions,
-                    spurions=minimal_spurions,
-                    return_tracker=True,
-                )
+                scalar_features_nospurions = scalars_nospurions
+            lframes_nospurions, tracker = self.lframesnet(
+                fourmomenta_nospurions,
+                scalar_features_nospurions,
+                edge_index_nospurions,
+                batch=batch_nospurions,
+                spurions=minimal_spurions,
+                return_tracker=True,
+            )
 
         # transform features into local frames
         fourmomenta_local_nospurions = self.trafo_fourmomenta(

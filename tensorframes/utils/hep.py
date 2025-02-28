@@ -9,9 +9,9 @@ CUTOFF = 10
 def EPPP_to_PtPhiEtaM2(fourmomenta, sqrt_mass=False):
     E, px, py, pz = unpack_last(fourmomenta)
 
-    pt = torch.sqrt((px**2 + py**2))
+    pt = torch.sqrt(px**2 + py**2)
     phi = torch.arctan2(avoid_zero(py), avoid_zero(px))
-    p_abs = torch.sqrt((pz**2 + pt**2))
+    p_abs = torch.sqrt(pz**2 + pt**2)
     eta = stable_arctanh(pz / p_abs).clamp(min=-CUTOFF, max=CUTOFF)
     m2 = E**2 - px**2 - py**2 - pz**2
     m2 = torch.sqrt(m2) if sqrt_mass else m2
@@ -24,13 +24,13 @@ def PtPhiEtaM2_to_EPPP(x):
     px = pt * torch.cos(phi)
     py = pt * torch.sin(phi)
     pz = pt * torch.sinh(eta)
-    E = torch.sqrt((m2 + pt**2 * torch.cosh(eta) ** 2))
+    E = torch.sqrt(m2 + pt**2 * torch.cosh(eta) ** 2)
     return torch.stack((E, px, py, pz), dim=-1)
 
 
 def get_pt(p):
     # transverse momentum
-    return torch.sqrt((p[..., 1] ** 2 + p[..., 2] ** 2))
+    return torch.sqrt(p[..., 1] ** 2 + p[..., 2] ** 2)
 
 
 def avoid_zero(x, eps=EPS):
@@ -59,4 +59,4 @@ def get_deltaR(v1, v2):
 
     delta_y = eta1 - eta2
     delta_phi = (phi1 - phi2 + torch.pi) % (2 * torch.pi) - torch.pi
-    return torch.sqrt((delta_y**2 + delta_phi**2))
+    return torch.sqrt(delta_y**2 + delta_phi**2)

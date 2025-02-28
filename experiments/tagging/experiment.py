@@ -32,19 +32,22 @@ class TaggingExperiment(BaseExperiment):
             # decide which entries to use for the lframesnet
             in_nodes = 0
 
-            if "Learned" in self.cfg.model.lframesnet._target_:
+            if "in_nodes" in self.cfg.model.lframesnet:
                 if self.cfg.model.add_tagging_features_lframesnet:
                     in_nodes += 7
                 self.cfg.model.lframesnet.in_nodes = in_nodes
+
+            assert self.cfg.data.spurion_strategy in [
+                None,
+                "particle_add",
+                "particle_append",
+                "basis_triplet",
+            ]
 
             if self.cfg.data.spurion_strategy == "basis_triplet":
                 assert (
                     self.cfg.data.add_time_reference is not None
                     and self.cfg.data.beam_reference is not None
-                )
-            if self.cfg.data.spurion_strategy is not None:
-                LOGGER.info(
-                    f"Using symmetry breaking '{self.cfg.data.spurion_strategy}'"
                 )
 
             if (
@@ -286,29 +289,24 @@ class TopTaggingExperiment(TaggingExperiment):
         with open_dict(self.cfg):
             self.cfg.model.out_channels = 1
 
-            assert cfg.data.spurion_strategy in [
-                None,
-                "particle_add",
-                "particle_append",
-                "basis_triplet",
-            ]
-
             # move argument into model config
-            cfg.model.add_tagging_features_lframesnet = (
-                cfg.data.add_tagging_features_lframesnet
+            self.cfg.model.add_tagging_features_lframesnet = (
+                self.cfg.data.add_tagging_features_lframesnet
             )
 
-            if cfg.model._target_ in [
+            if self.cfg.model._target_ in [
                 "experiments.tagging.wrappers.GraphNetWrapper",
                 "experiments.tagging.wrappers.TransformerWrapper",
             ]:
-                cfg.model.spurion_strategy = cfg.data.spurion_strategy
-            if cfg.model.lframesnet._target_ in [
+                self.cfg.model.spurion_strategy = self.cfg.data.spurion_strategy
+            if self.cfg.model.lframesnet._target_ in [
                 "tensorframes.lframes.equi_lframes.LearnedRestLFrames",
                 "tensorframes.lframes.equi_lframes.OrthogonalLearnedLFrames",
                 "tensorframes.lframes.equi_lframes.RestLFrames",
             ]:
-                cfg.model.lframesnet.spurion_strategy = cfg.data.spurion_strategy
+                self.cfg.model.lframesnet.spurion_strategy = (
+                    self.cfg.data.spurion_strategy
+                )
 
     def init_data(self):
         data_path = os.path.join(

@@ -35,7 +35,6 @@ class LearnedLFrames(LFramesPredictor):
         self.in_nodes = in_nodes
         self.spurion_strategy = spurion_strategy
         if spurion_strategy == "basis_triplet":
-            # this 2 is a hyperparameter assuming that
             n_vectors = n_vectors - 2
             assert (
                 n_vectors >= 0
@@ -68,6 +67,11 @@ class LearnedLFrames(LFramesPredictor):
         Returns:
             vecs: predicted and combined with spurions if basis symmetry breaking vectors (batch, num_vecs, 4)"""
         assert scalars.shape[-1] == self.in_nodes
+        if (
+            self.spurion_strategy == "particle_add"
+            or self.spurion_strategy == "basis_triplet"
+        ):
+            assert spurions is not None
 
         # calculate and standardize edge attributes
         assert fourmomenta.shape[1] == 4
@@ -115,7 +119,7 @@ class LearnedLFrames(LFramesPredictor):
         )
 
         if self.spurion_strategy == "basis_triplet":
-            vecs = torch.cat([spurions.repeat(vecs.shape[0], 1, 1), vecs], dim=-2)
+            vecs = torch.cat([vecs, spurions.repeat(vecs.shape[0], 1, 1)], dim=-2)
         return vecs
 
     def __repr__(self):
