@@ -112,7 +112,7 @@ class LearnedLFrames(LFramesPredictor):
         )
 
         if self.spurion_strategy == "basis_triplet":
-            vecs = torch.cat([vecs, spurions.repeat(vecs.shape[0], 1, 1)], dim=-2)
+            vecs = torch.cat([spurions.repeat(vecs.shape[0], 1, 1), vecs], dim=-2)
         return vecs
 
 
