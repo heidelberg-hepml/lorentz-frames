@@ -37,7 +37,7 @@ class TaggingExperiment(BaseExperiment):
 
             if self.cfg.data.spurion_strategy == "basis_triplet":
                 assert (
-                    self.cfg.data.add_time_reference
+                    self.cfg.data.add_time_reference is not None
                     and self.cfg.data.beam_reference is not None
                 )
             if self.cfg.data.spurion_strategy is not None:
