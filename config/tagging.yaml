@@ -6,7 +6,7 @@ data:
  two_beams: true
  add_time_reference: true
  seperate_spurions: []
- mass_reg: 1e-2
+ mass_reg: 0.1
 
 evaluation:
  batchsize: 512
