@@ -39,19 +39,19 @@ class AmplitudeExperiment(BaseExperiment):
                     self.cfg.model.lframesnet.in_nodes += 1
 
             if modelname == "TFTransformer":
-                self.cfg.model.net.in_reps = f"{num_particle_types}x0n+1x1n"
+                self.cfg.model.net.in_channels = num_particle_types + 4
                 if self.cfg.data.in_invariant:
-                    self.cfg.model.net.in_reps += "+1x0n"
+                    self.cfg.model.net.in_channels += 1
             elif modelname == "TFGraphNet":
                 assert self.cfg.model.include_nodes or self.cfg.model.include_edges
                 self.cfg.model.net.num_edge_attr = (
                     1 if self.cfg.model.include_edges else 0
                 )
-                self.cfg.model.net.in_reps = f"{num_particle_types}x0n"
+                self.cfg.model.net.in_channels = num_particle_types
                 if self.cfg.model.include_nodes:
-                    self.cfg.model.net.in_reps += "+1x1n"
+                    self.cfg.model.net.in_channels += 4
                 if self.cfg.data.in_invariant:
-                    self.cfg.model.net.in_reps += "+1x0n"
+                    self.cfg.model.net.in_channels += 1
             elif modelname == "MLP":
                 self.cfg.model.net.in_shape = 4 * len(particle_type)
                 if self.cfg.data.in_invariant:

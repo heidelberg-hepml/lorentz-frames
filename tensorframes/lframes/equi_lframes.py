@@ -17,10 +17,12 @@ class LearnedLFrames(LFramesPredictor):
         n_vectors,
         in_nodes,
         *args,
+        ortho_kwargs={},
         **kwargs,
     ):
         super().__init__()
         self.in_nodes = in_nodes
+        self.ortho_kwargs = ortho_kwargs
         self.equivectors = EquivariantVectors(
             n_vectors=n_vectors,
             in_nodes=in_nodes,
@@ -68,6 +70,12 @@ class LearnedLFrames(LFramesPredictor):
         )
         return vecs
 
+    def __repr__(self):
+        classname = self.__class__.__name__
+        method = self.ortho_kwargs["method"]
+        string = f"{classname}(method={method})"
+        return string
+
 
 class OrthogonalLearnedLFrames(LearnedLFrames):
     """
@@ -78,11 +86,9 @@ class OrthogonalLearnedLFrames(LearnedLFrames):
     def __init__(
         self,
         *args,
-        ortho_kwargs={},
         **kwargs,
     ):
         self.n_vectors = 3
-        self.ortho_kwargs = ortho_kwargs
         super().__init__(*args, n_vectors=self.n_vectors, **kwargs)
 
     def forward(self, fourmomenta, scalars, return_tracker=False, **kwargs):
@@ -104,7 +110,6 @@ class RestLFrames(LearnedLFrames):
     def __init__(
         self,
         *args,
-        ortho_kwargs={},
         **kwargs,
     ):
         self.n_vectors = 2
@@ -113,8 +118,6 @@ class RestLFrames(LearnedLFrames):
             n_vectors=self.n_vectors,
             **kwargs,
         )
-
-        self.ortho_kwargs = ortho_kwargs
 
     def forward(self, fourmomenta, scalars, return_tracker=False, **kwargs):
         references = super().forward(fourmomenta, scalars, **kwargs)
@@ -137,7 +140,6 @@ class LearnedRestLFrames(LearnedLFrames):
     def __init__(
         self,
         *args,
-        ortho_kwargs={},
         **kwargs,
     ):
         self.n_vectors = 3
@@ -148,8 +150,6 @@ class LearnedRestLFrames(LearnedLFrames):
             nonlinearity="exp",
             **kwargs,
         )
-
-        self.ortho_kwargs = ortho_kwargs
 
     def forward(self, fourmomenta, scalars, return_tracker=False, **kwargs):
         vecs = super().forward(fourmomenta, scalars, **kwargs)

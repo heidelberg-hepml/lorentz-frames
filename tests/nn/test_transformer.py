@@ -44,9 +44,9 @@ def test_transformer_invariance_equivariance(
     in_reps = TensorReps("1x1n")
     trafo = TensorRepsTransform(TensorReps(in_reps))
     net = TFTransformer(
-        in_reps=in_reps,
+        in_channels=in_reps.dim,
         attn_reps=attn_reps,
-        out_reps=in_reps,
+        out_channels=in_reps.dim,
         num_blocks=num_blocks,
         num_heads=num_heads,
     ).to(dtype=dtype)

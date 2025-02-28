@@ -112,7 +112,7 @@ class BaseExperiment:
             p.numel() for p in self.model.lframesnet.parameters() if p.requires_grad
         )
         LOGGER.info(
-            f"LFrames approach: {type(self.model.lframesnet).__name__} ({num_parameters_lframesnet} learnable parameters)"
+            f"LFrames approach: {self.model.lframesnet} ({num_parameters_lframesnet} learnable parameters)"
         )
 
         if self.cfg.ema:
