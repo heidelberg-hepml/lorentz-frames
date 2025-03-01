@@ -133,8 +133,8 @@ class GraphNetWrapper(AmplitudeWrapper):
         self.include_nodes = include_nodes
 
         if self.include_edges:
-            self.register_buffer("edge_mean", torch.zeros(0))
-            self.register_buffer("edge_std", torch.ones(1))
+            self.register_buffer("edge_mean", torch.tensor(0.0))
+            self.register_buffer("edge_std", torch.tensor(1.0))
 
     def init_preprocessing(self, fourmomenta):
         super().init_preprocessing(fourmomenta)
