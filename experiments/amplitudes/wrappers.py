@@ -133,7 +133,6 @@ class GraphNetWrapper(AmplitudeWrapper):
         self.include_nodes = include_nodes
 
         if self.include_edges:
-            self.register_buffer("edge_inited", torch.tensor(False, dtype=torch.bool))
             self.register_buffer("edge_mean", torch.zeros(0))
             self.register_buffer("edge_std", torch.ones(1))
 
@@ -152,7 +151,6 @@ class GraphNetWrapper(AmplitudeWrapper):
             edge_attr = mij2.clamp(min=1e-10).log()
             self.edge_mean = edge_attr.mean()
             self.edge_std = edge_attr.std().clamp(min=1e-10)
-            self.edge_inited.fill_(True)
 
     def forward(self, fourmomenta_global):
         (
