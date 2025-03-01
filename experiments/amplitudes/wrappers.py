@@ -227,21 +227,18 @@ class GATrWrapper(AmplitudeWrapper):
     def forward(self, fourmomenta_global):
         (
             _,
-            _,
+            fourmomenta_local,
             particle_type,
             in_invariant,
             _,
             tracker,
         ) = super().forward(fourmomenta_global)
-        fourmomenta = (
-            fourmomenta_global[..., IN_PARTICLES:, :]
-            if self.in_invariant
-            else fourmomenta_global
-        )
 
         # prepare multivectors and scalars
-        multivectors = embed_vector(fourmomenta.unsqueeze(-2))
-        in_invariant = in_invariant.unsqueeze(-2).repeat(1, fourmomenta.shape[1], 1)
+        multivectors = embed_vector(fourmomenta_local.unsqueeze(-2))
+        in_invariant = in_invariant.unsqueeze(-2).repeat(
+            1, fourmomenta_local.shape[1], 1
+        )
         scalars = torch.cat([in_invariant, particle_type], dim=-1)
 
         # call network

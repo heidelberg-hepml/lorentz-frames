@@ -58,6 +58,7 @@ class AmplitudeExperiment(BaseExperiment):
                     self.cfg.model.net.in_shape -= 4 * IN_PARTICLES
                     self.cfg.model.net.in_shape += 1
             elif modelname == "GATr":
+                assert not learnable_lframesnet, "GATr is no tensorframes model"
                 self.cfg.model.net.in_s_channels = num_particle_types
                 if self.cfg.data.in_invariant:
                     self.cfg.model.net.in_s_channels += 1
