@@ -4,7 +4,7 @@ from tensorframes.lframes.lframes import LFrames
 from tensorframes.lframes.nonequi_lframes import LFramesPredictor
 from tensorframes.utils.restframe import restframe_equivariant
 from tensorframes.equivectors.graphnet import EquivariantGraphNet
-from tensorframes.utils.lorentz import lorentz_squarednorm
+from tensorframes.utils.lorentz import lorentz_squarednorm, lorentz_eye
 from tensorframes.utils.orthogonalize import orthogonal_trafo
 
 
@@ -155,6 +155,39 @@ class LearnedRestLFrames(LearnedLFrames):
         vecs = super().forward(fourmomenta, scalars, **kwargs)
         fourmomenta = vecs[..., 0, :]
         references = [vecs[..., i, :] for i in range(1, self.n_vectors)]
+
+        trafo, reg_collinear = restframe_equivariant(
+            fourmomenta,
+            references,
+            **self.ortho_kwargs,
+            return_reg=True,
+        )
+        tracker = {"reg_collinear": reg_collinear}
+        lframes = LFrames(trafo)
+        return (lframes, tracker) if return_tracker else lframes
+
+
+class LearnedRotationLFrames(LearnedLFrames):
+    """O(3) special case"""
+
+    def __init__(
+        self,
+        *args,
+        **kwargs,
+    ):
+        self.n_vectors = 2
+        super().__init__(
+            *args,
+            n_vectors=self.n_vectors,
+            **kwargs,
+        )
+
+    def forward(self, fourmomenta, scalars, return_tracker=False, **kwargs):
+        references = super().forward(fourmomenta, scalars, **kwargs)
+        fourmomenta = lorentz_eye(fourmomenta.shape[:-1], device=fourmomenta.device)[
+            ..., 0
+        ]  # only different compared to RestLFrames
+        references = [references[..., i, :] for i in range(self.n_vectors)]
 
         trafo, reg_collinear = restframe_equivariant(
             fourmomenta,
