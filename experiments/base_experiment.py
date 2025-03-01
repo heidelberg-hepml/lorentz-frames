@@ -16,6 +16,14 @@ import experiments.logger
 from experiments.logger import LOGGER, MEMORY_HANDLER, FORMATTER
 from experiments.mlflow import log_mlflow
 
+# for GATr
+from hydra.core.config_store import ConfigStore
+from experiments.baselines.gatr.layers import MLPConfig, SelfAttentionConfig
+
+cs = ConfigStore.instance()
+cs.store(name="base_attention", node=SelfAttentionConfig)
+cs.store(name="base_mlp", node=MLPConfig)
+
 # set to 'True' to debug autograd issues (slows down code)
 torch.autograd.set_detect_anomaly(False)
 MIN_STEP_SKIP = 1000

@@ -13,7 +13,7 @@ from experiments.amplitudes.plots import plot_mixer
 from experiments.logger import LOGGER
 from experiments.mlflow import log_mlflow
 
-MODEL_TITLE = {"TFTransformer": "Tr", "MLP": "MLP", "TFGraphNet": "GN"}
+MODEL_TITLE = {"TFTransformer": "Tr", "MLP": "MLP", "TFGraphNet": "GN", "GATr": "GATr"}
 
 
 class AmplitudeExperiment(BaseExperiment):
@@ -57,6 +57,10 @@ class AmplitudeExperiment(BaseExperiment):
                 if self.cfg.data.in_invariant:
                     self.cfg.model.net.in_shape -= 4 * IN_PARTICLES
                     self.cfg.model.net.in_shape += 1
+            elif modelname == "GATr":
+                self.cfg.model.net.in_s_channels = num_particle_types
+                if self.cfg.data.in_invariant:
+                    self.cfg.model.net.in_s_channels += 1
             else:
                 raise ValueError(f"Model {modelname} not implemented")
         LOGGER.info(f"Using particle_type={particle_type}")

@@ -4,6 +4,7 @@ from torch_geometric.nn.aggr import MeanAggregation
 
 from experiments.amplitudes.utils import preprocess_momentum, encode_event
 from experiments.amplitudes.constants import IN_PARTICLES
+from experiments.baselines.gatr.interface import embed_vector, extract_scalar
 
 from tensorframes.reps.tensorreps import TensorReps
 from tensorframes.reps.tensorreps_transform import TensorRepsTransform
@@ -216,3 +217,37 @@ def build_edge_index(features_ref, remove_self_loops=False):
 
     batch = torch.arange(batch_size, device=device).repeat_interleave(seq_len)
     return edge_index_global, batch
+
+
+class GATrWrapper(AmplitudeWrapper):
+    def __init__(self, net, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.net = net
+
+    def forward(self, fourmomenta_global):
+        (
+            _,
+            _,
+            particle_type,
+            in_invariant,
+            _,
+            tracker,
+        ) = super().forward(fourmomenta_global)
+        fourmomenta = (
+            fourmomenta_global[..., IN_PARTICLES:, :]
+            if self.in_invariant
+            else fourmomenta_global
+        )
+
+        # prepare multivectors and scalars
+        multivectors = embed_vector(fourmomenta.unsqueeze(-2))
+        in_invariant = in_invariant.unsqueeze(-2).repeat(1, fourmomenta.shape[1], 1)
+        scalars = torch.cat([in_invariant, particle_type], dim=-1)
+
+        # call network
+        out_mv, _ = self.net(multivectors, scalars)
+        out_mv = extract_scalar(out_mv)[..., 0]  # extract 0th channel of scalar
+
+        # mean aggregation
+        amp = out_mv.mean(dim=-2)
+        return amp, tracker
