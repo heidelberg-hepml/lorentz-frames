@@ -20,29 +20,29 @@ from experiments.tagging.miniweaver.dataset import SimpleIterDataset
 from experiments.tagging.miniweaver.loader import to_filelist
 
 
-class JetClassTaggingExperiment(TaggingExperiment):
+class TopXLTaggingExperiment(TaggingExperiment):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         with open_dict(self.cfg):
-            self.cfg.model.out_reps = f"1x0n"
-            self.cfg.model.in_reps = "1x1n"  # energy-momentum vector
+            self.cfg.model.out_channels = 1
+            self.cfg.model.in_channels = 4  # energy-momentum vector
 
             if self.cfg.data.features == "fourmomenta":
                 self.cfg.data.data_config = (
                     "experiments/tagging/miniweaver/configs_topxl/fourmomenta.yaml"
                 )
             elif self.cfg.data.features == "pid":
-                self.cfg.model.in_reps += "+6x0n"
+                self.cfg.model.in_channels += 2
                 self.cfg.data.data_config = (
                     "experiments/tagging/miniweaver/configs_topxl/pid.yaml"
                 )
             elif self.cfg.data.features == "displacements":
-                self.cfg.model.in_reps += "+4x0n"
+                self.cfg.model.in_channels += 4
                 self.cfg.data.data_config = (
                     "experiments/tagging/miniweaver/configs_topxl/displacements.yaml"
                 )
             elif self.cfg.data.features == "default":
-                self.cfg.model.in_reps += "+10x0n"
+                self.cfg.model.in_channels += 6
                 self.cfg.data.data_config = (
                     "experiments/tagging/miniweaver/configs_topxl/default.yaml"
                 )
@@ -73,7 +73,7 @@ class JetClassTaggingExperiment(TaggingExperiment):
         for label in ["train", "test", "val"]:
             path = os.path.join(self.cfg.data.data_dir, folder[label])
             flist = [
-                f"{path}/train_{str(i).zfill(3)}.root"
+                f"{path}/train_{str(i).zfill(3)}.parquet"
                 for i in range(*files_range[label])
             ]
             file_dict, _ = to_filelist(flist)
