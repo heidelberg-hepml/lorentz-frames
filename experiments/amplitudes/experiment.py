@@ -94,8 +94,9 @@ class AmplitudeExperiment(BaseExperiment):
             self.amplitude
         )
         self.momentum_prepd = self.momentum / self.momentum.std()
-        self.model.init_preprocessing(self.momentum_prepd)
-        self.model.to(device=self.device, dtype=self.dtype)
+        if self.cfg.data.standardize:
+            self.model.init_preprocessing(self.momentum_prepd)
+            self.model.to(device=self.device, dtype=self.dtype)
 
     def _init_dataloader(self):
         assert sum(self.cfg.data.train_test_val) <= 1
