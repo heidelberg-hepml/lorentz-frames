@@ -233,4 +233,5 @@ class TopXLTaggingExperiment(TaggingExperiment):
         fourmomenta, scalars, ptr = dense_to_sparse_jet(fourmomenta, scalars)
         embedding = embed_tagging_data(fourmomenta, scalars, ptr, self.cfg.data)
         y_pred, tracker = self.model(embedding)
-        return y_pred, label, tracker
+        y_pred = y_pred[:,0]
+        return y_pred, label.to(self.dtype), tracker
