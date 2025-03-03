@@ -13,8 +13,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from weaver.utils.logger import _logger
-
 
 @torch.jit.script
 def delta_phi(a, b):
@@ -744,8 +742,6 @@ class ParticleTransformer(nn.Module):
                  **kwargs) -> None:
         super().__init__(**kwargs)
 
-        _logger.info('ParticleTransformer init-ed: %s', locals())
-
         self.trimmer = SequenceTrimmer(enabled=trim and not for_inference)
         self.for_inference = for_inference
         self.for_segmentation = for_segmentation
@@ -768,13 +764,11 @@ class ParticleTransformer(nn.Module):
         cfg_block = copy.deepcopy(default_cfg)
         if block_params is not None:
             cfg_block.update(block_params)
-        _logger.info('cfg_block: %s' % str(cfg_block))
 
         cfg_cls_block = copy.deepcopy(default_cfg)
         cfg_cls_block.update({'dropout': 0, 'attn_dropout': 0, 'activation_dropout': 0})
         if cls_block_params is not None:
             cfg_cls_block.update(cls_block_params)
-        _logger.info('cfg_cls_block: %s' % str(cfg_cls_block))
 
         self.embed = Embed(input_dim, embed_dims, activation=activation) if len(embed_dims) > 0 else nn.Identity()
 
