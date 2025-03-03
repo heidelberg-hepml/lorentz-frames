@@ -12,7 +12,7 @@ new_variables:
 
 inputs:
    pf_features:
-      length: 128
+      length: 200
       pad_mode: constant
       vars: 
       ### [format 1]: var_name (no transformation)
@@ -22,15 +22,13 @@ inputs:
       ###              clip_min(optional, default=-5), 
       ###              clip_max(optional, default=5), 
       ###              pad_value(optional, default=0)]
-         - [part_charge, null]
-         - [part_PID, null]
          - [part_d0, null]
          - [part_ErrD0, 0, 1, 0, 1]
          - [part_dz, null]
          - [part_ErrDZ, 0, 1, 0, 1]
  
    pf_vectors:
-      length: 128
+      length: 200
       pad_mode: constant
       vars: 
          - [part_energy, null]

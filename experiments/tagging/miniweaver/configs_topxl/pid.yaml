@@ -10,7 +10,7 @@ new_variables:
 
 inputs:
    pf_features:
-      length: 128
+      length: 200
       pad_mode: constant
       vars: 
       ### [format 1]: var_name (no transformation)
@@ -23,7 +23,7 @@ inputs:
          - [part_charge, null]
          - [part_PID, null]
    pf_vectors:
-      length: 128
+      length: 200
       pad_mode: constant
       vars: 
          - [part_energy, null]
