@@ -1,5 +1,4 @@
 _target_: experiments.tagging.wrappers.BaselineParticleNetWrapper
-in_reps: null
 
 net:
  _target_: experiments.baselines.particlenet.ParticleNet
