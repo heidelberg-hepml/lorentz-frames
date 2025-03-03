@@ -6,7 +6,7 @@ data:
  data_path : data/
  subsample: null
  permutation_symmetry: true
- in_invariant: true
+ in_invariant: false
  standardize: true
  train_test_val: [.4, .5, .1]
 

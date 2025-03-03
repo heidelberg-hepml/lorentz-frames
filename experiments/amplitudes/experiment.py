@@ -28,6 +28,10 @@ class AmplitudeExperiment(BaseExperiment):
         with open_dict(self.cfg):
             self.cfg.model.particle_type = particle_type
             self.cfg.model.in_invariant = self.cfg.data.in_invariant
+            if self.cfg.data.in_invariant:
+                LOGGER.warning(
+                    f"Using data.in_invariant=true, but this approach is not fully expressive"
+                )
 
             learnable_lframesnet = (
                 OmegaConf.select(self.cfg.model.lframesnet, "ortho_kwargs") is not None
