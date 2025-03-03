@@ -228,6 +228,7 @@ class BaselineParTWrapper(TaggerWrapper):
     def __init__(
         self,
         net,
+        pad_noise=False,
         *args,
         **kwargs,
     ):
@@ -236,6 +237,7 @@ class BaselineParTWrapper(TaggerWrapper):
             self.lframesnet.is_global
         ), "Non-equivariant model can only handle global lframes"
         self.net = net(num_classes=self.out_channels)
+        self.pad_noise = pad_noise
 
     def forward(self, embedding):
         fourmomenta_local, _, _, _, batch, tracker = super().forward(embedding)
@@ -247,8 +249,9 @@ class BaselineParTWrapper(TaggerWrapper):
         fourmomenta_local, mask = to_dense_batch(fourmomenta_local, batch)
         features_local, _ = to_dense_batch(features_local, batch)
 
-        # fourmomenta_local[~mask] = torch.randn_like(fourmomenta_local[~mask])
-        # features_local[~mask] = torch.randn_like(features_local[~mask])
+        if self.pad_noise:
+            fourmomenta_local[~mask] = torch.randn_like(fourmomenta_local[~mask])
+            features_local[~mask] = torch.randn_like(features_local[~mask])
 
         fourmomenta_local = fourmomenta_local.transpose(1, 2)
         features_local = features_local.transpose(1, 2)

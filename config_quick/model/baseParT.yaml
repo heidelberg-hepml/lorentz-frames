@@ -1,4 +1,5 @@
 _target_: experiments.tagging.wrappers.BaselineParTWrapper
+pad_noise: false
 
 net:
  _target_: experiments.baselines.particletransformer.ParticleTransformer
