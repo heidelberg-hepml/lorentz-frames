@@ -55,4 +55,4 @@ jobs:
 
     - name: Baseline ParT without pairwise features
       run: |
-        python run.py model=baseParT save=false evaluate=false training.iterations=3 model.use_pair_attn=false
+        python run.py model=baseParT save=false evaluate=false training.iterations=3 model.net.pair_input_dim=0
