@@ -16,12 +16,14 @@ class AmplitudeWrapper(nn.Module):
         self,
         particle_type,
         in_invariant,
+        arcsinh_trick,
         lframesnet,
     ):
         super().__init__()
         if in_invariant:
             particle_type = particle_type[IN_PARTICLES:]
         self.in_invariant = in_invariant
+        self.arcsinh_trick = arcsinh_trick
         self.register_buffer("particle_type", torch.tensor(particle_type))
         self.register_buffer("mom_mean", torch.tensor(0.0))
         self.register_buffer("mom_std", torch.tensor(1.0))
@@ -67,7 +69,8 @@ class AmplitudeWrapper(nn.Module):
         features_local, _, _ = preprocess_momentum(
             fourmomenta_local, self.mom_mean, self.mom_std
         )
-        features_local = torch.arcsinh(features_local)  # suppress tails
+        if self.arcsinh_trick:
+            features_local = torch.arcsinh(features_local)  # suppress tails
         return (
             features_local,
             fourmomenta_local,
