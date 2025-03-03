@@ -1,0 +1,13 @@
+_target_: tensorframes.equivectors.graphnet.EquiGraphNet
+_partial_: true
+
+n_vectors: null
+in_nodes: null
+hidden_channels: 32
+num_layers_mlp: 2
+num_blocks: 1
+dropout_prob: null
+
+include_edges: true
+operation: single
+nonlinearity: exp

@@ -3,9 +3,11 @@ from torch.nn import Identity, Softplus
 from torch_geometric.nn import MessagePassing
 
 from tensorframes.nn.mlp import MLP
+from tensorframes.equivectors.base import EquiVectors
+from tensorframes.utils.lorentz import lorentz_squarednorm
 
 
-class EquivariantGraphNet(MessagePassing):
+class EquiGraphNet(EquiVectors, MessagePassing):
     """
     Node and edge attributes are supported,
     the most basic setting is to only use edge attributes
@@ -16,36 +18,64 @@ class EquivariantGraphNet(MessagePassing):
         self,
         n_vectors,
         in_nodes,
-        in_edges,
         hidden_channels,
-        num_layers,
+        num_layers_mlp,
+        num_blocks=1,
+        include_edges=True,
         operation="single",
         nonlinearity="exp",
         dropout_prob=None,
     ):
         super().__init__()
+        assert num_blocks == 1, "More to come"
+
+        self.include_edges = include_edges
         self.n_vectors = n_vectors
         self.operation = self.get_operation(operation)
         self.nonlinearity = self.get_nonlinearity(nonlinearity)
-        in_channels = 2 * in_nodes + in_edges
 
+        in_edges = 1 if include_edges else 0
+        in_channels = 2 * in_nodes + in_edges
         self.mlp = MLP(
             in_shape=[in_channels],
             out_shape=n_vectors,
             hidden_channels=hidden_channels,
-            hidden_layers=num_layers,
+            hidden_layers=num_layers_mlp,
             dropout_prob=dropout_prob,
         )
 
-    def forward(self, x, fm, edge_attr, edge_index, batch=None):
-        vecs = self.propagate(edge_index, x=x, fm=fm, edge_attr=edge_attr, batch=batch)
+        if include_edges:
+            self.register_buffer("edge_inited", torch.tensor(False, dtype=torch.bool))
+            self.register_buffer("edge_mean", torch.zeros(0))
+            self.register_buffer("edge_std", torch.ones(1))
+
+    def forward(self, fourmomenta, scalars, edge_index, batch=None):
+        # calculate and standardize edge attributes
+        if self.include_edges:
+            mij2 = lorentz_squarednorm(
+                fourmomenta[edge_index[0]] + fourmomenta[edge_index[1]]
+            ).unsqueeze(-1)
+            edge_attr = mij2.clamp(min=1e-10).log()
+            if not self.edge_inited:
+                self.edge_mean = edge_attr.mean()
+                self.edge_std = edge_attr.std().clamp(min=1e-5)
+                self.edge_inited.fill_(True)
+            edge_attr = (edge_attr - self.edge_mean) / self.edge_std
+        else:
+            edge_attr = None
+
+        # message-passing
+        vecs = self.propagate(
+            edge_index, s=scalars, fm=fourmomenta, edge_attr=edge_attr, batch=batch
+        )
         vecs = vecs.reshape(-1, self.n_vectors, 4)
         assert torch.isfinite(vecs).all()
         return vecs
 
-    def message(self, x_i, x_j, fm_i, fm_j, edge_attr):
-        prefactor = torch.cat([x_i, x_j], dim=-1)
-        prefactor = torch.cat([prefactor, edge_attr], dim=-1)
+    def message(self, s_i, s_j, fm_i, fm_j, edge_attr=None):
+        prefactor = torch.cat([s_i, s_j], dim=-1)
+        if edge_attr is not None:
+            prefactor = torch.cat([prefactor, edge_attr], dim=-1)
         prefactor = self.mlp(prefactor)
         prefactor = self.nonlinearity(prefactor)
 

@@ -59,6 +59,9 @@ class AmplitudeExperiment(BaseExperiment):
                 self.cfg.model.net.in_shape = 4 * len(particle_type)
             else:
                 raise ValueError(f"Model {modelname} not implemented")
+
+            if "equivectors" in self.cfg.model.lframesnet:
+                self.cfg.model.lframesnet.equivectors.in_nodes = 0
         LOGGER.info(f"Using particle_type={particle_type}")
 
     def init_data(self):

@@ -51,6 +51,12 @@ class TaggingExperiment(BaseExperiment):
                 num_spurions += 1 if self.cfg.data.add_time_reference else 0
                 self.cfg.model.in_channels += num_spurions * 4
 
+            if "equivectors" in self.cfg.model.lframesnet:
+                # TODO Closely related to spurions, changed by future PR#16
+                self.cfg.model.lframesnet.equivectors.in_nodes = (
+                    self.cfg.model.in_channels - 4
+                )
+
     def init_data(self):
         raise NotImplementedError
 

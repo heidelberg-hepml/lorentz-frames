@@ -1,7 +1,7 @@
 import torch
 import pytest
 from tests.constants import TOLERANCES, LOGM2_MEAN_STD, REPS, LFRAMES_PREDICTOR
-from tests.helpers import sample_particle
+from tests.helpers import sample_particle, equivectors_builder
 from torch_geometric.utils import dense_to_sparse
 
 from tensorframes.nn.graphnet import EdgeConv, TFGraphNet
@@ -31,9 +31,8 @@ def test_edgeconv_invariance_equivariance(
     edge_index = dense_to_sparse(torch.ones(batch_dims[0], batch_dims[0]))[0]
 
     assert len(batch_dims) == 1
-    predictor = LFramesPredictor(hidden_channels=16, num_layers=1, in_nodes=0).to(
-        dtype=dtype
-    )
+    equivectors = equivectors_builder(in_nodes=0)
+    predictor = LFramesPredictor(equivectors=equivectors).to(dtype=dtype)
     batch = torch.zeros(batch_dims, dtype=torch.long)
     scalars = torch.zeros(*batch_dims, 0, dtype=dtype)
     call_predictor = lambda fm: predictor(
@@ -107,9 +106,8 @@ def test_graphnet_invariance_equivariance(
     edge_index = dense_to_sparse(torch.ones(batch_dims[0], batch_dims[0]))[0]
 
     assert len(batch_dims) == 1
-    predictor = LFramesPredictor(hidden_channels=16, num_layers=1, in_nodes=0).to(
-        dtype=dtype
-    )
+    equivectors = equivectors_builder(in_nodes=0)
+    predictor = LFramesPredictor(equivectors=equivectors).to(dtype=dtype)
     batch = torch.zeros(batch_dims, dtype=torch.long)
     scalars = torch.zeros(*batch_dims, 0, dtype=dtype)
     call_predictor = lambda fm: predictor(

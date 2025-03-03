@@ -17,13 +17,11 @@ class AmplitudeWrapper(nn.Module):
         lframesnet,
     ):
         super().__init__()
+        self.lframesnet = lframesnet
+
         self.register_buffer("particle_type", torch.tensor(particle_type))
         self.register_buffer("mom_mean", torch.tensor(0.0))
         self.register_buffer("mom_std", torch.tensor(1.0))
-        if isinstance(lframesnet, partial):
-            self.lframesnet = lframesnet(in_nodes=0)
-        else:
-            self.lframesnet = lframesnet
 
         self.trafo_fourmomenta = TensorRepsTransform(TensorReps("1x1n"))
 

@@ -1,6 +1,7 @@
 import torch
 
 from tensorframes.utils.lorentz import lorentz_metric
+from tensorframes.equivectors.graphnet import EquiGraphNet
 
 
 def sample_particle(
@@ -25,3 +26,16 @@ def lorentz_test(trafo, **kwargs):
         "...ij,...jk,...kl->...il", trafo, metric, trafo.transpose(-1, -2)
     )
     torch.testing.assert_close(test, metric, **kwargs)
+
+
+def equivectors_builder(in_nodes=0):
+    def builder(n_vectors):
+        return EquiGraphNet(
+            n_vectors=n_vectors,
+            in_nodes=in_nodes,
+            hidden_channels=16,
+            num_layers_mlp=1,
+            num_blocks=1,
+        )
+
+    return builder
