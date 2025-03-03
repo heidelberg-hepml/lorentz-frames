@@ -236,10 +236,10 @@ class BaselineParTWrapper(TaggerWrapper):
         assert (
             self.lframesnet.is_global
         ), "Non-equivariant model can only handle global lframes"
-        pair_embed_dims = [64, 64, 64] if use_pair_attn else None
+        pair_input_dim = None if use_pair_attn else 0
         self.net = net(
             num_classes=self.out_channels,
-            pair_embed_dims=pair_embed_dims,
+            pair_input_dim=pair_input_dim,
         )
 
     def forward(self, embedding):
@@ -249,11 +249,8 @@ class BaselineParTWrapper(TaggerWrapper):
         fourmomenta_local *= UNITS  # ParT wants unscaled fourmomenta
         fourmomenta_local = fourmomenta_local[..., [1, 2, 3, 0]]  # need (px, py, pz, E)
 
-        fourmomenta_local, mask = to_dense_batch(fourmomenta_local, batch)
-        features_local, _ = to_dense_batch(features_local, batch)
-
-        fourmomenta_local[~mask] = torch.randn_like(fourmomenta_local[~mask])
-        features_local[~mask] = torch.randn_like(features_local[~mask])
+        # fourmomenta_local, mask = to_dense_batch(fourmomenta_local, batch)
+        # features_local, _ = to_dense_batch(features_local, batch)
 
         fourmomenta_local = fourmomenta_local.transpose(1, 2)
         features_local = features_local.transpose(1, 2)
