@@ -249,8 +249,11 @@ class BaselineParTWrapper(TaggerWrapper):
         fourmomenta_local *= UNITS  # ParT wants unscaled fourmomenta
         fourmomenta_local = fourmomenta_local[..., [1, 2, 3, 0]]  # need (px, py, pz, E)
 
-        # fourmomenta_local, mask = to_dense_batch(fourmomenta_local, batch)
-        # features_local, _ = to_dense_batch(features_local, batch)
+        fourmomenta_local, mask = to_dense_batch(fourmomenta_local, batch)
+        features_local, _ = to_dense_batch(features_local, batch)
+
+        # fourmomenta_local[~mask] = torch.randn_like(fourmomenta_local[~mask])
+        # features_local[~mask] = torch.randn_like(features_local[~mask])
 
         fourmomenta_local = fourmomenta_local.transpose(1, 2)
         features_local = features_local.transpose(1, 2)
