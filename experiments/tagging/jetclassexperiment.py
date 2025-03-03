@@ -37,7 +37,7 @@ class JetClassTaggingExperiment(TaggingExperiment):
             "ZToQQ",
         ]
         with open_dict(self.cfg):
-            self.cfg.model.out_channels = self.class_names
+            self.cfg.model.out_channels = len(self.class_names)
             self.cfg.model.in_channels = 4  # energy-momentum vector
 
             if self.cfg.data.features == "fourmomenta":
@@ -57,7 +57,7 @@ class JetClassTaggingExperiment(TaggingExperiment):
             elif self.cfg.data.features == "default":
                 self.cfg.model.in_channels += 10
                 self.cfg.data.data_config = (
-                    "experiments/tagging/miniweaver/config_jetclass/default.yaml"
+                    "experiments/tagging/miniweaver/configs_jetclass/default.yaml"
                 )
             else:
                 raise ValueError(
