@@ -36,13 +36,18 @@ class TopXLTaggingExperiment(TaggingExperiment):
                 self.cfg.data.data_config = (
                     "experiments/tagging/miniweaver/configs_topxl/pid.yaml"
                 )
+            elif self.cfg.data.features == "pid_onehot":
+                self.cfg.model.in_channels += 6
+                self.cfg.data.data_config = (
+                    "experiments/tagging/miniweaver/configs_topxl/pid_onehot.yaml"
+                )
             elif self.cfg.data.features == "displacements":
                 self.cfg.model.in_channels += 4
                 self.cfg.data.data_config = (
                     "experiments/tagging/miniweaver/configs_topxl/displacements.yaml"
                 )
             elif self.cfg.data.features == "default":
-                self.cfg.model.in_channels += 6
+                self.cfg.model.in_channels += 10
                 self.cfg.data.data_config = (
                     "experiments/tagging/miniweaver/configs_topxl/default.yaml"
                 )
@@ -70,7 +75,7 @@ class TopXLTaggingExperiment(TaggingExperiment):
         for label in ["train", "test", "val"]:
             path = os.path.join(self.cfg.data.data_dir, folder[label])
             flist = [
-                f"{path}/train_{str(i).zfill(3)}.parquet"
+                f"{path}/{label}_{str(i).zfill(3)}.parquet"
                 for i in range(*files_range[label])
             ]
             file_dict, _ = to_filelist(flist)
@@ -129,91 +134,6 @@ class TopXLTaggingExperiment(TaggingExperiment):
             num_workers=num_workers["test"],
             **self.loader_kwargs,
         )
-
-    def _evaluate_single(self, loader, title, mode, step=None):
-        assert mode in ["val", "eval"]
-
-        if mode == "eval":
-            LOGGER.info(f"### Starting to evaluate model on {title} dataset ###")
-        metrics = {}
-
-        # predictions
-        labels_true, labels_predict = [], []
-        self.model.eval()
-        if self.cfg.training.optimizer == "ScheduleFree":
-            self.optimizer.eval()
-        with torch.no_grad():
-            for batch in loader:
-                y_pred, label = self._get_ypred_and_label(batch)
-                y_pred = torch.nn.functional.sigmoid(y_pred)
-                labels_true.append(label.cpu())
-                labels_predict.append(y_pred.cpu().float())
-
-        labels_true, labels_predict = torch.cat(labels_true), torch.cat(labels_predict)
-        if mode == "eval":
-            metrics["labels_true"], metrics["labels_predict"] = (
-                labels_true,
-                labels_predict,
-            )
-
-        # ce loss
-        metrics["loss"] = torch.nn.functional.cross_entropy(
-            labels_predict, labels_true
-        ).item()
-        labels_true, labels_predict = (
-            labels_true.numpy(),
-            labels_predict.numpy(),
-        )
-
-        # accuracy
-        metrics["accuracy"] = accuracy_score(labels_true, np.round(labels_predict))
-        if mode == "eval":
-            LOGGER.info(f"Accuracy on {title} dataset:\t{metrics['accuracy']:.4f}")
-
-        # auc and roc (fpr = epsB, tpr = epsS)
-        metrics["auc"] = roc_auc_score(labels_true, labels_predict)
-        if mode == "eval":
-            LOGGER.info(f"The AUC is\t\t{metrics['auc']:.6f}")
-
-        # roc (fpr = epsB, tpr = epsS)
-        fpr, tpr, th = roc_curve(labels_true, labels_predict)
-        if mode == "eval":
-            metrics["fpr"], metrics["tpr"] = fpr, tpr
-
-        # 1/epsB at fixed epsS
-        def get_rej(epsS, tpr, fpr):
-            background_eff_fn = interp1d(tpr, fpr)
-            return 1 / background_eff_fn(epsS)
-
-        metrics["rej03"] = get_rej(0.3)
-        metrics["rej05"] = get_rej(0.5)
-        metrics["rej08"] = get_rej(0.8)
-        if mode == "eval":
-            LOGGER.info(
-                f"Rejection rate {title} dataset: {metrics['rej03']:.0f} (epsS=0.3), "
-                f"{metrics['rej05']:.0f} (epsS=0.5), {metrics['rej08']:.0f} (epsS=0.8)"
-            )
-
-            lframeString = type(self.model.lframesnet).__name__
-            num_parameters = sum(
-                p.numel() for p in self.model.parameters() if p.requires_grad
-            )
-
-            LOGGER.info(
-                f"table {title}: {lframeString} ({self.cfg.training.iterations} epochs)"
-                f" & {num_parameters} & {metrics['accuracy']:.4f}&{metrics['auc']:.4f}"
-                f" & {metrics['rej03']:.0f}&{metrics['rej05']:.0f}&{metrics['rej08']:.0f} \\\\"
-            )
-
-        if self.cfg.use_mlflow:
-            for key, value in metrics.items():
-                if key in ["labels_true", "labels_predict"]:
-                    # do not log matrices
-                    continue
-                name = f"{mode}.{title}" if mode == "eval" else "val"
-                log_mlflow(f"{name}.{key}", value, step=step)
-
-        return metrics
 
     def _get_ypred_and_label(self, batch):
         fourmomenta = batch[0]["pf_vectors"].to(self.device)
