@@ -51,9 +51,6 @@ class TopXLTaggingExperiment(TaggingExperiment):
                     f"Input feature option {self.cfg.data.features} not implemented"
                 )
 
-    def _init_loss(self):
-        self.loss = torch.nn.CrossEntropyLoss()
-
     def init_data(self):
         LOGGER.info(f"Creating SimpleIterDataset")
         t0 = time.time()
@@ -91,6 +88,7 @@ class TopXLTaggingExperiment(TaggingExperiment):
                 fetch_step=self.cfg.jc_params.fetch_step,
                 infinity_mode=self.cfg.jc_params.steps_per_epoch is not None,
                 in_memory=self.cfg.jc_params.in_memory,
+                events_per_file=self.cfg.jc_params.events_per_file,
                 name=label,
             )
         self.data_train = datasets["train"]
@@ -233,5 +231,5 @@ class TopXLTaggingExperiment(TaggingExperiment):
         fourmomenta, scalars, ptr = dense_to_sparse_jet(fourmomenta, scalars)
         embedding = embed_tagging_data(fourmomenta, scalars, ptr, self.cfg.data)
         y_pred, tracker = self.model(embedding)
-        y_pred = y_pred[:,0]
+        y_pred = y_pred[:, 0]
         return y_pred, label.to(self.dtype), tracker

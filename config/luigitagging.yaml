@@ -4,7 +4,7 @@ exp_name: luigi_debug
 data:
  data_dir: data/topxl/
  features: default
- add_scalar_features: true
+ add_scalar_features: True
  train_files_range: [0, 1]
  test_files_range: [0, 1]
  val_files_range: [0, 1]
@@ -19,14 +19,15 @@ jc_params:
  not_remake_weights: False
  steps_per_epoch: null
  steps_per_epoch_val: null
+ events_per_file: 500000
 
 evaluation:
  batchsize: 1024
  eval_set: [test]
 
 plotting:
- roc: false
- score: false
+ roc: true
+ score: true
 
 defaults:
  - tagging
