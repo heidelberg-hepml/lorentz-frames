@@ -6,7 +6,10 @@ net:
  _partial_: true
  num_classes: null
  input_dim: 7
+
+ pair_input_dim: null
  use_amp: true
+ trim: true
 
 defaults:
  - lframesnet: identity

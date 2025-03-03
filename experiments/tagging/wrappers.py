@@ -228,7 +228,6 @@ class BaselineParTWrapper(TaggerWrapper):
     def __init__(
         self,
         net,
-        use_pair_attn=True,
         *args,
         **kwargs,
     ):
@@ -236,11 +235,7 @@ class BaselineParTWrapper(TaggerWrapper):
         assert (
             self.lframesnet.is_global
         ), "Non-equivariant model can only handle global lframes"
-        pair_input_dim = None if use_pair_attn else 0
-        self.net = net(
-            num_classes=self.out_channels,
-            pair_input_dim=pair_input_dim,
-        )
+        self.net = net(num_classes=self.out_channels)
 
     def forward(self, embedding):
         fourmomenta_local, _, _, _, batch, tracker = super().forward(embedding)
