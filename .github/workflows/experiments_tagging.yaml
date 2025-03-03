@@ -44,3 +44,15 @@ jobs:
     - name: TFTransformer + OrthogonalLearnedLFrames
       run: |
         python run.py model=transformer model/lframesnet=orthogonal save=false evaluate=false training.iterations=3
+
+    - name: Baseline ParticleNet
+      run: |
+        python run.py model=baseparticlenet-lite save=false evaluate=false training.iterations=3
+
+    - name: Baseline ParT
+      run: |
+        python run.py model=baseParT save=false evaluate=false training.iterations=3
+
+    - name: Baseline ParT without pairwise features
+      run: |
+        python run.py model=baseParT save=false evaluate=false training.iterations=3 model.use_pair_attn=false
