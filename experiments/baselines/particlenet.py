@@ -1,10 +1,10 @@
-""" ParticleNet
+# fmt: off
+''' ParticleNet
 
 Paper: "ParticleNet: Jet Tagging via Particle Clouds" - https://arxiv.org/abs/1902.08570
-Code: https://github.com/hqucms/weaver-core/blob/main/weaver/nn/model/ParticleNet.py
 
 Adapted from the DGCNN implementation in https://github.com/WangYueFt/dgcnn/blob/master/pytorch/model.py.
-"""
+'''
 import numpy as np
 import torch
 import torch.nn as nn
@@ -12,11 +12,9 @@ import torch.nn as nn
 
 def knn(x, k):
     inner = -2 * torch.matmul(x.transpose(2, 1), x)
-    xx = torch.sum(x**2, dim=1, keepdim=True)
+    xx = torch.sum(x ** 2, dim=1, keepdim=True)
     pairwise_distance = -xx - inner - xx.transpose(2, 1)
-    idx = pairwise_distance.topk(k=k + 1, dim=-1)[1][
-        :, :, 1:
-    ]  # (batch_size, num_points, k)
+    idx = pairwise_distance.topk(k=k + 1, dim=-1)[1][:, :, 1:]  # (batch_size, num_points, k)
     return idx
 
 
@@ -28,12 +26,8 @@ def get_graph_feature_v1(x, k, idx):
     idx = idx + idx_base
     idx = idx.view(-1)
 
-    fts = x.transpose(2, 1).reshape(
-        -1, num_dims
-    )  # -> (batch_size, num_points, num_dims) -> (batch_size*num_points, num_dims)
-    fts = fts[idx, :].view(
-        batch_size, num_points, k, num_dims
-    )  # neighbors: -> (batch_size*num_points*k, num_dims) -> ...
+    fts = x.transpose(2, 1).reshape(-1, num_dims)  # -> (batch_size, num_points, num_dims) -> (batch_size*num_points, num_dims)
+    fts = fts[idx, :].view(batch_size, num_points, k, num_dims)  # neighbors: -> (batch_size*num_points*k, num_dims) -> ...
     fts = fts.permute(0, 3, 1, 2).contiguous()  # (batch_size, num_dims, num_points, k)
     x = x.view(batch_size, num_dims, num_points, 1).repeat(1, 1, 1, k)
     fts = torch.cat((x, fts - x), dim=1)  # ->(batch_size, 2*num_dims, num_points, k)
@@ -48,12 +42,8 @@ def get_graph_feature_v2(x, k, idx):
     idx = idx + idx_base
     idx = idx.view(-1)
 
-    fts = x.transpose(0, 1).reshape(
-        num_dims, -1
-    )  # -> (num_dims, batch_size, num_points) -> (num_dims, batch_size*num_points)
-    fts = fts[:, idx].view(
-        num_dims, batch_size, num_points, k
-    )  # neighbors: -> (num_dims, batch_size*num_points*k) -> ...
+    fts = x.transpose(0, 1).reshape(num_dims, -1)  # -> (num_dims, batch_size, num_points) -> (num_dims, batch_size*num_points)
+    fts = fts[:, idx].view(num_dims, batch_size, num_points, k)  # neighbors: -> (num_dims, batch_size*num_points*k) -> ...
     fts = fts.transpose(1, 0).contiguous()  # (batch_size, num_dims, num_points, k)
 
     x = x.view(batch_size, num_dims, num_points, 1).repeat(1, 1, 1, k)
@@ -80,28 +70,17 @@ class EdgeConvBlock(nn.Module):
         Whether to include batch normalization on messages.
     """
 
-    def __init__(
-        self, k, in_feat, out_feats, batch_norm=True, activation=True, cpu_mode=False
-    ):
+    def __init__(self, k, in_feat, out_feats, batch_norm=True, activation=True, cpu_mode=False):
         super(EdgeConvBlock, self).__init__()
         self.k = k
         self.batch_norm = batch_norm
         self.activation = activation
         self.num_layers = len(out_feats)
-        self.get_graph_feature = (
-            get_graph_feature_v2 if cpu_mode else get_graph_feature_v1
-        )
+        self.get_graph_feature = get_graph_feature_v2 if cpu_mode else get_graph_feature_v1
 
         self.convs = nn.ModuleList()
         for i in range(self.num_layers):
-            self.convs.append(
-                nn.Conv2d(
-                    2 * in_feat if i == 0 else out_feats[i - 1],
-                    out_feats[i],
-                    kernel_size=1,
-                    bias=False if self.batch_norm else True,
-                )
-            )
+            self.convs.append(nn.Conv2d(2 * in_feat if i == 0 else out_feats[i - 1], out_feats[i], kernel_size=1, bias=False if self.batch_norm else True))
 
         if batch_norm:
             self.bns = nn.ModuleList()
@@ -147,19 +126,18 @@ class EdgeConvBlock(nn.Module):
 
 
 class ParticleNet(nn.Module):
-    def __init__(
-        self,
-        input_dims,
-        num_classes,
-        conv_params=[(7, (32, 32, 32)), (7, (64, 64, 64))],
-        fc_params=[(128, 0.1)],
-        use_fusion=True,
-        use_fts_bn=True,
-        use_counts=True,
-        for_inference=False,
-        for_segmentation=False,
-        **kwargs
-    ):
+
+    def __init__(self,
+                 input_dims,
+                 num_classes,
+                 conv_params=[(7, (32, 32, 32)), (7, (64, 64, 64))],
+                 fc_params=[(128, 0.1)],
+                 use_fusion=True,
+                 use_fts_bn=True,
+                 use_counts=True,
+                 for_inference=False,
+                 for_segmentation=False,
+                 **kwargs):
         super(ParticleNet, self).__init__(**kwargs)
 
         self.use_fts_bn = use_fts_bn
@@ -172,21 +150,13 @@ class ParticleNet(nn.Module):
         for idx, layer_param in enumerate(conv_params):
             k, channels = layer_param
             in_feat = input_dims if idx == 0 else conv_params[idx - 1][1][-1]
-            self.edge_convs.append(
-                EdgeConvBlock(
-                    k=k, in_feat=in_feat, out_feats=channels, cpu_mode=for_inference
-                )
-            )
+            self.edge_convs.append(EdgeConvBlock(k=k, in_feat=in_feat, out_feats=channels, cpu_mode=for_inference))
 
         self.use_fusion = use_fusion
         if self.use_fusion:
             in_chn = sum(x[-1] for _, x in conv_params)
             out_chn = np.clip((in_chn // 128) * 128, 128, 1024)
-            self.fusion_block = nn.Sequential(
-                nn.Conv1d(in_chn, out_chn, kernel_size=1, bias=False),
-                nn.BatchNorm1d(out_chn),
-                nn.ReLU(),
-            )
+            self.fusion_block = nn.Sequential(nn.Conv1d(in_chn, out_chn, kernel_size=1, bias=False), nn.BatchNorm1d(out_chn), nn.ReLU())
 
         self.for_segmentation = for_segmentation
 
@@ -198,20 +168,10 @@ class ParticleNet(nn.Module):
             else:
                 in_chn = fc_params[idx - 1][0]
             if self.for_segmentation:
-                fcs.append(
-                    nn.Sequential(
-                        nn.Conv1d(in_chn, channels, kernel_size=1, bias=False),
-                        nn.BatchNorm1d(channels),
-                        nn.ReLU(),
-                        nn.Dropout(drop_rate),
-                    )
-                )
+                fcs.append(nn.Sequential(nn.Conv1d(in_chn, channels, kernel_size=1, bias=False),
+                                         nn.BatchNorm1d(channels), nn.ReLU(), nn.Dropout(drop_rate)))
             else:
-                fcs.append(
-                    nn.Sequential(
-                        nn.Linear(in_chn, channels), nn.ReLU(), nn.Dropout(drop_rate)
-                    )
-                )
+                fcs.append(nn.Sequential(nn.Linear(in_chn, channels), nn.ReLU(), nn.Dropout(drop_rate)))
         if self.for_segmentation:
             fcs.append(nn.Conv1d(fc_params[-1][0], num_classes, kernel_size=1))
         else:
@@ -221,10 +181,10 @@ class ParticleNet(nn.Module):
         self.for_inference = for_inference
 
     def forward(self, points, features, mask=None):
-        #         print('points:\n', points)
-        #         print('features:\n', features)
+#         print('points:\n', points)
+#         print('features:\n', features)
         if mask is None:
-            mask = features.abs().sum(dim=1, keepdim=True) != 0  # (N, 1, P)
+            mask = (features.abs().sum(dim=1, keepdim=True) != 0)  # (N, 1, P)
         points *= mask
         features *= mask
         coord_shift = (mask == 0) * 1e9
@@ -245,8 +205,8 @@ class ParticleNet(nn.Module):
         if self.use_fusion:
             fts = self.fusion_block(torch.cat(outputs, dim=1)) * mask
 
-        #         assert(((fts.abs().sum(dim=1, keepdim=True) != 0).float() - mask.float()).abs().sum().item() == 0)
-
+#         assert(((fts.abs().sum(dim=1, keepdim=True) != 0).float() - mask.float()).abs().sum().item() == 0)
+        
         if self.for_segmentation:
             x = fts
         else:
