@@ -19,7 +19,7 @@ jc_params:
  not_remake_weights: False
  steps_per_epoch: null
  steps_per_epoch_val: null
- events_per_file: 100000
+ events_per_file: 1000000
 
 evaluation:
  batchsize: 1024
