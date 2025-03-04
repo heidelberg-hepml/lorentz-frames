@@ -215,3 +215,21 @@ class GATrWrapper(AmplitudeWrapper):
         # mean aggregation
         amp = out_mv.mean(dim=-2)
         return amp, tracker
+
+
+class DSIWrapper(AmplitudeWrapper):
+    def __init__(self, net, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.net = net
+
+    def forward(self, fourmomenta_global):
+        (
+            _,
+            fourmomenta_local,
+            particle_type,
+            _,
+            tracker,
+        ) = super().forward(fourmomenta_global)
+
+        amp = self.net(fourmomenta_local)
+        return amp, tracker

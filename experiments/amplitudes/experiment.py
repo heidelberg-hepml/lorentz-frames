@@ -57,6 +57,9 @@ class AmplitudeExperiment(BaseExperiment):
             elif modelname == "GATr":
                 assert not learnable_lframesnet, "GATr is no tensorframes model"
                 self.cfg.model.net.in_s_channels = num_particle_types
+            elif modelname == "DSI":
+                assert not learnable_lframesnet, "DSI is no tensorframes model"
+                self.cfg.model.net.type_token_list = particle_type
             else:
                 raise ValueError(f"Model {modelname} not implemented")
         LOGGER.info(f"Using particle_type={particle_type}")
