@@ -8,7 +8,7 @@ from experiments.amplitudes.utils import (
     preprocess_amplitude,
     undo_preprocess_amplitude,
 )
-from experiments.amplitudes.constants import PARTICLE_TYPE, DATASET_TITLE, IN_PARTICLES
+from experiments.amplitudes.constants import PARTICLE_TYPE, DATASET_TITLE
 from experiments.amplitudes.plots import plot_mixer
 from experiments.logger import LOGGER
 from experiments.mlflow import log_mlflow

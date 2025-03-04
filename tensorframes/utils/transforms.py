@@ -148,7 +148,7 @@ def rand_rotation(
     return transform(axes, angles)
 
 
-def rand_phirotation(
+def rand_xyrotation(
     shape: List[int],
     device: str = "cpu",
     dtype: torch.dtype = torch.float32,
