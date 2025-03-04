@@ -4,11 +4,7 @@ from omegaconf import open_dict
 
 import os, time
 
-from sklearn.metrics import roc_curve, roc_auc_score, accuracy_score
-from scipy.interpolate import interp1d
-
 from experiments.logger import LOGGER
-from experiments.mlflow import log_mlflow
 
 from experiments.tagging.experiment import TaggingExperiment
 from experiments.tagging.embedding import (
@@ -32,14 +28,9 @@ class TopXLTaggingExperiment(TaggingExperiment):
                     "experiments/tagging/miniweaver/configs_topxl/fourmomenta.yaml"
                 )
             elif self.cfg.data.features == "pid":
-                self.cfg.model.in_channels += 2
-                self.cfg.data.data_config = (
-                    "experiments/tagging/miniweaver/configs_topxl/pid.yaml"
-                )
-            elif self.cfg.data.features == "pid_onehot":
                 self.cfg.model.in_channels += 6
                 self.cfg.data.data_config = (
-                    "experiments/tagging/miniweaver/configs_topxl/pid_onehot.yaml"
+                    "experiments/tagging/miniweaver/configs_topxl/pid.yaml"
                 )
             elif self.cfg.data.features == "displacements":
                 self.cfg.model.in_channels += 4
@@ -57,13 +48,13 @@ class TopXLTaggingExperiment(TaggingExperiment):
                 )
 
     def init_data(self):
-        LOGGER.info(f"Creating SimpleIterDataset")
+        LOGGER.info("Creating SimpleIterDataset")
         t0 = time.time()
 
         datasets = {"train": None, "test": None, "val": None}
 
         for_training = {"train": True, "val": True, "test": False}
-        folder = {"train": "train_luigi", "test": "test_luigi", "val": "val_luigi"}
+        folder = {"train": "train_topxl", "test": "test_topxl", "val": "val_topxl"}
         files_range = {
             "train": self.cfg.data.train_files_range,
             "test": self.cfg.data.test_files_range,

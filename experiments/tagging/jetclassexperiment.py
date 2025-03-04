@@ -68,7 +68,7 @@ class JetClassTaggingExperiment(TaggingExperiment):
         self.loss = torch.nn.CrossEntropyLoss()
 
     def init_data(self):
-        LOGGER.info(f"Creating SimpleIterDataset")
+        LOGGER.info("Creating SimpleIterDataset")
         t0 = time.time()
 
         datasets = {"train": None, "test": None, "val": None}
