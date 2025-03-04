@@ -106,6 +106,7 @@ class JetClassTaggingExperiment(TaggingExperiment):
                 infinity_mode=self.cfg.jc_params.steps_per_epoch is not None,
                 in_memory=self.cfg.jc_params.in_memory,
                 name=label,
+                events_per_file=self.cfg.jc_params.events_per_file,
             )
         self.data_train = datasets["train"]
         self.data_test = datasets["test"]
