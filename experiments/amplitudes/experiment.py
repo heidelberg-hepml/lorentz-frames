@@ -13,6 +13,13 @@ from experiments.amplitudes.plots import plot_mixer
 from experiments.logger import LOGGER
 from experiments.mlflow import log_mlflow
 
+from tensorframes.utils.transforms import (
+    rand_lorentz,
+    rand_rotation,
+    rand_xyrotation,
+    rand_boost,
+)
+
 MODEL_TITLE = {"TFTransformer": "Tr", "MLP": "MLP", "TFGraphNet": "GN", "GATr": "GATr"}
 
 
@@ -76,6 +83,25 @@ class AmplitudeExperiment(BaseExperiment):
         momentum = data_raw[:, :-1]
         self.momentum = momentum.reshape(momentum.shape[0], momentum.shape[1] // 4, 4)
         self.amplitude = data_raw[:, [-1]]
+
+        # prepare momenta
+        if self.cfg.data.prepare == "align":
+            # momenta are already aligned with the beam
+            pass
+        else:
+            if self.cfg.data.prepare == "xyrotation":
+                trafo = rand_xyrotation(self.momentum.shape[:-2])
+            elif self.cfg.data.prepare == "rotation":
+                trafo = rand_rotation(self.momentum.shape[:-2])
+            elif self.cfg.data.prepare == "boost":
+                trafo = rand_boost(self.momentum.shape[:-2])
+            elif self.cfg.data.prepare == "lorentz":
+                trafo = rand_lorentz(self.momentum.shape[:-2])
+            else:
+                raise ValueError(
+                    f"Prepare type {self.cfg.data.prepare} not implemented"
+                )
+            self.momentum = torch.einsum("...ij,...kj->...ki", trafo, self.momentum)
 
         # preprocess data
         self.amplitude_prepd, self.amp_mean, self.amp_std = preprocess_amplitude(
