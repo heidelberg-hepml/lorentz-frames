@@ -1,4 +1,3 @@
-IN_PARTICLES = 2
 PARTICLE_TYPE = {
     "aag": [0, 0, 1, 1, 0],
     "aagg": [0, 0, 1, 1, 0, 0],

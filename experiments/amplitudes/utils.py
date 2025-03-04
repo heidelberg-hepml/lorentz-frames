@@ -30,13 +30,3 @@ def undo_preprocess_amplitude(prepd_amplitude, mean, std):
     log_amplitude = prepd_amplitude * std + mean
     amplitude = np.exp(log_amplitude.clamp(min=-10, max=10))
     return amplitude
-
-
-def encode_event(fourmomenta):
-    fourmomenta_in = fourmomenta[..., :IN_PARTICLES, :]
-    fourmomenta_out = fourmomenta[..., IN_PARTICLES:, :]
-
-    initial_state = fourmomenta_in.sum(dim=-2)
-    in_invariant = lorentz_squarednorm(initial_state)
-    in_invariant = in_invariant.clamp(min=1e-10).log().unsqueeze(-1)
-    return in_invariant, fourmomenta_out

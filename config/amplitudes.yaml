@@ -6,9 +6,7 @@ data:
  data_path : data/
  subsample: null
  permutation_symmetry: true
- in_invariant: false
  standardize: true
- arcsinh_trick: false
  train_test_val: [.4, .5, .1]
 
 evaluation:

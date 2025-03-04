@@ -27,12 +27,6 @@ class AmplitudeExperiment(BaseExperiment):
         modelname = self.cfg.model.net._target_.rsplit(".", 1)[-1]
         with open_dict(self.cfg):
             self.cfg.model.particle_type = particle_type
-            self.cfg.model.in_invariant = self.cfg.data.in_invariant
-            self.cfg.model.arcsinh_trick = self.cfg.data.arcsinh_trick
-            if self.cfg.data.in_invariant:
-                LOGGER.warning(
-                    f"Using data.in_invariant=true, but this approach is not fully expressive"
-                )
 
             learnable_lframesnet = (
                 OmegaConf.select(self.cfg.model.lframesnet, "ortho_kwargs") is not None
@@ -40,13 +34,9 @@ class AmplitudeExperiment(BaseExperiment):
             if learnable_lframesnet:
                 self.cfg.model.lframesnet._partial_ = False
                 self.cfg.model.lframesnet.in_nodes = num_particle_types
-                if self.cfg.data.in_invariant:
-                    self.cfg.model.lframesnet.in_nodes += 1
 
             if modelname == "TFTransformer":
                 self.cfg.model.net.in_channels = num_particle_types + 4
-                if self.cfg.data.in_invariant:
-                    self.cfg.model.net.in_channels += 1
             elif modelname == "TFGraphNet":
                 assert self.cfg.model.include_nodes or self.cfg.model.include_edges
                 self.cfg.model.net.num_edge_attr = (
@@ -55,18 +45,11 @@ class AmplitudeExperiment(BaseExperiment):
                 self.cfg.model.net.in_channels = num_particle_types
                 if self.cfg.model.include_nodes:
                     self.cfg.model.net.in_channels += 4
-                if self.cfg.data.in_invariant:
-                    self.cfg.model.net.in_channels += 1
             elif modelname == "MLP":
                 self.cfg.model.net.in_shape = 4 * len(particle_type)
-                if self.cfg.data.in_invariant:
-                    self.cfg.model.net.in_shape -= 4 * IN_PARTICLES
-                    self.cfg.model.net.in_shape += 1
             elif modelname == "GATr":
                 assert not learnable_lframesnet, "GATr is no tensorframes model"
                 self.cfg.model.net.in_s_channels = num_particle_types
-                if self.cfg.data.in_invariant:
-                    self.cfg.model.net.in_s_channels += 1
             else:
                 raise ValueError(f"Model {modelname} not implemented")
         LOGGER.info(f"Using particle_type={particle_type}")
