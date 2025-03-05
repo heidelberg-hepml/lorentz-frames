@@ -259,18 +259,20 @@ def get_tagging_features(fourmomenta, batch):
     features: torch.tensor of shape (n_particles, n_features)
         Features: log_pt, log_energy, log_pt_rel, log_energy_rel, dphi, deta, dr
     """
-
+    min = 1e-10
     log_pt = get_pt(fourmomenta).unsqueeze(-1).log()
-    log_energy = fourmomenta[..., 0].unsqueeze(-1).log()
+    log_energy = fourmomenta[..., 0].unsqueeze(-1).clamp(min=min).log()
 
     jet = scatter(fourmomenta, index=batch, dim=0, reduce="sum").index_select(0, batch)
     log_pt_rel = (get_pt(fourmomenta).log() - get_pt(jet).log()).unsqueeze(-1)
-    log_energy_rel = (fourmomenta[..., 0].log() - jet[..., 0].log()).unsqueeze(-1)
+    log_energy_rel = (
+        fourmomenta[..., 0].clamp(min=min).log() - jet[..., 0].clamp(min=min).log()
+    ).unsqueeze(-1)
     phi_4, phi_jet = get_phi(fourmomenta), get_phi(jet)
     dphi = ((phi_4 - phi_jet + torch.pi) % (2 * torch.pi) - torch.pi).unsqueeze(-1)
     eta_4, eta_jet = get_eta(fourmomenta), get_eta(jet)
     deta = -(eta_4 - eta_jet).unsqueeze(-1)
-    dr = torch.sqrt(dphi**2 + deta**2)
+    dr = torch.sqrt((dphi**2 + deta**2).clamp(min=min))
     features = [
         log_pt,
         log_energy,

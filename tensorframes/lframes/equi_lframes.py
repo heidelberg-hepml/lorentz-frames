@@ -6,6 +6,7 @@ from tensorframes.utils.restframe import restframe_equivariant
 from tensorframes.nn.equivectors import EquivariantVectors
 from tensorframes.utils.lorentz import lorentz_squarednorm
 from tensorframes.utils.orthogonalize import orthogonal_trafo
+from experiments.logger import LOGGER
 
 
 class LearnedLFrames(LFramesPredictor):
@@ -34,6 +35,7 @@ class LearnedLFrames(LFramesPredictor):
 
         self.in_nodes = in_nodes
         self.spurion_strategy = spurion_strategy
+        LOGGER.info(f"spurions strategy in lframes: {self.spurion_strategy}")
         if spurion_strategy == "basis_triplet":
             n_vectors = n_vectors - 2
             assert (
@@ -119,7 +121,7 @@ class LearnedLFrames(LFramesPredictor):
         )
 
         if self.spurion_strategy == "basis_triplet":
-            vecs = torch.cat([vecs, spurions.repeat(vecs.shape[0], 1, 1)], dim=-2)
+            vecs = torch.cat([spurions.repeat(vecs.shape[0], 1, 1), vecs], dim=-2)
         return vecs
 
     def __repr__(self):

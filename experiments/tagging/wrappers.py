@@ -126,9 +126,10 @@ class TaggerWrapper(nn.Module):
             else:
                 scalar_features = scalars_withspurions
             lframes, tracker = self.lframesnet(
-                fourmomenta_withspurions,
-                scalar_features,
-                edge_index_withspurions,
+                fourmomenta=fourmomenta_withspurions,
+                scalars=scalar_features,
+                edge_index=edge_index_withspurions,
+                batch=batch_withspurions,
                 spurions=minimal_spurions,
                 return_tracker=True,
             )
@@ -148,9 +149,9 @@ class TaggerWrapper(nn.Module):
             else:
                 scalar_features_nospurions = scalars_nospurions
             lframes_nospurions, tracker = self.lframesnet(
-                fourmomenta_nospurions,
-                scalar_features_nospurions,
-                edge_index_nospurions,
+                fourmomenta=fourmomenta_nospurions,
+                scalars=scalar_features_nospurions,
+                edge_index=edge_index_nospurions,
                 batch=batch_nospurions,
                 spurions=minimal_spurions,
                 return_tracker=True,
