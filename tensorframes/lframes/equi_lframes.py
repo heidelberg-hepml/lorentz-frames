@@ -26,7 +26,7 @@ class LearnedLFrames(LFramesPredictor):
         return string
 
 
-class OrthogonalLearnedLFrames(LearnedLFrames):
+class LearnedOrthogonalLFrames(LearnedLFrames):
     """
     Local frames from an orthonormal set of vectors
     constructed from equivariantly predicted vectors
@@ -37,12 +37,11 @@ class OrthogonalLearnedLFrames(LearnedLFrames):
         *args,
         **kwargs,
     ):
-        self.n_vectors = 3
-        super().__init__(*args, n_vectors=self.n_vectors, **kwargs)
+        super().__init__(*args, n_vectors=3, **kwargs)
 
     def forward(self, fourmomenta, scalars, return_tracker=False, **kwargs):
         vecs = self.equivectors(fourmomenta, scalars, **kwargs)
-        vecs = [vecs[..., i, :] for i in range(self.n_vectors)]
+        vecs = [vecs[..., i, :] for i in range(vecs.shape[-2])]
 
         trafo, reg_lightlike, reg_coplanar = orthogonal_trafo(
             vecs, **self.ortho_kwargs, return_reg=True
@@ -53,8 +52,61 @@ class OrthogonalLearnedLFrames(LearnedLFrames):
         return (lframes, tracker) if return_tracker else lframes
 
 
-class RestLFrames(LearnedLFrames):
-    """Rest frame transformation with learnable aspect"""
+class LearnedPolarDecompositionLFrames(LearnedLFrames):
+    """Construct LFrames as learnable polar decomposition (boost+rotation)"""
+
+    def __init__(
+        self,
+        *args,
+        **kwargs,
+    ):
+        super().__init__(*args, n_vectors=3, **kwargs)
+
+    def forward(self, fourmomenta, scalars, return_tracker=False, **kwargs):
+        vecs = self.equivectors(fourmomenta, scalars, **kwargs)
+        fourmomenta = vecs[..., 0, :]
+        references = [vecs[..., i, :] for i in range(1, vecs.shape[-2])]
+
+        trafo, reg_collinear = restframe_equivariant(
+            fourmomenta,
+            references,
+            **self.ortho_kwargs,
+            return_reg=True,
+        )
+        tracker = {"reg_collinear": reg_collinear}
+        lframes = LFrames(trafo)
+        return (lframes, tracker) if return_tracker else lframes
+
+
+class LearnedRestLFrames(LearnedLFrames):
+    """Rest frame transformation with learnable equivariant rotation.
+    This is a special case of LearnedPolarDecompositionLFrames
+    where the boost vector is the particle momentum."""
+
+    def __init__(
+        self,
+        *args,
+        **kwargs,
+    ):
+        super().__init__(*args, n_vectors=2, **kwargs)
+
+    def forward(self, fourmomenta, scalars, return_tracker=False, **kwargs):
+        references = self.equivectors(fourmomenta, scalars, **kwargs)
+        references = [references[..., i, :] for i in range(references.shape[-2])]
+
+        trafo, reg_collinear = restframe_equivariant(
+            fourmomenta,
+            references,
+            **self.ortho_kwargs,
+            return_reg=True,
+        )
+        tracker = {"reg_collinear": reg_collinear}
+        lframes = LFrames(trafo)
+        return (lframes, tracker) if return_tracker else lframes
+
+
+class LearnedOrthogonal3DLFrames(LearnedLFrames):
+    """O(3) special case of LearnedOrthogonalLFrames"""
 
     def __init__(
         self,
@@ -70,70 +122,11 @@ class RestLFrames(LearnedLFrames):
 
     def forward(self, fourmomenta, scalars, return_tracker=False, **kwargs):
         references = self.equivectors(fourmomenta, scalars, **kwargs)
-        references = [references[..., i, :] for i in range(self.n_vectors)]
-
-        trafo, reg_collinear = restframe_equivariant(
-            fourmomenta,
-            references,
-            **self.ortho_kwargs,
-            return_reg=True,
-        )
-        tracker = {"reg_collinear": reg_collinear}
-        lframes = LFrames(trafo)
-        return (lframes, tracker) if return_tracker else lframes
-
-
-class LearnedRestLFrames(LearnedLFrames):
-    """Rest frame transformation with learnable aspect"""
-
-    def __init__(
-        self,
-        *args,
-        **kwargs,
-    ):
-        self.n_vectors = 3
-        super().__init__(
-            *args,
-            n_vectors=self.n_vectors,
-            **kwargs,
-        )
-
-    def forward(self, fourmomenta, scalars, return_tracker=False, **kwargs):
-        vecs = self.equivectors(fourmomenta, scalars, **kwargs)
-        fourmomenta = vecs[..., 0, :]
-        references = [vecs[..., i, :] for i in range(1, self.n_vectors)]
-
-        trafo, reg_collinear = restframe_equivariant(
-            fourmomenta,
-            references,
-            **self.ortho_kwargs,
-            return_reg=True,
-        )
-        tracker = {"reg_collinear": reg_collinear}
-        lframes = LFrames(trafo)
-        return (lframes, tracker) if return_tracker else lframes
-
-
-class LearnedRotationLFrames(LearnedLFrames):
-    """O(3) special case"""
-
-    def __init__(
-        self,
-        *args,
-        **kwargs,
-    ):
-        self.n_vectors = 2
-        super().__init__(
-            *args,
-            n_vectors=self.n_vectors,
-            **kwargs,
-        )
-
-    def forward(self, fourmomenta, scalars, return_tracker=False, **kwargs):
-        references = super().forward(fourmomenta, scalars, **kwargs)
-        fourmomenta = lorentz_eye(fourmomenta.shape[:-1], device=fourmomenta.device)[
+        fourmomenta = lorentz_eye(
+            fourmomenta.shape[:-1], device=fourmomenta.device, dtype=fourmomenta.dtype
+        )[
             ..., 0
-        ]  # only different compared to RestLFrames
+        ]  # only difference compared to LearnedRestLFrames
         references = [references[..., i, :] for i in range(self.n_vectors)]
 
         trafo, reg_collinear = restframe_equivariant(

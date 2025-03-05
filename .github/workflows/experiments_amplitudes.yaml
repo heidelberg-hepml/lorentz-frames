@@ -33,7 +33,7 @@ jobs:
       run: |
         python run.py -cn amplitudes model=amp_transformer save=false evaluate=false training.iterations=3
 
-    - name: TFTransformer + OrthogonalLearnedLFrames
+    - name: TFTransformer + LearnedOrthogonalLFrames
       run: |
         python run.py -cn amplitudes model=amp_transformer model/lframesnet=orthogonal save=false evaluate=false training.iterations=3
 
