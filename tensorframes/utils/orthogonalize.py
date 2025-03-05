@@ -121,8 +121,8 @@ def timelike_first(trafo):
         num_pos_norm == 1
     ).all(), f"Warning: find different number of norm>0 vectors: {torch.unique(num_pos_norm)}"
     old_trafo = trafo.clone()
-    trafo[..., 0, :] = old_trafo[pos_norm]
-    trafo[..., 1:, :] = old_trafo[~pos_norm].view(-1, 3, 4)
+    trafo[..., 0, :] = old_trafo[pos_norm].view(*trafo.shape[:-2], 4)
+    trafo[..., 1:, :] = old_trafo[~pos_norm].view(*trafo.shape[:-2], 3, 4)
     return trafo
 
 
