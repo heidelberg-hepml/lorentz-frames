@@ -45,6 +45,7 @@ class AmplitudeExperiment(BaseExperiment):
                 OmegaConf.select(self.cfg.model.lframesnet, "ortho_kwargs") is not None
             )
             if learnable_lframesnet:
+                # TODO: improve this in the equivectors PR
                 self.cfg.model.lframesnet._partial_ = False
                 self.cfg.model.lframesnet.in_nodes = num_particle_types
 
@@ -108,7 +109,7 @@ class AmplitudeExperiment(BaseExperiment):
                 trafo = rand_lorentz(self.momentum.shape[:-2])
             else:
                 raise ValueError(
-                    f"Prepare type {self.cfg.data.prepare} not implemented"
+                    f"cfg.data.prepare={self.cfg.data.prepare} not implemented"
                 )
             self.momentum = torch.einsum("...ij,...kj->...ki", trafo, self.momentum)
 

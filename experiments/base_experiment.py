@@ -16,7 +16,7 @@ import experiments.logger
 from experiments.logger import LOGGER, MEMORY_HANDLER, FORMATTER
 from experiments.mlflow import log_mlflow
 
-# for GATr
+# for GATr (ignored by others)
 from hydra.core.config_store import ConfigStore
 from experiments.baselines.gatr.layers import MLPConfig, SelfAttentionConfig
 

@@ -1,5 +1,4 @@
 import torch
-import numpy as np
 from random import randint
 from typing import List
 
