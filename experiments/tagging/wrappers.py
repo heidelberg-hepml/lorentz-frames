@@ -273,7 +273,7 @@ class TransformerWrapper(AggregatedTaggerWrapper):
         jetmomenta_local = jetmomenta_local.reshape(jetmomenta_local.shape[0], -1)
         features_local = torch.cat([jetmomenta_local, scalars], dim=-1)
 
-        mask = attention_mask(
+        mask = get_xformers_attention_mask(
             batch, materialize=features_local.device == torch.device("cpu")
         )
 
