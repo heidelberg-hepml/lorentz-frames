@@ -130,8 +130,12 @@ class AmplitudeExperiment(BaseExperiment):
             .astype("int")
             .tolist()
         )
-        trn_amp, tst_amp, val_amp = torch.split(self.amplitude_prepd, splits, dim=0)
-        trn_mom, tst_mom, val_mom = torch.split(self.momentum_prepd, splits, dim=0)
+        trn_amp, tst_amp, val_amp = torch.split(
+            self.amplitude_prepd[: sum(splits)], splits, dim=0
+        )
+        trn_mom, tst_mom, val_mom = torch.split(
+            self.momentum_prepd[: sum(splits)], splits, dim=0
+        )
 
         trn_set = torch.utils.data.TensorDataset(trn_amp, trn_mom)
         tst_set = torch.utils.data.TensorDataset(tst_amp, tst_mom)
