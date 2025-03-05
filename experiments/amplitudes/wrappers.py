@@ -136,7 +136,7 @@ class GraphNetWrapper(AmplitudeWrapper):
         )
         edge_attr = mij2.clamp(min=1e-10).log()
         if not self.edge_inited:
-            self.edge_mean = edge_attr.mean()
+            self.edge_mean = edge_attr.mean().detach()
             self.edge_std = (
                 edge_attr.std().clamp(min=1e-5).detach()
             )  # TODO: remove this hack after the amplitudes PR is merged (it has a better solution)
