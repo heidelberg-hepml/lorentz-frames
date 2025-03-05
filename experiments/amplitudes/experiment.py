@@ -20,7 +20,13 @@ from tensorframes.utils.transforms import (
     rand_boost,
 )
 
-MODEL_TITLE = {"TFTransformer": "Tr", "MLP": "MLP", "TFGraphNet": "GN", "GATr": "GATr"}
+MODEL_TITLE = {
+    "TFTransformer": "Tr",
+    "MLP": "MLP",
+    "TFGraphNet": "GN",
+    "GATr": "GATr",
+    "DSI": "DSI",
+}
 
 
 class AmplitudeExperiment(BaseExperiment):
