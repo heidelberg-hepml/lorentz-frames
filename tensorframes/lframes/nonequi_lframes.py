@@ -9,10 +9,9 @@ from tensorframes.utils.transforms import (
 
 
 class LFramesPredictor(torch.nn.Module):
-    def __init__(self, is_global=False, is_learnable=True) -> None:
+    def __init__(self, is_global=False):
         super().__init__()
         self.is_global = is_global
-        self.is_learnable = is_learnable
 
     def forward(self, fourmomenta, scalars=None, ptr=None, return_tracker=False):
         raise NotImplementedError
@@ -22,7 +21,7 @@ class IdentityLFrames(LFramesPredictor):
     """Identity local frames, corresponding to non-equivariant networks"""
 
     def __init__(self):
-        super().__init__(is_global=True, is_learnable=False)
+        super().__init__(is_global=True)
 
     def forward(self, fourmomenta, scalars=None, ptr=None, return_tracker=False):
         lframes = LFrames(
@@ -44,7 +43,7 @@ class RandomLFrames(LFramesPredictor):
     corresponding to data augmentation."""
 
     def __init__(self, transform_type="lorentz", is_global=True, std_eta=0.5):
-        super().__init__(is_global=is_global, is_learnable=False)
+        super().__init__(is_global=is_global)
         self.is_global = is_global
         self.std_eta = std_eta
         self.transform_type = transform_type
