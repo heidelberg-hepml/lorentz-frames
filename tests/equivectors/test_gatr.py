@@ -3,32 +3,26 @@ import pytest
 from tests.constants import TOLERANCES, LOGM2_MEAN_STD
 from tests.helpers import sample_particle
 
-from tensorframes.equivectors.graphnet import EquiGraphNet
+from tensorframes.equivectors.gatr import GATrWrapper
 from tensorframes.utils.transforms import rand_lorentz
 
 
 @pytest.mark.parametrize("batch_dims", [[100]])
 @pytest.mark.parametrize("jet_size", [10])
 @pytest.mark.parametrize("n_vectors", [2, 3])
-@pytest.mark.parametrize("hidden_channels", [16])
-@pytest.mark.parametrize("num_layers_mlp", [1])
-@pytest.mark.parametrize("num_blocks", [1])
 @pytest.mark.parametrize("logm2_mean,logm2_std", LOGM2_MEAN_STD)
-@pytest.mark.parametrize("include_edges", [True, False])
-@pytest.mark.parametrize("operation", ["diff", "add", "single"])
-@pytest.mark.parametrize("nonlinearity", ["softplus", "exp", None])
+@pytest.mark.parametrize("hidden_mv_channels,hidden_s_channels", [(4, 8)])
+@pytest.mark.parametrize("num_blocks,num_heads", [(1, 2), (2, 1)])
 def test_equivariance(
     batch_dims,
     jet_size,
     n_vectors,
-    hidden_channels,
-    num_layers_mlp,
-    num_blocks,
     logm2_std,
     logm2_mean,
-    include_edges,
-    operation,
-    nonlinearity,
+    hidden_mv_channels,
+    hidden_s_channels,
+    num_blocks,
+    num_heads,
 ):
     assert len(batch_dims) == 1
     dtype = torch.float64
@@ -39,15 +33,13 @@ def test_equivariance(
     # input to mlp: only edge attributes
     in_nodes = 0
     calc_node_attr = lambda fm: torch.zeros(*fm.shape[:-1], 0, dtype=dtype)
-    equivectors = EquiGraphNet(
+    equivectors = GATrWrapper(
         n_vectors,
         in_nodes,
-        hidden_channels,
-        num_layers_mlp,
+        hidden_mv_channels=hidden_mv_channels,
+        hidden_s_channels=hidden_s_channels,
         num_blocks=num_blocks,
-        include_edges=include_edges,
-        operation=operation,
-        nonlinearity=nonlinearity,
+        num_heads=num_heads,
     ).to(dtype=dtype)
 
     fm = sample_particle(

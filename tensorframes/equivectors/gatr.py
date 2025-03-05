@@ -1,6 +1,7 @@
 import torch
 
 from tensorframes.equivectors.base import EquiVectors
+from tensorframes.utils.utils import get_xformers_attention_mask, get_batch_from_ptr
 from experiments.baselines.gatr import GATr, SelfAttentionConfig, MLPConfig
 from experiments.baselines.gatr.interface import embed_vector, extract_vector
 
@@ -51,10 +52,19 @@ class GATrWrapper(EquiVectors):
             double_layernorm=double_layernorm,
         )
 
-    def forward(self, fourmomenta, scalars, attn_mask=None):
+    def forward(self, fourmomenta, scalars=None, ptr=None):
         # TODO: reshaping business
+        if ptr is None:
+            attn_mask = None
+        else:
+            batch = get_batch_from_ptr(ptr)
+            attn_mask = get_xformers_attention_mask(
+                batch,
+                materialize=fourmomenta.device == torch.device("cpu"),
+                dtype=fourmomenta.dtype,
+            )
 
-        mv = embed_vector(fourmomenta)
+        mv = embed_vector(fourmomenta).unsqueeze(-2)
         s = scalars
 
         output_mv, _ = self.net(mv, s, attention_mask=attn_mask)

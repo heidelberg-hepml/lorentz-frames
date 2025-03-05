@@ -4,41 +4,12 @@ from torch_geometric.nn.aggr import MeanAggregation
 
 from functools import partial
 from torch_geometric.utils import to_dense_batch
-from xformers.ops.fmha import BlockDiagonalMask
 
 from tensorframes.reps.tensorreps import TensorReps
 from tensorframes.reps.tensorreps_transform import TensorRepsTransform
 from tensorframes.utils.hep import EPPP_to_PtPhiEtaM2
-from tensorframes.lframes.equi_lframes import LearnedLFrames
+from tensorframes.utils.utils import get_xformers_attention_mask
 from experiments.tagging.embedding import get_tagging_features
-
-
-def attention_mask(batch, materialize=False):
-    """
-    Construct attention mask that makes sure that objects only attend to each other
-    within the same batch element, and not across batch elements
-
-    Parameters
-    ----------
-    batch: torch.tensor
-        batch object in the torch_geometric.data naming convention
-        contains batch index for each event in a sparse tensor
-    materialize: bool
-        Decides whether a xformers or ('materialized') torch.tensor mask should be returned
-        The xformers mask allows to use the optimized xformers attention kernel, but only runs on gpu
-
-    Returns
-    -------
-    mask: xformers.ops.fmha.attn_bias.BlockDiagonalMask or torch.tensor
-        attention mask, to be used in xformers.ops.memory_efficient_attention
-        or torch.nn.functional.scaled_dot_product_attention
-    """
-    bincounts = torch.bincount(batch).tolist()
-    mask = BlockDiagonalMask.from_seqlens(bincounts)
-    if materialize:
-        # materialize mask to torch.tensor (only for testing purposes)
-        mask = mask.materialize(shape=(len(batch), len(batch))).to(batch.device)
-    return mask
 
 
 class TaggerWrapper(nn.Module):
@@ -121,8 +92,10 @@ class BaselineTransformerWrapper(AggregatedTaggerWrapper):
         jetmomenta_local = jetmomenta_local.reshape(jetmomenta_local.shape[0], -1)
         features_local = torch.cat([jetmomenta_local, scalars], dim=-1)
 
-        mask = attention_mask(
-            batch, materialize=features_local.device == torch.device("cpu")
+        mask = get_xformers_attention_mask(
+            batch,
+            materialize=features_local.device == torch.device("cpu"),
+            dtype=scalars.dtype,
         )
 
         # network

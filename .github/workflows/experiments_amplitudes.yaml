@@ -68,3 +68,7 @@ jobs:
     - name: TFGraphNet (edges only) + IdentityLFrames
       run: |
         python run.py -cn amplitudes model=amp_graphnet save=false evaluate=false training.iterations=3 model.include_nodes=false
+
+    - name: TFGraphNet + OrthogonalLFrames + GATr equivectors
+      run: |
+        python run.py -cn amplitudes model=amp_graphnet model/lframesnet=orthogonal model/lframesnet/equivectors=gatr save=false evaluate=false training.iterations=3
