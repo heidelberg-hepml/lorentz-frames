@@ -3,6 +3,7 @@ import math
 from torch_geometric.utils import scatter, dense_to_sparse
 
 from tensorframes.utils.hep import get_eta, get_phi, get_pt
+from tensorframes.utils.utils import get_batch_from_ptr
 from experiments.tagging.dataset import EPS
 
 UNITS = 20  # We use units of 20 GeV for all tagging experiments
@@ -18,12 +19,6 @@ SCALAR_FEATURES_PREPROCESSING = [
     [0, 1],  # deta
     [0.2, 4],  # dr
 ]
-
-
-def get_batch_from_ptr(ptr):
-    return torch.arange(len(ptr) - 1, device=ptr.device).repeat_interleave(
-        ptr[1:] - ptr[:-1],
-    )
 
 
 def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
@@ -134,6 +129,7 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
         "scalars": scalars,
         "edge_index": edge_index,
         "batch": batch,
+        "ptr": ptr,
     }
     return embedding
 

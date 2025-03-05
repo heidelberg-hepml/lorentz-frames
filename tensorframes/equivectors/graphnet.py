@@ -1,10 +1,15 @@
 import torch
+import math
 from torch.nn import Identity, Softplus
 from torch_geometric.nn import MessagePassing
 
 from tensorframes.nn.mlp import MLP
 from tensorframes.equivectors.base import EquiVectors
 from tensorframes.utils.lorentz import lorentz_squarednorm
+from tensorframes.utils.utils import (
+    build_edge_index_fully_connected,
+    get_edge_index_from_ptr,
+)
 
 
 class EquiGraphNet(EquiVectors, MessagePassing):
@@ -49,7 +54,25 @@ class EquiGraphNet(EquiVectors, MessagePassing):
             self.register_buffer("edge_mean", torch.zeros(0))
             self.register_buffer("edge_std", torch.ones(1))
 
-    def forward(self, fourmomenta, scalars, edge_index, batch=None):
+    def forward(self, fourmomenta, scalars=None, ptr=None):
+        # get edge_index and batch from ptr
+        in_shape = fourmomenta.shape[:-1]
+        if scalars is None:
+            scalars = torch.zeros_like(fourmomenta[..., []])
+        if len(in_shape) > 1:
+            assert ptr is None, "ptr only supported for sparse tensors"
+            edge_index, batch = build_edge_index_fully_connected(
+                fourmomenta, remove_self_loops=True
+            )
+            fourmomenta = fourmomenta.reshape(math.prod(in_shape), 4)
+            scalars = scalars.reshape(math.prod(in_shape), scalars.shape[-1])
+        else:
+            if ptr is None:
+                # assume batch contains only one particle
+                ptr = torch.tensor([0, len(fourmomenta)], device=fourmomenta.device)
+            edge_index = get_edge_index_from_ptr(ptr)
+            batch = None
+
         # calculate and standardize edge attributes
         if self.include_edges:
             mij2 = lorentz_squarednorm(
@@ -68,7 +91,7 @@ class EquiGraphNet(EquiVectors, MessagePassing):
         vecs = self.propagate(
             edge_index, s=scalars, fm=fourmomenta, edge_attr=edge_attr, batch=batch
         )
-        vecs = vecs.reshape(-1, self.n_vectors, 4)
+        vecs = vecs.reshape(*in_shape, self.n_vectors, 4)
         assert torch.isfinite(vecs).all()
         return vecs
 

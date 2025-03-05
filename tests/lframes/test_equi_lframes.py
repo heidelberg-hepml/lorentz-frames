@@ -20,12 +20,7 @@ def test_lframes_transformation(LFramesPredictor, batch_dims, logm2_std, logm2_m
     assert len(batch_dims) == 1
     equivectors = equivectors_builder(in_nodes=0)
     predictor = LFramesPredictor(equivectors=equivectors).to(dtype=dtype)
-    batch = torch.zeros(batch_dims, dtype=torch.long)
-    edge_index = dense_to_sparse(torch.ones(batch_dims[0], batch_dims[0]))[0]
-    scalars = torch.zeros(*batch_dims, 0, dtype=dtype)
-    call_predictor = lambda fm: predictor(
-        fm, scalars, edge_index=edge_index, batch=batch
-    )
+    call_predictor = lambda fm: predictor(fm)
 
     # sample Lorentz vectors
     fm = sample_particle(batch_dims, logm2_std, logm2_mean, dtype=dtype)
@@ -64,12 +59,7 @@ def test_feature_invariance(LFramesPredictor, batch_dims, logm2_std, logm2_mean)
     assert len(batch_dims) == 1
     equivectors = equivectors_builder(in_nodes=0)
     predictor = LFramesPredictor(equivectors=equivectors).to(dtype=dtype)
-    batch = torch.zeros(batch_dims, dtype=torch.long)
-    edge_index = dense_to_sparse(torch.ones(batch_dims[0], batch_dims[0]))[0]
-    scalars = torch.zeros(*batch_dims, 0, dtype=dtype)
-    call_predictor = lambda fm: predictor(
-        fm, scalars, edge_index=edge_index, batch=batch
-    )
+    call_predictor = lambda fm: predictor(fm)
 
     reps = TensorReps("1x1n")
     trafo = TensorRepsTransform(TensorReps(reps))

@@ -8,6 +8,7 @@ from experiments.amplitudes.preprocessing import preprocess_momentum
 from tensorframes.reps.tensorreps import TensorReps
 from tensorframes.reps.tensorreps_transform import TensorRepsTransform
 from tensorframes.utils.lorentz import lorentz_squarednorm
+from tensorframes.utils.utils import build_edge_index_fully_connected
 
 
 class AmplitudeWrapper(nn.Module):
@@ -30,21 +31,10 @@ class AmplitudeWrapper(nn.Module):
         self.mom_std = std
 
     def forward(self, fourmomenta):
-        if not self.lframesnet.is_learnable:
-            lframes, tracker = self.lframesnet(fourmomenta, return_tracker=True)
-        else:
-            shape = fourmomenta.shape
-            edge_index, batch = build_edge_index(fourmomenta, remove_self_loops=True)
-            fourmomenta_flat = fourmomenta.reshape(-1, 4)
-            scalars = torch.zeros_like(fourmomenta_flat[:, []])
-            lframes, tracker = self.lframesnet(
-                fourmomenta_flat,
-                scalars,
-                edge_index=edge_index,
-                batch=batch,
-                return_tracker=True,
-            )
-            lframes = lframes.reshape(*shape[:-1], 4, 4)
+        scalars = torch.zeros_like(fourmomenta[..., []])
+        lframes, tracker = self.lframesnet(
+            fourmomenta, scalars, ptr=None, return_tracker=True
+        )
 
         fourmomenta_local = self.trafo_fourmomenta(fourmomenta, lframes)
 
@@ -121,7 +111,7 @@ class GraphNetWrapper(AmplitudeWrapper):
         node_attr = particle_type
         if self.include_nodes:
             node_attr = torch.cat([node_attr, features_local], dim=-1)
-        edge_index, batch = build_edge_index(node_attr)
+        edge_index, batch = build_edge_index_fully_connected(node_attr)
         node_attr = node_attr.view(-1, node_attr.shape[-1])
         lframes = lframes.reshape(-1, 4, 4)
         if self.include_edges:
@@ -151,25 +141,3 @@ class GraphNetWrapper(AmplitudeWrapper):
             self.edge_inited.fill_(True)
         edge_attr = (edge_attr - self.edge_mean) / self.edge_std
         return edge_attr.unsqueeze(-1)
-
-
-def build_edge_index(features_ref, remove_self_loops=False):
-    batch_size, seq_len, _ = features_ref.shape
-    device = features_ref.device
-
-    nodes = torch.arange(seq_len, device=device)
-    row, col = torch.meshgrid(nodes, nodes, indexing="ij")
-
-    if remove_self_loops:
-        mask = row != col
-        row, col = row[mask], col[mask]
-    edge_index_single = torch.stack([row.flatten(), col.flatten()], dim=0)
-
-    edge_index_global = []
-    for i in range(batch_size):
-        offset = i * seq_len
-        edge_index_global.append(edge_index_single + offset)
-    edge_index_global = torch.cat(edge_index_global, dim=1)
-
-    batch = torch.arange(batch_size, device=device).repeat_interleave(seq_len)
-    return edge_index_global, batch

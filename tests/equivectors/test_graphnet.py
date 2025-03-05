@@ -36,14 +36,6 @@ def test_equivariance(
 
     # construct sparse tensors containing a set of equal-multiplicity jets
     ptr = torch.arange(0, (batch_dims[0] + 1) * jet_size, jet_size)
-    diffs = torch.diff(ptr)
-    edge_index = torch.cat(
-        [
-            dense_to_sparse(torch.ones(d, d, device=diffs.device))[0] + diffs[:i].sum()
-            for i, d in enumerate(diffs)
-        ],
-        dim=-1,
-    )
 
     # input to mlp: only edge attributes
     in_nodes = 0
@@ -71,13 +63,11 @@ def test_equivariance(
     # path 1: global transform + predict vectors
     fm_prime = torch.einsum("...ij,...j->...i", random, fm)
     node_attr_prime = calc_node_attr(fm_prime)
-    vecs_prime1 = equivectors(
-        fourmomenta=fm_prime, scalars=node_attr_prime, edge_index=edge_index
-    )
+    vecs_prime1 = equivectors(fourmomenta=fm_prime, scalars=node_attr_prime, ptr=ptr)
 
     # path 2: predict vectors + global transform
     node_attr = calc_node_attr(fm)
-    vecs = equivectors(fourmomenta=fm, scalars=node_attr, edge_index=edge_index)
+    vecs = equivectors(fourmomenta=fm, scalars=node_attr, ptr=ptr)
     vecs_prime2 = torch.einsum("...ij,...kj->...ki", random, vecs)
 
     # test that vectors are predicted equivariantly

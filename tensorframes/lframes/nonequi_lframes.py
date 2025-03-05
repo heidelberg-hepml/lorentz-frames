@@ -14,7 +14,7 @@ class LFramesPredictor(torch.nn.Module):
         self.is_global = is_global
         self.is_learnable = is_learnable
 
-    def forward(self, *args, **kwargs):
+    def forward(self, fourmomenta, scalars=None, ptr=None, return_tracker=False):
         raise NotImplementedError
 
 
@@ -24,7 +24,7 @@ class IdentityLFrames(LFramesPredictor):
     def __init__(self):
         super().__init__(is_global=True, is_learnable=False)
 
-    def forward(self, fourmomenta, return_tracker=False):
+    def forward(self, fourmomenta, scalars=None, ptr=None, return_tracker=False):
         lframes = LFrames(
             is_global=True,
             is_identity=True,
@@ -63,7 +63,7 @@ class RandomLFrames(LFramesPredictor):
                 f"Transformation type {self.transform_type} not implemented"
             )
 
-    def forward(self, fourmomenta, return_tracker=False):
+    def forward(self, fourmomenta, scalars=None, ptr=None, return_tracker=False):
         shape = (
             fourmomenta.shape[:-2] + (1,) if self.is_global else fourmomenta.shape[:-1]
         )

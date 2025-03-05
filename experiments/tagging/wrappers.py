@@ -61,19 +61,13 @@ class TaggerWrapper(nn.Module):
         scalars = embedding["scalars"]
         edge_index = embedding["edge_index"]
         batch = embedding["batch"]
+        ptr = embedding["ptr"]
 
         # construct lframes
         fourmomenta = fourmomenta.reshape(fourmomenta.shape[0], -1)
-        if not self.lframesnet.is_learnable:
-            lframes, tracker = self.lframesnet(fourmomenta, return_tracker=True)
-        else:
-            lframes, tracker = self.lframesnet(
-                fourmomenta,
-                scalars,
-                edge_index=edge_index,
-                batch=batch,
-                return_tracker=True,
-            )
+        lframes, tracker = self.lframesnet(
+            fourmomenta, scalars, ptr=ptr, return_tracker=True
+        )
 
         # transform features into local frames
         fourmomenta_local = self.trafo_fourmomenta(fourmomenta, lframes)

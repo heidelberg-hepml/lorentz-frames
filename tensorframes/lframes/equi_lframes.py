@@ -39,8 +39,8 @@ class LearnedOrthogonalLFrames(LearnedLFrames):
     ):
         super().__init__(*args, n_vectors=3, **kwargs)
 
-    def forward(self, fourmomenta, scalars, return_tracker=False, **kwargs):
-        vecs = self.equivectors(fourmomenta, scalars, **kwargs)
+    def forward(self, fourmomenta, scalars=None, ptr=None, return_tracker=False):
+        vecs = self.equivectors(fourmomenta, scalars=scalars, ptr=ptr)
         vecs = [vecs[..., i, :] for i in range(vecs.shape[-2])]
 
         trafo, reg_lightlike, reg_coplanar = orthogonal_trafo(
@@ -62,8 +62,8 @@ class LearnedPolarDecompositionLFrames(LearnedLFrames):
     ):
         super().__init__(*args, n_vectors=3, **kwargs)
 
-    def forward(self, fourmomenta, scalars, return_tracker=False, **kwargs):
-        vecs = self.equivectors(fourmomenta, scalars, **kwargs)
+    def forward(self, fourmomenta, scalars=None, ptr=None, return_tracker=False):
+        vecs = self.equivectors(fourmomenta, scalars=scalars, ptr=ptr)
         fourmomenta = vecs[..., 0, :]
         references = [vecs[..., i, :] for i in range(1, vecs.shape[-2])]
 
@@ -90,8 +90,8 @@ class LearnedRestLFrames(LearnedLFrames):
     ):
         super().__init__(*args, n_vectors=2, **kwargs)
 
-    def forward(self, fourmomenta, scalars, return_tracker=False, **kwargs):
-        references = self.equivectors(fourmomenta, scalars, **kwargs)
+    def forward(self, fourmomenta, scalars=None, ptr=None, return_tracker=False):
+        references = self.equivectors(fourmomenta, scalars=scalars, ptr=ptr)
         references = [references[..., i, :] for i in range(references.shape[-2])]
 
         trafo, reg_collinear = restframe_equivariant(
@@ -120,8 +120,8 @@ class LearnedOrthogonal3DLFrames(LearnedLFrames):
             **kwargs,
         )
 
-    def forward(self, fourmomenta, scalars, return_tracker=False, **kwargs):
-        references = self.equivectors(fourmomenta, scalars, **kwargs)
+    def forward(self, fourmomenta, scalars=None, ptr=None, return_tracker=False):
+        references = self.equivectors(fourmomenta, scalars=scalars, ptr=ptr)
         fourmomenta = lorentz_eye(
             fourmomenta.shape[:-1], device=fourmomenta.device, dtype=fourmomenta.dtype
         )[

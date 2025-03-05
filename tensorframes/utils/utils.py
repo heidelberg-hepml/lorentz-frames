@@ -1,4 +1,5 @@
 import torch
+from torch_geometric.utils import dense_to_sparse
 
 
 def unpack_last(x):
@@ -89,3 +90,43 @@ def batch_to_ptr(batch: torch.Tensor):
     ptr[:-1] = torch.arange(len(batch), device=batch.device)[diff_mask]
     ptr[-1] = len(batch)
     return ptr
+
+
+def get_batch_from_ptr(ptr):
+    return torch.arange(len(ptr) - 1, device=ptr.device).repeat_interleave(
+        ptr[1:] - ptr[:-1],
+    )
+
+
+def get_edge_index_from_ptr(ptr):
+    diffs = torch.diff(ptr)
+    edge_index = torch.cat(
+        [
+            dense_to_sparse(torch.ones(d, d, device=diffs.device))[0] + diffs[:i].sum()
+            for i, d in enumerate(diffs)
+        ],
+        dim=-1,
+    )
+    return edge_index
+
+
+def build_edge_index_fully_connected(features_ref, remove_self_loops=False):
+    batch_size, seq_len, _ = features_ref.shape
+    device = features_ref.device
+
+    nodes = torch.arange(seq_len, device=device)
+    row, col = torch.meshgrid(nodes, nodes, indexing="ij")
+
+    if remove_self_loops:
+        mask = row != col
+        row, col = row[mask], col[mask]
+    edge_index_single = torch.stack([row.flatten(), col.flatten()], dim=0)
+
+    edge_index_global = []
+    for i in range(batch_size):
+        offset = i * seq_len
+        edge_index_global.append(edge_index_single + offset)
+    edge_index_global = torch.cat(edge_index_global, dim=1)
+
+    batch = torch.arange(batch_size, device=device).repeat_interleave(seq_len)
+    return edge_index_global, batch

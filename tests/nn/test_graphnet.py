@@ -33,11 +33,7 @@ def test_edgeconv_invariance_equivariance(
     assert len(batch_dims) == 1
     equivectors = equivectors_builder(in_nodes=0)
     predictor = LFramesPredictor(equivectors=equivectors).to(dtype=dtype)
-    batch = torch.zeros(batch_dims, dtype=torch.long)
-    scalars = torch.zeros(*batch_dims, 0, dtype=dtype)
-    call_predictor = lambda fm: predictor(
-        fm, scalars, edge_index=edge_index, batch=batch
-    )
+    call_predictor = lambda fm: predictor(fm)
 
     # define edgeconv
     in_reps = TensorReps("1x1n")
@@ -108,11 +104,7 @@ def test_graphnet_invariance_equivariance(
     assert len(batch_dims) == 1
     equivectors = equivectors_builder(in_nodes=0)
     predictor = LFramesPredictor(equivectors=equivectors).to(dtype=dtype)
-    batch = torch.zeros(batch_dims, dtype=torch.long)
-    scalars = torch.zeros(*batch_dims, 0, dtype=dtype)
-    call_predictor = lambda fm: predictor(
-        fm, scalars, edge_index=edge_index, batch=batch
-    )
+    call_predictor = lambda fm: predictor(fm)
 
     # define edgeconv
     in_reps = TensorReps("1x1n")

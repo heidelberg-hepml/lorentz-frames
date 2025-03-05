@@ -29,12 +29,7 @@ def test_invariance_equivariance(
     assert len(batch_dims) == 1
     equivectors = equivectors_builder(in_nodes=0)
     predictor = LFramesPredictor(equivectors=equivectors).to(dtype=dtype)
-    batch = torch.zeros(batch_dims, dtype=torch.long)
-    edge_index = dense_to_sparse(torch.ones(batch_dims[0], batch_dims[0]))[0]
-    scalars = torch.zeros(*batch_dims, 0, dtype=dtype)
-    call_predictor = lambda fm: predictor(
-        fm, scalars, edge_index=edge_index, batch=batch
-    )
+    call_predictor = lambda fm: predictor(fm)
 
     # preparations
     in_reps = TensorReps("1x1n")
