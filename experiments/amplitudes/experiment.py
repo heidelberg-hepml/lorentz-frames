@@ -118,7 +118,7 @@ class AmplitudeExperiment(BaseExperiment):
         )
         self.momentum_prepd = self.momentum / self.momentum.std()
         if self.cfg.data.standardize:
-            self.model.init_preprocessing(self.momentum_prepd)
+            self.model.init_standardization(self.momentum_prepd)
             self.model.to(device=self.device, dtype=self.dtype)
 
     def _init_dataloader(self):

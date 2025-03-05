@@ -2,7 +2,7 @@ import torch
 from torch import nn
 from torch_geometric.nn.aggr import MeanAggregation
 
-from experiments.amplitudes.utils import preprocess_momentum
+from experiments.amplitudes.utils import standardize_momentum
 from experiments.baselines.gatr.interface import embed_vector, extract_scalar
 
 from tensorframes.reps.tensorreps import TensorReps
@@ -24,8 +24,8 @@ class AmplitudeWrapper(nn.Module):
 
         self.trafo_fourmomenta = TensorRepsTransform(TensorReps("1x1n"))
 
-    def init_preprocessing(self, fourmomenta):
-        _, self.mom_mean, self.mom_std = preprocess_momentum(fourmomenta)
+    def init_standardization(self, fourmomenta):
+        _, self.mom_mean, self.mom_std = standardize_momentum(fourmomenta)
 
     def forward(self, fourmomenta):
         particle_type = self.encode_particle_type(fourmomenta.shape[0]).to(
@@ -50,7 +50,7 @@ class AmplitudeWrapper(nn.Module):
             lframes = lframes.reshape(*shape[:-1], 4, 4)
 
         fourmomenta_local = self.trafo_fourmomenta(fourmomenta, lframes)
-        features_local, _, _ = preprocess_momentum(
+        features_local, _, _ = standardize_momentum(
             fourmomenta_local, self.mom_mean, self.mom_std
         )
         return (
@@ -113,8 +113,8 @@ class GraphNetWrapper(AmplitudeWrapper):
             self.register_buffer("edge_mean", torch.tensor(0.0))
             self.register_buffer("edge_std", torch.tensor(1.0))
 
-    def init_preprocessing(self, fourmomenta):
-        super().init_preprocessing(fourmomenta)
+    def init_standardization(self, fourmomenta):
+        super().init_standardization(fourmomenta)
 
         if self.include_edges:
             # edge feature standardization parameters
