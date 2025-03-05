@@ -38,11 +38,10 @@ class AmplitudeWrapper(nn.Module):
             shape = fourmomenta.shape
             edge_index, batch = build_edge_index(fourmomenta, remove_self_loops=True)
             fourmomenta_flat = fourmomenta.reshape(-1, 4)
-            node_features = particle_type
-            node_features_flat = node_features.reshape(-1, node_features.shape[-1])
+            particle_type_flat = particle_type.reshape(-1, particle_type.shape[-1])
             lframes, tracker = self.lframesnet(
                 fourmomenta_flat,
-                node_features_flat,
+                particle_type_flat,
                 edge_index=edge_index,
                 batch=batch,
                 return_tracker=True,
