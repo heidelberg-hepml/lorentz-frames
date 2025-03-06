@@ -63,10 +63,6 @@ class TaggerWrapper(nn.Module):
         self.in_channels = in_channels
         self.out_channels = out_channels
 
-        assert (
-            self.out_channels == 1
-        ), "out_channels must only contain scalars, but got out_channels={out_channels}"
-
         if isinstance(lframesnet, partial):
             # lframesnet with learnable elements need the in_nodes (number of scalars in input) for the networks
             self.lframesnet = lframesnet()
@@ -84,11 +80,6 @@ class TaggerWrapper(nn.Module):
         edge_index_withspurions = embedding["edge_index"]
         batch_withspurions = embedding["batch"]
         is_spurion = embedding["is_spurion"]
-
-        assert (
-            torch.where(is_spurion)[0]
-            == torch.where((fourmomenta_withspurions == 0.0).any(dim=-1))[0]
-        ).all()
 
         # remove spurions from the data again and recompute attributes
         fourmomenta_nospurions = fourmomenta_withspurions[~is_spurion]
