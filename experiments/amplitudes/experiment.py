@@ -41,14 +41,6 @@ class AmplitudeExperiment(BaseExperiment):
         with open_dict(self.cfg):
             self.cfg.model.particle_type = particle_type
 
-            learnable_lframesnet = (
-                OmegaConf.select(self.cfg.model.lframesnet, "ortho_kwargs") is not None
-            )
-            if learnable_lframesnet:
-                # TODO: improve this in the equivectors PR
-                self.cfg.model.lframesnet._partial_ = False
-                self.cfg.model.lframesnet.in_nodes = num_particle_types
-
             if modelname == "TFTransformer":
                 self.cfg.model.net.in_channels = num_particle_types + 4
             elif modelname == "TFGraphNet":
