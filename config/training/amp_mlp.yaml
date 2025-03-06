@@ -1,4 +1,4 @@
 iterations: 400000
 
 defaults:
- - amp_new_default
+ - amp_default

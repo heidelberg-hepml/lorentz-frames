@@ -6,8 +6,9 @@ from tests.helpers import lorentz_test
 from tensorframes.utils.transforms import (
     rand_lorentz,
     rand_rotation,
-    rand_phirotation,
+    rand_xyrotation,
     rand_boost,
+    rand_ztransform,
 )
 
 
@@ -15,7 +16,7 @@ from tensorframes.utils.transforms import (
 @pytest.mark.parametrize("n_range", [[1, 1], [3, 5]])
 @pytest.mark.parametrize("std_eta", [0.1, 1, 2])
 @pytest.mark.parametrize(
-    "transform_type", [rand_lorentz, rand_rotation, rand_phirotation, rand_boost]
+    "transform_type", [rand_lorentz, rand_rotation, rand_xyrotation, rand_boost, rand_ztransform]
 )
 def test_rand_lorentz(batch_dims, n_range, std_eta, transform_type):
     dtype = torch.float64
@@ -35,11 +36,11 @@ def test_rand_lorentz(batch_dims, n_range, std_eta, transform_type):
     lorentz_test(transform, **MILD_TOLERANCES)
 
     # test specific properties of the transform
-    if transform_type in [rand_rotation, rand_phirotation]:
+    if transform_type in [rand_rotation, rand_xyrotation]:
         should_zero = torch.cat(
             [transform[..., 0, 1:].flatten(), transform[..., 1:, 0].flatten()]
         )
-        if transform_type == rand_phirotation:
+        if transform_type == rand_xyrotation:
             should_zero = torch.cat(
                 [
                     should_zero,

@@ -3,8 +3,9 @@ from tensorframes.lframes.lframes import LFrames
 from tensorframes.utils.transforms import (
     rand_lorentz,
     rand_rotation,
-    rand_phirotation,
+    rand_xyrotation,
     rand_boost,
+    rand_ztransform,
 )
 
 
@@ -57,7 +58,9 @@ class RandomLFrames(LFramesPredictor):
         elif self.transform_type == "boost":
             return rand_boost(shape, std_eta=self.std_eta, device=device)
         elif self.transform_type == "xyrotation":
-            return rand_phirotation(shape, device=device)
+            return rand_xyrotation(shape, device=device)
+        elif self.transform_type == "ztransform":
+            return rand_ztransform(shape, std_eta=self.std_eta, device=device)
         else:
             raise ValueError(
                 f"Transformation type {self.transform_type} not implemented"

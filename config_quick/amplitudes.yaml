@@ -6,7 +6,8 @@ data:
  data_path : data/
  subsample : 10000
  permutation_symmetry: true
- preprocess_momentum: false
+ standardize: true
+ prepare: rotation
  train_test_val: [.4, .5, .1]
 
 evaluation:
