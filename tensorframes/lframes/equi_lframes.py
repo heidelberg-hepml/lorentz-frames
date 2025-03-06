@@ -30,11 +30,10 @@ class LearnedLFrames(LFramesPredictor):
 
         self.in_nodes = in_nodes
 
-        self.predicted_n_vectors = n_vectors
         self.ortho_kwargs = ortho_kwargs
 
         self.equivectors = EquivariantVectors(
-            n_vectors=self.predicted_n_vectors,
+            n_vectors=n_vectors,
             in_nodes=in_nodes,
             in_edges=1,
             *args,
