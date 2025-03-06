@@ -39,6 +39,9 @@ class AmplitudeWrapper(nn.Module):
         features_local, _, _ = standardize_momentum(
             fourmomenta_local, self.mom_mean, self.mom_std
         )
+        particle_type = self.encode_particle_type(fourmomenta_local.shape[0]).to(
+            dtype=fourmomenta.dtype, device=fourmomenta.device
+        )
         return (
             features_local,
             fourmomenta_local,
