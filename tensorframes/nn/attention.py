@@ -6,13 +6,11 @@ from torch.nn.functional import scaled_dot_product_attention as torch_sdpa
 from xformers.ops import AttentionBias, memory_efficient_attention
 
 from tensorframes.lframes.lframes import (
-    LFrames,
     InverseLFrames,
     LowerIndices,
 )
 from tensorframes.reps import TensorReps
 from tensorframes.reps.tensorreps_transform import TensorRepsTransform
-from tensorframes.utils.utils import to_nd
 
 # Masked out attention logits are set to this constant (a finite replacement for -inf):
 _MASKED_OUT = float("-inf")
