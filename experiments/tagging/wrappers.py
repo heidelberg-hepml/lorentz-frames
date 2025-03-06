@@ -63,12 +63,7 @@ class TaggerWrapper(nn.Module):
         self.in_channels = in_channels
         self.out_channels = out_channels
 
-        if isinstance(lframesnet, partial):
-            # lframesnet with learnable elements need the in_nodes (number of scalars in input) for the networks
-            self.lframesnet = lframesnet()
-
-        else:
-            self.lframesnet = lframesnet
+        self.lframesnet = lframesnet
 
         self.trafo_fourmomenta = TensorRepsTransform(TensorReps("1x1n"))
 
