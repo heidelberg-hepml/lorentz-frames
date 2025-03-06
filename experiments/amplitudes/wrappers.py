@@ -107,7 +107,7 @@ class GraphNetWrapper(AmplitudeWrapper):
 
         if self.include_edges:
             # edge feature standardization parameters
-            edge_index, _ = build_edge_index(fourmomenta)
+            edge_index, _ = build_edge_index_fully_connected(fourmomenta)
             fourmomenta = fourmomenta.reshape(-1, 4)
             mij2 = lorentz_squarednorm(
                 fourmomenta[edge_index[0]] + fourmomenta[edge_index[1]]
