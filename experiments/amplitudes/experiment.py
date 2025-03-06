@@ -38,6 +38,7 @@ class AmplitudeExperiment(BaseExperiment):
         num_particle_types = max(particle_type) + 1
 
         modelname = self.cfg.model.net._target_.rsplit(".", 1)[-1]
+        learnable_lframesnet = "equivectors" in self.cfg.model.lframesnet
         with open_dict(self.cfg):
             self.cfg.model.particle_type = particle_type
 
@@ -62,7 +63,7 @@ class AmplitudeExperiment(BaseExperiment):
             else:
                 raise ValueError(f"Model {modelname} not implemented")
 
-            if "equivectors" in self.cfg.model.lframesnet:
+            if learnable_lframesnet:
                 self.cfg.model.lframesnet.equivectors.in_nodes = 0
         LOGGER.info(f"Using particle_type={particle_type}")
 
