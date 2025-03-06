@@ -2,6 +2,7 @@ import hydra
 from experiments.tagging.experiment import TopTaggingExperiment
 from experiments.tagging.jetclassexperiment import JetClassTaggingExperiment
 from experiments.amplitudes.experiment import AmplitudeExperiment
+from experiments.amplitudes.experiment_xl import XLAmplitudeExperiment
 
 
 @hydra.main(config_path="config_quick", config_name="toptagging", version_base=None)
@@ -12,6 +13,8 @@ def main(cfg):
         exp = JetClassTaggingExperiment(cfg)
     elif cfg.exp_type == "amplitudes":
         exp = AmplitudeExperiment(cfg)
+    elif cfg.exp_type == "amplitudes_xl":
+        exp = XLAmplitudeExperiment(cfg)
     else:
         raise ValueError(f"exp_type {cfg.exp_type} not implemented")
 

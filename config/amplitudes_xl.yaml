@@ -1,0 +1,5 @@
+exp_type: amplitudes_xl
+exp_name: amp
+
+defaults:
+ - amplitudes
