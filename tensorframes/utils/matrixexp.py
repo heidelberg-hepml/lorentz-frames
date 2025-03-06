@@ -1,5 +1,4 @@
 import torch
-from math import factorial
 from torch.linalg import matrix_exp
 
 from tensorframes.utils.lorentz import lorentz_metric

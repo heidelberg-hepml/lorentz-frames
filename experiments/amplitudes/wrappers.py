@@ -1,9 +1,9 @@
 import torch
 from torch import nn
-from functools import partial
 from torch_geometric.nn.aggr import MeanAggregation
 
-from experiments.amplitudes.preprocessing import preprocess_momentum
+from experiments.amplitudes.utils import standardize_momentum
+from experiments.baselines.gatr.interface import embed_vector, extract_scalar
 
 from tensorframes.reps.tensorreps import TensorReps
 from tensorframes.reps.tensorreps_transform import TensorRepsTransform
@@ -26,9 +26,8 @@ class AmplitudeWrapper(nn.Module):
 
         self.trafo_fourmomenta = TensorRepsTransform(TensorReps("1x1n"))
 
-    def init_momentum_preprocessing(self, mean, std):
-        self.mom_mean = mean
-        self.mom_std = std
+    def init_standardization(self, fourmomenta):
+        _, self.mom_mean, self.mom_std = standardize_momentum(fourmomenta)
 
     def forward(self, fourmomenta):
         scalars = torch.zeros_like(fourmomenta[..., []])
@@ -37,16 +36,16 @@ class AmplitudeWrapper(nn.Module):
         )
 
         fourmomenta_local = self.trafo_fourmomenta(fourmomenta, lframes)
-
-        features_local, _, _ = preprocess_momentum(
+        features_local, _, _ = standardize_momentum(
             fourmomenta_local, self.mom_mean, self.mom_std
         )
-        features_local = torch.arcsinh(features_local)  # suppress tails
-
-        particle_type = self.encode_particle_type(fourmomenta.shape[0]).to(
-            features_local.dtype
+        return (
+            features_local,
+            fourmomenta_local,
+            particle_type,
+            lframes,
+            tracker,
         )
-        return features_local, fourmomenta_local, particle_type, lframes, tracker
 
     def encode_particle_type(self, batchsize):
         particle_type = torch.nn.functional.one_hot(
@@ -75,11 +74,14 @@ class TransformerWrapper(AmplitudeWrapper):
         self.net = net
 
     def forward(self, fourmomenta_global):
-        features_local, _, particle_type, lframes, tracker = super().forward(
-            fourmomenta_global
-        )
+        (
+            features_local,
+            _,
+            particle_type,
+            lframes,
+            tracker,
+        ) = super().forward(fourmomenta_global)
         features = torch.cat([features_local, particle_type], dim=-1)
-
         output = self.net(features, lframes)
         amp = output.mean(dim=-2)
         return amp, tracker
@@ -94,9 +96,22 @@ class GraphNetWrapper(AmplitudeWrapper):
         self.include_nodes = include_nodes
 
         if self.include_edges:
-            self.register_buffer("edge_inited", torch.tensor(False, dtype=torch.bool))
-            self.register_buffer("edge_mean", torch.zeros(0))
-            self.register_buffer("edge_std", torch.ones(1))
+            self.register_buffer("edge_mean", torch.tensor(0.0))
+            self.register_buffer("edge_std", torch.tensor(1.0))
+
+    def init_standardization(self, fourmomenta):
+        super().init_standardization(fourmomenta)
+
+        if self.include_edges:
+            # edge feature standardization parameters
+            edge_index, _ = build_edge_index(fourmomenta)
+            fourmomenta = fourmomenta.reshape(-1, 4)
+            mij2 = lorentz_squarednorm(
+                fourmomenta[edge_index[0]] + fourmomenta[edge_index[1]]
+            )
+            edge_attr = mij2.clamp(min=1e-10).log()
+            self.edge_mean = edge_attr.mean()
+            self.edge_std = edge_attr.std().clamp(min=1e-10)
 
     def forward(self, fourmomenta_global):
         (
@@ -135,11 +150,50 @@ class GraphNetWrapper(AmplitudeWrapper):
             fourmomenta[edge_index[0]] + fourmomenta[edge_index[1]]
         )
         edge_attr = mij2.clamp(min=1e-10).log()
-        if not self.edge_inited:
-            self.edge_mean = edge_attr.mean().detach()
-            self.edge_std = (
-                edge_attr.std().clamp(min=1e-5).detach()
-            )  # TODO: remove this hack after the amplitudes PR is merged (it has a better solution)
-            self.edge_inited.fill_(True)
         edge_attr = (edge_attr - self.edge_mean) / self.edge_std
         return edge_attr.unsqueeze(-1)
+
+
+class GATrWrapper(AmplitudeWrapper):
+    def __init__(self, net, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.net = net
+
+    def forward(self, fourmomenta_global):
+        (
+            _,
+            fourmomenta_local,
+            particle_type,
+            _,
+            tracker,
+        ) = super().forward(fourmomenta_global)
+
+        # prepare multivectors and scalars
+        multivectors = embed_vector(fourmomenta_local.unsqueeze(-2))
+        scalars = particle_type
+
+        # call network
+        out_mv, _ = self.net(multivectors, scalars)
+        out_mv = extract_scalar(out_mv)[..., 0]  # extract 0th channel of scalar
+
+        # mean aggregation
+        amp = out_mv.mean(dim=-2)
+        return amp, tracker
+
+
+class DSIWrapper(AmplitudeWrapper):
+    def __init__(self, net, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.net = net
+
+    def forward(self, fourmomenta_global):
+        (
+            _,
+            fourmomenta_local,
+            particle_type,
+            _,
+            tracker,
+        ) = super().forward(fourmomenta_global)
+
+        amp = self.net(fourmomenta_local)
+        return amp, tracker

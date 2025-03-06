@@ -6,7 +6,8 @@ data:
  data_path : data/
  subsample: null
  permutation_symmetry: true
- preprocess_momentum: false
+ standardize: true
+ prepare: rotation
  train_test_val: [.4, .5, .1]
 
 evaluation:
@@ -20,5 +21,5 @@ plotting:
 
 defaults:
  - default
- - training: amp_new_default
+ - training: amp_default
  - model: amp_transformer
