@@ -16,7 +16,6 @@ class LearnedLFrames(LFramesPredictor):
         self,
         n_vectors,
         in_nodes,
-        spurion_strategy=None,
         *args,
         ortho_kwargs={},
         **kwargs,
@@ -33,12 +32,6 @@ class LearnedLFrames(LFramesPredictor):
         super().__init__()
 
         self.in_nodes = in_nodes
-        self.spurion_strategy = spurion_strategy
-        if spurion_strategy == "basis_triplet":
-            n_vectors = n_vectors - 2
-            assert (
-                n_vectors >= 0
-            ), f"Need to predict at least 1 vector, using basis means using 2 spurions instead of predicting them."
 
         self.predicted_n_vectors = n_vectors
         self.ortho_kwargs = ortho_kwargs
@@ -56,22 +49,16 @@ class LearnedLFrames(LFramesPredictor):
         self.register_buffer("edge_mean", torch.zeros(0))
         self.register_buffer("edge_std", torch.ones(1))
 
-    def forward(self, fourmomenta, scalars, edge_index, spurions=None, batch=None):
+    def forward(self, fourmomenta, scalars, edge_index, batch=None):
         """
         Args:
             fourmomenta: (batch, 4)
             scalars: scalar and tagging_features in frame (batch, n_scalar)
             edge_index: edges (2, edge_index)
-            spurions: all spurions (n_spurions, 4)
         batch: torch.tensor of shape (N,)
         Returns:
             vecs: predicted and combined with spurions if basis symmetry breaking vectors (batch, num_vecs, 4)"""
         assert scalars.shape[-1] == self.in_nodes
-        if (
-            self.spurion_strategy == "particle_add"
-            or self.spurion_strategy == "basis_triplet"
-        ):
-            assert spurions is not None
 
         # calculate and standardize edge attributes
         assert fourmomenta.shape[1] == 4
@@ -87,39 +74,15 @@ class LearnedLFrames(LFramesPredictor):
             self.edge_inited.fill_(True)
         edge_attr = (edge_attr - self.edge_mean) / self.edge_std
 
-        if self.spurion_strategy == "particle_add":
-            assert (
-                spurions.shape[0] <= self.predicted_n_vectors
-            ), f"Only predict {self.predicted_n_vectors} vectors, can not add all {spurions.shape[0]} spurions."
-            expanded_spurions = (
-                torch.cat(
-                    [
-                        spurions,
-                        torch.zeros(
-                            (self.predicted_n_vectors - spurions.shape[0], 4),
-                            device=spurions.device,
-                        ),
-                    ],
-                    dim=0,
-                )
-                .repeat(fourmomenta.shape[0], 1, 1)
-                .reshape(fourmomenta.shape[0], -1)
-            )
-        else:
-            expanded_spurions = None
-
         # call networks
         vecs = self.equivectors(
             x=scalars,
             fm=fourmomenta,
             edge_attr=edge_attr,
             edge_index=edge_index,
-            spurions=expanded_spurions,
             batch=batch,
         )
 
-        if self.spurion_strategy == "basis_triplet":
-            vecs = torch.cat([spurions.repeat(vecs.shape[0], 1, 1), vecs], dim=-2)
         return vecs
 
     def __repr__(self):

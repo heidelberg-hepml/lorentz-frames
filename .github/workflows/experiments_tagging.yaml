@@ -49,18 +49,14 @@ jobs:
       run: |
         python run.py model=baseparticlenet-lite save=false evaluate=false training.iterations=3
 
-    - name: Run TFGraphNet + OrthogonalLearnedLFrames with Scalar Symmetry Breaking
+    - name: Run TFGraphNet + OrthogonalLearnedLFrames symmetry breaking without scalar
       run: |
-        python run.py model/lframesnet=orthogonal save=false evaluate=false training.iterations=3 data.add_tagging_features_lframesnet=True
+        python run.py model/lframesnet=orthogonal save=false evaluate=false training.iterations=3 data.add_tagging_features_lframesnet=False
 
-    - name: Run TFGraphNet + OrthogonalLearnedLFrames with Vector Symmetry Breaking
+    - name: Run TFGraphNet + OrthogonalLearnedLFrames symmetry breaking without time reference
       run: |
-        python run.py model/lframesnet=orthogonal save=false evaluate=false training.iterations=3 data.spurion_strategy=particle_append
-      
-    - name: Run TFGraphNet + OrthogonalLearnedLFrames with affine Symmetry Breaking
-      run: |
-        python run.py model/lframesnet=orthogonal save=false evaluate=false training.iterations=3 data.spurion_strategy=particle_add
+        python run.py model/lframesnet=orthogonal save=false evaluate=false training.iterations=3 data.add_time_reference=False
 
-    - name: Run TFGraphNet + OrthogonalLearnedLFrames with basis Symmetry Breaking
+    - name: Run TFGraphNet + OrthogonalLearnedLFrames symmetry breaking with timelike reference
       run: |
-        python run.py model/lframesnet=orthogonal save=false evaluate=false training.iterations=3 data.spurion_strategy=basis_triplet
+        python run.py model/lframesnet=orthogonal save=false evaluate=false training.iterations=3 data.beam_reference=timelike

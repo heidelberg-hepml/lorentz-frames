@@ -145,7 +145,6 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
         "edge_index": edge_index,
         "batch": batch,
         "is_spurion": is_spurion,
-        "minimal_spurions": minimal_spurions,
     }
     return embedding
 

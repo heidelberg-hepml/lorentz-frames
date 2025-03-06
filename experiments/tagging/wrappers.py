@@ -49,7 +49,6 @@ class TaggerWrapper(nn.Module):
         out_channels,
         lframesnet,
         add_tagging_features_lframesnet=False,
-        spurion_strategy=None,
     ):
         """
         Args:
@@ -57,16 +56,9 @@ class TaggerWrapper(nn.Module):
             out_channels: string representation for the model output
             lframesnet: lframesclass
             add_taggin_features_lframesnet: bool whether to include the tagging features in the lframesnet
-            spurion_strategy: {None, "particle_append", "basis_triplet", particle_add"} which spurion_strategy methode to use in the lframesnet, refer to paper
-                None: apply no symmetry breaking through vector features
-                particle_append: include spurions as elements in the data
-                basis_triplet: use the spurions instead of equivariantly predicted vectors in the lframes
-                particle_add: add the vectors ot the predicted vectors during prediction of the equivectors
         """
         super().__init__()
         self.add_tagging_features_lframesnet = add_tagging_features_lframesnet
-        self.spurion_strategy = spurion_strategy
-
         # this is the input and output for the net
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -77,7 +69,7 @@ class TaggerWrapper(nn.Module):
 
         if isinstance(lframesnet, partial):
             # lframesnet with learnable elements need the in_nodes (number of scalars in input) for the networks
-            self.lframesnet = lframesnet(spurion_strategy=spurion_strategy)
+            self.lframesnet = lframesnet()
 
         else:
             self.lframesnet = lframesnet
@@ -92,7 +84,6 @@ class TaggerWrapper(nn.Module):
         edge_index_withspurions = embedding["edge_index"]
         batch_withspurions = embedding["batch"]
         is_spurion = embedding["is_spurion"]
-        minimal_spurions = embedding["minimal_spurions"]
 
         assert (
             torch.where(is_spurion)[0]
@@ -114,11 +105,11 @@ class TaggerWrapper(nn.Module):
         ptr_nospurions = get_ptr_from_batch(batch_nospurions)
         edge_index_nospurions = get_edge_index_from_ptr(ptr_nospurions)
 
-        if self.lframesnet.is_global:
+        if not self.lframesnet.is_learnable:
             lframes_nospurions, tracker = self.lframesnet(
                 fourmomenta_nospurions, return_tracker=True
             )
-        elif self.spurion_strategy == "particle_append":
+        else:
             if self.add_tagging_features_lframesnet:
                 scalar_features = torch.cat(
                     [scalars_withspurions, global_tagging_features_withspurions], dim=-1
@@ -130,7 +121,6 @@ class TaggerWrapper(nn.Module):
                 scalars=scalar_features,
                 edge_index=edge_index_withspurions,
                 batch=batch_withspurions,
-                spurions=minimal_spurions,
                 return_tracker=True,
             )
 
@@ -140,21 +130,6 @@ class TaggerWrapper(nn.Module):
                 det=lframes.det[~is_spurion],
                 inv=lframes.inv[~is_spurion],
                 is_identity=lframes.is_identity,
-            )
-        else:
-            if self.add_tagging_features_lframesnet:
-                scalar_features_nospurions = torch.cat(
-                    [scalars_nospurions, global_tagging_features_nospurions], dim=-1
-                )
-            else:
-                scalar_features_nospurions = scalars_nospurions
-            lframes_nospurions, tracker = self.lframesnet(
-                fourmomenta=fourmomenta_nospurions,
-                scalars=scalar_features_nospurions,
-                edge_index=edge_index_nospurions,
-                batch=batch_nospurions,
-                spurions=minimal_spurions,
-                return_tracker=True,
             )
 
         # transform features into local frames
@@ -166,39 +141,6 @@ class TaggerWrapper(nn.Module):
         )
 
         features_local = torch.cat([scalars_nospurions, local_tagging_features], dim=-1)
-
-        # note : this should be removed later, but it seems not to harm performance much
-        if not torch.isfinite(features_local).all():
-            mask = torch.isfinite(features_local).all(dim=-1)
-
-            a = fourmomenta_nospurions.reshape(-1, 1, 4)
-            mat = lframes_nospurions.matrices.reshape(-1, 4, 4)
-            output_manual = torch.einsum("aAB,aDB->aDA", mat, a)
-
-            output_manual_element = torch.einsum(
-                "AB,DB->DA", mat[~mask][0], a[~mask][0]
-            )
-
-            output_trafo = self.trafo_fourmomenta(
-                fourmomenta_nospurions[~mask], LFrames(mat[~mask])
-            )
-
-            LOGGER.warning(
-                f"{fourmomenta_local_nospurions.shape=}, {fourmomenta_nospurions.shape=}, {lframes_nospurions.matrices.shape=}"
-            )
-            LOGGER.warning(
-                f"{scalar_features_nospurions=}, {features_local=}, {features_local[~mask]=}, {torch.where(~mask)=}, {fourmomenta_local_nospurions[~mask]=}"
-            )
-            LOGGER.warning(
-                f"{fourmomenta_nospurions[~mask]=}, {lframes_nospurions.matrices[~mask]=}, {mask.shape=}"
-            )
-            LOGGER.warning(
-                f"{fourmomenta_local_nospurions[0]=}, {fourmomenta_nospurions[0]=}, {lframes_nospurions.matrices[0]=}"
-            )
-            LOGGER.warning(
-                f"{output_manual.shape=}, {output_manual[~mask]=}, {output_trafo.shape=}, {output_trafo=}, {output_manual_element=}"
-            )
-            assert False
 
         return (
             features_local,

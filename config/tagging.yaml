@@ -1,11 +1,9 @@
 data:
  add_tagging_features_lframesnet: false
- spurion_strategy: null
  rescale_data: true
- beam_reference: timelike
+ beam_reference: lightlike
  two_beams: true
  add_time_reference: true
- seperate_spurions: []
  mass_reg: 0.1
 
 evaluation:
