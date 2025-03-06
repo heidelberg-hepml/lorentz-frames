@@ -74,7 +74,6 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
         fourmomenta /= UNITS
 
     # beam reference
-
     spurions = get_spurion(
         cfg_data.beam_reference,
         cfg_data.add_time_reference,
@@ -121,14 +120,6 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
 
     edge_index = get_edge_index_from_ptr(ptr)
 
-    # required for spurion_strategy = basis_triplet and particle_add
-    minimal_spurions = get_spurion(
-        cfg_data.beam_reference,
-        cfg_data.add_time_reference,
-        two_beams=False,
-        device=fourmomenta.device,
-        dtype=fourmomenta.dtype,
-    )
     batch = get_batch_from_ptr(ptr)
 
     global_tagging_features = torch.zeros(
