@@ -97,10 +97,6 @@ class TaggerWrapper(nn.Module):
             ~is_spurion
         ]
 
-        possible_spurions = (fourmomenta_nospurions == 0).any(dim=-1)
-        if possible_spurions.any():
-            LOGGER.info(f"{torch.where(possible_spurions)=}")
-
         batch_nospurions = batch_withspurions[~is_spurion]
         ptr_nospurions = get_ptr_from_batch(batch_nospurions)
         edge_index_nospurions = get_edge_index_from_ptr(ptr_nospurions)
