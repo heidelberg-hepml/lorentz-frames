@@ -2,10 +2,11 @@ _target_: tensorframes.equivectors.equigraph.EquiGraphNet
 _partial_: true
 
 n_vectors: null
-in_nodes: null
+num_scalars: null
 hidden_channels: 32
 num_layers_mlp: 2
 num_blocks: 1
+hidden_vectors: 1
 dropout_prob: null
 
 include_edges: true

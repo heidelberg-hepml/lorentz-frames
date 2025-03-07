@@ -28,11 +28,11 @@ def lorentz_test(trafo, **kwargs):
     torch.testing.assert_close(test, metric, **kwargs)
 
 
-def equivectors_builder(in_nodes=0):
+def equivectors_builder(num_scalars=0):
     def builder(n_vectors):
         return EquiGraphNet(
             n_vectors=n_vectors,
-            in_nodes=in_nodes,
+            num_scalars=num_scalars,
             hidden_channels=16,
             num_layers_mlp=1,
             num_blocks=1,

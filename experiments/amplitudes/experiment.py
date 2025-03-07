@@ -64,7 +64,7 @@ class AmplitudeExperiment(BaseExperiment):
                 raise ValueError(f"Model {modelname} not implemented")
 
             if learnable_lframesnet:
-                self.cfg.model.lframesnet.equivectors.in_nodes = 0
+                self.cfg.model.lframesnet.equivectors.num_scalars = 0
         LOGGER.info(f"Using particle_type={particle_type}")
 
     def init_data(self):

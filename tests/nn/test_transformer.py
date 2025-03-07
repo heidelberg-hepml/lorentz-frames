@@ -30,7 +30,7 @@ def test_transformer_invariance_equivariance(
     dtype = torch.float64
 
     assert len(batch_dims) == 1
-    equivectors = equivectors_builder(in_nodes=0)
+    equivectors = equivectors_builder()
     predictor = LFramesPredictor(equivectors=equivectors).to(dtype=dtype)
     call_predictor = lambda fm: predictor(fm)
 

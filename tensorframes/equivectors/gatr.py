@@ -14,7 +14,7 @@ class GATrWrapper(EquiVectors):
     def __init__(
         self,
         n_vectors,
-        in_nodes,
+        num_scalars,
         hidden_mv_channels,
         hidden_s_channels,
         num_blocks,
@@ -42,7 +42,7 @@ class GATrWrapper(EquiVectors):
         self.net = GATr(
             in_mv_channels=1,
             out_mv_channels=n_vectors,
-            in_s_channels=in_nodes,
+            in_s_channels=num_scalars,
             out_s_channels=None,
             hidden_mv_channels=hidden_mv_channels,
             hidden_s_channels=hidden_s_channels,

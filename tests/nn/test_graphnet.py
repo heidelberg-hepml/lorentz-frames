@@ -31,7 +31,7 @@ def test_edgeconv_invariance_equivariance(
     edge_index = dense_to_sparse(torch.ones(batch_dims[0], batch_dims[0]))[0]
 
     assert len(batch_dims) == 1
-    equivectors = equivectors_builder(in_nodes=0)
+    equivectors = equivectors_builder()
     predictor = LFramesPredictor(equivectors=equivectors).to(dtype=dtype)
     call_predictor = lambda fm: predictor(fm)
 
@@ -102,7 +102,7 @@ def test_graphnet_invariance_equivariance(
     edge_index = dense_to_sparse(torch.ones(batch_dims[0], batch_dims[0]))[0]
 
     assert len(batch_dims) == 1
-    equivectors = equivectors_builder(in_nodes=0)
+    equivectors = equivectors_builder()
     predictor = LFramesPredictor(equivectors=equivectors).to(dtype=dtype)
     call_predictor = lambda fm: predictor(fm)
 

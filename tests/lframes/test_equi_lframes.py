@@ -18,7 +18,7 @@ def test_lframes_transformation(LFramesPredictor, batch_dims, logm2_std, logm2_m
 
     # preparations
     assert len(batch_dims) == 1
-    equivectors = equivectors_builder(in_nodes=0)
+    equivectors = equivectors_builder()
     predictor = LFramesPredictor(equivectors=equivectors).to(dtype=dtype)
     call_predictor = lambda fm: predictor(fm)
 
@@ -57,7 +57,7 @@ def test_feature_invariance(LFramesPredictor, batch_dims, logm2_std, logm2_mean)
 
     # preparations
     assert len(batch_dims) == 1
-    equivectors = equivectors_builder(in_nodes=0)
+    equivectors = equivectors_builder()
     predictor = LFramesPredictor(equivectors=equivectors).to(dtype=dtype)
     call_predictor = lambda fm: predictor(fm)
 
