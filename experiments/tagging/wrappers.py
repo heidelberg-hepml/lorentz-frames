@@ -10,6 +10,7 @@ from experiments.tagging.embedding import get_ptr_from_batch
 from tensorframes.reps.tensorreps import TensorReps
 from tensorframes.reps.tensorreps_transform import TensorRepsTransform
 from experiments.tagging.embedding import get_tagging_features, get_edge_index_from_ptr
+from tensorframes.utils.lorentz import lorentz_squarednorm
 
 
 def attention_mask(batch, materialize=False):
@@ -60,7 +61,6 @@ class TaggerWrapper(nn.Module):
         # this is the input and output for the net
         self.in_channels = in_channels
         self.out_channels = out_channels
-
         self.lframesnet = lframesnet
 
         self.trafo_fourmomenta = TensorRepsTransform(TensorReps("1x1n"))
@@ -121,6 +121,7 @@ class TaggerWrapper(nn.Module):
 
         return (
             features_local,
+            fourmomenta_local_nospurions,
             lframes_nospurions,
             edge_index_nospurions,
             batch_nospurions,
@@ -160,6 +161,7 @@ class BaselineTransformerWrapper(AggregatedTaggerWrapper):
             features_local,
             _,
             _,
+            _,
             batch,
             tracker,
         ) = super().forward(embedding)
@@ -196,6 +198,7 @@ class BaselineGraphNetWrapper(AggregatedTaggerWrapper):
         (
             features_local,
             _,
+            _,
             edge_index,
             batch,
             tracker,
@@ -228,6 +231,7 @@ class BaselineParticleNetWrapper(TaggerWrapper):
     def forward(self, embedding):
         (
             features_local,
+            _,
             _,
             _,
             batch,
@@ -269,6 +273,7 @@ class BaselineParTWrapper(TaggerWrapper):
             features_local,
             _,
             _,
+            _,
             batch,
             tracker,
         ) = super().forward(embedding)
@@ -289,29 +294,62 @@ class GraphNetWrapper(AggregatedTaggerWrapper):
     def __init__(
         self,
         net,
+        include_edges,
         *args,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
+        self.include_edges = include_edges
         self.net = net(in_channels=self.in_channels, out_channels=self.out_channels)
+        if self.include_edges:
+            self.register_buffer("edge_mean", torch.tensor(0.0))
+            self.register_buffer("edge_std", torch.tensor(1.0))
+
+    def init_standardization(self, batch):
+        assert self.include_edges, f"no edges to standardize"
+        if self.include_edges:
+            # edge feature standardization parameters
+            fourmomenta = batch.x
+            ptr = batch.ptr
+            edge_index = get_edge_index_from_ptr(ptr)
+
+            edge_attr = self.get_edge_attr(fourmomenta, edge_index)
+            self.edge_mean = edge_attr.mean()
+            self.edge_std = edge_attr.std().clamp(min=1e-10)
 
     def forward(self, embedding):
         (
             features_local,
+            fourmomenta_local,
             lframes,
             edge_index,
             batch,
             tracker,
         ) = super().forward(embedding)
 
+        if self.include_edges:
+            edge_attr = self.get_edge_attr(fourmomenta_local, edge_index)
+        else:
+            edge_attr = None
         # network
         outputs = self.net(
-            inputs=features_local, lframes=lframes, edge_index=edge_index
+            inputs=features_local,
+            lframes=lframes,
+            edge_index=edge_index,
+            edge_attr=edge_attr,
         )
 
         # aggregation
         score = self.extract_score(outputs, batch)
         return score, tracker
+
+    def get_edge_attr(self, fourmomenta, edge_index):
+        mij2 = lorentz_squarednorm(
+            fourmomenta[edge_index[0]] + fourmomenta[edge_index[1]]
+        )
+        edge_attr = mij2.clamp(min=1e-10).log()
+        edge_attr = (edge_attr - self.edge_mean) / self.edge_std
+        return edge_attr.unsqueeze(-1)
 
 
 class TransformerWrapper(AggregatedTaggerWrapper):
@@ -327,6 +365,7 @@ class TransformerWrapper(AggregatedTaggerWrapper):
     def forward(self, embedding):
         (
             features_local,
+            _,
             lframes,
             _,
             batch,

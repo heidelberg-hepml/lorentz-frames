@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 from torch_geometric.loader import DataLoader
+from torch_geometric.data import Batch
 import os, time
 from omegaconf import open_dict
 
@@ -37,6 +38,11 @@ class TaggingExperiment(BaseExperiment):
                     in_nodes += 7
                 self.cfg.model.lframesnet.in_nodes = in_nodes
 
+            if self.cfg.model.net._target_.rsplit(".", 1)[-1] == "TFGraphNet":
+                self.cfg.model.net.num_edge_attr = (
+                    1 if self.cfg.model.include_edges else 0
+                )
+
             if (
                 self.cfg.model._target_.rsplit(".", 1)[-1]
                 == "BaselineParticleNetWrapper"
@@ -67,6 +73,16 @@ class TaggingExperiment(BaseExperiment):
         self.data_val.load_data(data_path, "val")
         dt = time.time() - t0
         LOGGER.info(f"Finished creating datasets after {dt:.2f} s = {dt/60:.2f} min")
+
+        # only take 10000 batches for performance reasons
+        if self.cfg.data.standardize:
+            self.model.init_standardization(
+                batch=Batch.from_data_list(
+                    self.data_train.data_list[
+                        : min(10000, len(self.data_train.data_list))
+                    ]
+                ).to(self.device)
+            )
 
     def _init_dataloader(self):
         self.train_loader = DataLoader(

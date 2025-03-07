@@ -126,7 +126,7 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
         fourmomenta[~is_spurion], batch
     )
 
-    batch = get_batch_from_ptr(ptr) # have to re-compute because ptr might have changed
+    batch = get_batch_from_ptr(ptr)  # have to re-compute because ptr might have changed
     embedding = {
         "fourmomenta": fourmomenta,
         "scalars": scalars,
