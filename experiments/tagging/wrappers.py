@@ -2,7 +2,6 @@ import torch
 from torch import nn
 from torch_geometric.nn.aggr import MeanAggregation
 
-from functools import partial
 from torch_geometric.utils import to_dense_batch
 from xformers.ops.fmha import BlockDiagonalMask
 
@@ -11,7 +10,6 @@ from experiments.tagging.embedding import get_ptr_from_batch
 from tensorframes.reps.tensorreps import TensorReps
 from tensorframes.reps.tensorreps_transform import TensorRepsTransform
 from experiments.tagging.embedding import get_tagging_features, get_edge_index_from_ptr
-from experiments.logger import LOGGER
 
 
 def attention_mask(batch, materialize=False):
@@ -79,9 +77,6 @@ class TaggerWrapper(nn.Module):
         # remove spurions from the data again and recompute attributes
         fourmomenta_nospurions = fourmomenta_withspurions[~is_spurion]
         scalars_nospurions = scalars_withspurions[~is_spurion]
-        global_tagging_features_nospurions = global_tagging_features_withspurions[
-            ~is_spurion
-        ]
 
         batch_nospurions = batch_withspurions[~is_spurion]
         ptr_nospurions = get_ptr_from_batch(batch_nospurions)
