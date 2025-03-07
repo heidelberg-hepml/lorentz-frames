@@ -27,11 +27,8 @@ class LearnedLFrames(LFramesPredictor):
 
         """
         super().__init__()
-
         self.in_nodes = in_nodes
-
         self.ortho_kwargs = ortho_kwargs
-
         self.equivectors = EquivariantVectors(
             n_vectors=n_vectors,
             in_nodes=in_nodes,
