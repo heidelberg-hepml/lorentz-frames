@@ -53,7 +53,7 @@ class TaggingExperiment(BaseExperiment):
 
             if "equivectors" in self.cfg.model.lframesnet:
                 # TODO Closely related to spurions, changed by future PR#16
-                self.cfg.model.lframesnet.equivectors.in_nodes = (
+                self.cfg.model.lframesnet.equivectors.num_scalars = (
                     self.cfg.model.in_channels - 4
                 )
 
