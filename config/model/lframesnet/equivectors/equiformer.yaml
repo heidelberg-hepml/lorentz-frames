@@ -3,6 +3,6 @@ _partial_: true
 
 n_vectors: null
 num_scalars: null
-num_blocks: 1
-hidden_scalars: 32
-hidden_vectors: 1
+num_blocks: 3
+hidden_scalars: 16
+hidden_vectors: 8
