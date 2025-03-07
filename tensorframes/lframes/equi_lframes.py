@@ -47,17 +47,16 @@ class LearnedLFrames(LFramesPredictor):
 
     def forward(self, fourmomenta, scalars, edge_index, batch=None):
         """
-        Args:
-            fourmomenta: (batch, 4)
-            scalars: scalar and tagging_features in frame (batch, n_scalar)
-            edge_index: edges (2, edge_index)
+        Parameters
+        ----------
+        fourmomenta: torch.tensor of shape (N, 4)
+        scalars: torch.tensor of shape (N, C)
+        edge_index: torch.tensor of shape (2, E)
         batch: torch.tensor of shape (N,)
-        Returns:
-            vecs: predicted and combined with spurions if basis symmetry breaking vectors (batch, num_vecs, 4)"""
+        """
         assert scalars.shape[-1] == self.in_nodes
 
         # calculate and standardize edge attributes
-        assert fourmomenta.shape[1] == 4
         mij2 = lorentz_squarednorm(
             fourmomenta[edge_index[0]] + fourmomenta[edge_index[1]]
         ).unsqueeze(-1)
@@ -78,7 +77,6 @@ class LearnedLFrames(LFramesPredictor):
             edge_index=edge_index,
             batch=batch,
         )
-
         return vecs
 
     def __repr__(self):
