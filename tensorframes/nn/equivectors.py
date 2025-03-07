@@ -40,7 +40,21 @@ class EquivariantVectors(MessagePassing):
         )
 
     def forward(self, x, fm, edge_attr, edge_index, batch=None):
-        vecs = self.propagate(edge_index, x=x, fm=fm, edge_attr=edge_attr, batch=batch)
+        """
+        Args:
+            x: scalar features shape: (batch, n_scalar)
+            fm: fourmomenta shape: (batch, 4)
+            edge_attr: edge attributes shape: (edges, n_edge_attr)
+            edge_index: edge indices shape: (edges, 2)
+            batch: batch indices shape: (nodes,)
+        """
+        vecs = self.propagate(
+            edge_index,
+            x=x,
+            fm=fm,
+            edge_attr=edge_attr,
+            batch=batch,
+        )
         vecs = vecs.reshape(-1, self.n_vectors, 4)
         assert torch.isfinite(vecs).all()
         return vecs

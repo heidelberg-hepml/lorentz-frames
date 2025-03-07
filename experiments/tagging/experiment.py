@@ -21,6 +21,22 @@ class TaggingExperiment(BaseExperiment):
 
     def init_physics(self):
         with open_dict(self.cfg):
+
+            # decide which entries to use for the net
+            in_channels = 7
+            self.cfg.model.in_channels = in_channels
+            LOGGER.info(
+                f"Net: Input: {in_channels}; Output: {self.cfg.model.out_channels} "
+            )
+
+            # decide which entries to use for the lframesnet
+            in_nodes = 0
+
+            if "in_nodes" in self.cfg.model.lframesnet:
+                if self.cfg.model.add_tagging_features_lframesnet:
+                    in_nodes += 7
+                self.cfg.model.lframesnet.in_nodes = in_nodes
+
             if (
                 self.cfg.model._target_.rsplit(".", 1)[-1]
                 == "BaselineParticleNetWrapper"
@@ -35,21 +51,6 @@ class TaggingExperiment(BaseExperiment):
                     )
                     self.cfg.data.beam_reference = None
                     self.cfg.data.add_time_reference = False
-
-            if self.cfg.data.add_scalar_features:
-                self.cfg.model.in_channels += 7  # other scalar features
-
-            if not self.cfg.data.beam_token:
-                num_spurions = 0
-                num_spurions += (
-                    1
-                    if self.cfg.data.beam_reference
-                    in ["lightlike", "spacelike", "timelike"]
-                    else 0
-                )
-                num_spurions += 1 if self.cfg.data.two_beams else 0
-                num_spurions += 1 if self.cfg.data.add_time_reference else 0
-                self.cfg.model.in_channels += num_spurions * 4
 
     def init_data(self):
         raise NotImplementedError
@@ -255,7 +256,12 @@ class TaggingExperiment(BaseExperiment):
 
     def _get_ypred_and_label(self, batch):
         batch = batch.to(self.device)
-        embedding = embed_tagging_data(batch.x, batch.scalars, batch.ptr, self.cfg.data)
+        embedding = embed_tagging_data(
+            batch.x,
+            batch.scalars,
+            batch.ptr,
+            self.cfg.data,
+        )
         y_pred, tracker = self.model(embedding)
         y_pred = y_pred[:, 0]
         return y_pred, batch.label.to(self.dtype), tracker
@@ -269,7 +275,11 @@ class TopTaggingExperiment(TaggingExperiment):
         super().__init__(cfg)
         with open_dict(self.cfg):
             self.cfg.model.out_channels = 1
-            self.cfg.model.in_channels = 4  # energy-momentum vector
+
+            # move argument into model config
+            self.cfg.model.add_tagging_features_lframesnet = (
+                self.cfg.data.add_tagging_features_lframesnet
+            )
 
     def init_data(self):
         data_path = os.path.join(

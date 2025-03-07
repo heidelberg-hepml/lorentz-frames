@@ -2,15 +2,14 @@ import torch
 from torch import nn
 from torch_geometric.nn.aggr import MeanAggregation
 
-from functools import partial
 from torch_geometric.utils import to_dense_batch
 from xformers.ops.fmha import BlockDiagonalMask
 
+from tensorframes.lframes.lframes import LFrames
+from experiments.tagging.embedding import get_ptr_from_batch
 from tensorframes.reps.tensorreps import TensorReps
 from tensorframes.reps.tensorreps_transform import TensorRepsTransform
-from tensorframes.utils.hep import EPPP_to_PtPhiEtaM2
-from tensorframes.lframes.equi_lframes import LearnedLFrames
-from experiments.tagging.embedding import get_tagging_features
+from experiments.tagging.embedding import get_tagging_features, get_edge_index_from_ptr
 
 
 def attention_mask(batch, materialize=False):
@@ -47,59 +46,84 @@ class TaggerWrapper(nn.Module):
         in_channels,
         out_channels,
         lframesnet,
+        add_tagging_features_lframesnet=False,
     ):
+        """
+        Args:
+            in_channels: string representation for the model input
+            out_channels: string representation for the model output
+            lframesnet: lframesclass
+            add_taggin_features_lframesnet: bool whether to include the tagging features in the lframesnet
+        """
         super().__init__()
-
+        self.add_tagging_features_lframesnet = add_tagging_features_lframesnet
+        # this is the input and output for the net
         self.in_channels = in_channels
         self.out_channels = out_channels
 
-        if isinstance(lframesnet, partial):
-            # lframesnet with learnable elements need the in_nodes (number of scalars in input) for the networks
-            if issubclass(lframesnet.func, LearnedLFrames):
-                self.lframesnet = lframesnet(
-                    in_nodes=self.in_channels - 4
-                )  # TODO Closely related to spurions, changed by future PR#16
-            else:
-                self.lframesnet = lframesnet
-        else:
-            self.lframesnet = lframesnet
+        self.lframesnet = lframesnet
 
         self.trafo_fourmomenta = TensorRepsTransform(TensorReps("1x1n"))
 
     def forward(self, embedding):
         # extract embedding
-        fourmomenta = embedding["fourmomenta"]
-        scalars = embedding["scalars"]
-        edge_index = embedding["edge_index"]
-        batch = embedding["batch"]
+        fourmomenta_withspurions = embedding["fourmomenta"]
+        scalars_withspurions = embedding["scalars"]
+        global_tagging_features_withspurions = embedding["global_tagging_features"]
+        edge_index_withspurions = embedding["edge_index"]
+        batch_withspurions = embedding["batch"]
+        is_spurion = embedding["is_spurion"]
 
-        # construct lframes
-        fourmomenta = fourmomenta.reshape(fourmomenta.shape[0], -1)
+        # remove spurions from the data again and recompute attributes
+        fourmomenta_nospurions = fourmomenta_withspurions[~is_spurion]
+        scalars_nospurions = scalars_withspurions[~is_spurion]
+
+        batch_nospurions = batch_withspurions[~is_spurion]
+        ptr_nospurions = get_ptr_from_batch(batch_nospurions)
+        edge_index_nospurions = get_edge_index_from_ptr(ptr_nospurions)
+
         if not self.lframesnet.is_learnable:
-            lframes, tracker = self.lframesnet(fourmomenta, return_tracker=True)
+            lframes_nospurions, tracker = self.lframesnet(
+                fourmomenta_nospurions, return_tracker=True
+            )
         else:
+            if self.add_tagging_features_lframesnet:
+                scalar_features = torch.cat(
+                    [scalars_withspurions, global_tagging_features_withspurions], dim=-1
+                )
+            else:
+                scalar_features = scalars_withspurions
             lframes, tracker = self.lframesnet(
-                fourmomenta,
-                scalars,
-                edge_index=edge_index,
-                batch=batch,
+                fourmomenta=fourmomenta_withspurions,
+                scalars=scalar_features,
+                edge_index=edge_index_withspurions,
+                batch=batch_withspurions,
                 return_tracker=True,
             )
 
+            lframes_nospurions = LFrames(
+                lframes.matrices[~is_spurion],
+                is_global=lframes.is_global,
+                det=lframes.det[~is_spurion],
+                inv=lframes.inv[~is_spurion],
+                is_identity=lframes.is_identity,
+            )
+
         # transform features into local frames
-        fourmomenta_local = self.trafo_fourmomenta(fourmomenta, lframes)
-        fourmomenta_local = fourmomenta_local.reshape(
-            fourmomenta_local.shape[0],
-            -1,
-            4,
+        fourmomenta_local_nospurions = self.trafo_fourmomenta(
+            fourmomenta_nospurions, lframes_nospurions
+        )
+        local_tagging_features = get_tagging_features(
+            fourmomenta_local_nospurions, batch_nospurions
         )
 
+        features_local = torch.cat([scalars_nospurions, local_tagging_features], dim=-1)
+
         return (
-            fourmomenta_local,
-            scalars,
-            lframes,
-            edge_index,
-            batch,
+            features_local,
+            lframes_nospurions,
+            edge_index_nospurions,
+            batch_nospurions,
             tracker,
         )
 
@@ -132,11 +156,13 @@ class BaselineTransformerWrapper(AggregatedTaggerWrapper):
         ), "Non-equivariant model can only handle global lframes"
 
     def forward(self, embedding):
-        fourmomenta_local, scalars, _, _, batch, tracker = super().forward(embedding)
-        jetmomenta_local = EPPP_to_PtPhiEtaM2(fourmomenta_local)
-
-        jetmomenta_local = jetmomenta_local.reshape(jetmomenta_local.shape[0], -1)
-        features_local = torch.cat([jetmomenta_local, scalars], dim=-1)
+        (
+            features_local,
+            _,
+            _,
+            batch,
+            tracker,
+        ) = super().forward(embedding)
 
         mask = attention_mask(
             batch, materialize=features_local.device == torch.device("cpu")
@@ -168,17 +194,12 @@ class BaselineGraphNetWrapper(AggregatedTaggerWrapper):
 
     def forward(self, embedding):
         (
-            fourmomenta_local,
-            scalars,
+            features_local,
             _,
             edge_index,
             batch,
             tracker,
         ) = super().forward(embedding)
-        jetmomenta_local = EPPP_to_PtPhiEtaM2(fourmomenta_local)
-
-        jetmomenta_local = jetmomenta_local.reshape(jetmomenta_local.shape[0], -1)
-        features_local = torch.cat([jetmomenta_local, scalars], dim=-1)
 
         # network
         outputs = self.net(x=features_local, edge_index=edge_index)
@@ -205,10 +226,13 @@ class BaselineParticleNetWrapper(TaggerWrapper):
         self.net = net(features_dims=num_inputs, num_classes=self.out_channels)
 
     def forward(self, embedding):
-        fourmomenta_local, _, _, _, batch, tracker = super().forward(embedding)
-        fourmomenta_local = fourmomenta_local[..., 0, :]
-        features_local = get_tagging_features(fourmomenta_local, batch)
-
+        (
+            features_local,
+            _,
+            _,
+            batch,
+            tracker,
+        ) = super().forward(embedding)
         # ParticleNet uses L2 norm in (phi, eta) for kNN
         phieta_local = features_local[..., [4, 5]]
 
@@ -241,11 +265,13 @@ class BaselineParTWrapper(TaggerWrapper):
         self.net = net(input_dim=self.in_channels, num_classes=self.out_channels)
 
     def forward(self, embedding):
-        fourmomenta_local, scalars, _, _, batch, tracker = super().forward(embedding)
-        jetmomenta_local = EPPP_to_PtPhiEtaM2(fourmomenta_local)
-
-        jetmomenta_local = jetmomenta_local.reshape(jetmomenta_local.shape[0], -1)
-        features_local = torch.cat([jetmomenta_local, scalars], dim=-1)
+        (
+            features_local,
+            _,
+            _,
+            batch,
+            tracker,
+        ) = super().forward(embedding)
 
         features_local, mask = to_dense_batch(features_local, batch)
         features_local = features_local.transpose(1, 2)
@@ -271,17 +297,12 @@ class GraphNetWrapper(AggregatedTaggerWrapper):
 
     def forward(self, embedding):
         (
-            fourmomenta_local,
-            scalars,
+            features_local,
             lframes,
             edge_index,
             batch,
             tracker,
         ) = super().forward(embedding)
-        jetmomenta_local = EPPP_to_PtPhiEtaM2(fourmomenta_local)
-
-        jetmomenta_local = jetmomenta_local.reshape(jetmomenta_local.shape[0], -1)
-        features_local = torch.cat([jetmomenta_local, scalars], dim=-1)
 
         # network
         outputs = self.net(
@@ -305,18 +326,12 @@ class TransformerWrapper(AggregatedTaggerWrapper):
 
     def forward(self, embedding):
         (
-            fourmomenta_local,
-            scalars,
+            features_local,
             lframes,
             _,
             batch,
             tracker,
         ) = super().forward(embedding)
-        jetmomenta_local = EPPP_to_PtPhiEtaM2(fourmomenta_local)
-
-        jetmomenta_local = jetmomenta_local.reshape(jetmomenta_local.shape[0], -1)
-        features_local = torch.cat([jetmomenta_local, scalars], dim=-1)
-
         mask = attention_mask(
             batch, materialize=features_local.device == torch.device("cpu")
         )

@@ -26,6 +26,17 @@ def get_batch_from_ptr(ptr):
     )
 
 
+def get_ptr_from_batch(batch):
+    return torch.cat(
+        [
+            torch.tensor([0], device=batch.device),
+            torch.where(batch[1:] - batch[:-1] != 0)[0] + 1,
+            torch.tensor([batch.shape[0]], device=batch.device),
+        ],
+        0,
+    )
+
+
 def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
     """
     Embed tagging data
@@ -59,14 +70,6 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
             (fourmomenta[..., 1:] ** 2).sum(dim=-1) + cfg_data.mass_reg**2
         ).sqrt()
 
-    # add extra scalar channels
-    if cfg_data.add_scalar_features:
-        features = get_tagging_features(fourmomenta, batch)
-        scalars = torch.cat(
-            (scalars, features),
-            dim=-1,
-        )
-
     if cfg_data.rescale_data:
         fourmomenta /= UNITS
 
@@ -79,30 +82,30 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
         fourmomenta.dtype,
     )
 
-    fourmomenta = fourmomenta.unsqueeze(1)
     n_spurions = spurions.shape[0]
-    assert cfg_data.beam_token, f"spurions as channels not consistently supported yet"
-    if cfg_data.beam_token and n_spurions > 0:
+
+    is_spurion = torch.zeros(
+        fourmomenta.shape[0] + n_spurions * batchsize,
+        dtype=torch.bool,
+        device=fourmomenta.device,
+    )
+    if n_spurions > 0:
         # prepend spurions to the token list (within each block)
         spurion_idxs = torch.stack(
             [ptr[:-1] + i for i in range(n_spurions)], dim=0
         ) + n_spurions * torch.arange(batchsize, device=ptr.device)
         spurion_idxs = spurion_idxs.permute(1, 0).flatten()
-        insert_spurion = torch.zeros(
-            fourmomenta.shape[0] + n_spurions * batchsize,
-            dtype=torch.bool,
-            device=fourmomenta.device,
-        )
-        insert_spurion[spurion_idxs] = True
+        is_spurion[spurion_idxs] = True
         fourmomenta_buffer = fourmomenta.clone()
         fourmomenta = torch.empty(
-            insert_spurion.shape[0],
+            is_spurion.shape[0],
             *fourmomenta.shape[1:],
             dtype=fourmomenta.dtype,
             device=fourmomenta.device,
         )
-        fourmomenta[~insert_spurion] = fourmomenta_buffer
-        fourmomenta[insert_spurion] = spurions.repeat(batchsize, 1).unsqueeze(1)
+        fourmomenta[~is_spurion] = fourmomenta_buffer
+        fourmomenta[is_spurion] = spurions.repeat(batchsize, 1)
+
         scalars_buffer = scalars.clone()
         scalars = torch.zeros(
             fourmomenta.shape[0],
@@ -110,30 +113,27 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
             dtype=scalars.dtype,
             device=scalars.device,
         )
-        scalars[~insert_spurion] = scalars_buffer
+        scalars[~is_spurion] = scalars_buffer
         ptr[1:] = ptr[1:] + (arange + 1) * n_spurions
-    else:
-        # append spurion to fourmomenta channels
-        spurions = spurions.unsqueeze(0).repeat(fourmomenta.shape[0], 1, 1)
-        fourmomenta = torch.cat((fourmomenta, spurions), dim=-2)
 
     # construct edge_index (dark art)
-    diffs = torch.diff(ptr)
-    edge_index = torch.cat(
-        [
-            dense_to_sparse(torch.ones(d, d, device=diffs.device))[0] + diffs[:i].sum()
-            for i, d in enumerate(diffs)
-        ],
-        dim=-1,
+    edge_index = get_edge_index_from_ptr(ptr)
+
+    global_tagging_features = torch.zeros(
+        fourmomenta.shape[0], 7, dtype=fourmomenta.dtype, device=fourmomenta.device
+    )
+    global_tagging_features[~is_spurion] = get_tagging_features(
+        fourmomenta[~is_spurion], batch
     )
 
-    # return dict
-    batch = get_batch_from_ptr(ptr)  # have to re-compute because ptr might have changed
+    batch = get_batch_from_ptr(ptr) # have to re-compute because ptr might have changed
     embedding = {
         "fourmomenta": fourmomenta,
         "scalars": scalars,
+        "global_tagging_features": global_tagging_features,
         "edge_index": edge_index,
         "batch": batch,
+        "is_spurion": is_spurion,
     }
     return embedding
 
@@ -236,30 +236,31 @@ def get_spurion(
 def get_tagging_features(fourmomenta, batch):
     """
     Compute features typically used in jet tagging
-
     Parameters
     ----------
     fourmomenta: torch.tensor of shape (n_particles, 4)
         Fourmomenta in the format (E, px, py, pz)
     batch: torch.tensor of shape (n_particles)
         Batch index for each particle
-
     Returns
     -------
     features: torch.tensor of shape (n_particles, n_features)
         Features: log_pt, log_energy, log_pt_rel, log_energy_rel, dphi, deta, dr
     """
+    min = 1e-10
     log_pt = get_pt(fourmomenta).unsqueeze(-1).log()
-    log_energy = fourmomenta[..., 0].unsqueeze(-1).log()
+    log_energy = fourmomenta[..., 0].unsqueeze(-1).clamp(min=min).log()
 
     jet = scatter(fourmomenta, index=batch, dim=0, reduce="sum").index_select(0, batch)
     log_pt_rel = (get_pt(fourmomenta).log() - get_pt(jet).log()).unsqueeze(-1)
-    log_energy_rel = (fourmomenta[..., 0].log() - jet[..., 0].log()).unsqueeze(-1)
+    log_energy_rel = (
+        fourmomenta[..., 0].clamp(min=min).log() - jet[..., 0].clamp(min=min).log()
+    ).unsqueeze(-1)
     phi_4, phi_jet = get_phi(fourmomenta), get_phi(jet)
     dphi = ((phi_4 - phi_jet + torch.pi) % (2 * torch.pi) - torch.pi).unsqueeze(-1)
     eta_4, eta_jet = get_eta(fourmomenta), get_eta(jet)
     deta = -(eta_4 - eta_jet).unsqueeze(-1)
-    dr = torch.sqrt(dphi**2 + deta**2)
+    dr = torch.sqrt((dphi**2 + deta**2).clamp(min=min))
     features = [
         log_pt,
         log_energy,
@@ -273,3 +274,15 @@ def get_tagging_features(fourmomenta, batch):
         mean, factor = SCALAR_FEATURES_PREPROCESSING[i]
         features[i] = (feature - mean) * factor
     return torch.cat(features, dim=-1)
+
+
+def get_edge_index_from_ptr(ptr):
+    diffs = torch.diff(ptr)
+    edge_index = torch.cat(
+        [
+            dense_to_sparse(torch.ones(d, d, device=diffs.device))[0] + diffs[:i].sum()
+            for i, d in enumerate(diffs)
+        ],
+        dim=-1,
+    )
+    return edge_index

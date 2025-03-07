@@ -20,6 +20,12 @@ class LearnedLFrames(LFramesPredictor):
         ortho_kwargs={},
         **kwargs,
     ):
+        """
+        Args:
+            n_vectors: The number of vectors to predict, this is usually 3, when the last vector is derived per cross product of the other 3 or 4
+            in_nodes: number of in_nodes for network prediction of the equivariant networks
+
+        """
         super().__init__()
         self.in_nodes = in_nodes
         self.ortho_kwargs = ortho_kwargs
@@ -91,8 +97,8 @@ class OrthogonalLearnedLFrames(LearnedLFrames):
         self.n_vectors = 3
         super().__init__(*args, n_vectors=self.n_vectors, **kwargs)
 
-    def forward(self, fourmomenta, scalars, return_tracker=False, **kwargs):
-        vecs = super().forward(fourmomenta, scalars, **kwargs)
+    def forward(self, fourmomenta, scalars, *args, return_tracker=False, **kwargs):
+        vecs = super().forward(fourmomenta, scalars, *args, **kwargs)
         vecs = [vecs[..., i, :] for i in range(self.n_vectors)]
 
         trafo, reg_lightlike, reg_coplanar = orthogonal_trafo(
@@ -119,8 +125,9 @@ class RestLFrames(LearnedLFrames):
             **kwargs,
         )
 
-    def forward(self, fourmomenta, scalars, return_tracker=False, **kwargs):
-        references = super().forward(fourmomenta, scalars, **kwargs)
+    def forward(self, fourmomenta, scalars, *args, return_tracker=False, **kwargs):
+        references = super().forward(fourmomenta, scalars, *args, **kwargs)
+
         references = [references[..., i, :] for i in range(self.n_vectors)]
 
         trafo, reg_collinear = restframe_equivariant(
@@ -151,8 +158,9 @@ class LearnedRestLFrames(LearnedLFrames):
             **kwargs,
         )
 
-    def forward(self, fourmomenta, scalars, return_tracker=False, **kwargs):
-        vecs = super().forward(fourmomenta, scalars, **kwargs)
+    def forward(self, fourmomenta, scalars, *args, return_tracker=False, **kwargs):
+        vecs = super().forward(fourmomenta, scalars, *args, **kwargs)
+
         fourmomenta = vecs[..., 0, :]
         references = [vecs[..., i, :] for i in range(1, self.n_vectors)]
 
