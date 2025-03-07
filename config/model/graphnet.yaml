@@ -3,6 +3,7 @@ in_channels: null
 out_channels: null
 include_edges: false
 
+
 net:
  _target_: tensorframes.nn.graphnet.TFGraphNet
  _partial_: true

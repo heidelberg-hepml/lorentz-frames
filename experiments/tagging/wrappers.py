@@ -13,6 +13,7 @@ from experiments.tagging.embedding import get_tagging_features, get_edge_index_f
 from tensorframes.utils.lorentz import lorentz_squarednorm
 
 
+
 def attention_mask(batch, materialize=False):
     """
     Construct attention mask that makes sure that objects only attend to each other
@@ -116,6 +117,11 @@ class TaggerWrapper(nn.Module):
         local_tagging_features = get_tagging_features(
             fourmomenta_local_nospurions, batch_nospurions
         )
+        local_tagging_features = get_tagging_features(
+            fourmomenta_local_nospurions, batch_nospurions
+        )
+
+        features_local = torch.cat([scalars_nospurions, local_tagging_features], dim=-1)
 
         features_local = torch.cat([scalars_nospurions, local_tagging_features], dim=-1)
 
