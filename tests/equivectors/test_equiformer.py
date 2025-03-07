@@ -38,7 +38,7 @@ def test_equivariance(
         num_scalars,
         num_blocks=num_blocks,
         hidden_vectors=hidden_vectors,
-        hidden_scalars=hidden_scalars
+        hidden_scalars=hidden_scalars,
     ).to(dtype=dtype)
 
     fm = sample_particle(
