@@ -53,7 +53,7 @@ class GATrWrapper(EquiVectors):
         )
 
     def forward(self, fourmomenta, scalars=None, ptr=None):
-        # TODO: reshaping business
+        # construct attn_mask
         if ptr is None:
             attn_mask = None
         else:
