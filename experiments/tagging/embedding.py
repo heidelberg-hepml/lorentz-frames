@@ -117,18 +117,16 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
         ptr[1:] = ptr[1:] + (arange + 1) * n_spurions
 
     # construct edge_index (dark art)
-
     edge_index = get_edge_index_from_ptr(ptr)
-
-    batch = get_batch_from_ptr(ptr)
 
     global_tagging_features = torch.zeros(
         fourmomenta.shape[0], 7, dtype=fourmomenta.dtype, device=fourmomenta.device
     )
     global_tagging_features[~is_spurion] = get_tagging_features(
-        fourmomenta[~is_spurion], batch[~is_spurion]
+        fourmomenta[~is_spurion], batch
     )
 
+    batch = get_batch_from_ptr(ptr) # have to re-compute because ptr might have changed
     embedding = {
         "fourmomenta": fourmomenta,
         "scalars": scalars,
