@@ -1,7 +1,7 @@
 import torch
 
 from tensorframes.utils.lorentz import lorentz_metric
-from tensorframes.equivectors.graphnet import EquiGraphNet
+from tensorframes.equivectors.equigraph import EquiGraphNet
 
 
 def sample_particle(

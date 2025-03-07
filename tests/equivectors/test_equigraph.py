@@ -3,7 +3,7 @@ import pytest
 from tests.constants import TOLERANCES, LOGM2_MEAN_STD
 from tests.helpers import sample_particle
 
-from tensorframes.equivectors.graphnet import EquiGraphNet
+from tensorframes.equivectors.equigraph import EquiGraphNet
 from tensorframes.utils.transforms import rand_lorentz
 
 
