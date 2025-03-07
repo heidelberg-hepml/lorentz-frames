@@ -99,6 +99,17 @@ def get_batch_from_ptr(ptr):
     )
 
 
+def get_ptr_from_batch(batch):
+    return torch.cat(
+        [
+            torch.tensor([0], device=batch.device),
+            torch.where(batch[1:] - batch[:-1] != 0)[0] + 1,
+            torch.tensor([batch.shape[0]], device=batch.device),
+        ],
+        0,
+    )
+
+
 def get_edge_index_from_ptr(ptr):
     diffs = torch.diff(ptr)
     edge_index = torch.cat(

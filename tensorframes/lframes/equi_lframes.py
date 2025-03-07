@@ -15,6 +15,12 @@ class LearnedLFrames(LFramesPredictor):
         n_vectors,
         ortho_kwargs={},
     ):
+        """
+        Args:
+            n_vectors: The number of vectors to predict, this is usually 3, when the last vector is derived per cross product of the other 3 or 4
+            in_nodes: number of in_nodes for network prediction of the equivariant networks
+
+        """
         super().__init__()
         self.ortho_kwargs = ortho_kwargs
         self.equivectors = equivectors(n_vectors=n_vectors)
@@ -42,6 +48,7 @@ class LearnedOrthogonalLFrames(LearnedLFrames):
     def forward(self, fourmomenta, scalars=None, ptr=None, return_tracker=False):
         vecs = self.equivectors(fourmomenta, scalars=scalars, ptr=ptr)
         vecs = [vecs[..., i, :] for i in range(vecs.shape[-2])]
+
 
         trafo, reg_lightlike, reg_coplanar = orthogonal_trafo(
             vecs, **self.ortho_kwargs, return_reg=True

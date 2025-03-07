@@ -44,3 +44,19 @@ jobs:
     - name: TFTransformer + LearnedOrthogonalLFrames
       run: |
         python run.py model=transformer model/lframesnet=orthogonal save=false evaluate=false training.iterations=3
+
+    - name: Run ParticleNet + IdentityLFrames
+      run: |
+        python run.py model=baseparticlenet-lite save=false evaluate=false training.iterations=3
+
+    - name: Run TFGraphNet + OrthogonalLearnedLFrames symmetry breaking without scalar
+      run: |
+        python run.py model/lframesnet=orthogonal save=false evaluate=false training.iterations=3 data.add_tagging_features_lframesnet=False
+
+    - name: Run TFGraphNet + OrthogonalLearnedLFrames symmetry breaking without time reference
+      run: |
+        python run.py model/lframesnet=orthogonal save=false evaluate=false training.iterations=3 data.add_time_reference=False
+
+    - name: Run TFGraphNet + OrthogonalLearnedLFrames symmetry breaking with timelike reference
+      run: |
+        python run.py model/lframesnet=orthogonal save=false evaluate=false training.iterations=3 data.beam_reference=timelike
