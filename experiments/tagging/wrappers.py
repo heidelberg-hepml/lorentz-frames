@@ -59,35 +59,37 @@ class TaggerWrapper(nn.Module):
             scalars_withspurions = torch.cat(
                 [scalars_withspurions, global_tagging_features_withspurions], dim=-1
             )
-        lframes, tracker = self.lframesnet(
+        lframes_spurions, tracker = self.lframesnet(
             fourmomenta_withspurions,
             scalars_withspurions,
             ptr=ptr_withspurions,
             return_tracker=True,
         )
         lframes_nospurions = LFrames(
-            lframes.matrices[~is_spurion],
-            is_global=lframes.is_global,
-            det=lframes.det[~is_spurion],
-            inv=lframes.inv[~is_spurion],
-            is_identity=lframes.is_identity,
-            device=lframes.device,
-            dtype=lframes.dtype,
-            shape=lframes.matrices[~is_spurion].shape,
+            lframes_spurions.matrices[~is_spurion],
+            is_global=lframes_spurions.is_global,
+            det=lframes_spurions.det[~is_spurion],
+            inv=lframes_spurions.inv[~is_spurion],
+            is_identity=lframes_spurions.is_identity,
+            device=lframes_spurions.device,
+            dtype=lframes_spurions.dtype,
+            shape=lframes_spurions.matrices[~is_spurion].shape,
         )
 
         # transform features into local frames
         fourmomenta_local_nospurions = self.trafo_fourmomenta(
             fourmomenta_nospurions, lframes_nospurions
         )
-        local_tagging_features = get_tagging_features(
+        local_tagging_features_nospurions = get_tagging_features(
             fourmomenta_local_nospurions, batch_nospurions
         )
 
-        features_local = torch.cat([scalars_nospurions, local_tagging_features], dim=-1)
+        features_local_nospurions = torch.cat(
+            [scalars_nospurions, local_tagging_features_nospurions], dim=-1
+        )
 
         return (
-            features_local,
+            features_local_nospurions,
             lframes_nospurions,
             edge_index_nospurions,
             batch_nospurions,
@@ -134,7 +136,7 @@ class BaselineTransformerWrapper(AggregatedTaggerWrapper):
         mask = get_xformers_attention_mask(
             batch,
             materialize=features_local.device == torch.device("cpu"),
-            dtype=scalars.dtype,
+            dtype=features_local.dtype,
         )
 
         # network
@@ -189,10 +191,7 @@ class BaselineParticleNetWrapper(TaggerWrapper):
         assert (
             self.lframesnet.is_global
         ), "Non-equivariant model can only handle global lframes"
-        # 7 input features are computed from fourmomenta_local
-        # scalars are ignored in this model (for now, thats a design choice)
-        num_inputs = 7
-        self.net = net(features_dims=num_inputs, num_classes=self.out_channels)
+        self.net = net(features_dims=self.in_channels, num_classes=self.out_channels)
 
     def forward(self, embedding):
         (

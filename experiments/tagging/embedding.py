@@ -1,6 +1,6 @@
 import torch
 import math
-from torch_geometric.utils import scatter, dense_to_sparse
+from torch_geometric.utils import scatter
 
 from tensorframes.utils.hep import get_eta, get_phi, get_pt
 from tensorframes.utils.utils import get_batch_from_ptr, get_edge_index_from_ptr
@@ -67,7 +67,6 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
     )
 
     n_spurions = spurions.shape[0]
-
     is_spurion = torch.zeros(
         fourmomenta.shape[0] + n_spurions * batchsize,
         dtype=torch.bool,

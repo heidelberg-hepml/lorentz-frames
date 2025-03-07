@@ -1,7 +1,7 @@
 import os, time
 import numpy as np
 import torch
-from omegaconf import open_dict, OmegaConf
+from omegaconf import open_dict
 
 from experiments.base_experiment import BaseExperiment
 from experiments.amplitudes.utils import (

@@ -193,7 +193,7 @@ class DSIWrapper(AmplitudeWrapper):
         (
             _,
             fourmomenta_local,
-            particle_type,
+            _,
             _,
             tracker,
         ) = super().forward(fourmomenta_global)

@@ -49,7 +49,6 @@ class LearnedOrthogonalLFrames(LearnedLFrames):
         vecs = self.equivectors(fourmomenta, scalars=scalars, ptr=ptr)
         vecs = [vecs[..., i, :] for i in range(vecs.shape[-2])]
 
-
         trafo, reg_lightlike, reg_coplanar = orthogonal_trafo(
             vecs, **self.ortho_kwargs, return_reg=True
         )
