@@ -4,11 +4,7 @@ from omegaconf import open_dict
 
 import os, time
 
-from sklearn.metrics import roc_curve, roc_auc_score, accuracy_score
-from scipy.interpolate import interp1d
-
 from experiments.logger import LOGGER
-from experiments.mlflow import log_mlflow
 
 from experiments.tagging.experiment import TaggingExperiment
 from experiments.tagging.embedding import (
@@ -20,52 +16,36 @@ from experiments.tagging.miniweaver.dataset import SimpleIterDataset
 from experiments.tagging.miniweaver.loader import to_filelist
 
 
-class JetClassTaggingExperiment(TaggingExperiment):
+class TopXLTaggingExperiment(TaggingExperiment):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        assert not self.cfg.plotting.roc and not self.cfg.plotting.score
-        self.class_names = [
-            "ZJetsToNuNu",
-            "HToBB",
-            "HToCC",
-            "HToGG",
-            "HToWW4Q",
-            "HToWW2Q1L",
-            "TTBar",
-            "TTBarLep",
-            "WToQQ",
-            "ZToQQ",
-        ]
         with open_dict(self.cfg):
-            self.cfg.model.out_channels = len(self.class_names)
+            self.cfg.model.out_channels = 1
             self.cfg.model.in_channels = 4  # energy-momentum vector
 
             if self.cfg.data.features == "fourmomenta":
                 self.cfg.data.data_config = (
-                    "experiments/tagging/miniweaver/configs_jetclass/fourmomenta.yaml"
+                    "experiments/tagging/miniweaver/configs_topxl/fourmomenta.yaml"
                 )
             elif self.cfg.data.features == "pid":
                 self.cfg.model.in_channels += 6
                 self.cfg.data.data_config = (
-                    "experiments/tagging/miniweaver/configs_jetclass/pid.yaml"
+                    "experiments/tagging/miniweaver/configs_topxl/pid.yaml"
                 )
             elif self.cfg.data.features == "displacements":
                 self.cfg.model.in_channels += 4
                 self.cfg.data.data_config = (
-                    "experiments/tagging/miniweaver/configs_jetclass/displacements.yaml"
+                    "experiments/tagging/miniweaver/configs_topxl/displacements.yaml"
                 )
             elif self.cfg.data.features == "default":
                 self.cfg.model.in_channels += 10
                 self.cfg.data.data_config = (
-                    "experiments/tagging/miniweaver/configs_jetclass/default.yaml"
+                    "experiments/tagging/miniweaver/configs_topxl/default.yaml"
                 )
             else:
                 raise ValueError(
                     f"Input feature option {self.cfg.data.features} not implemented"
                 )
-
-    def _init_loss(self):
-        self.loss = torch.nn.CrossEntropyLoss()
 
     def init_data(self):
         LOGGER.info("Creating SimpleIterDataset")
@@ -74,7 +54,7 @@ class JetClassTaggingExperiment(TaggingExperiment):
         datasets = {"train": None, "test": None, "val": None}
 
         for_training = {"train": True, "val": True, "test": False}
-        folder = {"train": "train_100M", "test": "test_20M", "val": "val_5M"}
+        folder = {"train": "train_topxl", "test": "test_topxl", "val": "val_topxl"}
         files_range = {
             "train": self.cfg.data.train_files_range,
             "test": self.cfg.data.test_files_range,
@@ -86,8 +66,7 @@ class JetClassTaggingExperiment(TaggingExperiment):
         for label in ["train", "test", "val"]:
             path = os.path.join(self.cfg.data.data_dir, folder[label])
             flist = [
-                f"{path}/{classname}_{str(i).zfill(3)}.root"
-                for classname in self.class_names
+                f"{path}/{label}_{str(i).zfill(3)}.parquet"
                 for i in range(*files_range[label])
             ]
             file_dict, _ = to_filelist(flist)
@@ -105,8 +84,8 @@ class JetClassTaggingExperiment(TaggingExperiment):
                 fetch_step=self.cfg.jc_params.fetch_step,
                 infinity_mode=self.cfg.jc_params.steps_per_epoch is not None,
                 in_memory=self.cfg.jc_params.in_memory,
-                name=label,
                 events_per_file=self.cfg.jc_params.events_per_file,
+                name=label,
             )
         self.data_train = datasets["train"]
         self.data_test = datasets["test"]
@@ -147,100 +126,6 @@ class JetClassTaggingExperiment(TaggingExperiment):
             **self.loader_kwargs,
         )
 
-    def _evaluate_single(self, loader, title, mode, step=None):
-        assert mode in ["val", "eval"]
-
-        if mode == "eval":
-            LOGGER.info(f"### Starting to evaluate model on {title} dataset ###")
-        metrics = {}
-
-        # predictions
-        labels_true, labels_predict = [], []
-        self.model.eval()
-        if self.cfg.training.optimizer == "ScheduleFree":
-            self.optimizer.eval()
-        with torch.no_grad():
-            for batch in loader:
-                y_pred, label = self._get_ypred_and_label(batch)
-                labels_true.append(label.cpu())
-                labels_predict.append(y_pred.cpu().float())
-
-        labels_true, labels_predict = torch.cat(labels_true), torch.cat(labels_predict)
-        if mode == "eval":
-            metrics["labels_true"], metrics["labels_predict"] = (
-                labels_true,
-                labels_predict,
-            )
-
-        # ce loss
-        metrics["loss"] = torch.nn.functional.cross_entropy(
-            labels_predict, labels_true
-        ).item()
-        labels_true, labels_predict = (
-            labels_true.numpy(),
-            torch.softmax(labels_predict, dim=1).numpy(),
-        )
-
-        # accuracy
-        metrics["accuracy"] = accuracy_score(labels_true, labels_predict.argmax(1))
-        if mode == "eval":
-            LOGGER.info(f"Accuracy on {title} dataset:\t{metrics['accuracy']:.4f}")
-
-        # auc and roc (fpr = epsB, tpr = epsS)
-        metrics["auc_ovo"] = roc_auc_score(
-            labels_true, labels_predict, multi_class="ovo", average="macro"
-        )  # unweighted mean of AUCs across classes
-        if mode == "eval":
-            LOGGER.info(f"The ovo mean AUC is\t\t{metrics['auc_ovo']:.5f}")
-
-        # 1/epsB at fixed epsS
-        def get_rej(epsS, tpr, fpr):
-            background_eff_fn = interp1d(tpr, fpr)
-            return 1 / background_eff_fn(epsS)
-
-        class_rej_dict = [None, 0.5, 0.5, 0.5, 0.5, 0.99, 0.5, 0.995, 0.5, 0.5]
-
-        for i in range(1, len(self.class_names)):
-            labels_predict_class = labels_predict[
-                (labels_true == 0) | (labels_true == i)
-            ]
-            labels_true_class = labels_true[(labels_true == 0) | (labels_true == i)]
-            labels_predict_class = labels_predict_class[:, [0, i]]
-
-            predict_score = labels_predict_class[:, 1] / (
-                labels_predict_class[:, 0] + labels_predict_class[:, 1]
-            )
-
-            fpr, tpr, _ = roc_curve(labels_true_class == i, predict_score)
-
-            rej_string = str(class_rej_dict[i]).replace(".", "")
-            metrics[f"rej{rej_string}_{i}"] = get_rej(class_rej_dict[i], tpr, fpr)
-            if mode == "eval":
-                LOGGER.info(
-                    f"Rejection rate for class {self.class_names[i]:>10} on {title} dataset:{metrics[f'rej{rej_string}_{i}']:>5.0f} (epsS={class_rej_dict[i]})"
-                )
-
-        # create latex string
-        if mode == "eval":
-            tex_string = f"{self.cfg.run_name} & {metrics['accuracy']:.3f} & {metrics['auc_ovo']:.3f}"
-            for i, rej in enumerate(class_rej_dict):
-                if rej is None:
-                    continue
-                rej_string = str(rej).replace(".", "")
-                tex_string += f" & {metrics[f'rej{rej_string}_{i}']:.0f}"
-            tex_string += r" \\"
-            LOGGER.info(tex_string)
-
-        if self.cfg.use_mlflow:
-            for key, value in metrics.items():
-                if key in ["labels_true", "labels_predict"]:
-                    # do not log matrices
-                    continue
-                name = f"{mode}.{title}" if mode == "eval" else "val"
-                log_mlflow(f"{name}.{key}", value, step=step)
-
-        return metrics
-
     def _get_ypred_and_label(self, batch):
         fourmomenta = batch[0]["pf_vectors"].to(self.device)
         if self.cfg.data.features == "fourmomenta":
@@ -257,4 +142,5 @@ class JetClassTaggingExperiment(TaggingExperiment):
         fourmomenta, scalars, ptr = dense_to_sparse_jet(fourmomenta, scalars)
         embedding = embed_tagging_data(fourmomenta, scalars, ptr, self.cfg.data)
         y_pred, tracker = self.model(embedding)
-        return y_pred, label, tracker
+        y_pred = y_pred[:, 0]
+        return y_pred, label.to(self.dtype), tracker

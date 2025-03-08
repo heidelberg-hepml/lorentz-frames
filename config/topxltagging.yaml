@@ -1,12 +1,13 @@
-exp_type: jctagging
-exp_name: jc_debug
+exp_type: topxltagging
+exp_name: topxl_debug
 
 data:
- data_dir: data/jetclass/
+ data_dir: data/topxl/
  features: default
- train_files_range: [0, 100]
- test_files_range: [100,120]
- val_files_range: [120,125]
+ add_scalar_features: True
+ train_files_range: [0, 99]
+ test_files_range: [100, 119]
+ val_files_range: [120, 129]
 
 jc_params:
  num_workers: 4
@@ -18,15 +19,15 @@ jc_params:
  not_remake_weights: False
  steps_per_epoch: null
  steps_per_epoch_val: null
- events_per_file: 100000
+ events_per_file: 1000000
 
 evaluation:
  batchsize: 1024
  eval_set: [test]
 
 plotting:
- roc: false
- score: false
+ roc: true
+ score: true
 
 defaults:
  - tagging
