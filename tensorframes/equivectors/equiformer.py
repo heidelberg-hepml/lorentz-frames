@@ -5,6 +5,7 @@ import math
 from tensorframes.equivectors.base import EquiVectors
 from tensorframes.utils.utils import get_xformers_attention_mask, get_batch_from_ptr
 from tensorframes.nn.attention import scaled_dot_product_attention
+from tensorframes.utils.lorentz import lorentz_squarednorm
 
 
 class EquiLinear(nn.Module):
