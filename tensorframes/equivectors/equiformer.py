@@ -44,6 +44,10 @@ class EquiAttention(nn.Module):
         self.v_linear = EquiLinearTimelike(in_vectors, out_vectors)
 
     def forward(self, vectors, scalars, attn_mask=None):
+        # layer normalization
+        norm = lorentz_squarednorm(vectors).unsqueeze(-1)
+        vectors = vectors / (norm.abs() + 1e-2).sqrt()
+
         # compute queries and keys
         q_v, q_s = self.q_linear(vectors, scalars)
         k_v, k_s = self.k_linear(vectors, scalars)
