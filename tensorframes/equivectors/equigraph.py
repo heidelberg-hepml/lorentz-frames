@@ -36,8 +36,9 @@ class EquiEdgeConv(MessagePassing):
         operation="single",
         nonlinearity="exp",
         dropout_prob=None,
+        aggr="mean",
     ):
-        super().__init__()
+        super().__init__(aggr=aggr)
         self.include_edges = include_edges
         self.operation = self.get_operation(operation)
         self.nonlinearity = self.get_nonlinearity(nonlinearity)
