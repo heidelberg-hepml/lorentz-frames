@@ -2,7 +2,6 @@ import numpy as np
 import torch
 from torch_geometric.loader import DataLoader
 import os, time
-from omegaconf import open_dict
 
 from sklearn.metrics import roc_curve, roc_auc_score, accuracy_score
 
@@ -20,15 +19,14 @@ class TaggingExperiment(BaseExperiment):
     """
 
     def init_physics(self):
-        with open_dict(self.cfg):
-            # decide which entries to use for the net
-            self.cfg.model.in_channels = 7
+        # decide which entries to use for the net
+        self.cfg.model.in_channels = 7
 
-            # decide which entries to use for the lframesnet
-            if "equivectors" in self.cfg.model.lframesnet:
-                self.cfg.model.lframesnet.equivectors.num_scalars = (
-                    7 if self.cfg.data.add_tagging_features_lframesnet else 0
-                )
+        # decide which entries to use for the lframesnet
+        if "equivectors" in self.cfg.model.lframesnet:
+            self.cfg.model.lframesnet.equivectors.num_scalars = (
+                7 if self.cfg.data.add_tagging_features_lframesnet else 0
+            )
 
     def init_data(self):
         raise NotImplementedError
@@ -251,13 +249,12 @@ class TaggingExperiment(BaseExperiment):
 class TopTaggingExperiment(TaggingExperiment):
     def __init__(self, cfg):
         super().__init__(cfg)
-        with open_dict(self.cfg):
-            self.cfg.model.out_channels = 1
+        self.cfg.model.out_channels = 1
 
-            # move argument into model config
-            self.cfg.model.add_tagging_features_lframesnet = (
-                self.cfg.data.add_tagging_features_lframesnet
-            )
+        # move argument into model config
+        self.cfg.model.add_tagging_features_lframesnet = (
+            self.cfg.data.add_tagging_features_lframesnet
+        )
 
     def init_data(self):
         data_path = os.path.join(

@@ -1,6 +1,5 @@
 import torch
 from torch.utils.data import DataLoader
-from omegaconf import open_dict
 
 import os, time
 
@@ -36,31 +35,29 @@ class JetClassTaggingExperiment(TaggingExperiment):
             "WToQQ",
             "ZToQQ",
         ]
-        with open_dict(self.cfg):
-            self.cfg.model.out_channels = self.class_names
-            self.cfg.model.in_channels = 4  # energy-momentum vector
 
-            if self.cfg.data.features == "fourmomenta":
-                self.cfg.data.data_config = (
-                    "experiments/tagging/miniweaver/fourmomenta.yaml"
-                )
-            elif self.cfg.data.features == "pid":
-                self.cfg.model.in_channels += 6
-                self.cfg.data.data_config = "experiments/tagging/miniweaver/pid.yaml"
-            elif self.cfg.data.features == "displacements":
-                self.cfg.model.in_channels += 4
-                self.cfg.data.data_config = (
-                    "experiments/tagging/miniweaver/displacements.yaml"
-                )
-            elif self.cfg.data.features == "default":
-                self.cfg.model.in_channels += 10
-                self.cfg.data.data_config = (
-                    "experiments/tagging/miniweaver/default.yaml"
-                )
-            else:
-                raise ValueError(
-                    f"Input feature option {self.cfg.data.features} not implemented"
-                )
+        self.cfg.model.out_channels = self.class_names
+        self.cfg.model.in_channels = 4  # energy-momentum vector
+
+        if self.cfg.data.features == "fourmomenta":
+            self.cfg.data.data_config = (
+                "experiments/tagging/miniweaver/fourmomenta.yaml"
+            )
+        elif self.cfg.data.features == "pid":
+            self.cfg.model.in_channels += 6
+            self.cfg.data.data_config = "experiments/tagging/miniweaver/pid.yaml"
+        elif self.cfg.data.features == "displacements":
+            self.cfg.model.in_channels += 4
+            self.cfg.data.data_config = (
+                "experiments/tagging/miniweaver/displacements.yaml"
+            )
+        elif self.cfg.data.features == "default":
+            self.cfg.model.in_channels += 10
+            self.cfg.data.data_config = "experiments/tagging/miniweaver/default.yaml"
+        else:
+            raise ValueError(
+                f"Input feature option {self.cfg.data.features} not implemented"
+            )
 
     def _init_loss(self):
         self.loss = torch.nn.CrossEntropyLoss()
