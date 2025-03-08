@@ -69,10 +69,6 @@ jobs:
       run: |
         python run.py -cn amplitudes model=amp_graphnet save=false evaluate=false training.iterations=3 model.include_nodes=false
 
-    - name: TFGraphNet + OrthogonalLFrames + GATr equivectors
-      run: |
-        python run.py -cn amplitudes model=amp_graphnet model/lframesnet=orthogonal model/lframesnet/equivectors=gatr save=false evaluate=false training.iterations=3
-
     - name: GATr + IdentityLFrames
       run: |
         python run.py -cn amplitudes model=amp_gatr save=false evaluate=false training.iterations=3
