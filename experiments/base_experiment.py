@@ -377,6 +377,16 @@ class BaseExperiment:
                 raise ValueError(f"Cannot load optimizer from {model_path}")
 
     def _init_scheduler(self):
+        if self.cfg.training.validate_every_n_epochs_min is not None:
+            n_epochs_prefactor = self.cfg.training.validate_every_n_epochs_min
+            n_batches = len(self.train_loader)
+            validate_its_min = n_epochs_prefactor * n_batches
+            if validate_its_min < self.cfg.training.validate_every_n_steps:
+                self.cfg.training.validate_every_n_steps = validate_its_min
+                LOGGER.info(
+                    f"Setting interval between validations to {validate_its_min} iterations, ({n_epochs_prefactor} epochs)"
+                )
+
         if self.cfg.training.scheduler is None:
             self.scheduler = None  # constant lr
         elif self.cfg.training.scheduler == "OneCycleLR":
