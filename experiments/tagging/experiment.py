@@ -251,11 +251,6 @@ class TopTaggingExperiment(TaggingExperiment):
         super().__init__(cfg)
         self.cfg.model.out_channels = 1
 
-        # move argument into model config
-        self.cfg.model.add_tagging_features_lframesnet = (
-            self.cfg.data.add_tagging_features_lframesnet
-        )
-
     def init_data(self):
         data_path = os.path.join(
             self.cfg.data.data_dir, f"toptagging_{self.cfg.data.dataset}.npz"

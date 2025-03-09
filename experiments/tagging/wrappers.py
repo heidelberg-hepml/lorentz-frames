@@ -18,21 +18,11 @@ from experiments.tagging.embedding import get_tagging_features
 class TaggerWrapper(nn.Module):
     def __init__(
         self,
-        in_channels,
-        out_channels,
+        in_channels: int,
+        out_channels: int,
         lframesnet,
-        add_tagging_features_lframesnet=False,
     ):
-        """
-        Args:
-            in_channels: string representation for the model input
-            out_channels: string representation for the model output
-            lframesnet: lframesclass
-            add_taggin_features_lframesnet: bool whether to include the tagging features in the lframesnet
-        """
         super().__init__()
-        self.add_tagging_features_lframesnet = add_tagging_features_lframesnet
-        # this is the input and output for the net
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.lframesnet = lframesnet
@@ -55,10 +45,9 @@ class TaggerWrapper(nn.Module):
         ptr_nospurions = get_ptr_from_batch(batch_nospurions)
         edge_index_nospurions = get_edge_index_from_ptr(ptr_nospurions)
 
-        if self.add_tagging_features_lframesnet:
-            scalars_withspurions = torch.cat(
-                [scalars_withspurions, global_tagging_features_withspurions], dim=-1
-            )
+        scalars_withspurions = torch.cat(
+            [scalars_withspurions, global_tagging_features_withspurions], dim=-1
+        )
         lframes_spurions, tracker = self.lframesnet(
             fourmomenta_withspurions,
             scalars_withspurions,
