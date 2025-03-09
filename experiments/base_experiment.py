@@ -72,14 +72,14 @@ class BaseExperiment:
 
         # save config
         LOGGER.debug(OmegaConf.to_yaml(self.cfg))
-        self._save_config("config.yaml", to_mlflow=True)
-        self._save_config(f"config_{self.cfg.run_idx}.yaml")
 
         self.init_physics()
         self.init_model()
         self.init_data()
         self._init_dataloader()
         self._init_loss()
+        self._save_config("config.yaml", to_mlflow=True)
+        self._save_config(f"config_{self.cfg.run_idx}.yaml")
 
         if self.cfg.train:
             self._init_optimizer()
@@ -379,14 +379,11 @@ class BaseExperiment:
     def _init_scheduler(self):
         if self.cfg.training.validate_every_n_epochs_min is not None:
             n_epochs_prefactor = self.cfg.training.validate_every_n_epochs_min
-            n_batches = len(self.train_loader)
-            validate_its_min = n_epochs_prefactor * n_batches
-            if validate_its_min < self.cfg.training.validate_every_n_steps:
-                self.cfg.training.validate_every_n_steps = validate_its_min
-                LOGGER.info(
-                    f"Setting interval between validations to {validate_its_min} iterations, ({n_epochs_prefactor} epochs)"
-                )
-
+            batches_per_epoch = len(self.train_loader)
+            validate_its_min = n_epochs_prefactor * batches_per_epoch
+            self.cfg.training.validate_every_n_steps = min(
+                self.cfg.training.validate_every_n_steps, validate_its_min
+            )
         if self.cfg.training.scheduler is None:
             self.scheduler = None  # constant lr
         elif self.cfg.training.scheduler == "OneCycleLR":
