@@ -35,25 +35,28 @@ class JetClassTaggingExperiment(TaggingExperiment):
             "WToQQ",
             "ZToQQ",
         ]
-
-        self.cfg.model.out_channels = self.class_names
+        self.cfg.model.out_channels = len(self.class_names)
         self.cfg.model.in_channels = 4  # energy-momentum vector
 
         if self.cfg.data.features == "fourmomenta":
             self.cfg.data.data_config = (
-                "experiments/tagging/miniweaver/fourmomenta.yaml"
+                "experiments/tagging/miniweaver/configs_jetclass/fourmomenta.yaml"
             )
         elif self.cfg.data.features == "pid":
             self.cfg.model.in_channels += 6
-            self.cfg.data.data_config = "experiments/tagging/miniweaver/pid.yaml"
+            self.cfg.data.data_config = (
+                "experiments/tagging/miniweaver/configs_jetclass/pid.yaml"
+            )
         elif self.cfg.data.features == "displacements":
             self.cfg.model.in_channels += 4
             self.cfg.data.data_config = (
-                "experiments/tagging/miniweaver/displacements.yaml"
+                "experiments/tagging/miniweaver/configs_jetclass/displacements.yaml"
             )
         elif self.cfg.data.features == "default":
             self.cfg.model.in_channels += 10
-            self.cfg.data.data_config = "experiments/tagging/miniweaver/default.yaml"
+            self.cfg.data.data_config = (
+                "experiments/tagging/miniweaver/configs_jetclass/default.yaml"
+            )
         else:
             raise ValueError(
                 f"Input feature option {self.cfg.data.features} not implemented"
@@ -63,7 +66,7 @@ class JetClassTaggingExperiment(TaggingExperiment):
         self.loss = torch.nn.CrossEntropyLoss()
 
     def init_data(self):
-        LOGGER.info(f"Creating SimpleIterDataset")
+        LOGGER.info("Creating SimpleIterDataset")
         t0 = time.time()
 
         datasets = {"train": None, "test": None, "val": None}
@@ -101,6 +104,7 @@ class JetClassTaggingExperiment(TaggingExperiment):
                 infinity_mode=self.cfg.jc_params.steps_per_epoch is not None,
                 in_memory=self.cfg.jc_params.in_memory,
                 name=label,
+                events_per_file=self.cfg.jc_params.events_per_file,
             )
         self.data_train = datasets["train"]
         self.data_test = datasets["test"]
