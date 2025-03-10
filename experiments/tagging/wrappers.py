@@ -312,7 +312,6 @@ class GraphNetWrapper(AggregatedTaggerWrapper):
         edge_attr = (edge_attr - self.edge_mean) / self.edge_std
         return edge_attr.unsqueeze(-1)
 
-
 class TransformerWrapper(AggregatedTaggerWrapper):
     def __init__(
         self,

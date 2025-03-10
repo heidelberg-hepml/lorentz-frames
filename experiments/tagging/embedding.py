@@ -226,7 +226,6 @@ def standardize_tagging_features(fourmomenta, batch):
             torch.std(tagging_features[:, i]),
         ]
 
-
 def get_tagging_features(fourmomenta, batch, global_fourmomenta=None, lframes=None):
     """
     Compute features typically used in jet tagging
@@ -261,7 +260,6 @@ def get_tagging_features(fourmomenta, batch, global_fourmomenta=None, lframes=No
         jet = scatter(fourmomenta, index=batch, dim=0, reduce="sum").index_select(
             0, batch
         )
-
     log_pt_rel = (get_pt(fourmomenta).log() - get_pt(jet).log()).unsqueeze(-1)
     log_energy_rel = (
         fourmomenta[..., 0].clamp(min=min).log() - jet[..., 0].clamp(min=min).log()
