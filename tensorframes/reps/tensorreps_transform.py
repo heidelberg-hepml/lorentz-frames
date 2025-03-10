@@ -128,6 +128,7 @@ class TensorRepsTransform(torch.nn.Module):
 
 
 def get_einsum_string(order):
+    """Create einsum string for transformation of order-n tensor in _transform_naive"""
     if order > 12:
         raise NotImplementedError("Running out of letters for order>12")
 
