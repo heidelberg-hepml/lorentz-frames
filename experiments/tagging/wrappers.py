@@ -13,7 +13,7 @@ from tensorframes.utils.utils import (
 from tensorframes.reps.tensorreps import TensorReps
 from tensorframes.reps.tensorreps_transform import TensorRepsTransform
 from experiments.tagging.embedding import get_tagging_features
-
+from tensorframes.utils.lorentz import lorentz_squarednorm
 
 
 class TaggerWrapper(nn.Module):
@@ -70,14 +70,12 @@ class TaggerWrapper(nn.Module):
         fourmomenta_local_nospurions = self.trafo_fourmomenta(
             fourmomenta_nospurions, lframes_nospurions
         )
-        local_tagging_features = get_tagging_features(
+        local_tagging_features_nospurions = get_tagging_features(
             fourmomenta_local_nospurions,
             batch_nospurions,
             global_fourmomenta=fourmomenta_nospurions,
             lframes=lframes_nospurions,
         )
-
-        features_local = torch.cat([scalars_nospurions, local_tagging_features], dim=-1)
 
         features_local_nospurions = torch.cat(
             [scalars_nospurions, local_tagging_features_nospurions], dim=-1

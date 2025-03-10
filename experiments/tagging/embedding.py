@@ -221,7 +221,7 @@ def get_spurion(
 def standardize_tagging_features(fourmomenta, batch):
     tagging_features = get_tagging_features(fourmomenta=fourmomenta, batch=batch)
     for i in range(tagging_features.shape[1]):
-        SCALAR_FEATURES_PREPROCESSING[i] = [
+        TAGGING_FEATURES_PREPROCESSING[i] = [
             torch.mean(tagging_features[:, i]),
             torch.std(tagging_features[:, i]),
         ]

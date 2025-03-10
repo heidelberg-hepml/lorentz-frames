@@ -3,6 +3,7 @@ import torch
 from torch_geometric.loader import DataLoader
 from torch_geometric.data import Batch
 import os, time
+from omegaconf import open_dict
 
 from sklearn.metrics import roc_curve, roc_auc_score, accuracy_score
 
@@ -24,13 +25,19 @@ class TaggingExperiment(BaseExperiment):
 
     def init_physics(self):
         # decide which entries to use for the net
-        self.cfg.model.in_channels = 7
+        with open_dict(self.cfg):
+            self.cfg.model.in_channels = 7
 
-        # decide which entries to use for the lframesnet
-        if "equivectors" in self.cfg.model.lframesnet:
-            self.cfg.model.lframesnet.equivectors.num_scalars = (
-                7 if self.cfg.data.add_tagging_features_lframesnet else 0
-            )
+            # decide which entries to use for the lframesnet
+            if "equivectors" in self.cfg.model.lframesnet:
+                self.cfg.model.lframesnet.equivectors.num_scalars = (
+                    7 if self.cfg.data.add_tagging_features_lframesnet else 0
+                )
+
+            if self.cfg.model.net._target_.rsplit(".", 1)[-1] == "TFGraphNet":
+                self.cfg.model.net.num_edge_attr = (
+                    1 if self.cfg.model.include_edges else 0
+                )
 
     def init_data(self):
         raise NotImplementedError
