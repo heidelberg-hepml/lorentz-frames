@@ -1,5 +1,6 @@
 import hydra
 from experiments.tagging.experiment import TopTaggingExperiment
+from experiments.tagging.topxlexperiment import TopXLTaggingExperiment
 from experiments.tagging.jetclassexperiment import JetClassTaggingExperiment
 from experiments.amplitudes.experiment import AmplitudeExperiment
 from experiments.amplitudes.experiment_xl import XLAmplitudeExperiment
@@ -9,6 +10,8 @@ from experiments.amplitudes.experiment_xl import XLAmplitudeExperiment
 def main(cfg):
     if cfg.exp_type == "toptagging":
         exp = TopTaggingExperiment(cfg)
+    elif cfg.exp_type == "topxltagging":
+        exp = TopXLTaggingExperiment(cfg)
     elif cfg.exp_type == "jctagging":
         exp = JetClassTaggingExperiment(cfg)
     elif cfg.exp_type == "amplitudes":

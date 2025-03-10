@@ -1,5 +1,6 @@
 _target_: experiments.tagging.wrappers.BaselineGraphNetWrapper
-in_reps: null
+in_channels: null
+out_channels: null
 
 net:
  _target_: experiments.baselines.graphnet.GraphNet

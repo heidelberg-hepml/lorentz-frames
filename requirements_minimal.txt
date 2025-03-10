@@ -13,3 +13,5 @@ numpy
 
 # project-specific
 xformers
+einops>=0.6.1 # for GATr
+opt_einsum>=3.3.0 # for GATr

@@ -1,15 +1,15 @@
 import torch
 import math
-from torch_geometric.utils import scatter, dense_to_sparse
+from torch_geometric.utils import scatter
 
 from tensorframes.utils.hep import get_eta, get_phi, get_pt
+from tensorframes.utils.utils import get_batch_from_ptr, get_edge_index_from_ptr
 from experiments.tagging.dataset import EPS
 
 UNITS = 20  # We use units of 20 GeV for all tagging experiments
 
-# Preprocessing (mean, std) for scalar features
-# these are the defaults used in weaver
-SCALAR_FEATURES_PREPROCESSING = [
+# weaver defaults for tagging features standardization (mean, std)
+TAGGING_FEATURES_PREPROCESSING = [
     [1.7 - math.log(UNITS), 0.7],  # log_pt
     [2.0 - math.log(UNITS), 0.7],  # log_energy
     [-4.7 - math.log(UNITS), 0.7],  # log_pt_rel
@@ -18,12 +18,6 @@ SCALAR_FEATURES_PREPROCESSING = [
     [0, 1],  # deta
     [0.2, 4],  # dr
 ]
-
-
-def get_batch_from_ptr(ptr):
-    return torch.arange(len(ptr) - 1, device=ptr.device).repeat_interleave(
-        ptr[1:] - ptr[:-1],
-    )
 
 
 def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
@@ -46,11 +40,8 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
     Returns
     -------
     embedding: dict
-        Embedded data
-        Includes keys for fourmomenta (n_particle (+n_spurion if beam_token), n_vectors, 4), scalars and ptr
     """
     batchsize = len(ptr) - 1
-    batch = get_batch_from_ptr(ptr)
     arange = torch.arange(batchsize, device=fourmomenta.device)
 
     # add mass regulator
@@ -58,14 +49,6 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
         fourmomenta[..., 0] = (
             (fourmomenta[..., 1:] ** 2).sum(dim=-1) + cfg_data.mass_reg**2
         ).sqrt()
-
-    # add extra scalar channels
-    if cfg_data.add_scalar_features:
-        features = get_tagging_features(fourmomenta, batch)
-        scalars = torch.cat(
-            (scalars, features),
-            dim=-1,
-        )
 
     if cfg_data.rescale_data:
         fourmomenta /= UNITS
@@ -79,30 +62,29 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
         fourmomenta.dtype,
     )
 
-    fourmomenta = fourmomenta.unsqueeze(1)
     n_spurions = spurions.shape[0]
-    assert cfg_data.beam_token, f"spurions as channels not consistently supported yet"
-    if cfg_data.beam_token and n_spurions > 0:
+    is_spurion = torch.zeros(
+        fourmomenta.shape[0] + n_spurions * batchsize,
+        dtype=torch.bool,
+        device=fourmomenta.device,
+    )
+    if n_spurions > 0:
         # prepend spurions to the token list (within each block)
         spurion_idxs = torch.stack(
             [ptr[:-1] + i for i in range(n_spurions)], dim=0
         ) + n_spurions * torch.arange(batchsize, device=ptr.device)
         spurion_idxs = spurion_idxs.permute(1, 0).flatten()
-        insert_spurion = torch.zeros(
-            fourmomenta.shape[0] + n_spurions * batchsize,
-            dtype=torch.bool,
-            device=fourmomenta.device,
-        )
-        insert_spurion[spurion_idxs] = True
+        is_spurion[spurion_idxs] = True
         fourmomenta_buffer = fourmomenta.clone()
         fourmomenta = torch.empty(
-            insert_spurion.shape[0],
+            is_spurion.shape[0],
             *fourmomenta.shape[1:],
             dtype=fourmomenta.dtype,
             device=fourmomenta.device,
         )
-        fourmomenta[~insert_spurion] = fourmomenta_buffer
-        fourmomenta[insert_spurion] = spurions.repeat(batchsize, 1).unsqueeze(1)
+        fourmomenta[~is_spurion] = fourmomenta_buffer
+        fourmomenta[is_spurion] = spurions.repeat(batchsize, 1)
+
         scalars_buffer = scalars.clone()
         scalars = torch.zeros(
             fourmomenta.shape[0],
@@ -110,30 +92,31 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
             dtype=scalars.dtype,
             device=scalars.device,
         )
-        scalars[~insert_spurion] = scalars_buffer
+        scalars[~is_spurion] = scalars_buffer
         ptr[1:] = ptr[1:] + (arange + 1) * n_spurions
+
+    edge_index = get_edge_index_from_ptr(ptr)
+    batch = get_batch_from_ptr(ptr)
+
+    if cfg_data.add_tagging_features_lframesnet:
+        global_tagging_features = get_tagging_features(fourmomenta, batch)
+        global_tagging_features[is_spurion] = 0
     else:
-        # append spurion to fourmomenta channels
-        spurions = spurions.unsqueeze(0).repeat(fourmomenta.shape[0], 1, 1)
-        fourmomenta = torch.cat((fourmomenta, spurions), dim=-2)
+        global_tagging_features = torch.zeros(
+            fourmomenta.shape[0],
+            0,
+            dtype=fourmomenta.dtype,
+            device=fourmomenta.device,
+        )
 
-    # construct edge_index (dark art)
-    diffs = torch.diff(ptr)
-    edge_index = torch.cat(
-        [
-            dense_to_sparse(torch.ones(d, d, device=diffs.device))[0] + diffs[:i].sum()
-            for i, d in enumerate(diffs)
-        ],
-        dim=-1,
-    )
-
-    # return dict
-    batch = get_batch_from_ptr(ptr)  # have to re-compute because ptr might have changed
     embedding = {
         "fourmomenta": fourmomenta,
         "scalars": scalars,
+        "is_spurion": is_spurion,
+        "global_tagging_features": global_tagging_features,
         "edge_index": edge_index,
         "batch": batch,
+        "ptr": ptr,
     }
     return embedding
 
@@ -249,17 +232,20 @@ def get_tagging_features(fourmomenta, batch):
     features: torch.tensor of shape (n_particles, n_features)
         Features: log_pt, log_energy, log_pt_rel, log_energy_rel, dphi, deta, dr
     """
+    min = 1e-10
     log_pt = get_pt(fourmomenta).unsqueeze(-1).log()
-    log_energy = fourmomenta[..., 0].unsqueeze(-1).log()
+    log_energy = fourmomenta[..., 0].unsqueeze(-1).clamp(min=min).log()
 
     jet = scatter(fourmomenta, index=batch, dim=0, reduce="sum").index_select(0, batch)
     log_pt_rel = (get_pt(fourmomenta).log() - get_pt(jet).log()).unsqueeze(-1)
-    log_energy_rel = (fourmomenta[..., 0].log() - jet[..., 0].log()).unsqueeze(-1)
+    log_energy_rel = (
+        fourmomenta[..., 0].clamp(min=min).log() - jet[..., 0].clamp(min=min).log()
+    ).unsqueeze(-1)
     phi_4, phi_jet = get_phi(fourmomenta), get_phi(jet)
     dphi = ((phi_4 - phi_jet + torch.pi) % (2 * torch.pi) - torch.pi).unsqueeze(-1)
     eta_4, eta_jet = get_eta(fourmomenta), get_eta(jet)
     deta = -(eta_4 - eta_jet).unsqueeze(-1)
-    dr = torch.sqrt(dphi**2 + deta**2)
+    dr = torch.sqrt((dphi**2 + deta**2).clamp(min=min))
     features = [
         log_pt,
         log_energy,
@@ -270,6 +256,6 @@ def get_tagging_features(fourmomenta, batch):
         dr,
     ]
     for i, feature in enumerate(features):
-        mean, factor = SCALAR_FEATURES_PREPROCESSING[i]
+        mean, factor = TAGGING_FEATURES_PREPROCESSING[i]
         features[i] = (feature - mean) * factor
     return torch.cat(features, dim=-1)

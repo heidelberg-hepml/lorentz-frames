@@ -16,7 +16,8 @@ from tensorframes.utils.transforms import (
 @pytest.mark.parametrize("n_range", [[1, 1], [3, 5]])
 @pytest.mark.parametrize("std_eta", [0.1, 1, 2])
 @pytest.mark.parametrize(
-    "transform_type", [rand_lorentz, rand_rotation, rand_xyrotation, rand_boost, rand_ztransform]
+    "transform_type",
+    [rand_lorentz, rand_rotation, rand_xyrotation, rand_boost, rand_ztransform],
 )
 def test_rand_lorentz(batch_dims, n_range, std_eta, transform_type):
     dtype = torch.float64

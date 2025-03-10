@@ -27,5 +27,5 @@ mlflow:
  artifacts: '${base_dir}/runs/${exp_name}/mlflow/artifacts'
 
 defaults:
- - hydra
  - _self_
+ - hydra
