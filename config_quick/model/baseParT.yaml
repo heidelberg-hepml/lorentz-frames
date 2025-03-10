@@ -7,7 +7,7 @@ net:
  _target_: experiments.baselines.particletransformer.ParticleTransformer
  _partial_: true
  num_classes: null
- input_dim: 7
+ input_dim: null
 
  pair_input_dim: null
  use_amp: true

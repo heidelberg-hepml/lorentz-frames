@@ -183,7 +183,7 @@ class BaselineParticleNetWrapper(TaggerWrapper):
         assert (
             self.lframesnet.is_global
         ), "Non-equivariant model can only handle global lframes"
-        self.net = net(features_dims=self.in_channels, num_classes=self.out_channels)
+        self.net = net(input_dims=self.in_channels, num_classes=self.out_channels)
 
     def forward(self, embedding):
         (
@@ -224,7 +224,7 @@ class BaselineParTWrapper(TaggerWrapper):
         assert (
             self.lframesnet.is_global
         ), "Non-equivariant model can only handle global lframes"
-        self.net = net(num_classes=self.out_channels)
+        self.net = net(input_dim=self.in_channels, num_classes=self.out_channels)
         self.pad_noise = pad_noise
 
     def forward(self, embedding):
