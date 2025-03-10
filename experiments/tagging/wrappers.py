@@ -73,9 +73,6 @@ class TaggerWrapper(nn.Module):
         local_tagging_features_nospurions = get_tagging_features(
             fourmomenta_local_nospurions, batch_nospurions
         )
-        local_tagging_features = get_tagging_features(
-            fourmomenta_local_nospurions, batch_nospurions
-        )
 
         features_local = torch.cat([scalars_nospurions, local_tagging_features], dim=-1)
 
