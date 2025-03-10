@@ -30,9 +30,11 @@ class AmplitudeWrapper(nn.Module):
         _, self.mom_mean, self.mom_std = standardize_momentum(fourmomenta)
 
     def forward(self, fourmomenta):
-        scalars = torch.zeros_like(fourmomenta[..., []])
+        particle_type = self.encode_particle_type(fourmomenta.shape[0]).to(
+            dtype=fourmomenta.dtype, device=fourmomenta.device
+        )
         lframes, tracker = self.lframesnet(
-            fourmomenta, scalars, ptr=None, return_tracker=True
+            fourmomenta, scalars=particle_type, ptr=None, return_tracker=True
         )
 
         fourmomenta_local = self.trafo_fourmomenta(fourmomenta, lframes)

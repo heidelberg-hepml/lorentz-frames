@@ -1,7 +1,6 @@
 import os, time
 import numpy as np
 import torch
-from omegaconf import open_dict
 
 from experiments.base_experiment import BaseExperiment
 from experiments.amplitudes.utils import (
@@ -39,32 +38,29 @@ class AmplitudeExperiment(BaseExperiment):
 
         modelname = self.cfg.model.net._target_.rsplit(".", 1)[-1]
         learnable_lframesnet = "equivectors" in self.cfg.model.lframesnet
-        with open_dict(self.cfg):
-            self.cfg.model.particle_type = particle_type
+        self.cfg.model.particle_type = particle_type
 
-            if modelname == "TFTransformer":
-                self.cfg.model.net.in_channels = num_particle_types + 4
-            elif modelname == "TFGraphNet":
-                assert self.cfg.model.include_nodes or self.cfg.model.include_edges
-                self.cfg.model.net.num_edge_attr = (
-                    1 if self.cfg.model.include_edges else 0
-                )
-                self.cfg.model.net.in_channels = num_particle_types
-                if self.cfg.model.include_nodes:
-                    self.cfg.model.net.in_channels += 4
-            elif modelname == "MLP":
-                self.cfg.model.net.in_shape = 4 * len(particle_type)
-            elif modelname == "GATr":
-                assert not learnable_lframesnet, "GATr is no tensorframes model"
-                self.cfg.model.net.in_s_channels = num_particle_types
-            elif modelname == "DSI":
-                assert not learnable_lframesnet, "DSI is no tensorframes model"
-                self.cfg.model.net.type_token_list = particle_type
-            else:
-                raise ValueError(f"Model {modelname} not implemented")
+        if modelname == "TFTransformer":
+            self.cfg.model.net.in_channels = num_particle_types + 4
+        elif modelname == "TFGraphNet":
+            assert self.cfg.model.include_nodes or self.cfg.model.include_edges
+            self.cfg.model.net.num_edge_attr = 1 if self.cfg.model.include_edges else 0
+            self.cfg.model.net.in_channels = num_particle_types
+            if self.cfg.model.include_nodes:
+                self.cfg.model.net.in_channels += 4
+        elif modelname == "MLP":
+            self.cfg.model.net.in_shape = 4 * len(particle_type)
+        elif modelname == "GATr":
+            assert not learnable_lframesnet, "GATr is no tensorframes model"
+            self.cfg.model.net.in_s_channels = num_particle_types
+        elif modelname == "DSI":
+            assert not learnable_lframesnet, "DSI is no tensorframes model"
+            self.cfg.model.net.type_token_list = particle_type
+        else:
+            raise ValueError(f"Model {modelname} not implemented")
 
-            if learnable_lframesnet:
-                self.cfg.model.lframesnet.equivectors.num_scalars = 0
+        if learnable_lframesnet:
+            self.cfg.model.lframesnet.equivectors.num_scalars = num_particle_types
         LOGGER.info(f"Using particle_type={particle_type}")
 
     def init_data(self):
