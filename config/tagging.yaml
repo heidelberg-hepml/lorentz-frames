@@ -1,10 +1,9 @@
 data:
+ add_tagging_features_lframesnet: false
  rescale_data: true
- beam_reference: timelike
+ beam_reference: lightlike
  two_beams: true
- beam_token: true
  add_time_reference: true
- add_scalar_features: true
  mass_reg: 1e-2
 
 evaluation:
@@ -21,5 +20,3 @@ defaults:
  - default
  - training: default
  - model: graphnet
- - hydra
- - _self_

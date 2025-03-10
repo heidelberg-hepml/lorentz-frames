@@ -2,7 +2,6 @@ import numpy as np
 import torch
 from torch_geometric.loader import DataLoader
 import os, time
-from omegaconf import open_dict
 
 from sklearn.metrics import roc_curve, roc_auc_score, accuracy_score
 
@@ -20,36 +19,14 @@ class TaggingExperiment(BaseExperiment):
     """
 
     def init_physics(self):
-        with open_dict(self.cfg):
-            if self.cfg.model._target_.rsplit(".", 1)[-1] in [
-                "BaselineParticleNetWrapper",
-                "BaselineParTWrapper",
-            ]:
-                # Note: cfg.data.add_scalar_features not supported for net inputs; in_channels currently hard-coded
-                if (
-                    self.cfg.data.beam_reference is not None
-                    or self.cfg.data.add_time_reference
-                ):
-                    LOGGER.warning(
-                        "Spurions not supported for BaselineParticleNetWrapper/BaselineParTWrapper (yield nan/inf in get_tagging_features), removing them"
-                    )
-                    self.cfg.data.beam_reference = None
-                    self.cfg.data.add_time_reference = False
+        # decide which entries to use for the net
+        self.cfg.model.in_channels = 7
 
-            if self.cfg.data.add_scalar_features:
-                self.cfg.model.in_channels += 7  # other scalar features
-
-            if not self.cfg.data.beam_token:
-                num_spurions = 0
-                num_spurions += (
-                    1
-                    if self.cfg.data.beam_reference
-                    in ["lightlike", "spacelike", "timelike"]
-                    else 0
-                )
-                num_spurions += 1 if self.cfg.data.two_beams else 0
-                num_spurions += 1 if self.cfg.data.add_time_reference else 0
-                self.cfg.model.in_channels += num_spurions * 4
+        # decide which entries to use for the lframesnet
+        if "equivectors" in self.cfg.model.lframesnet:
+            self.cfg.model.lframesnet.equivectors.num_scalars = (
+                7 if self.cfg.data.add_tagging_features_lframesnet else 0
+            )
 
     def init_data(self):
         raise NotImplementedError
@@ -251,7 +228,12 @@ class TaggingExperiment(BaseExperiment):
 
     def _get_ypred_and_label(self, batch):
         batch = batch.to(self.device)
-        embedding = embed_tagging_data(batch.x, batch.scalars, batch.ptr, self.cfg.data)
+        embedding = embed_tagging_data(
+            batch.x,
+            batch.scalars,
+            batch.ptr,
+            self.cfg.data,
+        )
         y_pred, tracker = self.model(embedding)
         y_pred = y_pred[:, 0]
         return y_pred, batch.label.to(self.dtype), tracker
@@ -263,9 +245,7 @@ class TaggingExperiment(BaseExperiment):
 class TopTaggingExperiment(TaggingExperiment):
     def __init__(self, cfg):
         super().__init__(cfg)
-        with open_dict(self.cfg):
-            self.cfg.model.out_channels = 1
-            self.cfg.model.in_channels = 4  # energy-momentum vector
+        self.cfg.model.out_channels = 1
 
     def init_data(self):
         data_path = os.path.join(

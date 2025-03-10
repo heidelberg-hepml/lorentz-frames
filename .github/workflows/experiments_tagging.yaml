@@ -29,25 +29,21 @@ jobs:
       run: |
         python run.py save=false evaluate=false training.iterations=3
 
-    - name: TFGraphNet + OrthogonalLearnedLFrames
+    - name: TFGraphNet + LearnedOrthogonalLFrames
       run: |
         python run.py model/lframesnet=orthogonal save=false evaluate=false training.iterations=3
 
-    - name: TFGraphNet + LearnedRestLFrames
+    - name: TFGraphNet + LearnedPolarDecompositionLFrames
       run: |
-        python run.py model/lframesnet=learnedrest save=false evaluate=false training.iterations=3
+        python run.py model/lframesnet=polardec save=false evaluate=false training.iterations=3
 
     - name: TFGraphNet + RandomLFrames
       run: |
         python run.py model/lframesnet=randomxyrotation save=false evaluate=false training.iterations=3
 
-    - name: TFTransformer + OrthogonalLearnedLFrames
+    - name: TFTransformer + LearnedOrthogonalLFrames
       run: |
         python run.py model=transformer model/lframesnet=orthogonal save=false evaluate=false training.iterations=3
-
-    - name: Baseline ParticleNet
-      run: |
-        python run.py model=baseparticlenet-lite save=false evaluate=false training.iterations=3
 
     - name: Baseline ParT
       run: |
@@ -56,3 +52,19 @@ jobs:
     - name: Baseline ParT without pairwise features
       run: |
         python run.py model=baseParT save=false evaluate=false training.iterations=3 model.net.pair_input_dim=0
+
+    - name: Run ParticleNet + IdentityLFrames
+      run: |
+        python run.py model=baseparticlenet-lite save=false evaluate=false training.iterations=3
+
+    - name: Run TFGraphNet + OrthogonalLearnedLFrames symmetry breaking without scalar
+      run: |
+        python run.py model/lframesnet=orthogonal save=false evaluate=false training.iterations=3 data.add_tagging_features_lframesnet=False
+
+    - name: Run TFGraphNet + OrthogonalLearnedLFrames symmetry breaking without time reference
+      run: |
+        python run.py model/lframesnet=orthogonal save=false evaluate=false training.iterations=3 data.add_time_reference=False
+
+    - name: Run TFGraphNet + OrthogonalLearnedLFrames symmetry breaking with timelike reference
+      run: |
+        python run.py model/lframesnet=orthogonal save=false evaluate=false training.iterations=3 data.beam_reference=timelike

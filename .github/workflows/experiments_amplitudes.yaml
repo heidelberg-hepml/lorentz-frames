@@ -33,7 +33,7 @@ jobs:
       run: |
         python run.py -cn amplitudes model=amp_transformer save=false evaluate=false training.iterations=3
 
-    - name: TFTransformer + OrthogonalLearnedLFrames
+    - name: TFTransformer + LearnedOrthogonalLFrames
       run: |
         python run.py -cn amplitudes model=amp_transformer model/lframesnet=orthogonal save=false evaluate=false training.iterations=3
 
@@ -68,3 +68,11 @@ jobs:
     - name: TFGraphNet (edges only) + IdentityLFrames
       run: |
         python run.py -cn amplitudes model=amp_graphnet save=false evaluate=false training.iterations=3 model.include_nodes=false
+
+    - name: GATr + IdentityLFrames
+      run: |
+        python run.py -cn amplitudes model=amp_gatr save=false evaluate=false training.iterations=3
+
+    - name: DSI + IdentityLFrames
+      run: |
+        python run.py -cn amplitudes model=amp_dsi save=false evaluate=false training.iterations=3

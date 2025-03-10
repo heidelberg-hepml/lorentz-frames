@@ -16,6 +16,14 @@ import experiments.logger
 from experiments.logger import LOGGER, MEMORY_HANDLER, FORMATTER
 from experiments.mlflow import log_mlflow
 
+# for GATr (ignored by others)
+from hydra.core.config_store import ConfigStore
+from experiments.baselines.gatr.layers import MLPConfig, SelfAttentionConfig
+
+cs = ConfigStore.instance()
+cs.store(name="base_attention", node=SelfAttentionConfig)
+cs.store(name="base_mlp", node=MLPConfig)
+
 # set to 'True' to debug autograd issues (slows down code)
 torch.autograd.set_detect_anomaly(False)
 MIN_STEP_SKIP = 1000
@@ -130,12 +138,16 @@ class BaseExperiment:
                 self.cfg.run_dir, "models", f"model_run{self.cfg.warm_start_idx}.pt"
             )
             try:
-                state_dict = torch.load(model_path, map_location="cpu")["model"]
+                state_dict = torch.load(
+                    model_path, map_location="cpu", weights_only=False
+                )["model"]
                 LOGGER.info(f"Loading model from {model_path}")
                 self.model.load_state_dict(state_dict)
                 if self.ema is not None:
                     LOGGER.info(f"Loading EMA from {model_path}")
-                    state_dict = torch.load(model_path, map_location="cpu")["ema"]
+                    state_dict = torch.load(
+                        model_path, map_location="cpu", weights_only=False
+                    )["ema"]
                     self.ema.load_state_dict(state_dict)
             except FileNotFoundError:
                 raise ValueError(f"Cannot load model from {model_path}")
@@ -362,7 +374,9 @@ class BaseExperiment:
                 self.cfg.run_dir, "models", f"model_run{self.cfg.warm_start_idx}.pt"
             )
             try:
-                state_dict = torch.load(model_path, map_location="cpu")["optimizer"]
+                state_dict = torch.load(
+                    model_path, map_location="cpu", weights_only=False
+                )["optimizer"]
                 LOGGER.info(f"Loading optimizer from {model_path}")
                 self.optimizer.load_state_dict(state_dict)
             except FileNotFoundError:
@@ -445,7 +459,9 @@ class BaseExperiment:
                 self.cfg.run_dir, "models", f"model_run{self.cfg.warm_start_idx}.pt"
             )
             try:
-                state_dict = torch.load(model_path, map_location="cpu")["scheduler"]
+                state_dict = torch.load(
+                    model_path, map_location="cpu", weights_only=False
+                )["scheduler"]
                 LOGGER.info(f"Loading scheduler from {model_path}")
                 self.scheduler.load_state_dict(state_dict)
             except FileNotFoundError:
@@ -567,7 +583,9 @@ class BaseExperiment:
                 f"model_run{self.cfg.run_idx}_it{smallest_val_loss_step}.pt",
             )
             try:
-                state_dict = torch.load(model_path, map_location=self.device)["model"]
+                state_dict = torch.load(
+                    model_path, map_location=self.device, weights_only=False
+                )["model"]
                 LOGGER.info(f"Loading model from {model_path}")
                 self.model.load_state_dict(state_dict)
             except FileNotFoundError:

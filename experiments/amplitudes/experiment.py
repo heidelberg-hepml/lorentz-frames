@@ -1,37 +1,31 @@
 import os, time
 import numpy as np
 import torch
-from omegaconf import open_dict
 
 from experiments.base_experiment import BaseExperiment
-from experiments.amplitudes.preprocessing import (
+from experiments.amplitudes.utils import (
     preprocess_amplitude,
     undo_preprocess_amplitude,
-    preprocess_momentum,
 )
+from experiments.amplitudes.constants import PARTICLE_TYPE, DATASET_TITLE
 from experiments.amplitudes.plots import plot_mixer
 from experiments.logger import LOGGER
 from experiments.mlflow import log_mlflow
 
-PARTICLE_TYPE = {
-    "aag": [0, 0, 1, 1, 0],
-    "aagg": [0, 0, 1, 1, 0, 0],
-    "zg": [0, 0, 1, 2],
-    "zgg": [0, 0, 1, 2, 2],
-    "zggg": [0, 0, 1, 2, 2, 2],
-    "zgggg": [0, 0, 1, 2, 2, 2, 2],
-    "zggggg": [0, 0, 1, 2, 2, 2, 2, 2],
+from tensorframes.utils.transforms import (
+    rand_lorentz,
+    rand_rotation,
+    rand_xyrotation,
+    rand_boost,
+)
+
+MODEL_TITLE = {
+    "TFTransformer": "Tr",
+    "MLP": "MLP",
+    "TFGraphNet": "GN",
+    "GATr": "GATr",
+    "DSI": "DSI",
 }
-DATASET_TITLE = {
-    "aag": r"$gg\to\gamma\gamma g$",
-    "aagg": r"$gg\to\gamma\gamma gg$",
-    "zg": r"$q\bar q\to Zg$",
-    "zgg": r"$q\bar q\to Zgg$",
-    "zggg": r"$q\bar q\to Zggg$",
-    "zgggg": r"$q\bar q\to Zgggg$",
-    "zggggg": r"$q\bar q \to Zggggg$",
-}
-MODEL_TITLE = {"TFTransformer": "Tr", "MLP": "MLP", "TFGraphNet": "GN"}
 
 
 class AmplitudeExperiment(BaseExperiment):
@@ -43,22 +37,30 @@ class AmplitudeExperiment(BaseExperiment):
         num_particle_types = max(particle_type) + 1
 
         modelname = self.cfg.model.net._target_.rsplit(".", 1)[-1]
-        with open_dict(self.cfg):
-            self.cfg.model.particle_type = particle_type
-            if modelname == "TFTransformer":
-                self.cfg.model.net.in_channels = num_particle_types + 4
-            elif modelname == "TFGraphNet":
-                assert self.cfg.model.include_nodes or self.cfg.model.include_edges
-                self.cfg.model.net.num_edge_attr = (
-                    1 if self.cfg.model.include_edges else 0
-                )
-                self.cfg.model.net.in_channels = num_particle_types
-                if self.cfg.model.include_nodes:
-                    self.cfg.model.net.in_channels += 4
-            elif modelname == "MLP":
-                self.cfg.model.net.in_shape = 4 * len(particle_type)
-            else:
-                raise ValueError(f"Model {modelname} not implemented")
+        learnable_lframesnet = "equivectors" in self.cfg.model.lframesnet
+        self.cfg.model.particle_type = particle_type
+
+        if modelname == "TFTransformer":
+            self.cfg.model.net.in_channels = num_particle_types + 4
+        elif modelname == "TFGraphNet":
+            assert self.cfg.model.include_nodes or self.cfg.model.include_edges
+            self.cfg.model.net.num_edge_attr = 1 if self.cfg.model.include_edges else 0
+            self.cfg.model.net.in_channels = num_particle_types
+            if self.cfg.model.include_nodes:
+                self.cfg.model.net.in_channels += 4
+        elif modelname == "MLP":
+            self.cfg.model.net.in_shape = 4 * len(particle_type)
+        elif modelname == "GATr":
+            assert not learnable_lframesnet, "GATr is no tensorframes model"
+            self.cfg.model.net.in_s_channels = num_particle_types
+        elif modelname == "DSI":
+            assert not learnable_lframesnet, "DSI is no tensorframes model"
+            self.cfg.model.net.type_token_list = particle_type
+        else:
+            raise ValueError(f"Model {modelname} not implemented")
+
+        if learnable_lframesnet:
+            self.cfg.model.lframesnet.equivectors.num_scalars = num_particle_types
         LOGGER.info(f"Using particle_type={particle_type}")
 
     def init_data(self):
@@ -84,14 +86,32 @@ class AmplitudeExperiment(BaseExperiment):
         self.momentum = momentum.reshape(momentum.shape[0], momentum.shape[1] // 4, 4)
         self.amplitude = data_raw[:, [-1]]
 
+        # prepare momenta
+        if self.cfg.data.prepare == "align":
+            # momenta are already aligned with the beam
+            pass
+        else:
+            if self.cfg.data.prepare == "xyrotation":
+                trafo = rand_xyrotation(self.momentum.shape[:-2])
+            elif self.cfg.data.prepare == "rotation":
+                trafo = rand_rotation(self.momentum.shape[:-2])
+            elif self.cfg.data.prepare == "boost":
+                trafo = rand_boost(self.momentum.shape[:-2])
+            elif self.cfg.data.prepare == "lorentz":
+                trafo = rand_lorentz(self.momentum.shape[:-2])
+            else:
+                raise ValueError(
+                    f"cfg.data.prepare={self.cfg.data.prepare} not implemented"
+                )
+            self.momentum = torch.einsum("...ij,...kj->...ki", trafo, self.momentum)
+
         # preprocess data
         self.amplitude_prepd, self.amp_mean, self.amp_std = preprocess_amplitude(
             self.amplitude
         )
         self.momentum_prepd = self.momentum / self.momentum.std()
-        if self.cfg.data.preprocess_momentum:
-            _, mom_mean, mom_std = preprocess_momentum(self.momentum_prepd)
-            self.model.init_momentum_preprocessing(mom_mean, mom_std)
+        if self.cfg.data.standardize:
+            self.model.init_standardization(self.momentum_prepd)
             self.model.to(device=self.device, dtype=self.dtype)
 
     def _init_dataloader(self):
@@ -102,8 +122,12 @@ class AmplitudeExperiment(BaseExperiment):
             .astype("int")
             .tolist()
         )
-        trn_amp, tst_amp, val_amp = torch.split(self.amplitude_prepd, splits, dim=0)
-        trn_mom, tst_mom, val_mom = torch.split(self.momentum_prepd, splits, dim=0)
+        trn_amp, tst_amp, val_amp = torch.split(
+            self.amplitude_prepd[: sum(splits)], splits, dim=0
+        )
+        trn_mom, tst_mom, val_mom = torch.split(
+            self.momentum_prepd[: sum(splits)], splits, dim=0
+        )
 
         trn_set = torch.utils.data.TensorDataset(trn_amp, trn_mom)
         tst_set = torch.utils.data.TensorDataset(tst_amp, tst_mom)
