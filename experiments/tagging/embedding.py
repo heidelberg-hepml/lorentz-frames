@@ -237,14 +237,10 @@ def get_tagging_features(fourmomenta, batch, global_fourmomenta=None, lframes=No
         Fourmomenta in the format (E, px, py, pz)
     batch: torch.tensor of shape (n_particles)
         Batch index for each particle
-<<<<<<< HEAD
-
-=======
     global_fourmomenta: torch.tensor of shape (n_particles, 4)
         fourmomenta all in one frame, None implies the input is already in a global frame
     lframes: Lframes object
         lframes of the used frames of the fourmomenta, None implies the input is already in a global frame
->>>>>>> f47e4f2 (fixed conceptual mistake when constructing tagging features relative to jet and added standardization option)
     Returns
     -------
     features: torch.tensor of shape (n_particles, n_features)
