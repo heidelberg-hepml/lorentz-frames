@@ -7,7 +7,7 @@ from experiments.amplitudes.utils import (
     preprocess_amplitude,
     undo_preprocess_amplitude,
 )
-from experiments.amplitudes.constants import PARTICLE_TYPE, DATASET_TITLE
+from experiments.amplitudes.constants import PARTICLE_TYPE, DATASET_TITLE, get_mass
 from experiments.amplitudes.plots import plot_mixer
 from experiments.logger import LOGGER
 from experiments.mlflow import log_mlflow
@@ -85,6 +85,14 @@ class AmplitudeExperiment(BaseExperiment):
         momentum = data_raw[:, :-1]
         self.momentum = momentum.reshape(momentum.shape[0], momentum.shape[1] // 4, 4)
         self.amplitude = data_raw[:, [-1]]
+
+        # mass regulator
+        if self.cfg.data.mass_reg is not None:
+            mass = get_mass(self.dataset, self.cfg.data.mass_reg)
+            mass = torch.tensor(mass, dtype=self.dtype).unsqueeze(0)
+            self.momentum[..., 0] = (self.momentum[..., 1:] ** 2).sum(
+                dim=-1
+            ) + self.cfg.data.mass_reg**2
 
         # prepare momenta
         if self.cfg.data.prepare == "align":
