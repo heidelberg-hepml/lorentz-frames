@@ -1,5 +1,6 @@
 _target_: experiments.tagging.wrappers.BaselineParTWrapper
 in_channels: null
+out_channels: null
 
 net:
  _target_: experiments.baselines.particletransformerv2.ParticleTransformerTagger

@@ -20,5 +20,3 @@ defaults:
  - default
  - training: default
  - model: graphnet
- - hydra
- - _self_

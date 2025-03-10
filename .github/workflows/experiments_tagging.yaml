@@ -29,19 +29,19 @@ jobs:
       run: |
         python run.py save=false evaluate=false training.iterations=3
 
-    - name: TFGraphNet + OrthogonalLearnedLFrames
+    - name: TFGraphNet + LearnedOrthogonalLFrames
       run: |
         python run.py model/lframesnet=orthogonal save=false evaluate=false training.iterations=3
 
-    - name: TFGraphNet + LearnedRestLFrames
+    - name: TFGraphNet + LearnedPolarDecompositionLFrames
       run: |
-        python run.py model/lframesnet=learnedrest save=false evaluate=false training.iterations=3
+        python run.py model/lframesnet=polardec save=false evaluate=false training.iterations=3
 
     - name: TFGraphNet + RandomLFrames
       run: |
         python run.py model/lframesnet=randomxyrotation save=false evaluate=false training.iterations=3
 
-    - name: TFTransformer + OrthogonalLearnedLFrames
+    - name: TFTransformer + LearnedOrthogonalLFrames
       run: |
         python run.py model=transformer model/lframesnet=orthogonal save=false evaluate=false training.iterations=3
 
