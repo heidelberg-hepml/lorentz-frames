@@ -79,6 +79,7 @@ class TaggerWrapper(nn.Module):
 
         return (
             features_local_nospurions,
+            fourmomenta_local_nospurions,
             lframes_nospurions,
             edge_index_nospurions,
             batch_nospurions,
@@ -116,6 +117,7 @@ class BaselineTransformerWrapper(AggregatedTaggerWrapper):
     def forward(self, embedding):
         (
             features_local,
+            _,
             _,
             _,
             batch,
@@ -156,6 +158,7 @@ class BaselineGraphNetWrapper(AggregatedTaggerWrapper):
         (
             features_local,
             _,
+            _,
             edge_index,
             batch,
             tracker,
@@ -185,6 +188,7 @@ class BaselineParticleNetWrapper(TaggerWrapper):
     def forward(self, embedding):
         (
             features_local,
+            _,
             _,
             _,
             batch,
@@ -226,15 +230,13 @@ class BaselineParTWrapper(TaggerWrapper):
     def forward(self, embedding):
         (
             features_local,
+            fourmomenta_local,
             _,
             _,
             batch,
             tracker,
         ) = super().forward(embedding)
-        
-        fourmomenta_local, _, _, _, batch, tracker = super().forward(embedding)
-        fourmomenta_local = fourmomenta_local[..., 0, :]
-        features_local = get_tagging_features(fourmomenta_local, batch)
+
         fourmomenta_local *= UNITS  # ParT wants unscaled fourmomenta
         fourmomenta_local = fourmomenta_local[..., [1, 2, 3, 0]]  # need (px, py, pz, E)
 
@@ -271,6 +273,7 @@ class GraphNetWrapper(AggregatedTaggerWrapper):
     def forward(self, embedding):
         (
             features_local,
+            _,
             lframes,
             edge_index,
             batch,
@@ -300,6 +303,7 @@ class TransformerWrapper(AggregatedTaggerWrapper):
     def forward(self, embedding):
         (
             features_local,
+            _,
             lframes,
             _,
             batch,
