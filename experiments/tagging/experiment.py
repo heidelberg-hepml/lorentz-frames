@@ -8,7 +8,10 @@ from sklearn.metrics import roc_curve, roc_auc_score, accuracy_score
 
 from experiments.base_experiment import BaseExperiment
 from experiments.tagging.dataset import TopTaggingDataset
-from experiments.tagging.embedding import embed_tagging_data
+from experiments.tagging.embedding import (
+    embed_tagging_data,
+    standardize_tagging_features,
+)
 from experiments.tagging.plots import plot_mixer
 from experiments.logger import LOGGER
 from experiments.mlflow import log_mlflow
@@ -47,13 +50,11 @@ class TaggingExperiment(BaseExperiment):
 
         # only take 10000 batches for performance reasons
         if self.cfg.data.standardize:
-            self.model.init_standardization(
-                batch=Batch.from_data_list(
-                    self.data_train.data_list[
-                        : min(10000, len(self.data_train.data_list))
-                    ]
-                ).to(self.device)
-            )
+            batch = Batch.from_data_list(
+                self.data_train.data_list[: min(10000, len(self.data_train.data_list))]
+            ).to(self.device)
+            self.model.init_standardization(batch=batch)
+            standardize_tagging_features(fourmomenta=batch.x, batch=batch.batch)
 
     def _init_dataloader(self):
         self.train_loader = DataLoader(

@@ -70,8 +70,16 @@ class TaggerWrapper(nn.Module):
         fourmomenta_local_nospurions = self.trafo_fourmomenta(
             fourmomenta_nospurions, lframes_nospurions
         )
+<<<<<<< HEAD
         local_tagging_features_nospurions = get_tagging_features(
             fourmomenta_local_nospurions, batch_nospurions
+=======
+        local_tagging_features = get_tagging_features(
+            fourmomenta_local_nospurions,
+            batch_nospurions,
+            global_fourmomenta=fourmomenta_nospurions,
+            lframes=lframes_nospurions,
+>>>>>>> f47e4f2 (fixed conceptual mistake when constructing tagging features relative to jet and added standardization option)
         )
 
         features_local = torch.cat([scalars_nospurions, local_tagging_features], dim=-1)

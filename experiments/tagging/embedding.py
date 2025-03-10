@@ -5,6 +5,8 @@ from torch_geometric.utils import scatter
 from tensorframes.utils.hep import get_eta, get_phi, get_pt
 from tensorframes.utils.utils import get_batch_from_ptr, get_edge_index_from_ptr
 from experiments.tagging.dataset import EPS
+from tensorframes.reps.tensorreps import TensorReps
+from tensorframes.reps.tensorreps_transform import TensorRepsTransform
 
 UNITS = 20  # We use units of 20 GeV for all tagging experiments
 
@@ -216,7 +218,16 @@ def get_spurion(
     return spurion
 
 
-def get_tagging_features(fourmomenta, batch):
+def standardize_tagging_features(fourmomenta, batch):
+    tagging_features = get_tagging_features(fourmomenta=fourmomenta, batch=batch)
+    for i in range(tagging_features.shape[1]):
+        SCALAR_FEATURES_PREPROCESSING[i] = [
+            torch.mean(tagging_features[:, i]),
+            torch.std(tagging_features[:, i]),
+        ]
+
+
+def get_tagging_features(fourmomenta, batch, global_fourmomenta=None, lframes=None):
     """
     Compute features typically used in jet tagging
 
@@ -226,7 +237,14 @@ def get_tagging_features(fourmomenta, batch):
         Fourmomenta in the format (E, px, py, pz)
     batch: torch.tensor of shape (n_particles)
         Batch index for each particle
+<<<<<<< HEAD
 
+=======
+    global_fourmomenta: torch.tensor of shape (n_particles, 4)
+        fourmomenta all in one frame, None implies the input is already in a global frame
+    lframes: Lframes object
+        lframes of the used frames of the fourmomenta, None implies the input is already in a global frame
+>>>>>>> f47e4f2 (fixed conceptual mistake when constructing tagging features relative to jet and added standardization option)
     Returns
     -------
     features: torch.tensor of shape (n_particles, n_features)
@@ -236,7 +254,18 @@ def get_tagging_features(fourmomenta, batch):
     log_pt = get_pt(fourmomenta).unsqueeze(-1).log()
     log_energy = fourmomenta[..., 0].unsqueeze(-1).clamp(min=min).log()
 
-    jet = scatter(fourmomenta, index=batch, dim=0, reduce="sum").index_select(0, batch)
+    if lframes is not None:
+        assert global_fourmomenta is not None
+        jet = scatter(
+            global_fourmomenta, index=batch, dim=0, reduce="sum"
+        ).index_select(0, batch)
+        trafo_fourmomenta = TensorRepsTransform(TensorReps("1x1n"))
+        jet = trafo_fourmomenta(jet, lframes)
+    else:
+        jet = scatter(fourmomenta, index=batch, dim=0, reduce="sum").index_select(
+            0, batch
+        )
+
     log_pt_rel = (get_pt(fourmomenta).log() - get_pt(jet).log()).unsqueeze(-1)
     log_energy_rel = (
         fourmomenta[..., 0].clamp(min=min).log() - jet[..., 0].clamp(min=min).log()
