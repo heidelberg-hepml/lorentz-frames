@@ -3,7 +3,6 @@ import torch
 from torch_geometric.loader import DataLoader
 from torch_geometric.data import Batch
 import os, time
-from omegaconf import open_dict
 
 from sklearn.metrics import roc_curve, roc_auc_score, accuracy_score
 
@@ -21,42 +20,14 @@ class TaggingExperiment(BaseExperiment):
     """
 
     def init_physics(self):
-        with open_dict(self.cfg):
+        # decide which entries to use for the net
+        self.cfg.model.in_channels = 7
 
-            # decide which entries to use for the net
-            in_channels = 7
-            self.cfg.model.in_channels = in_channels
-            LOGGER.info(
-                f"Net: Input: {in_channels}; Output: {self.cfg.model.out_channels} "
+        # decide which entries to use for the lframesnet
+        if "equivectors" in self.cfg.model.lframesnet:
+            self.cfg.model.lframesnet.equivectors.num_scalars = (
+                7 if self.cfg.data.add_tagging_features_lframesnet else 0
             )
-
-            # decide which entries to use for the lframesnet
-            in_nodes = 0
-
-            if "in_nodes" in self.cfg.model.lframesnet:
-                if self.cfg.model.add_tagging_features_lframesnet:
-                    in_nodes += 7
-                self.cfg.model.lframesnet.in_nodes = in_nodes
-
-            if self.cfg.model.net._target_.rsplit(".", 1)[-1] == "TFGraphNet":
-                self.cfg.model.net.num_edge_attr = (
-                    1 if self.cfg.model.include_edges else 0
-                )
-
-            if (
-                self.cfg.model._target_.rsplit(".", 1)[-1]
-                == "BaselineParticleNetWrapper"
-            ):
-                # Note: cfg.data.add_scalar_features not supported for net inputs; in_channels currently hard-coded
-                if (
-                    self.cfg.data.beam_reference is not None
-                    or self.cfg.data.add_time_reference
-                ):
-                    LOGGER.warning(
-                        "Spurions not supported for BaselineParticleNetWrapper (yield nan/inf in get_tagging_features), removing them"
-                    )
-                    self.cfg.data.beam_reference = None
-                    self.cfg.data.add_time_reference = False
 
     def init_data(self):
         raise NotImplementedError
@@ -289,13 +260,7 @@ class TaggingExperiment(BaseExperiment):
 class TopTaggingExperiment(TaggingExperiment):
     def __init__(self, cfg):
         super().__init__(cfg)
-        with open_dict(self.cfg):
-            self.cfg.model.out_channels = 1
-
-            # move argument into model config
-            self.cfg.model.add_tagging_features_lframesnet = (
-                self.cfg.data.add_tagging_features_lframesnet
-            )
+        self.cfg.model.out_channels = 1
 
     def init_data(self):
         data_path = os.path.join(

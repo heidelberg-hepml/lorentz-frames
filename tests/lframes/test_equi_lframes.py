@@ -2,7 +2,7 @@ import torch
 import pytest
 from torch_geometric.utils import dense_to_sparse
 from tests.constants import TOLERANCES, LOGM2_MEAN_STD, LFRAMES_PREDICTOR
-from tests.helpers import sample_particle, lorentz_test
+from tests.helpers import sample_particle, lorentz_test, equivectors_builder
 
 from tensorframes.reps import TensorReps
 from tensorframes.reps.tensorreps_transform import TensorRepsTransform
@@ -18,15 +18,9 @@ def test_lframes_transformation(LFramesPredictor, batch_dims, logm2_std, logm2_m
 
     # preparations
     assert len(batch_dims) == 1
-    predictor = LFramesPredictor(hidden_channels=16, num_layers=1, in_nodes=0).to(
-        dtype=dtype
-    )
-    batch = torch.zeros(batch_dims, dtype=torch.long)
-    edge_index = dense_to_sparse(torch.ones(batch_dims[0], batch_dims[0]))[0]
-    scalars = torch.zeros(*batch_dims, 0, dtype=dtype)
-    call_predictor = lambda fm: predictor(
-        fm, scalars, edge_index=edge_index, batch=batch
-    )
+    equivectors = equivectors_builder()
+    predictor = LFramesPredictor(equivectors=equivectors).to(dtype=dtype)
+    call_predictor = lambda fm: predictor(fm)
 
     # sample Lorentz vectors
     fm = sample_particle(batch_dims, logm2_std, logm2_mean, dtype=dtype)
@@ -63,15 +57,9 @@ def test_feature_invariance(LFramesPredictor, batch_dims, logm2_std, logm2_mean)
 
     # preparations
     assert len(batch_dims) == 1
-    predictor = LFramesPredictor(hidden_channels=16, num_layers=1, in_nodes=0).to(
-        dtype=dtype
-    )
-    batch = torch.zeros(batch_dims, dtype=torch.long)
-    edge_index = dense_to_sparse(torch.ones(batch_dims[0], batch_dims[0]))[0]
-    scalars = torch.zeros(*batch_dims, 0, dtype=dtype)
-    call_predictor = lambda fm: predictor(
-        fm, scalars, edge_index=edge_index, batch=batch
-    )
+    equivectors = equivectors_builder()
+    predictor = LFramesPredictor(equivectors=equivectors).to(dtype=dtype)
+    call_predictor = lambda fm: predictor(fm)
 
     reps = TensorReps("1x1n")
     trafo = TensorRepsTransform(TensorReps(reps))

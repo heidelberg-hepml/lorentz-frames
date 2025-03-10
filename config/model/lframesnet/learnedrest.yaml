@@ -1,9 +1,8 @@
 _target_: tensorframes.lframes.equi_lframes.LearnedRestLFrames
-in_nodes: null
-hidden_channels: 32
-num_layers: 2
 ortho_kwargs:
  method: gramschmidt
  eps_norm: 1e-10
  eps_reg: 1e-4
- use_float64: true
+
+defaults:
+ - equivectors: equigraph

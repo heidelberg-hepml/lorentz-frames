@@ -3,67 +3,30 @@ from torch import nn
 from torch_geometric.nn.aggr import MeanAggregation
 
 from torch_geometric.utils import to_dense_batch
-from xformers.ops.fmha import BlockDiagonalMask
 
 from tensorframes.lframes.lframes import LFrames
-from experiments.tagging.embedding import get_ptr_from_batch
+from tensorframes.utils.utils import (
+    get_ptr_from_batch,
+    get_edge_index_from_ptr,
+    get_xformers_attention_mask,
+)
 from tensorframes.reps.tensorreps import TensorReps
 from tensorframes.reps.tensorreps_transform import TensorRepsTransform
-from experiments.tagging.embedding import get_tagging_features, get_edge_index_from_ptr
-from tensorframes.utils.lorentz import lorentz_squarednorm
+from experiments.tagging.embedding import get_tagging_features
 
-
-
-def attention_mask(batch, materialize=False):
-    """
-    Construct attention mask that makes sure that objects only attend to each other
-    within the same batch element, and not across batch elements
-
-    Parameters
-    ----------
-    batch: torch.tensor
-        batch object in the torch_geometric.data naming convention
-        contains batch index for each event in a sparse tensor
-    materialize: bool
-        Decides whether a xformers or ('materialized') torch.tensor mask should be returned
-        The xformers mask allows to use the optimized xformers attention kernel, but only runs on gpu
-
-    Returns
-    -------
-    mask: xformers.ops.fmha.attn_bias.BlockDiagonalMask or torch.tensor
-        attention mask, to be used in xformers.ops.memory_efficient_attention
-        or torch.nn.functional.scaled_dot_product_attention
-    """
-    bincounts = torch.bincount(batch).tolist()
-    mask = BlockDiagonalMask.from_seqlens(bincounts)
-    if materialize:
-        # materialize mask to torch.tensor (only for testing purposes)
-        mask = mask.materialize(shape=(len(batch), len(batch))).to(batch.device)
-    return mask
 
 
 class TaggerWrapper(nn.Module):
     def __init__(
         self,
-        in_channels,
-        out_channels,
+        in_channels: int,
+        out_channels: int,
         lframesnet,
-        add_tagging_features_lframesnet=False,
     ):
-        """
-        Args:
-            in_channels: string representation for the model input
-            out_channels: string representation for the model output
-            lframesnet: lframesclass
-            add_taggin_features_lframesnet: bool whether to include the tagging features in the lframesnet
-        """
         super().__init__()
-        self.add_tagging_features_lframesnet = add_tagging_features_lframesnet
-        # this is the input and output for the net
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.lframesnet = lframesnet
-
         self.trafo_fourmomenta = TensorRepsTransform(TensorReps("1x1n"))
 
     def forward(self, embedding):
@@ -71,9 +34,9 @@ class TaggerWrapper(nn.Module):
         fourmomenta_withspurions = embedding["fourmomenta"]
         scalars_withspurions = embedding["scalars"]
         global_tagging_features_withspurions = embedding["global_tagging_features"]
-        edge_index_withspurions = embedding["edge_index"]
         batch_withspurions = embedding["batch"]
         is_spurion = embedding["is_spurion"]
+        ptr_withspurions = embedding["ptr"]
 
         # remove spurions from the data again and recompute attributes
         fourmomenta_nospurions = fourmomenta_withspurions[~is_spurion]
@@ -83,38 +46,31 @@ class TaggerWrapper(nn.Module):
         ptr_nospurions = get_ptr_from_batch(batch_nospurions)
         edge_index_nospurions = get_edge_index_from_ptr(ptr_nospurions)
 
-        if not self.lframesnet.is_learnable:
-            lframes_nospurions, tracker = self.lframesnet(
-                fourmomenta_nospurions, return_tracker=True
-            )
-        else:
-            if self.add_tagging_features_lframesnet:
-                scalar_features = torch.cat(
-                    [scalars_withspurions, global_tagging_features_withspurions], dim=-1
-                )
-            else:
-                scalar_features = scalars_withspurions
-            lframes, tracker = self.lframesnet(
-                fourmomenta=fourmomenta_withspurions,
-                scalars=scalar_features,
-                edge_index=edge_index_withspurions,
-                batch=batch_withspurions,
-                return_tracker=True,
-            )
-
-            lframes_nospurions = LFrames(
-                lframes.matrices[~is_spurion],
-                is_global=lframes.is_global,
-                det=lframes.det[~is_spurion],
-                inv=lframes.inv[~is_spurion],
-                is_identity=lframes.is_identity,
-            )
+        scalars_withspurions = torch.cat(
+            [scalars_withspurions, global_tagging_features_withspurions], dim=-1
+        )
+        lframes_spurions, tracker = self.lframesnet(
+            fourmomenta_withspurions,
+            scalars_withspurions,
+            ptr=ptr_withspurions,
+            return_tracker=True,
+        )
+        lframes_nospurions = LFrames(
+            lframes_spurions.matrices[~is_spurion],
+            is_global=lframes_spurions.is_global,
+            det=lframes_spurions.det[~is_spurion],
+            inv=lframes_spurions.inv[~is_spurion],
+            is_identity=lframes_spurions.is_identity,
+            device=lframes_spurions.device,
+            dtype=lframes_spurions.dtype,
+            shape=lframes_spurions.matrices[~is_spurion].shape,
+        )
 
         # transform features into local frames
         fourmomenta_local_nospurions = self.trafo_fourmomenta(
             fourmomenta_nospurions, lframes_nospurions
         )
-        local_tagging_features = get_tagging_features(
+        local_tagging_features_nospurions = get_tagging_features(
             fourmomenta_local_nospurions, batch_nospurions
         )
         local_tagging_features = get_tagging_features(
@@ -123,10 +79,12 @@ class TaggerWrapper(nn.Module):
 
         features_local = torch.cat([scalars_nospurions, local_tagging_features], dim=-1)
 
-        features_local = torch.cat([scalars_nospurions, local_tagging_features], dim=-1)
+        features_local_nospurions = torch.cat(
+            [scalars_nospurions, local_tagging_features_nospurions], dim=-1
+        )
 
         return (
-            features_local,
+            features_local_nospurions,
             fourmomenta_local_nospurions,
             lframes_nospurions,
             edge_index_nospurions,
@@ -172,8 +130,10 @@ class BaselineTransformerWrapper(AggregatedTaggerWrapper):
             tracker,
         ) = super().forward(embedding)
 
-        mask = attention_mask(
-            batch, materialize=features_local.device == torch.device("cpu")
+        mask = get_xformers_attention_mask(
+            batch,
+            materialize=features_local.device == torch.device("cpu"),
+            dtype=features_local.dtype,
         )
 
         # network
@@ -229,10 +189,7 @@ class BaselineParticleNetWrapper(TaggerWrapper):
         assert (
             self.lframesnet.is_global
         ), "Non-equivariant model can only handle global lframes"
-        # 7 input features are computed from fourmomenta_local
-        # scalars are ignored in this model (for now, thats a design choice)
-        num_inputs = 7
-        self.net = net(features_dims=num_inputs, num_classes=self.out_channels)
+        self.net = net(features_dims=self.in_channels, num_classes=self.out_channels)
 
     def forward(self, embedding):
         (
@@ -377,7 +334,8 @@ class TransformerWrapper(AggregatedTaggerWrapper):
             batch,
             tracker,
         ) = super().forward(embedding)
-        mask = attention_mask(
+
+        mask = get_xformers_attention_mask(
             batch, materialize=features_local.device == torch.device("cpu")
         )
 
