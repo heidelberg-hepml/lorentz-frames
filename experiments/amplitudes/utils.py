@@ -52,7 +52,7 @@ def load_file(data_path, cfg_data, dataset, momentum_std=None, dtype=torch.float
     if cfg_data.mass_reg is not None:
         mass = get_mass(dataset, cfg_data.mass_reg)
         mass = torch.tensor(mass, dtype=dtype).unsqueeze(0)
-        momentum[..., 0] = (momentum[..., 1:] ** 2).sum(dim=-1) + cfg_data.mass_reg**2
+        momentum[..., 0] = torch.sqrt((momentum[..., 1:] ** 2).sum(dim=-1) + mass**2)
 
     # prepare momenta
     if cfg_data.prepare == "align":

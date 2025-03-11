@@ -9,7 +9,7 @@ data:
  standardize: true
  prepare: rotation
  train_test_val: [.4, .5, .1]
- mass_reg: 1e-2
+ mass_reg: 1e0
 
 evaluation:
  eval_set: [train, test, val]
