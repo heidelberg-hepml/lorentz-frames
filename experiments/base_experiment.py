@@ -16,6 +16,14 @@ import experiments.logger
 from experiments.logger import LOGGER, MEMORY_HANDLER, FORMATTER
 from experiments.mlflow import log_mlflow
 
+# for GATr (ignored by others)
+from hydra.core.config_store import ConfigStore
+from experiments.baselines.gatr.layers import MLPConfig, SelfAttentionConfig
+
+cs = ConfigStore.instance()
+cs.store(name="base_attention", node=SelfAttentionConfig)
+cs.store(name="base_mlp", node=MLPConfig)
+
 # set to 'True' to debug autograd issues (slows down code)
 torch.autograd.set_detect_anomaly(False)
 MIN_STEP_SKIP = 1000
@@ -29,12 +37,14 @@ class BaseExperiment:
         # pass all exceptions to the logger
         try:
             self.run_mlflow()
-        except errors.ConfigAttributeError:
+        except errors.ConfigAttributeError as e:
             LOGGER.exception(
                 "Tried to access key that is not specified in the config files"
             )
-        except:
+            raise e
+        except Exception as e:
             LOGGER.exception("Exiting with error")
+            raise e
 
         # print buffered logger messages if failed
         if not experiments.logger.LOGGING_INITIALIZED:
@@ -110,7 +120,7 @@ class BaseExperiment:
             p.numel() for p in self.model.lframesnet.parameters() if p.requires_grad
         )
         LOGGER.info(
-            f"LFrames approach: {type(self.model.lframesnet).__name__} ({num_parameters_lframesnet} learnable parameters)"
+            f"LFrames approach: {self.model.lframesnet} ({num_parameters_lframesnet} learnable parameters)"
         )
 
         if self.cfg.ema:
@@ -128,12 +138,16 @@ class BaseExperiment:
                 self.cfg.run_dir, "models", f"model_run{self.cfg.warm_start_idx}.pt"
             )
             try:
-                state_dict = torch.load(model_path, map_location="cpu")["model"]
+                state_dict = torch.load(
+                    model_path, map_location="cpu", weights_only=False
+                )["model"]
                 LOGGER.info(f"Loading model from {model_path}")
                 self.model.load_state_dict(state_dict)
                 if self.ema is not None:
                     LOGGER.info(f"Loading EMA from {model_path}")
-                    state_dict = torch.load(model_path, map_location="cpu")["ema"]
+                    state_dict = torch.load(
+                        model_path, map_location="cpu", weights_only=False
+                    )["ema"]
                     self.ema.load_state_dict(state_dict)
             except FileNotFoundError:
                 raise ValueError(f"Cannot load model from {model_path}")
@@ -360,7 +374,9 @@ class BaseExperiment:
                 self.cfg.run_dir, "models", f"model_run{self.cfg.warm_start_idx}.pt"
             )
             try:
-                state_dict = torch.load(model_path, map_location="cpu")["optimizer"]
+                state_dict = torch.load(
+                    model_path, map_location="cpu", weights_only=False
+                )["optimizer"]
                 LOGGER.info(f"Loading optimizer from {model_path}")
                 self.optimizer.load_state_dict(state_dict)
             except FileNotFoundError:
@@ -443,7 +459,9 @@ class BaseExperiment:
                 self.cfg.run_dir, "models", f"model_run{self.cfg.warm_start_idx}.pt"
             )
             try:
-                state_dict = torch.load(model_path, map_location="cpu")["scheduler"]
+                state_dict = torch.load(
+                    model_path, map_location="cpu", weights_only=False
+                )["scheduler"]
                 LOGGER.info(f"Loading scheduler from {model_path}")
                 self.scheduler.load_state_dict(state_dict)
             except FileNotFoundError:
@@ -565,7 +583,9 @@ class BaseExperiment:
                 f"model_run{self.cfg.run_idx}_it{smallest_val_loss_step}.pt",
             )
             try:
-                state_dict = torch.load(model_path, map_location=self.device)["model"]
+                state_dict = torch.load(
+                    model_path, map_location=self.device, weights_only=False
+                )["model"]
                 LOGGER.info(f"Loading model from {model_path}")
                 self.model.load_state_dict(state_dict)
             except FileNotFoundError:

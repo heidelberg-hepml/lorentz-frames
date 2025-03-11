@@ -1,5 +1,3 @@
-from typing import Tuple, Union
-
 import torch
 from torch import Tensor
 from torch.nn import Module
@@ -288,35 +286,37 @@ class TensorRepsTransform(Module):
         return output
 
     def forward(
-        self, coeffs: Tensor | None, basis_change: LFrames, inplace: bool = False
+        self, coeffs: Tensor | None, lframes: LFrames, inplace: bool = False
     ) -> Tensor:
         """Applies the forward transformation to the input coefficients.
 
         Args:
             coeffs (Tensor): The input coefficients to be transformed. Of shape `(N, dim)`, where `N` is the batch size and `dim` is the total dimension of the tensor reps.
-            basis_change (LFrames): The basis change object representing the transformation. With matrices attribute of shape `(N, 4, 4)`.
+            lframes (LFrames): The basis change object representing the transformation. With matrices attribute of shape `(N, 4, 4)`.
             inplace (bool, optional): Whether to perform the transformation inplace. Only relevant for parallel trafo. Defaults to False.
 
         Returns:
             Tensor: The transformed coefficients.
         """
-        if coeffs is None:
-            assert (
-                self.tensor_reps.dim == 0
-            ), "No coeffs are provided for non-trivial transform"
-            return None
+        assert coeffs is not None
 
-        if (
-            basis_change.is_identity or self.tensor_reps.mul_without_scalars == 0
-        ):  # shortcut
+        if lframes.is_identity or self.tensor_reps.mul_without_scalars == 0:  # shortcut
             if inplace:
                 return coeffs
             else:
                 return coeffs.clone()
 
+        in_shape = coeffs.shape
+        assert in_shape[:-1] == lframes.shape[:-2]
+        coeffs = coeffs.reshape(-1, coeffs.shape[-1])
+        lframes = lframes.reshape(-1, 4, 4)
+
         if self.use_parallel:
-            return self.transform_coeffs_parallel(
-                coeffs, basis_change, self.avoid_einsum, inplace=inplace
+            coeffs_transformed = self.transform_coeffs_parallel(
+                coeffs, lframes, self.avoid_einsum, inplace=inplace
             )
         else:
-            return self.transform_coeffs(coeffs, basis_change)
+            coeffs_transformed = self.transform_coeffs(coeffs, lframes)
+
+        coeffs_transformed = coeffs_transformed.reshape(*in_shape)
+        return coeffs_transformed

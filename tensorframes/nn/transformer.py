@@ -320,12 +320,12 @@ class TFTransformer(nn.Module):
 
     Parameters
     ----------
-    in_reps : str
-        Input representation.
+    in_channels : int
+        Number of input channels.
     attn_reps : str
         Representation of each attention head.
-    out_reps : str
-        Output representation.
+    out_channels : int
+        Number of output channels.
     num_blocks : int
         Number of transformer blocks.
     num_heads : int
@@ -339,9 +339,9 @@ class TFTransformer(nn.Module):
 
     def __init__(
         self,
-        in_reps: str,
+        in_channels: int,
         attn_reps: str,
-        out_reps: str,
+        out_channels: int,
         num_blocks: int,
         num_heads: int,
         checkpoint_blocks: bool = False,
@@ -350,13 +350,11 @@ class TFTransformer(nn.Module):
         dropout_prob=None,
     ) -> None:
         super().__init__()
-        in_reps = TensorReps(in_reps)
         attn_reps = TensorReps(attn_reps)
-        out_reps = TensorReps(out_reps)
         hidden_channels = attn_reps.dim * num_heads
         self.checkpoint_blocks = checkpoint_blocks
 
-        self.linear_in = nn.Linear(in_reps.dim, hidden_channels)
+        self.linear_in = nn.Linear(in_channels, hidden_channels)
         self.blocks = nn.ModuleList(
             [
                 BaselineTransformerBlock(
@@ -370,7 +368,7 @@ class TFTransformer(nn.Module):
                 for _ in range(num_blocks)
             ]
         )
-        self.linear_out = nn.Linear(hidden_channels, out_reps.dim)
+        self.linear_out = nn.Linear(hidden_channels, out_channels)
 
     def forward(
         self, inputs: torch.Tensor, lframes, attention_mask=None, is_causal=False
@@ -379,7 +377,7 @@ class TFTransformer(nn.Module):
 
         Parameters
         ----------
-        inputs : Tensor with shape (..., num_items, in_reps.dim)
+        inputs : Tensor with shape (..., num_items, in_channels)
             Input data
         lframes : LFrames
             Local frames used for invariant particle attention
@@ -389,7 +387,7 @@ class TFTransformer(nn.Module):
 
         Returns
         -------
-        outputs : Tensor with shape (..., num_items, out_reps.dim)
+        outputs : Tensor with shape (..., num_items, out_channels)
             Outputs
         """
         h = self.linear_in(inputs)

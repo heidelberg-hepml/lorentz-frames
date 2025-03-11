@@ -1,6 +1,5 @@
 import torch
 from torch.utils.data import DataLoader
-from omegaconf import open_dict
 
 import os, time
 
@@ -36,37 +35,38 @@ class JetClassTaggingExperiment(TaggingExperiment):
             "WToQQ",
             "ZToQQ",
         ]
-        with open_dict(self.cfg):
-            self.cfg.model.out_reps = f"{len(self.class_names)}x0n"
-            self.cfg.model.in_reps = "1x1n"  # energy-momentum vector
+        self.cfg.model.out_channels = len(self.class_names)
+        self.cfg.model.in_channels = 4  # energy-momentum vector
 
-            if self.cfg.data.features == "fourmomenta":
-                self.cfg.data.data_config = (
-                    "experiments/tagging/miniweaver/fourmomenta.yaml"
-                )
-            elif self.cfg.data.features == "pid":
-                self.cfg.model.in_reps += "+6x0n"
-                self.cfg.data.data_config = "experiments/tagging/miniweaver/pid.yaml"
-            elif self.cfg.data.features == "displacements":
-                self.cfg.model.in_reps += "+4x0n"
-                self.cfg.data.data_config = (
-                    "experiments/tagging/miniweaver/displacements.yaml"
-                )
-            elif self.cfg.data.features == "default":
-                self.cfg.model.in_reps += "+10x0n"
-                self.cfg.data.data_config = (
-                    "experiments/tagging/miniweaver/default.yaml"
-                )
-            else:
-                raise ValueError(
-                    f"Input feature option {self.cfg.data.features} not implemented"
-                )
+        if self.cfg.data.features == "fourmomenta":
+            self.cfg.data.data_config = (
+                "experiments/tagging/miniweaver/configs_jetclass/fourmomenta.yaml"
+            )
+        elif self.cfg.data.features == "pid":
+            self.cfg.model.in_channels += 6
+            self.cfg.data.data_config = (
+                "experiments/tagging/miniweaver/configs_jetclass/pid.yaml"
+            )
+        elif self.cfg.data.features == "displacements":
+            self.cfg.model.in_channels += 4
+            self.cfg.data.data_config = (
+                "experiments/tagging/miniweaver/configs_jetclass/displacements.yaml"
+            )
+        elif self.cfg.data.features == "default":
+            self.cfg.model.in_channels += 10
+            self.cfg.data.data_config = (
+                "experiments/tagging/miniweaver/configs_jetclass/default.yaml"
+            )
+        else:
+            raise ValueError(
+                f"Input feature option {self.cfg.data.features} not implemented"
+            )
 
     def _init_loss(self):
         self.loss = torch.nn.CrossEntropyLoss()
 
     def init_data(self):
-        LOGGER.info(f"Creating SimpleIterDataset")
+        LOGGER.info("Creating SimpleIterDataset")
         t0 = time.time()
 
         datasets = {"train": None, "test": None, "val": None}
@@ -104,6 +104,7 @@ class JetClassTaggingExperiment(TaggingExperiment):
                 infinity_mode=self.cfg.jc_params.steps_per_epoch is not None,
                 in_memory=self.cfg.jc_params.in_memory,
                 name=label,
+                events_per_file=self.cfg.jc_params.events_per_file,
             )
         self.data_train = datasets["train"]
         self.data_test = datasets["test"]

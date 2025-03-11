@@ -1,4 +1,6 @@
 import torch
+from torch_geometric.utils import dense_to_sparse
+from xformers.ops.fmha import BlockDiagonalMask
 
 
 def unpack_last(x):
@@ -89,3 +91,84 @@ def batch_to_ptr(batch: torch.Tensor):
     ptr[:-1] = torch.arange(len(batch), device=batch.device)[diff_mask]
     ptr[-1] = len(batch)
     return ptr
+
+
+def get_batch_from_ptr(ptr):
+    return torch.arange(len(ptr) - 1, device=ptr.device).repeat_interleave(
+        ptr[1:] - ptr[:-1],
+    )
+
+
+def get_ptr_from_batch(batch):
+    return torch.cat(
+        [
+            torch.tensor([0], device=batch.device),
+            torch.where(batch[1:] - batch[:-1] != 0)[0] + 1,
+            torch.tensor([batch.shape[0]], device=batch.device),
+        ],
+        0,
+    )
+
+
+def get_edge_index_from_ptr(ptr):
+    diffs = torch.diff(ptr)
+    edge_index = torch.cat(
+        [
+            dense_to_sparse(torch.ones(d, d, device=diffs.device))[0] + diffs[:i].sum()
+            for i, d in enumerate(diffs)
+        ],
+        dim=-1,
+    )
+    return edge_index
+
+
+def build_edge_index_fully_connected(features_ref, remove_self_loops=False):
+    batch_size, seq_len, _ = features_ref.shape
+    device = features_ref.device
+
+    nodes = torch.arange(seq_len, device=device)
+    row, col = torch.meshgrid(nodes, nodes, indexing="ij")
+
+    if remove_self_loops:
+        mask = row != col
+        row, col = row[mask], col[mask]
+    edge_index_single = torch.stack([row.flatten(), col.flatten()], dim=0)
+
+    edge_index_global = []
+    for i in range(batch_size):
+        offset = i * seq_len
+        edge_index_global.append(edge_index_single + offset)
+    edge_index_global = torch.cat(edge_index_global, dim=1)
+
+    batch = torch.arange(batch_size, device=device).repeat_interleave(seq_len)
+    return edge_index_global, batch
+
+
+def get_xformers_attention_mask(batch, materialize=False, dtype=torch.float32):
+    """
+    Construct attention mask that makes sure that objects only attend to each other
+    within the same batch element, and not across batch elements
+
+    Parameters
+    ----------
+    batch: torch.tensor
+        batch object in the torch_geometric.data naming convention
+        contains batch index for each event in a sparse tensor
+    materialize: bool
+        Decides whether a xformers or ('materialized') torch.tensor mask should be returned
+        The xformers mask allows to use the optimized xformers attention kernel, but only runs on gpu
+
+    Returns
+    -------
+    mask: xformers.ops.fmha.attn_bias.BlockDiagonalMask or torch.tensor
+        attention mask, to be used in xformers.ops.memory_efficient_attention
+        or torch.nn.functional.scaled_dot_product_attention
+    """
+    bincounts = torch.bincount(batch).tolist()
+    mask = BlockDiagonalMask.from_seqlens(bincounts)
+    if materialize:
+        # materialize mask to torch.tensor (only for testing purposes)
+        mask = mask.materialize(shape=(len(batch), len(batch))).to(
+            batch.device, dtype=dtype
+        )
+    return mask

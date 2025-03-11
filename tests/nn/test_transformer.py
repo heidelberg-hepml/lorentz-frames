@@ -1,7 +1,7 @@
 import torch
 import pytest
 from tests.constants import TOLERANCES, LOGM2_MEAN_STD, REPS, LFRAMES_PREDICTOR
-from tests.helpers import sample_particle
+from tests.helpers import sample_particle, equivectors_builder
 from torch_geometric.utils import dense_to_sparse
 
 from tensorframes.nn.transformer import TFTransformer
@@ -30,21 +30,17 @@ def test_transformer_invariance_equivariance(
     dtype = torch.float64
 
     assert len(batch_dims) == 1
-    predictor = LFramesPredictor(hidden_channels=16, num_layers=1, in_nodes=0).to(
-        dtype=dtype
-    )
-    batch = torch.zeros(batch_dims, dtype=torch.long)
-    edge_index = dense_to_sparse(torch.ones(batch_dims[0], batch_dims[0]))[0]
-    scalars = torch.zeros(*batch_dims, 0, dtype=dtype)
-    call_predictor = lambda fm: predictor(fm, scalars, edge_index, batch)
+    equivectors = equivectors_builder()
+    predictor = LFramesPredictor(equivectors=equivectors).to(dtype=dtype)
+    call_predictor = lambda fm: predictor(fm)
 
     # define edgeconv
     in_reps = TensorReps("1x1n")
     trafo = TensorRepsTransform(TensorReps(in_reps))
     net = TFTransformer(
-        in_reps=in_reps,
+        in_channels=in_reps.dim,
         attn_reps=attn_reps,
-        out_reps=in_reps,
+        out_channels=in_reps.dim,
         num_blocks=num_blocks,
         num_heads=num_heads,
     ).to(dtype=dtype)

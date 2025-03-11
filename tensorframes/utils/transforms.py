@@ -1,5 +1,4 @@
 import torch
-import numpy as np
 from random import randint
 from typing import List
 
@@ -60,7 +59,7 @@ def transform(
 def rand_lorentz(
     shape: List[int],
     n_range: List[int] = [3, 5],
-    std_eta: float = 1,
+    std_eta: float = 0.5,
     device: str = "cpu",
     dtype: torch.dtype = torch.float32,
 ):
@@ -148,7 +147,7 @@ def rand_rotation(
     return transform(axes, angles)
 
 
-def rand_phirotation(
+def rand_xyrotation(
     shape: List[int],
     device: str = "cpu",
     dtype: torch.dtype = torch.float32,
@@ -175,7 +174,7 @@ def rand_phirotation(
 def rand_boost(
     shape: List[int],
     n_range: List[int] = [3, 5],
-    std_eta: float = 1,
+    std_eta: float = 0.5,
     device: str = "cpu",
     dtype: torch.dtype = torch.float32,
 ):
@@ -199,6 +198,8 @@ def rand_boost(
     Returns:
         final_trafo: torch.tensor of shape (*shape, 4, 4)
     """
+    assert std_eta > 0
+
     n_transforms = randint(*n_range)
     assert n_transforms > 0
 
@@ -213,3 +214,37 @@ def rand_boost(
         angle = torch.rand(*shape, device=device, dtype=dtype) * std_eta
         angles.append(angle)
     return transform(axes, angles)
+
+
+def rand_ztransform(
+    shape: List[int],
+    std_eta: float = 0.5,
+    device: str = "cpu",
+    dtype: torch.dtype = torch.float32,
+):
+    """
+    Create N combinations of rotations around and boosts along the z-axis.
+    This transformation is common in LHC physics.
+
+    Args:
+        shape: List[int]
+            Shape of the transformation matrices
+        std_eta: float
+            Standard deviation of rapidity
+        device: str
+        dtype: torch.dtype
+
+    Returns:
+        final_trafo: torch.tensor of shape (*shape, 4, 4)
+    """
+    # rotation around z-axis
+    axis1 = torch.tensor([1, 2], dtype=torch.long, device=device)
+    axis1 = axis1.view(2, *([1] * len(shape))).repeat(1, *shape)
+    angle1 = torch.rand(*shape, device=device, dtype=dtype) * 2 * torch.pi
+
+    # boost along z-axis
+    axis2 = torch.tensor([0, 3], dtype=torch.long, device=device)
+    axis2 = axis2.view(2, *([1] * len(shape))).repeat(1, *shape)
+    angle2 = torch.rand(*shape, device=device, dtype=dtype) * std_eta
+
+    return transform([axis1, axis2], [angle1, angle2])

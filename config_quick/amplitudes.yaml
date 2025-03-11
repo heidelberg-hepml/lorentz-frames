@@ -1,0 +1,24 @@
+exp_type: amplitudes
+exp_name: amp_debug
+
+data:
+ dataset : zgg_mini
+ data_path : data/
+ subsample : 10000
+ permutation_symmetry: true
+ standardize: true
+ prepare: rotation
+ train_test_val: [.4, .5, .1]
+
+evaluation:
+ eval_set: [train, test, val]
+
+plotting:
+ histograms: true
+ delta: false
+ delta_prepd: false
+
+defaults:
+ - default
+ - training: default
+ - model: amp_transformer
