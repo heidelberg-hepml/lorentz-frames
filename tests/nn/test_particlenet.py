@@ -7,7 +7,7 @@ from tests.constants import (
     REPS,
     LFRAMES_PREDICTOR,
 )
-from tests.helpers import sample_particle
+from tests.helpers import sample_particle, equivectors_builder
 from torch_geometric.utils import dense_to_sparse
 
 from tensorframes.nn.particlenet import EdgeConvBlock, TFParticleNet
@@ -16,8 +16,8 @@ from tensorframes.reps.tensorreps_transform import TensorRepsTransform
 from tensorframes.utils.transforms import rand_lorentz
 from tensorframes.lframes.lframes import InverseLFrames
 from tensorframes.lframes.equi_lframes import (
-    OrthogonalLearnedLFrames,
-    LearnedRestLFrames,
+    LearnedOrthogonalLFrames,
+    LearnedPolarDecompositionLFrames,
 )
 
 from experiments.tagging.embedding import get_tagging_features
@@ -43,14 +43,9 @@ def test_edgeconvblock_invariance_equivariance(
     edge_index = dense_to_sparse(torch.ones(batch_dims[0], batch_dims[0]))[0]
 
     assert len(batch_dims) == 1
-    predictor = LFramesPredictor(hidden_channels=16, num_layers=1, in_nodes=0).to(
-        dtype=dtype
-    )
-    batch = torch.zeros(batch_dims, dtype=torch.long)
-    scalars = torch.zeros(*batch_dims, 0, dtype=dtype)
-    call_predictor = lambda fm: predictor(
-        fm, scalars, edge_index=edge_index, batch=batch
-    )
+    equivectors = equivectors_builder()
+    predictor = LFramesPredictor(equivectors=equivectors).to(dtype=dtype)
+    call_predictor = lambda fm: predictor(fm)
 
     # define edgeconv
     in_reps = TensorReps("1x1n")
@@ -108,7 +103,7 @@ def test_edgeconvblock_invariance_equivariance(
 
 
 @pytest.mark.parametrize(
-    "LFramesPredictor", [OrthogonalLearnedLFrames, LearnedRestLFrames]
+    "LFramesPredictor", [LearnedOrthogonalLFrames, LearnedPolarDecompositionLFrames]
 )  # RestLFrames gives nans sometimes
 @pytest.mark.parametrize("batch_dims", [[10]])
 @pytest.mark.parametrize("logm2_mean,logm2_std", LOGM2_MEAN_STD)
@@ -119,16 +114,12 @@ def test_particlenet_invariance(
     logm2_mean,
 ):
     dtype = torch.float64
-
-    edge_index = dense_to_sparse(torch.ones(batch_dims[0], batch_dims[0]))[0]
+    batch = torch.zeros(batch_dims[0], dtype=torch.long)
 
     assert len(batch_dims) == 1
-    predictor = LFramesPredictor(hidden_channels=16, num_layers=1, in_nodes=0).to(
-        dtype=dtype
-    )
-    batch = torch.zeros(batch_dims, dtype=torch.long)
-    scalars = torch.zeros(*batch_dims, 0, dtype=dtype)
-    call_predictor = lambda fm: predictor(fm, scalars, edge_index, batch)
+    equivectors = equivectors_builder()
+    predictor = LFramesPredictor(equivectors=equivectors).to(dtype=dtype)
+    call_predictor = lambda fm: predictor(fm)
 
     # define particlenet
     in_reps = TensorReps("1x1n")
