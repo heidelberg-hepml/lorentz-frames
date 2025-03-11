@@ -101,7 +101,9 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
     batch = get_batch_from_ptr(ptr)
 
     if cfg_data.add_tagging_features_lframesnet:
-        global_tagging_features = get_tagging_features(fourmomenta, batch)
+        global_tagging_features = get_tagging_features(
+            fourmomenta, batch, eps=cfg_data.eps_tagging
+        )
         global_tagging_features[is_spurion] = 0
     else:
         global_tagging_features = torch.zeros(
@@ -253,7 +255,7 @@ def get_tagging_features(
     features: torch.tensor of shape (n_particles, n_features)
         Features: log_pt, log_energy, log_pt_rel, log_energy_rel, dphi, deta, dr
     """
-    min = eps
+    min = eps or 1e-10
     log_pt = get_pt(fourmomenta).unsqueeze(-1).log()
     log_energy = fourmomenta[..., 0].unsqueeze(-1).clamp(min=min).log()
 

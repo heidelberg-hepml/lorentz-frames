@@ -273,7 +273,9 @@ class TaggingExperiment(BaseExperiment):
 class TopTaggingExperiment(TaggingExperiment):
     def __init__(self, cfg):
         super().__init__(cfg)
-        self.cfg.model.out_channels = 1
+        with open_dict(self.cfg):
+            self.cfg.model.out_channels = 1
+            self.cfg.model.eps_tagging = self.cfg.data.eps_tagging
 
     def init_data(self):
         data_path = os.path.join(
