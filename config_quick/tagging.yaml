@@ -6,6 +6,7 @@ data:
  add_time_reference: true
  mass_reg: 1e-2
  standardize: false
+ eps_tagging: 1e-10
 
 evaluation:
  batchsize: 128

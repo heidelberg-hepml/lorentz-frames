@@ -218,15 +218,23 @@ def get_spurion(
     return spurion
 
 
-def standardize_tagging_features(fourmomenta, batch):
-    tagging_features = get_tagging_features(fourmomenta=fourmomenta, batch=batch)
+def standardize_tagging_features(fourmomenta, batch, rescale_data, eps):
+    if rescale_data:
+        fourmomenta /= UNITS
+    TAGGING_FEATURES_PREPROCESSING = [[0, 1]] * 7
+    tagging_features = get_tagging_features(
+        fourmomenta=fourmomenta, batch=batch, eps=eps
+    )
     for i in range(tagging_features.shape[1]):
         TAGGING_FEATURES_PREPROCESSING[i] = [
             torch.mean(tagging_features[:, i]),
             torch.std(tagging_features[:, i]),
         ]
 
-def get_tagging_features(fourmomenta, batch, global_fourmomenta=None, lframes=None):
+
+def get_tagging_features(
+    fourmomenta, batch, global_fourmomenta=None, lframes=None, eps=1e-10
+):
     """
     Compute features typically used in jet tagging
 
@@ -245,7 +253,7 @@ def get_tagging_features(fourmomenta, batch, global_fourmomenta=None, lframes=No
     features: torch.tensor of shape (n_particles, n_features)
         Features: log_pt, log_energy, log_pt_rel, log_energy_rel, dphi, deta, dr
     """
-    min = 1e-10
+    min = eps
     log_pt = get_pt(fourmomenta).unsqueeze(-1).log()
     log_energy = fourmomenta[..., 0].unsqueeze(-1).clamp(min=min).log()
 

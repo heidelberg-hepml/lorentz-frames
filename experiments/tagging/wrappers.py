@@ -267,7 +267,6 @@ class GraphNetWrapper(AggregatedTaggerWrapper):
             self.register_buffer("edge_std", torch.tensor(1.0))
 
     def init_standardization(self, batch):
-        assert self.include_edges, f"no edges to standardize"
         if self.include_edges:
             # edge feature standardization parameters
             fourmomenta = batch.x
@@ -311,6 +310,7 @@ class GraphNetWrapper(AggregatedTaggerWrapper):
         edge_attr = mij2.clamp(min=1e-10).log()
         edge_attr = (edge_attr - self.edge_mean) / self.edge_std
         return edge_attr.unsqueeze(-1)
+
 
 class TransformerWrapper(AggregatedTaggerWrapper):
     def __init__(

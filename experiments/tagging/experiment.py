@@ -61,7 +61,12 @@ class TaggingExperiment(BaseExperiment):
                 self.data_train.data_list[: min(10000, len(self.data_train.data_list))]
             ).to(self.device)
             self.model.init_standardization(batch=batch)
-            standardize_tagging_features(fourmomenta=batch.x, batch=batch.batch)
+            standardize_tagging_features(
+                fourmomenta=batch.x,
+                batch=batch.batch,
+                rescale_data=self.cfg.data.rescale_data,
+                eps=self.cfg.data.eps_tagging,
+            )
 
     def _init_dataloader(self):
         self.train_loader = DataLoader(
