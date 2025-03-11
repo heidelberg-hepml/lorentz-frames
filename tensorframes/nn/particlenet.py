@@ -74,7 +74,6 @@ def get_graph_feature_v1(x, k, idx, lframes, trafo):
     x = x.view(batch_size, num_dims, num_points, 1).repeat(1, 1, 1, k)
     fts = change_local_frame(fts, idx, lframes, trafo)
     fts = torch.cat((x, fts - x), dim=1)  # ->(batch_size, 2*num_dims, num_points, k)
-
     return fts
 
 
@@ -196,6 +195,7 @@ class EdgeConvBlock(nn.Module):
 class TFParticleNet(nn.Module):
     def __init__(
         self,
+        input_dims,
         hidden_reps_list,
         num_classes,
         conv_params=[(7, (32, 32, 32)), (7, (64, 64, 64))],
@@ -208,8 +208,8 @@ class TFParticleNet(nn.Module):
         **kwargs
     ):
         # hidden_reps_list: hidden representation for message-passing at beginning of each layer
-        # hidden_reps_list[0].dim == input_dims
-        # require len(hidden_reps_list) == len(conv_params)
+        assert input_dims == hidden_reps_list[0].dim
+        assert len(hidden_reps_list) == len(conv_params)
         super(TFParticleNet, self).__init__(**kwargs)
         hidden_reps_list = [TensorReps(x) for x in hidden_reps_list]
 
@@ -220,7 +220,6 @@ class TFParticleNet(nn.Module):
         self.use_counts = use_counts
 
         self.edge_convs = nn.ModuleList()
-        assert len(hidden_reps_list) == len(conv_params)
         for idx, layer_param in enumerate(conv_params):
             k, channels = layer_param
             in_reps = hidden_reps_list[idx]
