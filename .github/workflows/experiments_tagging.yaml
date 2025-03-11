@@ -1,6 +1,9 @@
 name: Tagging trial experiments
 
 on:
+  push:
+    tags:
+      - 'ready-for-review'
   workflow_dispatch:
 
 jobs:
