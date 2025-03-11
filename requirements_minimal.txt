@@ -1,3 +1,6 @@
+# torch-cluster requires pre-build torch wheels
+--find-links https://data.pyg.org/whl/torch-2.0.0+cpu.html
+
 # experiment management
 pytest
 black==22.3.0
@@ -13,5 +16,6 @@ numpy
 
 # project-specific
 xformers
-einops>=0.6.1 # for GATr
-opt_einsum>=3.3.0 # for GATr
+torch-cluster>=1.6.3
+einops
+opt_einsum
