@@ -135,6 +135,7 @@ def test_particlenet_invariance(
     trafo = TensorRepsTransform(TensorReps(in_reps))
     hidden_reps_list = ["3x0n+1x1n", "16x0n+4x1n"]  # pick something
     particlenet = TFParticleNet(
+        input_dims=TensorReps(hidden_reps_list[0]).dim,
         hidden_reps_list=hidden_reps_list,
         num_classes=1,
     ).to(dtype=dtype)

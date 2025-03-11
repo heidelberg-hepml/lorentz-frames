@@ -208,10 +208,10 @@ class TFParticleNet(nn.Module):
         **kwargs
     ):
         # hidden_reps_list: hidden representation for message-passing at beginning of each layer
-        assert input_dims == hidden_reps_list[0].dim
-        assert len(hidden_reps_list) == len(conv_params)
         super(TFParticleNet, self).__init__(**kwargs)
         hidden_reps_list = [TensorReps(x) for x in hidden_reps_list]
+        assert input_dims == hidden_reps_list[0].dim
+        assert len(hidden_reps_list) == len(conv_params)
 
         self.use_fts_bn = use_fts_bn
         if self.use_fts_bn:
