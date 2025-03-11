@@ -1,6 +1,8 @@
 # torch-cluster requires pre-build torch wheels
 --find-links https://data.pyg.org/whl/torch-2.0.0+cpu.html
 
+pytest
+
 # deep learning
 torch>=2.0.0
 torch-geometric>=2.4.0
