@@ -12,7 +12,6 @@ black==22.3.0
 torch>=2.0.0
 torch-geometric>=2.4.0
 torch-ema
-einops
 pytorch_optimizer>=3.2.0
 
 # standard science stack
