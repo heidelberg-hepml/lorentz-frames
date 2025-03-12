@@ -4,7 +4,6 @@ from tensorframes.utils.transforms import (
     rand_lorentz,
     rand_rotation,
     rand_xyrotation,
-    rand_boost,
     rand_ztransform,
 )
 
@@ -54,8 +53,6 @@ class RandomLFrames(LFramesPredictor):
             return rand_lorentz(shape, std_eta=self.std_eta, device=device)
         elif self.transform_type == "rotation":
             return rand_rotation(shape, device=device)
-        elif self.transform_type == "boost":
-            return rand_boost(shape, std_eta=self.std_eta, device=device)
         elif self.transform_type == "xyrotation":
             return rand_xyrotation(shape, device=device)
         elif self.transform_type == "ztransform":

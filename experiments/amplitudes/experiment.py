@@ -16,7 +16,6 @@ from tensorframes.utils.transforms import (
     rand_lorentz,
     rand_rotation,
     rand_xyrotation,
-    rand_boost,
 )
 
 MODEL_TITLE = {
@@ -95,8 +94,6 @@ class AmplitudeExperiment(BaseExperiment):
                 trafo = rand_xyrotation(self.momentum.shape[:-2])
             elif self.cfg.data.prepare == "rotation":
                 trafo = rand_rotation(self.momentum.shape[:-2])
-            elif self.cfg.data.prepare == "boost":
-                trafo = rand_boost(self.momentum.shape[:-2])
             elif self.cfg.data.prepare == "lorentz":
                 trafo = rand_lorentz(self.momentum.shape[:-2])
             else:
