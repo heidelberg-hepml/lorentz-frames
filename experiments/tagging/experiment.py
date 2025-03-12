@@ -23,19 +23,16 @@ class TaggingExperiment(BaseExperiment):
 
     def init_physics(self):
         # decide which entries to use for the net
-        with open_dict(self.cfg):
-            self.cfg.model.in_channels = 7
+        self.cfg.model.in_channels = 7
 
-            # decide which entries to use for the lframesnet
-            if "equivectors" in self.cfg.model.lframesnet:
-                self.cfg.model.lframesnet.equivectors.num_scalars = (
-                    7 if self.cfg.data.add_tagging_features_lframesnet else 0
-                )
+        # decide which entries to use for the lframesnet
+        if "equivectors" in self.cfg.model.lframesnet:
+            self.cfg.model.lframesnet.equivectors.num_scalars = (
+                7 if self.cfg.data.add_tagging_features_lframesnet else 0
+            )
 
-            if self.cfg.model.net._target_.rsplit(".", 1)[-1] == "TFGraphNet":
-                self.cfg.model.net.num_edge_attr = (
-                    1 if self.cfg.model.include_edges else 0
-                )
+        if self.cfg.model.net._target_.rsplit(".", 1)[-1] == "TFGraphNet":
+            self.cfg.model.net.num_edge_attr = 1 if self.cfg.model.include_edges else 0
 
     def init_data(self):
         raise NotImplementedError
@@ -258,8 +255,8 @@ class TaggingExperiment(BaseExperiment):
 class TopTaggingExperiment(TaggingExperiment):
     def __init__(self, cfg):
         super().__init__(cfg)
-        with open_dict(self.cfg):
-            self.cfg.model.out_channels = 1
+        self.cfg.model.out_channels = 1
+        with open_dict(self.cfg):  # TODO: remove this later
             self.cfg.model.eps_tagging = self.cfg.data.eps_tagging
 
     def init_data(self):
