@@ -8,7 +8,6 @@ from tensorframes.utils.transforms import (
     rand_lorentz,
     rand_rotation,
     rand_xyrotation,
-    rand_boost,
 )
 
 
@@ -63,8 +62,6 @@ def load_file(data_path, cfg_data, dataset, momentum_std=None, dtype=torch.float
             trafo = rand_xyrotation(momentum.shape[:-2])
         elif cfg_data.prepare == "rotation":
             trafo = rand_rotation(momentum.shape[:-2])
-        elif cfg_data.prepare == "boost":
-            trafo = rand_boost(momentum.shape[:-2])
         elif cfg_data.prepare == "lorentz":
             trafo = rand_lorentz(momentum.shape[:-2])
         else:
