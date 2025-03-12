@@ -12,13 +12,12 @@ from tensorframes.utils.transforms import (
 
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
-@pytest.mark.parametrize("n_range", [[1, 1], [3, 5]])
 @pytest.mark.parametrize("std_eta", [0.1, 1, 2])
 @pytest.mark.parametrize(
     "transform_type",
     [rand_lorentz, rand_rotation, rand_xyrotation, rand_ztransform],
 )
-def test_rand_lorentz(batch_dims, n_range, std_eta, transform_type):
+def test_rand_lorentz(batch_dims, std_eta, transform_type):
     dtype = torch.float64
 
     # collect N different kinds of transformations
@@ -26,8 +25,6 @@ def test_rand_lorentz(batch_dims, n_range, std_eta, transform_type):
         "shape": batch_dims,
         "dtype": dtype,
     }
-    if transform_type in [rand_lorentz, rand_rotation]:
-        kwargs["n_range"] = n_range
     if transform_type in [rand_lorentz]:
         kwargs["std_eta"] = std_eta
     transform = transform_type(**kwargs)

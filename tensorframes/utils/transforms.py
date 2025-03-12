@@ -64,7 +64,6 @@ def transform(
 
 def rand_lorentz(
     shape: List[int],
-    n_range: List[int] = [3, 5],
     std_eta: float = 0.5,
     device: str = "cpu",
     dtype: torch.dtype = torch.float32,
@@ -72,13 +71,13 @@ def rand_lorentz(
     """
     Create N transformation matrices
 
+    We create them as boost * rotation * boost
+    The last boost is necessary to get a general transformation,
+    same story as for the rotations.
+
     Args:
         shape: List[int]
             Shape of the transformation matrices
-        n_range: List[int] = [3, 5]
-            Range of number of transformations
-            Warning: For too many transformations, the matrix might not be orthogonal
-            because numerical errors add up
         std_eta: float
             Standard deviation of rapidity
         device: str
@@ -88,32 +87,18 @@ def rand_lorentz(
         final_trafo: torch.tensor of shape (*shape, 4, 4)
     """
     assert std_eta > 0
+    ones = torch.ones(shape, device=device, dtype=torch.long)
+    axis = torch.stack([0 * ones, 1 * ones], dim=0)
+    angle = torch.randn(*shape, device=device, dtype=dtype) * std_eta
+    boost = transform([axis], [angle])
 
-    n_transforms = randint(*n_range)
-    assert n_transforms > 0
-
-    axes, angles = [], []
-    for _ in range(n_transforms):
-        axis0 = torch.randint(0, 4, shape, device=device)
-        axis1 = (axis0 + torch.randint(1, 4, shape, device=device)) % 4
-        assert (axis0 != axis1).all()
-        axis = torch.stack([axis0, axis1], dim=0)
-        axes.append(axis)
-
-        trafo_type = get_trafo_type(axis)
-        angle = torch.where(
-            trafo_type,
-            torch.randn(*shape, device=device, dtype=dtype) * std_eta,
-            torch.rand(*shape, device=device, dtype=dtype) * 2 * torch.pi,
-        )
-        angles.append(angle)
-
-    return transform(axes, angles)
+    rotation = rand_rotation(shape, device, dtype)
+    trafo = torch.einsum("...ij,...jk,...kl->...il", boost, rotation, boost)
+    return trafo
 
 
 def rand_rotation(
     shape: List[int],
-    n_range: List[int] = [3, 5],
     device: str = "cpu",
     dtype: torch.dtype = torch.float32,
 ):
@@ -122,31 +107,27 @@ def rand_rotation(
     This function is very similar to rand_lorentz,
     differing only in how axis and angle are created
 
+    Note that 3 rotations are enough to cover the whole group (Euler angles)
+    (two rotations are only enough for point masses)
+
     Args:
         shape: List[int]
             Shape of the transformation matrices
-        n_range: List[int] = [3, 5]
-            Range of number of transformations
-            Warning: For too many transformations, the matrix might not be orthogonal
-            because numerical errors add up
         device: str
         dtype: torch.dtype
 
     Returns:
         final_trafo: torch.tensor of shape (*shape, 4, 4)
     """
-    n_transforms = randint(*n_range)
-    assert n_transforms > 0
+    ones = torch.ones(shape, device=device, dtype=torch.long)
+    axes = [
+        torch.stack([ones, 2 * ones], dim=0),
+        torch.stack([ones, 3 * ones], dim=0),
+        torch.stack([2 * ones, 3 * ones], dim=0),
+    ]
 
-    axes, angles = [], []
-    for _ in range(n_transforms):
-        axis0 = torch.randint(1, 4, shape, device=device)
-        axis1 = 1 + (axis0 - 1 + torch.randint(1, 3, shape, device=device)) % 3
-        assert (axis0 != axis1).all()
-        axis = torch.stack([axis0, axis1], dim=0)
-        assert (axis != 0).all()
-        axes.append(axis)
-
+    angles = []
+    for _ in range(len(axes)):
         angle = torch.rand(*shape, device=device, dtype=dtype) * 2 * torch.pi
         angles.append(angle)
 
