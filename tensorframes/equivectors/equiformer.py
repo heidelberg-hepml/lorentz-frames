@@ -47,7 +47,7 @@ class EquiAttention(nn.Module):
     def forward(self, vectors, scalars, attn_mask=None):
         # layer normalization
         norm = lorentz_squarednorm(vectors).unsqueeze(-1)
-        vectors = vectors / (norm.abs() + 1e-2).sqrt()
+        vectors = vectors / norm.abs().clamp(min=1e-5).sqrt()
 
         # compute queries and keys
         q_v, q_s = self.q_linear(vectors, scalars)
@@ -101,6 +101,7 @@ class EquiTransformer(EquiVectors):
         )
 
     def forward(self, fourmomenta, scalars=None, ptr=None):
+        assert (lorentz_squarednorm(fourmomenta) > 0).all()
         # construct attn_mask
         if ptr is None:
             attn_mask = None
@@ -116,4 +117,5 @@ class EquiTransformer(EquiVectors):
         scalars = self.linear_in(scalars)
         for block in self.blocks:
             vectors = block(vectors, scalars, attn_mask=attn_mask)
+        assert (lorentz_squarednorm(vectors) > 0).all()
         return vectors
