@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 from torch_geometric.nn.aggr import MeanAggregation
+from torch_geometric.utils import scatter
 
 from torch_geometric.utils import to_dense_batch
 
@@ -72,11 +73,16 @@ class TaggerWrapper(nn.Module):
         fourmomenta_local_nospurions = self.trafo_fourmomenta(
             fourmomenta_nospurions, lframes_nospurions
         )
+        jet_nospurions = scatter(
+            fourmomenta_local_nospurions, index=batch_nospurions, dim=0, reduce="sum"
+        ).index_select(0, batch_nospurions)
+        jet_local_nospurions = self.trafo_fourmomenta(
+            jet_nospurions, lframes_nospurions
+        )
         local_tagging_features_nospurions = get_tagging_features(
             fourmomenta_local_nospurions,
+            jet_local_nospurions,
             batch_nospurions,
-            global_fourmomenta=fourmomenta_nospurions,
-            lframes=lframes_nospurions,
             eps=self.eps_tagging,
         )
 
