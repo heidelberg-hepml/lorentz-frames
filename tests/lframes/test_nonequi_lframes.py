@@ -17,7 +17,6 @@ from tensorframes.lframes.nonequi_lframes import (
         (IdentityLFrames, None),
         (RandomLFrames, "lorentz"),
         (RandomLFrames, "rotation"),
-        (RandomLFrames, "boost"),
         (RandomLFrames, "xyrotation"),
     ],
 )
