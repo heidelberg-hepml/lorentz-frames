@@ -5,10 +5,10 @@ import torch
 from experiments.amplitudes.constants import get_mass
 
 from tensorframes.utils.transforms import (
-    rand_lorentz,
     rand_rotation,
     rand_xyrotation,
 )
+from tensorframes.utils.restframe import restframe_boost
 
 
 def standardize_momentum(momentum, mean=None, std=None):
@@ -55,18 +55,18 @@ def load_file(data_path, cfg_data, dataset, momentum_std=None, dtype=torch.float
 
     # prepare momenta
     if cfg_data.prepare == "align":
-        # momenta are already aligned with the beam
-        pass
+        # rotation in z-direction to go to center-of-mass frame
+        lab_momentum = momentum[..., :2, :].sum(dim=-2)
+        trafo = restframe_boost(-lab_momentum)
+    elif cfg_data.prepare == "lorentz":
+        # add random rotation to existing z-boost -> general Lorentz trafo
+        trafo = rand_rotation(momentum.shape[:-2])
+    elif cfg_data.prepare == "ztransform":
+        # add random xyrotation to existing z-boost -> general ztransform
+        trafo = rand_xyrotation(momentum.shape[:-2])
     else:
-        if cfg_data.prepare == "xyrotation":
-            trafo = rand_xyrotation(momentum.shape[:-2])
-        elif cfg_data.prepare == "rotation":
-            trafo = rand_rotation(momentum.shape[:-2])
-        elif cfg_data.prepare == "lorentz":
-            trafo = rand_lorentz(momentum.shape[:-2])
-        else:
-            raise ValueError(f"cfg.data.prepare={cfg_data.prepare} not implemented")
-        momentum = torch.einsum("...ij,...kj->...ki", trafo, momentum)
+        raise ValueError(f"cfg.data.prepare={cfg_data.prepare} not implemented")
+    momentum = torch.einsum("...ij,...kj->...ki", trafo, momentum)
 
     if momentum_std is None:
         momentum_std = momentum.std()

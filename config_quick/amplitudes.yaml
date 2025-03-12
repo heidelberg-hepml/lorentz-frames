@@ -7,7 +7,7 @@ data:
  subsample : 10000
  permutation_symmetry: true
  standardize: true
- prepare: rotation
+ prepare: lorentz
  train_test_val: [.4, .5, .1]
  mass_reg: 1e0
 
