@@ -79,7 +79,7 @@ class RandomLFrames(LFramesPredictor):
 
     def __repr__(self):
         string = f"RandomLFrames(transform_type={self.transform_type}, is_global={self.is_global}"
-        if self.transform_type in ["lorentz", "boost"]:
+        if self.transform_type in ["lorentz", "ztransform"]:
             string += f", std_eta={self.std_eta}"
         string += ")"
         return string
