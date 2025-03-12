@@ -24,12 +24,14 @@ def change_local_frame(x_j_in, idx, lframes, trafo):
     transform x_j from frame 'j' to frame 'i'
     notation: x_j = x[idx_j] = 'fts', x_i = x[idx_i] = 'x'
     """
-
     # create trafo
-    idx_i = torch.arange(x_j_in.shape[-2]).repeat_interleave(
-        x_j_in.shape[-1]
-    )  # identity
-    idx_j = idx  # indices from knn
+    idx_i = (
+        torch.arange(x_j_in.shape[-2] * x_j_in.shape[0])
+        .repeat_interleave(x_j_in.shape[-1])
+        .to(x_j_in.device)
+    )  # identity (batch, num_points*k)
+    idx_j = idx  # indices from kn (batch, num_points*k)
+
     lframes_i = IndexSelectLFrames(lframes, idx_i)
     lframes_j = IndexSelectLFrames(lframes, idx_j)
     trafo_j_to_i = ChangeOfLFrames(
@@ -38,7 +40,7 @@ def change_local_frame(x_j_in, idx, lframes, trafo):
 
     # reshape and apply trafo
     x_j_in2 = x_j_in.permute(0, 2, 3, 1)  # (batch_size, num_points, k, num_dims)
-    x_j = x_j_in2.view(-1, x_j_in2.shape[-1])  # (batch_size*num_points*k, num_dims)
+    x_j = x_j_in2.reshape(-1, x_j_in2.shape[-1])  # (batch_size*num_points*k, num_dims)
     x_j = trafo(x_j, trafo_j_to_i)
     x_j = x_j.view(x_j_in2.shape).permute(
         0, 3, 1, 2

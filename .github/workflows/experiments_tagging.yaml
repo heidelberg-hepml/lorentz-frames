@@ -60,3 +60,7 @@ jobs:
     - name: Run TFGraphNet + OrthogonalLearnedLFrames symmetry breaking with timelike reference
       run: |
         python run.py model/lframesnet=orthogonal save=false evaluate=false training.iterations=3 data.beam_reference=timelike
+
+    - name: Run TFGraphNet + OrthogonalLearnedLFrames symmetry breaking with timelike reference
+      run: |
+        python run.py model=tag_particlenet-lite save=false evaluate=false training.iterations=3

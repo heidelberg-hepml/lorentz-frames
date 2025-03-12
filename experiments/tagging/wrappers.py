@@ -300,3 +300,43 @@ class TransformerWrapper(AggregatedTaggerWrapper):
         # aggregation
         score = self.extract_score(outputs, batch)
         return score, tracker
+
+
+class ParticleNetWrapper(TaggerWrapper):
+    def __init__(
+        self,
+        net,
+        *args,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+        self.net = net(input_dims=self.in_channels, num_classes=self.out_channels)
+
+    def forward(self, embedding):
+        (
+            features_local,
+            lframes_no_spurions,
+            _,
+            batch,
+            tracker,
+        ) = super().forward(embedding)
+        # ParticleNet uses L2 norm in (phi, eta) for kNN
+        phieta_local = features_local[..., [4, 5]]
+
+        phieta_local, mask = to_dense_batch(phieta_local, batch)
+        features_local, _ = to_dense_batch(features_local, batch)
+        phieta_local = phieta_local.transpose(1, 2)
+        features_local = features_local.transpose(1, 2)
+        lframes_no_spurions = LFrames(
+            to_dense_batch(lframes_no_spurions.matrices, batch)[0].view(-1, 4, 4)
+        )
+        mask = mask.unsqueeze(1)
+
+        # network
+        score = self.net(
+            points=phieta_local,
+            features=features_local,
+            lframes=lframes_no_spurions,
+            mask=mask,
+        )
+        return score, tracker
