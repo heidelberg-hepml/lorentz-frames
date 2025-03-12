@@ -74,7 +74,7 @@ class TaggerWrapper(nn.Module):
             fourmomenta_nospurions, lframes_nospurions
         )
         jet_nospurions = scatter(
-            fourmomenta_local_nospurions, index=batch_nospurions, dim=0, reduce="sum"
+            fourmomenta_nospurions, index=batch_nospurions, dim=0, reduce="sum"
         ).index_select(0, batch_nospurions)
         jet_local_nospurions = self.trafo_fourmomenta(
             jet_nospurions, lframes_nospurions
