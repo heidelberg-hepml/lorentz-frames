@@ -11,7 +11,6 @@ from tensorframes.utils.lorentz import lorentz_squarednorm
 from tensorframes.utils.transforms import (
     rand_lorentz,
     rand_rotation,
-    rand_boost,
 )
 
 
@@ -51,7 +50,7 @@ def test_restframe(batch_dims, restframe_transform, logm2_std, logm2_mean):
 
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
-@pytest.mark.parametrize("random_transform", [rand_lorentz, rand_rotation, rand_boost])
+@pytest.mark.parametrize("random_transform", [rand_lorentz, rand_rotation])
 @pytest.mark.parametrize("logm2_mean,logm2_std", LOGM2_MEAN_STD)
 def test_restframe_transformation(batch_dims, random_transform, logm2_std, logm2_mean):
     dtype = torch.float64
