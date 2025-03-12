@@ -220,20 +220,6 @@ def get_spurion(
     return spurion
 
 
-def standardize_tagging_features(fourmomenta, batch, rescale_data, eps):
-    if rescale_data:
-        fourmomenta /= UNITS
-    TAGGING_FEATURES_PREPROCESSING = [[0, 1]] * 7
-    tagging_features = get_tagging_features(
-        fourmomenta=fourmomenta, batch=batch, eps=eps
-    )
-    for i in range(tagging_features.shape[1]):
-        TAGGING_FEATURES_PREPROCESSING[i] = [
-            torch.mean(tagging_features[:, i]),
-            torch.std(tagging_features[:, i]),
-        ]
-
-
 def get_tagging_features(
     fourmomenta, batch, global_fourmomenta=None, lframes=None, eps=1e-10
 ):

@@ -35,7 +35,7 @@ jobs:
 
     - name: TFGraphNet + OrthogonalLearnedLFrames with edge attributes
       run: |
-        python run.py model/lframesnet=orthogonal save=false evaluate=false training.iterations=3 data.standardize=true model.include_edges=true
+        python run.py model/lframesnet=orthogonal save=false evaluate=false training.iterations=3 model.include_edges=true
 
     - name: TFGraphNet + LearnedPolarDecompositionLFrames
       run: |

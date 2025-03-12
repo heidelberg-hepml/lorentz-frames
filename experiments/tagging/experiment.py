@@ -1,7 +1,6 @@
 import numpy as np
 import torch
 from torch_geometric.loader import DataLoader
-from torch_geometric.data import Batch
 import os, time
 from omegaconf import open_dict
 
@@ -11,7 +10,6 @@ from experiments.base_experiment import BaseExperiment
 from experiments.tagging.dataset import TopTaggingDataset
 from experiments.tagging.embedding import (
     embed_tagging_data,
-    standardize_tagging_features,
 )
 from experiments.tagging.plots import plot_mixer
 from experiments.logger import LOGGER
@@ -54,19 +52,6 @@ class TaggingExperiment(BaseExperiment):
         self.data_val.load_data(data_path, "val")
         dt = time.time() - t0
         LOGGER.info(f"Finished creating datasets after {dt:.2f} s = {dt/60:.2f} min")
-
-        # only take 10000 batches for performance reasons
-        if self.cfg.data.standardize:
-            batch = Batch.from_data_list(
-                self.data_train.data_list[: min(10000, len(self.data_train.data_list))]
-            ).to(self.device)
-            self.model.init_standardization(batch=batch)
-            standardize_tagging_features(
-                fourmomenta=batch.x,
-                batch=batch.batch,
-                rescale_data=self.cfg.data.rescale_data,
-                eps=self.cfg.data.eps_tagging,
-            )
 
     def _init_dataloader(self):
         self.train_loader = DataLoader(

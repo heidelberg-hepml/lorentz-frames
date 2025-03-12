@@ -266,19 +266,9 @@ class GraphNetWrapper(AggregatedTaggerWrapper):
         self.include_edges = include_edges
         self.net = net(in_channels=self.in_channels, out_channels=self.out_channels)
         if self.include_edges:
+            self.register_buffer("edge_inited", torch.tensor(False))
             self.register_buffer("edge_mean", torch.tensor(0.0))
             self.register_buffer("edge_std", torch.tensor(1.0))
-
-    def init_standardization(self, batch):
-        if self.include_edges:
-            # edge feature standardization parameters
-            fourmomenta = batch.x
-            ptr = batch.ptr
-            edge_index = get_edge_index_from_ptr(ptr)
-
-            edge_attr = self.get_edge_attr(fourmomenta, edge_index)
-            self.edge_mean = edge_attr.mean()
-            self.edge_std = edge_attr.std().clamp(min=1e-10)
 
     def forward(self, embedding):
         (
@@ -311,6 +301,10 @@ class GraphNetWrapper(AggregatedTaggerWrapper):
             fourmomenta[edge_index[0]] + fourmomenta[edge_index[1]]
         )
         edge_attr = mij2.clamp(min=1e-10).log()
+        if not self.edge_inited:
+            self.edge_mean = edge_attr.mean().detach()
+            self.edge_std = edge_attr.std().clamp(min=1e-5).detach()
+            self.edge_inited = torch.tensor(True, device=edge_attr.device)
         edge_attr = (edge_attr - self.edge_mean) / self.edge_std
         return edge_attr.unsqueeze(-1)
 
