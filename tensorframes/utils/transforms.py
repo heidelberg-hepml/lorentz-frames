@@ -12,6 +12,7 @@ def get_trafo_type(axis):
 def transform(
     axes: List[int],
     angles: List[torch.Tensor],
+    use_float64=True,
 ):
     """
     Recursively build transformation matrices based on given lists of axes and angles
@@ -24,6 +25,7 @@ def transform(
         angles: List[torch.tensor] with elements of shape (*dims,)
             Angles used for the transformations,
             can be either rotation angles or rapidities
+        use_float64: bool
 
     Returns:
         final_trafo: torch.Tensor of shape (*dims, 4, 4)
@@ -33,6 +35,10 @@ def transform(
     assert all([angle.shape == dims for angle in angles])
     assert all([axis[0].shape == dims for axis in axes])
     assert all([axis[1].shape == dims for axis in axes])
+
+    in_dtype = angles[0].dtype
+    dtype = torch.float64 if use_float64 else in_dtype
+    angles = [a.to(dtype=dtype) for a in angles]
 
     final_trafo = lorentz_eye(dims, angles[0].device, angles[0].dtype)
     for axis, angle in zip(axes, angles):
@@ -53,7 +59,7 @@ def transform(
             trafo_type, torch.cosh(angle), torch.cos(angle)
         )
         final_trafo = torch.einsum("...jk,...kl->...jl", trafo, final_trafo)
-    return final_trafo
+    return final_trafo.to(in_dtype)
 
 
 def rand_lorentz(
