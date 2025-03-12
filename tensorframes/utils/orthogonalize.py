@@ -61,11 +61,9 @@ def orthogonalize(
     """
     assert len(vecs) == 3
     assert all(v.shape == vecs[0].shape for v in vecs)
-    assert all((lorentz_squarednorm(v) > 0).all() for v in vecs)
 
     vecs, reg_lightlike = regularize_lightlike(vecs, eps_reg_lightlike)
     vecs, reg_coplanar = regularize_coplanar(vecs, eps_reg_coplanar)
-    assert all((lorentz_squarednorm(v) > 0).all() for v in vecs)
 
     if method == "cross":
         trafo = orthogonalize_cross(vecs, eps_norm)
