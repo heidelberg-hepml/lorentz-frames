@@ -11,4 +11,4 @@ dropout_prob: null
 
 include_edges: true
 operation: single
-nonlinearity: exp
+nonlinearity: softmax

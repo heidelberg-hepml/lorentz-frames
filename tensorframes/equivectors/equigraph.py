@@ -1,8 +1,8 @@
 import torch
 from torch import nn
 import math
-from torch.nn import Identity, Softplus
 from torch_geometric.nn import MessagePassing
+from torch_geometric.utils import softmax
 
 from tensorframes.nn.mlp import MLP
 from tensorframes.equivectors.base import EquiVectors
@@ -34,9 +34,9 @@ class EquiEdgeConv(MessagePassing):
         num_layers_mlp,
         include_edges=True,
         operation="single",
-        nonlinearity="exp",
+        nonlinearity="softmax",
         dropout_prob=None,
-        aggr="mean",
+        aggr="sum",
     ):
         super().__init__(aggr=aggr)
         self.include_edges = include_edges
@@ -82,12 +82,12 @@ class EquiEdgeConv(MessagePassing):
         )
         return vecs
 
-    def message(self, s_i, s_j, fm_i, fm_j, edge_attr=None):
+    def message(self, s_i, s_j, fm_i, fm_j, edge_attr=None, edge_index=None):
         prefactor = torch.cat([s_i, s_j], dim=-1)
         if edge_attr is not None:
             prefactor = torch.cat([prefactor, edge_attr], dim=-1)
         prefactor = self.mlp(prefactor)
-        prefactor = self.nonlinearity(prefactor)
+        prefactor = self.nonlinearity(prefactor, index=edge_index[0])
 
         fm_rel = self.operation(fm_i, fm_j)[:, None, :4]
         prefactor = prefactor.unsqueeze(-1)
@@ -110,11 +110,13 @@ class EquiEdgeConv(MessagePassing):
 
     def get_nonlinearity(self, nonlinearity):
         if nonlinearity == None:
-            return Identity()
+            return lambda x, index: x
         elif nonlinearity == "exp":
-            return lambda x: torch.clamp(x, min=-10, max=10).exp()
+            return lambda x, index: torch.clamp(x, min=-10, max=10).exp()
         elif nonlinearity == "softplus":
-            return Softplus()
+            return lambda x, index: torch.nn.functional.softplus(x)
+        elif nonlinearity == "softmax":
+            return lambda x, index: softmax(x, index)
         else:
             raise ValueError(
                 f"Invalid nonlinearity {nonlinearity}. Options are (None, exp, softplus)."
