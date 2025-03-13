@@ -62,7 +62,9 @@ class TaggerWrapper(nn.Module):
             is_identity=lframes_spurions.is_identity,
             device=lframes_spurions.device,
             dtype=lframes_spurions.dtype,
-            shape=lframes_spurions.matrices[~is_spurion].shape,
+            shape=lframes_spurions.matrices[~is_spurion].shape
+            if not lframes_spurions.is_identity
+            else lframes_spurions.matrices[~is_spurion].shape[:-2],
         )
 
         # transform features into local frames
