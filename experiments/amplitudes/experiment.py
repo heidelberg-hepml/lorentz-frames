@@ -92,7 +92,7 @@ class AmplitudeExperiment(BaseExperiment):
         assert sum(self.cfg.data.train_test_val) <= 1
 
         splits = (
-            np.round(np.array(self.cfg.data.train_test_val) * self.amplitude.shape[0])
+            np.floor(np.array(self.cfg.data.train_test_val) * self.amplitude.shape[0])
             .astype("int")
             .tolist()
         )

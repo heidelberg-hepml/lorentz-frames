@@ -54,7 +54,7 @@ def load_file(data_path, cfg_data, dataset, momentum_std=None, dtype=torch.float
         momentum[..., 0] = torch.sqrt((momentum[..., 1:] ** 2).sum(dim=-1) + mass**2)
 
     # prepare momenta
-    if cfg_data.prepare == "align":
+    if cfg_data.prepare == "centerofmass":
         # rotation in z-direction to go to center-of-mass frame
         lab_momentum = momentum[..., :2, :].sum(dim=-2)
         trafo = restframe_boost(-lab_momentum)
