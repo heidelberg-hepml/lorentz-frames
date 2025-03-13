@@ -101,7 +101,9 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
     if cfg_data.add_tagging_features_lframesnet:
         jet = scatter(fourmomenta, batch, dim=0, reduce="sum").index_select(0, batch)
         global_tagging_features = get_tagging_features(
-            fourmomenta, jet, batch, eps=cfg_data.eps_tagging
+            fourmomenta,
+            jet,
+            batch,
         )
         global_tagging_features[is_spurion] = 0
     else:
