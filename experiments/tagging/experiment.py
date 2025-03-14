@@ -7,9 +7,7 @@ from sklearn.metrics import roc_curve, roc_auc_score, accuracy_score
 
 from experiments.base_experiment import BaseExperiment
 from experiments.tagging.dataset import TopTaggingDataset
-from experiments.tagging.embedding import (
-    embed_tagging_data,
-)
+from experiments.tagging.embedding import embed_tagging_data
 from experiments.tagging.plots import plot_mixer
 from experiments.logger import LOGGER
 from experiments.mlflow import log_mlflow

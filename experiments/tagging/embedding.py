@@ -261,5 +261,4 @@ def get_tagging_features(fourmomenta, jet, eps=1e-10):
     for i, feature in enumerate(features):
         mean, factor = TAGGING_FEATURES_PREPROCESSING[i]
         features[i] = (feature - mean) * factor
-    x = torch.cat(features, dim=-1)
-    return x
+    return torch.cat(features, dim=-1)
