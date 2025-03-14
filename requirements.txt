@@ -9,10 +9,9 @@ pytest
 black==22.3.0
 
 # deep learning
-torch>=2.0.0  # should be installed manually before everything else
+torch>=2.0.0
 torch-geometric>=2.4.0
 torch-ema
-einops
 pytorch_optimizer>=3.2.0
 
 # standard science stack
@@ -21,9 +20,9 @@ matplotlib
 
 # project-specific
 xformers
-torch-cluster>=1.6.3 # have to install this in a second step after everything else, otherwise get error
-einops>=0.6.1 # for GATr
-opt_einsum>=3.3.0 # for GATr
+torch-cluster>=1.6.3
+einops
+opt_einsum
 
 #weaver packages
 tqdm>=4.41.0
