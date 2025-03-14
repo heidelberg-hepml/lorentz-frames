@@ -40,7 +40,7 @@ class LFrames:
             is_identity: bool
                 Sets matrices to diagonal
             shape: List[int]
-                Specifies shape if is_identity
+                Specifies matrices.shape[:-2] if is_identity
             device: str
                 Specifies device if is_identity
             dtype: torch.dtype
@@ -49,7 +49,11 @@ class LFrames:
         # straight-forward initialization
         self.is_identity = is_identity
         if is_identity:
-            assert device and dtype and shape
+            assert device and dtype
+            if matrices is None:
+                assert shape is not None
+            else:
+                shape = matrices.shape[:-2]
 
             self.matrices = lorentz_eye(shape, device=device, dtype=dtype)
             self.is_global = True
