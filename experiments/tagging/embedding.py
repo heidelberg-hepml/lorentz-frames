@@ -103,7 +103,6 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
         global_tagging_features = get_tagging_features(
             fourmomenta,
             jet,
-            batch,
         )
         global_tagging_features[is_spurion] = 0
     else:
@@ -221,7 +220,7 @@ def get_spurion(
     return spurion
 
 
-def get_tagging_features(fourmomenta, jet, batch):
+def get_tagging_features(fourmomenta, jet, eps=1e-10):
     """
     Compute features typically used in jet tagging
 
@@ -231,16 +230,13 @@ def get_tagging_features(fourmomenta, jet, batch):
         Fourmomenta in the format (E, px, py, pz)
     jet: torch.tensor of shape (n_particles, 4)
         Jet momenta in the shape (E, px, py, pz)
-    batch: torch.tensor of shape (n_particles)
-        Batch index for each particle
     eps: float
 
     Returns
     -------
-    features: torch.tensor of shape (n_particles, n_features)
+    features: torch.tensor of shape (n_particles, 7)
         Features: log_pt, log_energy, log_pt_rel, log_energy_rel, dphi, deta, dr
     """
-    eps = 1e-10
     log_pt = get_pt(fourmomenta).unsqueeze(-1).log()
     log_energy = fourmomenta[..., 0].unsqueeze(-1).clamp(min=eps).log()
 
