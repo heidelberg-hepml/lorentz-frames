@@ -39,6 +39,7 @@ class EquiEdgeConv(MessagePassing):
         aggr="sum",
     ):
         super().__init__(aggr=aggr)
+        assert num_scalars > 0 or include_edges
         self.include_edges = include_edges
         self.operation = self.get_operation(operation)
         self.nonlinearity = self.get_nonlinearity(nonlinearity)
@@ -127,18 +128,12 @@ class EquiGraphNet(EquiVectors):
     def __init__(
         self,
         n_vectors,
-        num_scalars,
-        hidden_channels,
-        num_layers_mlp,
         num_blocks,
+        *args,
         hidden_vectors=1,
-        include_edges=True,
-        operation="single",
-        nonlinearity="exp",
-        dropout_prob=None,
+        **kwargs,
     ):
         super().__init__()
-        assert num_scalars > 0 or include_edges
 
         assert num_blocks >= 1
         in_vectors = [1] + [hidden_vectors] * (num_blocks - 1)
@@ -148,13 +143,8 @@ class EquiGraphNet(EquiVectors):
                 EquiEdgeConv(
                     in_vectors=in_vectors[i],
                     out_vectors=out_vectors[i],
-                    num_scalars=num_scalars,
-                    hidden_channels=hidden_channels,
-                    num_layers_mlp=num_layers_mlp,
-                    include_edges=include_edges,
-                    operation=operation,
-                    nonlinearity=nonlinearity,
-                    dropout_prob=dropout_prob,
+                    *args,
+                    **kwargs,
                 )
                 for i in range(num_blocks)
             ]
