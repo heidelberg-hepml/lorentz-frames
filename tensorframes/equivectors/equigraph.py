@@ -34,7 +34,7 @@ class EquiEdgeConv(MessagePassing):
         num_layers_mlp,
         include_edges=True,
         operation="single",
-        nonlinearity="softmax",
+        nonlinearity="exp",
         dropout_prob=None,
         aggr="sum",
     ):
