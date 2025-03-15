@@ -26,10 +26,12 @@ class EquiEdgeConv(MessagePassing):
         nonlinearity="exp",
         dropout_prob=None,
         aggr="sum",
+        layernorm=False,
     ):
         super().__init__(aggr=aggr)
         assert num_scalars > 0 or include_edges
         self.include_edges = include_edges
+        self.layer_norm = layer_norm
         self.operation = self.get_operation(operation)
         self.nonlinearity = self.get_nonlinearity(nonlinearity)
 
@@ -70,6 +72,12 @@ class EquiEdgeConv(MessagePassing):
         vecs = self.propagate(
             edge_index, s=scalars, fm=fourmomenta, edge_attr=edge_attr, batch=batch
         )
+
+        # equivariant layer normalization
+        if self.layer_norm:
+            norm = lorentz_squarednorm(vecs.reshape(fourmomenta.shape[0], -1, 4))
+            norm = norm.sum(dim=-1).unsqueeze(-1)
+            vecs = vecs / norm.clamp(min=1e-5).sqrt()
         return vecs
 
     def message(self, s_i, s_j, fm_i, fm_j, edge_attr=None, edge_index=None):
