@@ -1,14 +1,14 @@
 name: Unit tests
 
 on:
-  push:
-    branches:
-      - main
   pull_request:
-  workflow_dispatch:
+    types:
+      - labeled  # Runs when a label is added to a PR
+  workflow_dispatch:  # Allows manual triggering
 
 jobs:
   test:
+    if: github.event.label.name == 'ready for review'
     runs-on: ubuntu-latest
 
     steps:

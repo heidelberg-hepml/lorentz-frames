@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 from torch_geometric.nn.aggr import MeanAggregation
+from torch_geometric.utils import scatter
 
 from torch_geometric.utils import to_dense_batch
 
@@ -13,6 +14,7 @@ from tensorframes.utils.utils import (
 from tensorframes.reps.tensorreps import TensorReps
 from tensorframes.reps.tensorreps_transform import TensorRepsTransform
 from experiments.tagging.embedding import get_tagging_features
+from tensorframes.utils.lorentz import lorentz_squarednorm
 
 
 class TaggerWrapper(nn.Module):
@@ -69,8 +71,15 @@ class TaggerWrapper(nn.Module):
         fourmomenta_local_nospurions = self.trafo_fourmomenta(
             fourmomenta_nospurions, lframes_nospurions
         )
+        jet_nospurions = scatter(
+            fourmomenta_nospurions, index=batch_nospurions, dim=0, reduce="sum"
+        ).index_select(0, batch_nospurions)
+        jet_local_nospurions = self.trafo_fourmomenta(
+            jet_nospurions, lframes_nospurions
+        )
         local_tagging_features_nospurions = get_tagging_features(
-            fourmomenta_local_nospurions, batch_nospurions
+            fourmomenta_local_nospurions,
+            jet_local_nospurions,
         )
 
         features_local_nospurions = torch.cat(
@@ -79,6 +88,7 @@ class TaggerWrapper(nn.Module):
 
         return (
             features_local_nospurions,
+            fourmomenta_local_nospurions,
             lframes_nospurions,
             edge_index_nospurions,
             batch_nospurions,
@@ -116,6 +126,7 @@ class BaselineTransformerWrapper(AggregatedTaggerWrapper):
     def forward(self, embedding):
         (
             features_local,
+            _,
             _,
             _,
             batch,
@@ -156,6 +167,7 @@ class BaselineGraphNetWrapper(AggregatedTaggerWrapper):
         (
             features_local,
             _,
+            _,
             edge_index,
             batch,
             tracker,
@@ -185,6 +197,7 @@ class BaselineParticleNetWrapper(TaggerWrapper):
     def forward(self, embedding):
         (
             features_local,
+            _,
             _,
             _,
             batch,
@@ -226,6 +239,7 @@ class BaselineParTWrapper(TaggerWrapper):
             features_local,
             _,
             _,
+            _,
             batch,
             tracker,
         ) = super().forward(embedding)
@@ -246,29 +260,55 @@ class GraphNetWrapper(AggregatedTaggerWrapper):
     def __init__(
         self,
         net,
+        include_edges,
         *args,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
+        self.include_edges = include_edges
         self.net = net(in_channels=self.in_channels, out_channels=self.out_channels)
+        if self.include_edges:
+            self.register_buffer("edge_inited", torch.tensor(False))
+            self.register_buffer("edge_mean", torch.tensor(0.0))
+            self.register_buffer("edge_std", torch.tensor(1.0))
 
     def forward(self, embedding):
         (
             features_local,
+            fourmomenta_local,
             lframes,
             edge_index,
             batch,
             tracker,
         ) = super().forward(embedding)
 
+        if self.include_edges:
+            edge_attr = self.get_edge_attr(fourmomenta_local, edge_index)
+        else:
+            edge_attr = None
         # network
         outputs = self.net(
-            inputs=features_local, lframes=lframes, edge_index=edge_index
+            inputs=features_local,
+            lframes=lframes,
+            edge_index=edge_index,
+            edge_attr=edge_attr,
         )
 
         # aggregation
         score = self.extract_score(outputs, batch)
         return score, tracker
+
+    def get_edge_attr(self, fourmomenta, edge_index):
+        mij2 = lorentz_squarednorm(
+            fourmomenta[edge_index[0]] + fourmomenta[edge_index[1]]
+        )
+        edge_attr = mij2.clamp(min=1e-10).log()
+        if not self.edge_inited:
+            self.edge_mean = edge_attr.mean().detach()
+            self.edge_std = edge_attr.std().clamp(min=1e-5).detach()
+            self.edge_inited = torch.tensor(True, device=edge_attr.device)
+        edge_attr = (edge_attr - self.edge_mean) / self.edge_std
+        return edge_attr.unsqueeze(-1)
 
 
 class TransformerWrapper(AggregatedTaggerWrapper):
@@ -284,6 +324,7 @@ class TransformerWrapper(AggregatedTaggerWrapper):
     def forward(self, embedding):
         (
             features_local,
+            _,
             lframes,
             _,
             batch,
