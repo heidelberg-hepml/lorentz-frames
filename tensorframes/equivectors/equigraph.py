@@ -26,7 +26,7 @@ class EquiEdgeConv(MessagePassing):
         nonlinearity="exp",
         dropout_prob=None,
         aggr="sum",
-        layernorm=False,
+        layer_norm=False,
     ):
         super().__init__(aggr=aggr)
         assert num_scalars > 0 or include_edges
