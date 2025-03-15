@@ -28,6 +28,9 @@ class TaggingExperiment(BaseExperiment):
                 7 if self.cfg.data.add_tagging_features_lframesnet else 0
             )
 
+        if self.cfg.model.net._target_.rsplit(".", 1)[-1] == "TFGraphNet":
+            self.cfg.model.net.num_edge_attr = 1 if self.cfg.model.include_edges else 0
+
     def init_data(self):
         raise NotImplementedError
 

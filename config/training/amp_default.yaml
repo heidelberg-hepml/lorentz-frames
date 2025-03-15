@@ -20,6 +20,7 @@ es_load_best_model: true
 
 log_every_n_steps: 1000
 validate_every_n_steps: 1000
+validate_every_n_epochs_min: null
 
 clip_grad_norm: 5
 clip_grad_value: null

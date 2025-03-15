@@ -99,7 +99,11 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
     batch = get_batch_from_ptr(ptr)
 
     if cfg_data.add_tagging_features_lframesnet:
-        global_tagging_features = get_tagging_features(fourmomenta, batch)
+        jet = scatter(fourmomenta, batch, dim=0, reduce="sum").index_select(0, batch)
+        global_tagging_features = get_tagging_features(
+            fourmomenta,
+            jet,
+        )
         global_tagging_features[is_spurion] = 0
     else:
         global_tagging_features = torch.zeros(
@@ -216,7 +220,7 @@ def get_spurion(
     return spurion
 
 
-def get_tagging_features(fourmomenta, batch):
+def get_tagging_features(fourmomenta, jet, eps=1e-10):
     """
     Compute features typically used in jet tagging
 
@@ -224,28 +228,27 @@ def get_tagging_features(fourmomenta, batch):
     ----------
     fourmomenta: torch.tensor of shape (n_particles, 4)
         Fourmomenta in the format (E, px, py, pz)
-    batch: torch.tensor of shape (n_particles)
-        Batch index for each particle
+    jet: torch.tensor of shape (n_particles, 4)
+        Jet momenta in the shape (E, px, py, pz)
+    eps: float
 
     Returns
     -------
-    features: torch.tensor of shape (n_particles, n_features)
+    features: torch.tensor of shape (n_particles, 7)
         Features: log_pt, log_energy, log_pt_rel, log_energy_rel, dphi, deta, dr
     """
-    min = 1e-10
     log_pt = get_pt(fourmomenta).unsqueeze(-1).log()
-    log_energy = fourmomenta[..., 0].unsqueeze(-1).clamp(min=min).log()
+    log_energy = fourmomenta[..., 0].unsqueeze(-1).clamp(min=eps).log()
 
-    jet = scatter(fourmomenta, index=batch, dim=0, reduce="sum").index_select(0, batch)
     log_pt_rel = (get_pt(fourmomenta).log() - get_pt(jet).log()).unsqueeze(-1)
     log_energy_rel = (
-        fourmomenta[..., 0].clamp(min=min).log() - jet[..., 0].clamp(min=min).log()
+        fourmomenta[..., 0].clamp(min=eps).log() - jet[..., 0].clamp(min=eps).log()
     ).unsqueeze(-1)
     phi_4, phi_jet = get_phi(fourmomenta), get_phi(jet)
     dphi = ((phi_4 - phi_jet + torch.pi) % (2 * torch.pi) - torch.pi).unsqueeze(-1)
     eta_4, eta_jet = get_eta(fourmomenta), get_eta(jet)
     deta = -(eta_4 - eta_jet).unsqueeze(-1)
-    dr = torch.sqrt((dphi**2 + deta**2).clamp(min=min))
+    dr = torch.sqrt((dphi**2 + deta**2).clamp(min=eps))
     features = [
         log_pt,
         log_energy,

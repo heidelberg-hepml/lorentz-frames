@@ -16,3 +16,17 @@ DATASET_TITLE = {
     "zgggg": r"$q\bar q\to Zgggg$",
     "zggggg": r"$q\bar q \to Zggggg$",
 }
+
+mass_Z = 91.188
+
+
+def get_mass(dataset, mass_reg):
+    assert dataset in PARTICLE_TYPE.keys()
+
+    # initialize massless particles
+    mass = [mass_reg] * (len(dataset) + 2)
+
+    # if included, z comes in 3rd position
+    if "z" in dataset:
+        mass[2] = mass_Z
+    return mass

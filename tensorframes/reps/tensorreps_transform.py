@@ -1,322 +1,156 @@
 import torch
-from torch import Tensor
-from torch.nn import Module
 
 from tensorframes.lframes.lframes import LFrames
 from tensorframes.reps.tensorreps import TensorReps
 
 
-class TensorRepsTransform(Module):
-    """A module for transforming tensor representations.
-
-    Args:
-        tensor_reps (TensorReps): The tensor representations to be transformed.
-        use_parallel (bool, optional): Whether to use parallel computation for the transformation. Defaults to True.
-        avoid_einsum (bool, optional): Whether to avoid using `torch.einsum` for the transformation. Defaults to False.
-    """
-
+class TensorRepsTransform(torch.nn.Module):
     def __init__(
         self,
-        tensor_reps: TensorReps,
-        use_parallel: bool = True,
-        avoid_einsum: bool = False,
+        reps: TensorReps,
+        use_naive=False,
     ):
-        """Initialize a TensorReps object.
-
-        Args:
-            tensor_reps (TensorReps): The tensor representations.
-            use_parallel (bool, optional): Whether to use parallel computation. Defaults to True.
-            avoid_einsum (bool, optional): Whether to avoid using einsum. Defaults to False.
-        """
         super().__init__()
-        self.tensor_reps = tensor_reps
-        self.use_parallel = use_parallel
-        self.avoid_einsum = avoid_einsum
+        self.reps = reps
+        self.transform = (
+            self._transform_naive if use_naive else self._transform_efficient
+        )
 
-        # prepare for fast transform
-        n_start_index_dict = {
-            n: [] for n in range(0, self.tensor_reps.max_rep.rep.order + 1)
-        }
-        pseudo_mask = torch.zeros(self.tensor_reps.dim, dtype=bool)
-        start_idx = 0
-        for i, mul_reps in enumerate(self.tensor_reps):
-            n_start_index_dict[mul_reps.rep.order].append((start_idx, i))
+        # cache idx_start and idx_end for each rep
+        self.start_end_idx = []
+        idx = 0
+        for mul_rep in self.reps:
+            _, rep = mul_rep
+            self.start_end_idx.append([idx, idx + mul_rep.dim])
+            idx += mul_rep.dim
 
-            # prepare parity mask:
-            if mul_reps[1].parity == -1:
-                pseudo_mask[start_idx : start_idx + mul_reps.dim] = True
+        # build parity_mask
+        parity_odd = torch.zeros(self.reps.dim, dtype=torch.bool)
+        idx = 0
+        for mul_rep in self.reps:
+            _, rep = mul_rep
+            parity_odd[idx : idx + mul_rep.dim] = True if rep.parity else False
+            idx += mul_rep.dim
+        self.register_buffer("parity_odd", parity_odd.unsqueeze(0))
 
-            start_idx += mul_reps.dim
+        if not use_naive:
+            # build mapping from order to element in the reps list
+            # only used in _transform_efficient
+            self.map_rep = [None for _ in range(self.reps.max_rep.rep.order + 1)]
+            idx_rep = 0
+            for i in range(self.reps.max_rep.rep.order + 1):
+                if reps[idx_rep].rep.order == i:
+                    self.map_rep[i] = idx_rep
+                    idx_rep += 1
 
-        # sort start indices and reps by angular momentum largest first, n_masks can also be precomputed
-        self.sorted_n = sorted(n_start_index_dict.keys(), reverse=True)
-        self.is_sorted = self.tensor_reps.is_sorted
-
-        self.n_masks = []
-        self.n_muls = []
-        self.start_end_indices = []
-        self.scalar_dim = 0
-        for n in self.sorted_n:
-            n_mask = torch.zeros(self.tensor_reps.dim, dtype=torch.bool)
-            mul_per_n = 0
-            n_start_idx = self.tensor_reps.dim
-            n_end_idx = 0
-            # concat all the reps with the same angular momentum
-            for start_idx, rep_idx in n_start_index_dict[n]:
-                end_idx = start_idx + self.tensor_reps[rep_idx].dim
-                n_mask[start_idx:end_idx] = True
-                mul_per_n += self.tensor_reps[rep_idx].mul
-                n_start_idx = min(n_start_idx, start_idx)
-                n_end_idx = max(n_end_idx, end_idx)
-            if n == 0:
-                self.scalar_dim = mul_per_n
-            else:
-                self.n_muls.append(mul_per_n)
-                self.n_masks.append(n_mask)
-                self.start_end_indices.append((n_start_idx, n_end_idx))
-
-        # remove scalars from l_sorted:
-        self.sorted_n.remove(0)
-        pseudo_tensor = torch.where(
-            pseudo_mask,
-            -torch.ones(self.tensor_reps.dim),
-            torch.ones(self.tensor_reps.dim),
-        ).float()
-        self.register_buffer("pseudo_tensor", pseudo_tensor)
-
-    def _get_einsum_string(self, order: int) -> str:
-        """Generate the einsum string for a given order.
-
-        Args:
-            order (int): The order of the einsum string.
-
-        Returns:
-            str: The generated einsum string.
-
-        Raises:
-            NotImplementedError: If the order is greater than 12.
+    def forward(self, tensor: torch.Tensor, lframes: LFrames):
         """
-        if order > 12:
-            raise NotImplementedError("Not implemented for more than order 12")
+        Parameters
+        ----------
+        tensor: torch.tensor of shape (*shape, self.reps.dim)
+        lframes: LFrames
+            lframes.matrices has shape (*shape, 4, 4)
 
-        einsum = ""
-
-        start = ord("A")
-
-        batch_index = ord("a")
-
-        for i in range(order):
-            einsum += (
-                chr(batch_index) + chr(start + 2 * i) + chr(start + 2 * i + 1) + ","
-            )
-
-        einsum += chr(batch_index)
-
-        einsum += chr(start + 2 * order + 1)
-
-        for i in range(order):
-            einsum += chr(start + 2 * i + 1)
-
-        einsum += "->"
-
-        einsum += chr(batch_index)
-
-        einsum += chr(start + 2 * order + 1)
-
-        for i in range(order):
-            einsum += chr(start + 2 * i)
-
-        return einsum
-
-    def transform_coeffs_parallel(
-        self,
-        coeffs: Tensor,
-        basis_change: LFrames,
-        avoid_einsum: bool = False,
-        inplace: bool = False,
-    ) -> Tensor:
-        """Transforms the coefficients using more parallel computation.
-
-        Args:
-            coeffs (Tensor): The input coefficients to be transformed. Of shape `(N, dim)`, where `N` is the batch size and `dim` is the total dimension of the tensor reps.
-            basis_change (LFrames): The basis change object representing the transformation. With matrices attribute of shape `(N, 4, 4)`.
-            avoid_einsum (bool, optional): Whether to avoid using einsum for the transformation. Defaults to False.
-            inplace (bool, optional): Whether to perform the transformation inplace. Defaults to False.
-
-        Returns:
-            Tensor: The transformed coefficients.
+        Returns
+        -------
+        tensor_transformed: torch.tensor of shape (*shape, self.reps.dim)
         """
+        assert self.reps.dim == tensor.shape[-1]
 
-        if self.tensor_reps.dim == 0:
-            return coeffs
+        if lframes.is_identity or self.reps.mul_without_scalars == 0:
+            return tensor
 
-        if isinstance(basis_change, torch.Tensor):
-            basis_change = LFrames(basis_change)
+        in_shape = tensor.shape
+        assert in_shape[:-1] == lframes.shape[:-2]
+        tensor = tensor.reshape(-1, tensor.shape[-1])
+        lframes = lframes.reshape(-1, 4, 4)
 
-        if self.pseudo_tensor.device != coeffs.device:
-            self.pseudo_tensor = self.pseudo_tensor.to(coeffs.device)
+        tensor_transformed = self.transform(tensor, lframes)
+        tensor_transformed = self.transform_parity(tensor_transformed, lframes)
 
-        N = coeffs.shape[0]
-        rot_matrix_t = basis_change.inv
+        tensor_transformed = tensor_transformed.reshape(*in_shape)
+        return tensor_transformed
 
-        if inplace:
-            output_coeffs = coeffs
-        else:
-            output_coeffs = coeffs.clone()
-
-        largest_tensor = torch.tensor([], device=coeffs.device)
-        for i, l in enumerate(self.sorted_n):
-            if self.is_sorted:
-                start_idx, end_idx = self.start_end_indices[i]
-                smaller_tensor = coeffs[:, start_idx:end_idx].view(N, -1, *(l * (4,)))
-            else:
-                n_mask = self.n_masks[i]
-                smaller_tensor = coeffs[:, n_mask].view(N, -1, *(l * (4,)))
-
-            if i == 0:
-                # highest n
-                largest_tensor = smaller_tensor
-            else:
-                largest_tensor = torch.cat([smaller_tensor, largest_tensor], dim=1)
-
-            if avoid_einsum:
-                # apply transformation at axis 2 (0 is batch, 1 is channel)
-                # move the axis 2 to the last index transform it and move it back
-                # this is to avoid einsum (maybe there is a better way)
-                largest_tensor = largest_tensor.moveaxis(2, -1)
-                largest_shape = largest_tensor.shape
-                largest_tensor = torch.matmul(
-                    largest_tensor.reshape(N, -1, 4), rot_matrix_t
-                )
-                largest_tensor = largest_tensor.reshape(*largest_shape)
-                largest_tensor = largest_tensor.moveaxis(-1, 2)
-            else:
-                largest_tensor = torch.einsum(
-                    "ijk,ilk...->ilj...", basis_change.matrices, largest_tensor
-                )
-
-            # no need to transform again along this axis so flatten it for now into channels:
-            largest_tensor = largest_tensor.flatten(start_dim=1, end_dim=2)
-
-        # all computations are now done in largest_tensor and have to be unpacked into coeffs:
-        if self.is_sorted:
-            output_coeffs[:, self.scalar_dim :] = largest_tensor
-        else:
-            n_mask_rev = self.n_masks[::-1]
-            n_muls_rev = self.n_muls[::-1]
-            for i, n in enumerate(self.sorted_n[::-1]):
-                if n == 0:
-                    # scalars
-                    continue
-
-                # this could be faster if things where sorted. then largest would just be coeffs
-                n_mask = n_mask_rev[i]
-                l_mul = n_muls_rev[i]
-                smaller_tensor = largest_tensor[:, : l_mul * 4**n]
-                output_coeffs[:, n_mask] = smaller_tensor
-                largest_tensor = largest_tensor[:, l_mul * 4**n :]
-
-        # apply parity:
-        # get the determinants of the rotation matrices:
-        # is_det_neg = basis_change.det < 0
-        # output_coeffs[is_det_neg] = output_coeffs[is_det_neg] * self.pseudo_tensor
-
-        return output_coeffs
-
-    def transform_coeffs(self, coeffs: Tensor, basis_change: LFrames) -> Tensor:
-        """Transforms the coefficients using less parallel computation.
-
-        Args:
-            coeffs (Tensor): The input coefficients to be transformed. Of shape `(N, dim)`, where `N` is the batch size and `dim` is the total dimension of the tensor reps.
-            basis_change (LFrames): The basis change object representing the transformation. With matrices attribute of shape `(N, 4, 4)`.
-
-        Returns:
-            Tensor: The transformed coefficients.
-        """
-        current_index = 0
-        length = 0
-
-        output = torch.zeros_like(coeffs)
-
-        for mul_reps in self.tensor_reps:
-            mul, rep = mul_reps
-
-            rep_n = rep.order
-
-            length = mul_reps.dim
-
-            left_index = current_index
-            right_index = current_index + length
-
-            if rep_n == 0:
-                if rep.parity == -1:
-                    det_sign = basis_change.det.sign()
-                    output[:, left_index:right_index] = torch.einsum(
-                        "i,ij->ij", det_sign, coeffs[:, left_index:right_index]
-                    )
-                else:
-                    output[:, left_index:right_index] = coeffs[
-                        :, left_index:right_index
-                    ]
-                current_index += length
+    def _transform_naive(self, tensor, lframes):
+        """Naive transform: Apply n transformations to a tensor of n'th order"""
+        output = tensor.clone()
+        for mul_rep, [idx_start, idx_end] in zip(self.reps, self.start_end_idx):
+            mul, rep = mul_rep
+            if mul == 0 or rep.order == 0:
                 continue
 
-            einsum_str = self._get_einsum_string(rep_n)
+            x = tensor[:, idx_start:idx_end].reshape(-1, mul, *([4] * rep.order))
 
-            tensor = coeffs[:, left_index:right_index].reshape(
-                coeffs.shape[0], mul, *([4] * rep_n)
+            einsum_string = get_einsum_string(rep.order)
+            x_transformed = torch.einsum(
+                einsum_string, *([lframes.matrices] * rep.order), x
             )
-
-            trafo_tensors = torch.einsum(
-                einsum_str, *([basis_change.matrices] * rep_n), tensor
-            )
-
-            output[:, left_index:right_index] = trafo_tensors.flatten(start_dim=1)
-
-            if rep.parity == -1:
-                det_sign = basis_change.det.sign()
-                output[:, left_index:right_index] = torch.einsum(
-                    "i,ij->ij", det_sign, trafo_tensors.flatten(start_dim=1)
-                )
-            else:
-                output[:, left_index:right_index] = trafo_tensors.flatten(start_dim=1)
-
-            current_index += length
+            output[:, idx_start:idx_end] = x_transformed.reshape(-1, mul_rep.dim)
 
         return output
 
-    def forward(
-        self, coeffs: Tensor | None, lframes: LFrames, inplace: bool = False
-    ) -> Tensor:
-        """Applies the forward transformation to the input coefficients.
-
-        Args:
-            coeffs (Tensor): The input coefficients to be transformed. Of shape `(N, dim)`, where `N` is the batch size and `dim` is the total dimension of the tensor reps.
-            lframes (LFrames): The basis change object representing the transformation. With matrices attribute of shape `(N, 4, 4)`.
-            inplace (bool, optional): Whether to perform the transformation inplace. Only relevant for parallel trafo. Defaults to False.
-
-        Returns:
-            Tensor: The transformed coefficients.
+    def _transform_efficient(self, tensor, lframes):
         """
-        assert coeffs is not None
+        Efficient transform:
+        Starting with the highest-order tensor contribution,
+        add the next contribution, apply lframes transformation
+        and flatten first dimension before continueing with next order.
 
-        if lframes.is_identity or self.tensor_reps.mul_without_scalars == 0:  # shortcut
-            if inplace:
-                return coeffs
-            else:
-                return coeffs.clone()
+        This is more efficient, because we use the
+        maximum amount of parallelization possible.
+        """
+        output = None
+        for order in reversed(range(self.reps.max_rep.rep.order + 1)):
+            if self.map_rep[order] is not None:
+                # add new contribution to the mix
+                idx_start, idx_end = self.start_end_idx[self.map_rep[order]]
+                contribution = tensor[:, idx_start:idx_end].reshape(
+                    tensor.shape[0], -1, *(order * (4,))
+                )
+                output = (
+                    torch.cat([contribution, output], dim=1)
+                    if order < self.reps.max_rep.rep.order
+                    else contribution
+                )
 
-        in_shape = coeffs.shape
-        assert in_shape[:-1] == lframes.shape[:-2]
-        coeffs = coeffs.reshape(-1, coeffs.shape[-1])
-        lframes = lframes.reshape(-1, 4, 4)
+            if order > 0:
+                # apply transformation, then flatten because transformation is done
+                output = torch.einsum("ijk,ilk...->ilj...", lframes.matrices, output)
+                output = output.flatten(start_dim=1, end_dim=2)
 
-        if self.use_parallel:
-            coeffs_transformed = self.transform_coeffs_parallel(
-                coeffs, lframes, self.avoid_einsum, inplace=inplace
-            )
-        else:
-            coeffs_transformed = self.transform_coeffs(coeffs, lframes)
+        return output
 
-        coeffs_transformed = coeffs_transformed.reshape(*in_shape)
-        return coeffs_transformed
+    def transform_parity(self, tensor, lframes):
+        """Parity transform: Multiply parity-odd states by sign(det Lambda)"""
+        return torch.where(
+            self.parity_odd, lframes.det.sign().unsqueeze(-1) * tensor, tensor
+        )
+
+
+def get_einsum_string(order):
+    """Create einsum string for transformation of order-n tensor in _transform_naive"""
+    if order > 12:
+        raise NotImplementedError("Running out of letters for order>12")
+
+    einsum = ""
+    start = ord("A")
+    batch_index = ord("a")
+
+    # list of lframes
+    for i in range(order):
+        einsum += chr(batch_index) + chr(start + 2 * i) + chr(start + 2 * i + 1) + ","
+
+    # tensor
+    einsum += chr(batch_index)
+    einsum += chr(start + 2 * order + 1)
+    for i in range(order):
+        einsum += chr(start + 2 * i + 1)
+
+    # output
+    einsum += "->"
+    einsum += chr(batch_index)
+    einsum += chr(start + 2 * order + 1)
+    for i in range(order):
+        einsum += chr(start + 2 * i)
+
+    return einsum

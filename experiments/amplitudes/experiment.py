@@ -6,18 +6,12 @@ from experiments.base_experiment import BaseExperiment
 from experiments.amplitudes.utils import (
     preprocess_amplitude,
     undo_preprocess_amplitude,
+    load_file,
 )
 from experiments.amplitudes.constants import PARTICLE_TYPE, DATASET_TITLE
 from experiments.amplitudes.plots import plot_mixer
 from experiments.logger import LOGGER
 from experiments.mlflow import log_mlflow
-
-from tensorframes.utils.transforms import (
-    rand_lorentz,
-    rand_rotation,
-    rand_xyrotation,
-    rand_boost,
-)
 
 MODEL_TITLE = {
     "TFTransformer": "Tr",
@@ -66,59 +60,39 @@ class AmplitudeExperiment(BaseExperiment):
     def init_data(self):
         LOGGER.info(f"Using dataset={self.cfg.data.dataset}")
 
-        # load data
         data_path = os.path.join(
             self.cfg.data.data_path, f"{self.cfg.data.dataset}.npy"
         )
-        assert os.path.exists(data_path), f"data_path {data_path} does not exist"
-        data_raw = np.load(data_path)
-        data_raw = torch.tensor(data_raw, dtype=self.dtype)
-        LOGGER.info(f"Loaded data with shape {data_raw.shape} from {data_path}")
+        self.amplitude, self.momentum, _ = load_file(
+            data_path,
+            self.cfg.data,
+            self.dataset,
+            dtype=self.dtype,
+        )
+        LOGGER.info(f"Loaded events of shape {self.momentum.shape} from {data_path}")
 
         # bring data into correct shape
         if self.cfg.data.subsample is not None:
-            assert self.cfg.data.subsample < data_raw.shape[0]
+            assert self.cfg.data.subsample < self.amplitude.shape[0]
             LOGGER.info(
-                f"Reducing the size of the dataset from {data_raw.shape[0]} to {self.cfg.data.subsample}"
+                f"Reducing the size of the dataset from {self.amplitude.shape[0]} to {self.cfg.data.subsample}"
             )
-            data_raw = data_raw[: self.cfg.data.subsample, :]
-        momentum = data_raw[:, :-1]
-        self.momentum = momentum.reshape(momentum.shape[0], momentum.shape[1] // 4, 4)
-        self.amplitude = data_raw[:, [-1]]
-
-        # prepare momenta
-        if self.cfg.data.prepare == "align":
-            # momenta are already aligned with the beam
-            pass
-        else:
-            if self.cfg.data.prepare == "xyrotation":
-                trafo = rand_xyrotation(self.momentum.shape[:-2])
-            elif self.cfg.data.prepare == "rotation":
-                trafo = rand_rotation(self.momentum.shape[:-2])
-            elif self.cfg.data.prepare == "boost":
-                trafo = rand_boost(self.momentum.shape[:-2])
-            elif self.cfg.data.prepare == "lorentz":
-                trafo = rand_lorentz(self.momentum.shape[:-2])
-            else:
-                raise ValueError(
-                    f"cfg.data.prepare={self.cfg.data.prepare} not implemented"
-                )
-            self.momentum = torch.einsum("...ij,...kj->...ki", trafo, self.momentum)
+            self.amplitude = self.amplitude[: self.cfg.data.subsample]
+            self.momentum = self.momentum[: self.cfg.data.subsample]
 
         # preprocess data
         self.amplitude_prepd, self.amp_mean, self.amp_std = preprocess_amplitude(
             self.amplitude
         )
-        self.momentum_prepd = self.momentum / self.momentum.std()
         if self.cfg.data.standardize:
-            self.model.init_standardization(self.momentum_prepd)
+            self.model.init_standardization(self.momentum)
             self.model.to(device=self.device, dtype=self.dtype)
 
     def _init_dataloader(self):
         assert sum(self.cfg.data.train_test_val) <= 1
 
         splits = (
-            np.round(np.array(self.cfg.data.train_test_val) * self.amplitude.shape[0])
+            np.floor(np.array(self.cfg.data.train_test_val) * self.amplitude.shape[0])
             .astype("int")
             .tolist()
         )
@@ -126,7 +100,7 @@ class AmplitudeExperiment(BaseExperiment):
             self.amplitude_prepd[: sum(splits)], splits, dim=0
         )
         trn_mom, tst_mom, val_mom = torch.split(
-            self.momentum_prepd[: sum(splits)], splits, dim=0
+            self.momentum[: sum(splits)], splits, dim=0
         )
 
         trn_set = torch.utils.data.TensorDataset(trn_amp, trn_mom)
