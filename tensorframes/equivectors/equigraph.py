@@ -14,17 +14,6 @@ from tensorframes.utils.utils import (
 
 
 class EquiEdgeConv(MessagePassing):
-    """
-    Equivariant edge convolution
-    - Compute invariants mij^2 based on multiple vectors
-    - Construct new vectors as linear combinations of the first input vector
-
-    Comments on design choices
-    - Re-compute edge features in each layer, otherwise there is no benefit from num_blocks>1
-    - Is it a problem that I only use the first vector to construct new vectors?
-      I think formally not, because the information from all other vectors is included through the MLP
-    """
-
     def __init__(
         self,
         in_vectors,
@@ -120,7 +109,7 @@ class EquiEdgeConv(MessagePassing):
             return lambda x, index: softmax(x, index)
         else:
             raise ValueError(
-                f"Invalid nonlinearity {nonlinearity}. Options are (None, exp, softplus)."
+                f"Invalid nonlinearity {nonlinearity}. Options are (None, exp, softplus, softmax)."
             )
 
 
