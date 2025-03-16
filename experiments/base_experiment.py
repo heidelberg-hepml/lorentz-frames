@@ -72,14 +72,14 @@ class BaseExperiment:
 
         # save config
         LOGGER.debug(OmegaConf.to_yaml(self.cfg))
-        self._save_config("config.yaml", to_mlflow=True)
-        self._save_config(f"config_{self.cfg.run_idx}.yaml")
 
         self.init_physics()
         self.init_model()
         self.init_data()
         self._init_dataloader()
         self._init_loss()
+        self._save_config("config.yaml", to_mlflow=True)
+        self._save_config(f"config_{self.cfg.run_idx}.yaml")
 
         if self.cfg.train:
             self._init_optimizer()
@@ -383,6 +383,13 @@ class BaseExperiment:
                 raise ValueError(f"Cannot load optimizer from {model_path}")
 
     def _init_scheduler(self):
+        if self.cfg.training.validate_every_n_epochs_min is not None:
+            n_epochs_prefactor = self.cfg.training.validate_every_n_epochs_min
+            batches_per_epoch = len(self.train_loader)
+            validate_its_min = n_epochs_prefactor * batches_per_epoch
+            self.cfg.training.validate_every_n_steps = min(
+                self.cfg.training.validate_every_n_steps, validate_its_min
+            )
         if self.cfg.training.scheduler is None:
             self.scheduler = None  # constant lr
         elif self.cfg.training.scheduler == "OneCycleLR":

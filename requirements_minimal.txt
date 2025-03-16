@@ -1,17 +1,17 @@
-# experiment management
+# torch-cluster requires pre-build torch wheels
+--find-links https://data.pyg.org/whl/torch-2.0.0+cpu.html
+
 pytest
-black==22.3.0
 
 # deep learning
 torch>=2.0.0
 torch-geometric>=2.4.0
-torch-ema
-einops
 
 # standard science stack
 numpy
 
 # project-specific
 xformers
-einops>=0.6.1 # for GATr
-opt_einsum>=3.3.0 # for GATr
+torch-cluster>=1.6.3
+einops
+opt_einsum

@@ -159,7 +159,7 @@ def regularize_coplanar(vecs, eps_reg_coplanar=1e-4):
         vecs_reg.append(v_reg)
 
     reg_coplanar = mask.sum().item()
-    return vecs, reg_coplanar
+    return vecs_reg, reg_coplanar
 
 
 def normalize(v, eps=1e-10):

@@ -1,6 +1,7 @@
 _target_: experiments.tagging.wrappers.GraphNetWrapper
 in_channels: null
 out_channels: null
+include_edges: false
 
 net:
  _target_: tensorframes.nn.graphnet.TFGraphNet
@@ -13,6 +14,7 @@ net:
  num_blocks: 2
  num_layers_mlp1: 2
  num_layers_mlp2: 0
+ num_edge_attr: 0
 
 defaults:
  - lframesnet: identity

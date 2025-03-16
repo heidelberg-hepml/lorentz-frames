@@ -1,14 +1,14 @@
 name: Tagging trial experiments
 
 on:
-  push:
-    branches:
-      - main
   pull_request:
-  workflow_dispatch:
+    types:
+      - labeled  # Runs when a label is added to a PR
+  workflow_dispatch:  # Allows manual triggering
 
 jobs:
   test:
+    if: github.event.label.name == 'ready for review'
     runs-on: ubuntu-latest
 
     steps:
@@ -32,6 +32,10 @@ jobs:
     - name: TFGraphNet + LearnedOrthogonalLFrames
       run: |
         python run.py model/lframesnet=orthogonal save=false evaluate=false training.iterations=3
+
+    - name: TFGraphNet + OrthogonalLearnedLFrames with edge attributes
+      run: |
+        python run.py model/lframesnet=orthogonal save=false evaluate=false training.iterations=3 model.include_edges=true
 
     - name: TFGraphNet + LearnedPolarDecompositionLFrames
       run: |
