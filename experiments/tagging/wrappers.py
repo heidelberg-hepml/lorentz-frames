@@ -356,6 +356,7 @@ class ParticleNetWrapper(TaggerWrapper):
     def forward(self, embedding):
         (
             features_local,
+            _,
             lframes_no_spurions,
             _,
             batch,
