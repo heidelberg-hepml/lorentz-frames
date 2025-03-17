@@ -38,10 +38,20 @@ class EquiLinearTimelike(nn.Module):
 
 
 class EquiAttention(nn.Module):
-    def __init__(self, in_vectors, out_vectors, hidden_scalars):
+    def __init__(
+        self, in_vectors, out_vectors, hidden_scalars, increase_attention_vectors
+    ):
         super().__init__()
-        self.q_linear = EquiLinear(in_vectors, in_vectors, num_scalars=hidden_scalars)
-        self.k_linear = EquiLinear(in_vectors, in_vectors, num_scalars=hidden_scalars)
+        self.q_linear = EquiLinear(
+            in_vectors,
+            in_vectors * increase_attention_vectors,
+            num_scalars=hidden_scalars,
+        )
+        self.k_linear = EquiLinear(
+            in_vectors,
+            in_vectors * increase_attention_vectors,
+            num_scalars=hidden_scalars,
+        )
         self.v_linear = EquiLinearTimelike(in_vectors, out_vectors)
 
     def forward(self, vectors, scalars, attn_mask=None):
@@ -83,6 +93,7 @@ class EquiTransformer(EquiVectors):
         num_scalars,
         num_blocks,
         hidden_scalars=32,
+        increase_attention_vectors=8,
         hidden_vectors=1,
     ):
         super().__init__()
@@ -95,6 +106,7 @@ class EquiTransformer(EquiVectors):
                     in_vectors=in_vectors[i],
                     out_vectors=out_vectors[i],
                     hidden_scalars=hidden_scalars,
+                    increase_attention_vectors=increase_attention_vectors,
                 )
                 for i in range(num_blocks)
             ]
