@@ -51,6 +51,10 @@ def load_file(
     data_raw = load(data_path)
     data_raw = torch.tensor(data_raw, dtype=dtype)
 
+    if cfg_data.subsample is not None:
+        assert cfg_data.subsample <= data_raw.shape[0]
+        data_raw = data_raw[: cfg_data.subsample]
+
     momentum = data_raw[:, :-1]
     momentum = momentum.reshape(momentum.shape[0], momentum.shape[1] // 4, 4)
     amplitude = data_raw[:, [-1]]

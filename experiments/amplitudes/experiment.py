@@ -76,15 +76,6 @@ class AmplitudeExperiment(BaseExperiment):
         )
         LOGGER.info(f"Loaded events of shape {self.momentum.shape} from {data_path}")
 
-        # bring data into correct shape
-        if self.cfg.data.subsample is not None:
-            assert self.cfg.data.subsample < self.amplitude.shape[0]
-            LOGGER.info(
-                f"Reducing the size of the dataset from {self.amplitude.shape[0]} to {self.cfg.data.subsample}"
-            )
-            self.amplitude = self.amplitude[: self.cfg.data.subsample]
-            self.momentum = self.momentum[: self.cfg.data.subsample]
-
         if self.cfg.data.standardize:
             self.model.init_standardization(self.momentum)
             self.model.to(device=self.device, dtype=self.dtype)
