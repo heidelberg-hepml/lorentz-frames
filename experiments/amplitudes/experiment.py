@@ -4,7 +4,6 @@ import torch
 
 from experiments.base_experiment import BaseExperiment
 from experiments.amplitudes.utils import (
-    preprocess_amplitude,
     undo_preprocess_amplitude,
     load_file,
 )
@@ -63,7 +62,13 @@ class AmplitudeExperiment(BaseExperiment):
         data_path = os.path.join(
             self.cfg.data.data_path, f"{self.cfg.data.dataset}.npy"
         )
-        self.amplitude, self.momentum, _, self.amp_mean, self.amp_std = load_file(
+        (
+            self.amplitude,
+            self.momentum,
+            self.mom_std,
+            self.amp_mean,
+            self.amp_std,
+        ) = load_file(
             data_path,
             self.cfg.data,
             self.dataset,
@@ -84,7 +89,7 @@ class AmplitudeExperiment(BaseExperiment):
             self.model.init_standardization(self.momentum)
             self.model.to(device=self.device, dtype=self.dtype)
 
-    def _init_dataloader(self):
+    def _init_dataloader(self, log=True):
         assert sum(self.cfg.data.train_test_val) <= 1
 
         splits = (
@@ -119,11 +124,12 @@ class AmplitudeExperiment(BaseExperiment):
             shuffle=False,
         )
 
-        LOGGER.info(
-            f"Constructed dataloaders with train_test_val={self.cfg.data.train_test_val}, "
-            f"train_batches={len(self.train_loader)}, test_batches={len(self.test_loader)}, val_batches={len(self.val_loader)}, "
-            f"batch_size={self.cfg.training.batchsize} (training), {self.cfg.evaluation.batchsize} (evaluation)"
-        )
+        if log:
+            LOGGER.info(
+                f"Constructed dataloaders with train_test_val={self.cfg.data.train_test_val}, "
+                f"train_batches={len(self.train_loader)}, test_batches={len(self.test_loader)}, val_batches={len(self.val_loader)}, "
+                f"batch_size={self.cfg.training.batchsize} (training), {self.cfg.evaluation.batchsize} (evaluation)"
+            )
 
     @torch.no_grad()
     def evaluate(self):
