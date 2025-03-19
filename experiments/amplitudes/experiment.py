@@ -63,7 +63,7 @@ class AmplitudeExperiment(BaseExperiment):
         data_path = os.path.join(
             self.cfg.data.data_path, f"{self.cfg.data.dataset}.npy"
         )
-        self.amplitude, self.momentum, _ = load_file(
+        self.amplitude, self.momentum, _, self.amp_mean, self.amp_std = load_file(
             data_path,
             self.cfg.data,
             self.dataset,
@@ -80,10 +80,6 @@ class AmplitudeExperiment(BaseExperiment):
             self.amplitude = self.amplitude[: self.cfg.data.subsample]
             self.momentum = self.momentum[: self.cfg.data.subsample]
 
-        # preprocess data
-        self.amplitude_prepd, self.amp_mean, self.amp_std = preprocess_amplitude(
-            self.amplitude
-        )
         if self.cfg.data.standardize:
             self.model.init_standardization(self.momentum)
             self.model.to(device=self.device, dtype=self.dtype)
@@ -97,7 +93,7 @@ class AmplitudeExperiment(BaseExperiment):
             .tolist()
         )
         trn_amp, tst_amp, val_amp = torch.split(
-            self.amplitude_prepd[: sum(splits)], splits, dim=0
+            self.amplitude[: sum(splits)], splits, dim=0
         )
         trn_mom, tst_mom, val_mom = torch.split(
             self.momentum[: sum(splits)], splits, dim=0
