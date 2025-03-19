@@ -38,7 +38,7 @@ class AmplitudeXLExperiment(AmplitudeExperiment):
         )
 
         LOGGER.info(
-            f"Constructed dataloaders with train_test_val={self.cfg.data.train_test_val}, "
+            f"Constructed dataloaders with "
             f"train_batches={len(self.train_loader)}, test_batches={len(self.test_loader)}, val_batches={len(self.val_loader)}, "
             f"batch_size={self.cfg.training.batchsize} (training), {self.cfg.evaluation.batchsize} (evaluation)"
         )
