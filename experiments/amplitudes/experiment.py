@@ -65,9 +65,9 @@ class AmplitudeExperiment(BaseExperiment):
         (
             self.amplitude,
             self.momentum,
-            self.mom_std,
             self.amp_mean,
             self.amp_std,
+            self.mom_std,
         ) = load_file(
             data_path,
             self.cfg.data,
