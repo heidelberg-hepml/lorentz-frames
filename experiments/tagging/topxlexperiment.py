@@ -66,7 +66,7 @@ class TopXLTaggingExperiment(TaggingExperiment):
         for label in ["train", "test", "val"]:
             path = os.path.join(self.cfg.data.data_dir, folder[label])
             flist = [
-                f"{path}/{label}_{str(i).zfill(3)}.parquet"
+                f"{path}/file_{str(i).zfill(3)}.parquet"
                 for i in range(*files_range[label])
             ]
             file_dict, _ = to_filelist(flist)
