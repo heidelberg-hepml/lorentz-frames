@@ -5,7 +5,7 @@ import hydra
 import experiments.logger
 from experiments.tagging.experiment import TopTaggingExperiment
 from tensorframes.utils.transforms import rand_rotation, rand_lorentz
-from tensorframes.utils.debug import track_clamps
+from tests_exp.debug import track_clamps
 
 
 @pytest.mark.parametrize("model", ["transformer"])
