@@ -1,10 +1,8 @@
-import torch
 import pytest
 import hydra
 
 import experiments.logger
 from experiments.amplitudes.experiment import AmplitudeExperiment
-from tensorframes.utils.transforms import rand_rotation, rand_lorentz
 from tests_exp.debug import track_clamps
 
 
