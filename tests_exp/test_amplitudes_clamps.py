@@ -52,3 +52,4 @@ def test_amplitudes(model, lframesnet, iterations):
                 f"({ratio:.1%}) at {c['filename']}:{c['line']}"
             )
             print(f"   → {c['code']}")
+            assert c["num_elements_clamped"] == 0
