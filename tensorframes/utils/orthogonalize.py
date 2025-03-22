@@ -21,9 +21,9 @@ def orthogonal_trafo(vecs, use_float64=True, return_reg=False, **kwargs):
         orthogonal_vecs = out
     trafo = torch.stack(orthogonal_vecs, dim=-2)
 
-    metric = lorentz_metric(trafo.shape[:-2], device=trafo.device, dtype=trafo.dtype)
-    trafo = trafo @ metric
     trafo = timelike_first(trafo)
+    metric = lorentz_metric(trafo.shape[:-2], device=trafo.device, dtype=trafo.dtype)
+    trafo = metric @ trafo @ metric
     if use_float64:
         trafo = trafo.to(original_dtype)
     return (trafo, *reg) if return_reg else trafo
