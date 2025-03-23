@@ -35,9 +35,8 @@ def test_amplitudes(lframesnet, model_list, iterations):
         overrides = [
             *model_list,
             f"model/lframesnet={lframesnet}",
-            f"training.iterations={iterations}",
-            # "training.batchsize=1",
             "save=false",
+            # "training.batchsize=1",
         ]
         cfg = hydra.compose(config_name="amplitudes", overrides=overrides)
         exp = AmplitudeExperiment(cfg)

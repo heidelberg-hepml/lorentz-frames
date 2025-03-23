@@ -6,16 +6,32 @@ from experiments.tagging.experiment import TopTaggingExperiment
 from tests_exp.debug import track_clamps
 
 
-@pytest.mark.parametrize("model", ["transformer"])
-@pytest.mark.parametrize("lframesnet", ["orthogonal", "polardec"])
+@pytest.mark.parametrize(
+    "lframesnet",
+    [
+        "identity",
+        "randomrotation",
+        "randomlorentz",
+        "orthogonal",
+        "polardec",
+    ],
+)
+@pytest.mark.parametrize(
+    "model_list",
+    [
+        ["model=transformer"],
+        ["model=graphnet"],
+        ["model=graphnet", "model.include_edges=false"],
+    ],
+)
 @pytest.mark.parametrize("iterations", [1])
-def test_tagging(model, lframesnet, iterations):
+def test_tagging(lframesnet, model_list, iterations):
     experiments.logger.LOGGER.disabled = True  # turn off logging
 
     # create experiment environment
     with hydra.initialize(config_path="../config_quick", version_base=None):
         overrides = [
-            f"model={model}",
+            *model_list,
             f"model/lframesnet={lframesnet}",
             "save=false",
             # "training.batchsize=1",
