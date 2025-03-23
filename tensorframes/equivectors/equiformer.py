@@ -58,6 +58,7 @@ class EquiAttention(nn.Module):
             num_scalars=hidden_scalars,
         )
         self.v_linear = EquiLinearTimelike(in_vectors, out_vectors)
+        self.out_linear = EquiLinearTimelike(out_vectors, out_vectors)
         self.layer_norm = layer_norm
 
     def forward(self, vectors, scalars, attn_mask=None):
@@ -90,6 +91,7 @@ class EquiAttention(nn.Module):
         # attention
         out = scaled_dot_product_attention(q, k, v, attn_mask=attn_mask)
         out = out.reshape(*vectors.shape[:-2], -1, 4)
+        out = self.out_linear(out)
         return out
 
 
