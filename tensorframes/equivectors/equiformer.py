@@ -43,7 +43,7 @@ class EquiAttention(nn.Module):
         in_vectors,
         out_vectors,
         hidden_scalars,
-        increase_attention_vectors,
+        increase_attention_vectors=8,
         layer_norm=True,
     ):
         super().__init__()
@@ -100,9 +100,8 @@ class EquiTransformer(EquiVectors):
         num_scalars,
         num_blocks,
         hidden_scalars=32,
-        increase_attention_vectors=8,
         hidden_vectors=1,
-        layer_norm=True,
+        **kwargs,
     ):
         super().__init__()
         in_vectors = [1] + [hidden_vectors] * (num_blocks - 1)
@@ -114,8 +113,7 @@ class EquiTransformer(EquiVectors):
                     in_vectors=in_vectors[i],
                     out_vectors=out_vectors[i],
                     hidden_scalars=hidden_scalars,
-                    increase_attention_vectors=increase_attention_vectors,
-                    layer_norm=layer_norm,
+                    **kwargs,
                 )
                 for i in range(num_blocks)
             ]
