@@ -7,3 +7,4 @@ num_blocks: 1
 hidden_scalars: 16
 hidden_vectors: 8
 increase_attention_vectors: 8
+layer_norm: true

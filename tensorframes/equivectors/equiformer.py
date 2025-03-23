@@ -39,7 +39,12 @@ class EquiLinearTimelike(nn.Module):
 
 class EquiAttention(nn.Module):
     def __init__(
-        self, in_vectors, out_vectors, hidden_scalars, increase_attention_vectors
+        self,
+        in_vectors,
+        out_vectors,
+        hidden_scalars,
+        increase_attention_vectors,
+        layer_norm=True,
     ):
         super().__init__()
         self.q_linear = EquiLinear(
@@ -53,11 +58,13 @@ class EquiAttention(nn.Module):
             num_scalars=hidden_scalars,
         )
         self.v_linear = EquiLinearTimelike(in_vectors, out_vectors)
+        self.layer_norm = layer_norm
 
     def forward(self, vectors, scalars, attn_mask=None):
         # layer normalization
-        norm = lorentz_squarednorm(vectors).unsqueeze(-1)
-        vectors = vectors / norm.abs().clamp(min=1e-5).sqrt()
+        if self.layer_norm:
+            norm = lorentz_squarednorm(vectors).unsqueeze(-1)
+            vectors = vectors / norm.sum(dim=-1, keepdim=True).clamp(min=1e-5).sqrt()
 
         # compute queries and keys
         q_v, q_s = self.q_linear(vectors, scalars)
@@ -95,6 +102,7 @@ class EquiTransformer(EquiVectors):
         hidden_scalars=32,
         increase_attention_vectors=8,
         hidden_vectors=1,
+        layer_norm=True,
     ):
         super().__init__()
         in_vectors = [1] + [hidden_vectors] * (num_blocks - 1)
@@ -107,6 +115,7 @@ class EquiTransformer(EquiVectors):
                     out_vectors=out_vectors[i],
                     hidden_scalars=hidden_scalars,
                     increase_attention_vectors=increase_attention_vectors,
+                    layer_norm=layer_norm,
                 )
                 for i in range(num_blocks)
             ]
