@@ -38,10 +38,22 @@ def undo_preprocess_amplitude(prepd_amplitude, mean, std):
     return amplitude
 
 
-def load_file(data_path, cfg_data, dataset, momentum_std=None, dtype=torch.float32):
+def load_file(
+    data_path,
+    cfg_data,
+    dataset,
+    amp_mean=None,
+    amp_std=None,
+    mom_std=None,
+    dtype=torch.float32,
+):
     assert os.path.exists(data_path)
     data_raw = load(data_path)
     data_raw = torch.tensor(data_raw, dtype=dtype)
+
+    if cfg_data.subsample is not None:
+        assert cfg_data.subsample <= data_raw.shape[0]
+        data_raw = data_raw[: cfg_data.subsample]
 
     momentum = data_raw[:, :-1]
     momentum = momentum.reshape(momentum.shape[0], momentum.shape[1] // 4, 4)
@@ -68,7 +80,11 @@ def load_file(data_path, cfg_data, dataset, momentum_std=None, dtype=torch.float
         raise ValueError(f"cfg.data.prepare={cfg_data.prepare} not implemented")
     momentum = torch.einsum("...ij,...kj->...ki", trafo, momentum)
 
-    if momentum_std is None:
-        momentum_std = momentum.std()
-    momentum /= momentum_std
-    return amplitude, momentum, momentum_std
+    if mom_std is None:
+        mom_std = momentum.std()
+    momentum /= mom_std
+
+    amplitude, amp_mean, amp_std = preprocess_amplitude(
+        amplitude, std=amp_std, mean=amp_mean
+    )
+    return amplitude, momentum, amp_mean, amp_std, mom_std

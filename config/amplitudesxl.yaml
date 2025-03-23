@@ -1,0 +1,12 @@
+exp_type: amplitudesxl
+exp_name: ampxl
+
+data:
+ dataset: zgggg_0
+ data_path : data/zgggg_xl  # /remote/gpu06/spinner/lorentz-frames/data/zgggg_xl
+ train_test_val: [.4, .5, .1]
+ num_train_files: 100
+ num_prefetch: 2
+
+defaults:
+ - amplitudes

@@ -25,7 +25,7 @@ class EquiEdgeConv(MessagePassing):
         operation="single",
         nonlinearity="exp",
         dropout_prob=None,
-        aggr="sum",  # mean is significantly slower for some reason
+        aggr="sum",
         layer_norm=False,
     ):
         super().__init__(aggr=aggr)
