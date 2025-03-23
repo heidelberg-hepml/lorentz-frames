@@ -6,19 +6,38 @@ from experiments.amplitudes.experiment import AmplitudeExperiment
 from tests_exp.debug import track_clamps
 
 
-@pytest.mark.parametrize("model", ["amp_transformer"])
-@pytest.mark.parametrize("lframesnet", ["orthogonal", "polardec"])
-@pytest.mark.parametrize("iterations", [1])
-def test_amplitudes(model, lframesnet, iterations):
+@pytest.mark.parametrize(
+    "lframesnet",
+    [
+        "identity",
+        "randomrotation",
+        "randomlorentz",
+        "orthogonal",
+        "polardec",
+    ],
+)
+@pytest.mark.parametrize(
+    "model_list",
+    [
+        ["model=amp_mlp"],
+        ["model=amp_transformer"],
+        ["model=amp_graphnet"],
+        ["model=amp_graphnet", "model.include_edges=false"],
+        ["model=amp_graphnet", "model.include_nodes=false"],
+    ],
+)
+@pytest.mark.parametrize("iterations", [100])
+def test_amplitudes(lframesnet, model_list, iterations):
     experiments.logger.LOGGER.disabled = True  # turn off logging
 
     # create experiment environment
     with hydra.initialize(config_path="../config_quick", version_base=None):
         overrides = [
-            f"model={model}",
+            *model_list,
             f"model/lframesnet={lframesnet}",
-            "save=false",
+            f"training.iterations={iterations}",
             # "training.batchsize=1",
+            "save=false",
         ]
         cfg = hydra.compose(config_name="amplitudes", overrides=overrides)
         exp = AmplitudeExperiment(cfg)
