@@ -335,8 +335,13 @@ class TransformerWrapper(AggregatedTaggerWrapper):
             batch, materialize=features_local.device == torch.device("cpu")
         )
 
+        # add artificial batch dimension
+        features_local = features_local.unsqueeze(0)
+        lframes = lframes.reshape(1, *lframes.shape)
+
         # network
         outputs = self.net(inputs=features_local, lframes=lframes, attention_mask=mask)
+        outputs = outputs[0, ...]
 
         # aggregation
         score = self.extract_score(outputs, batch)
