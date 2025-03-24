@@ -91,6 +91,8 @@ class PrefetchFilesDataset(IterableDataset):
         self.num_prefetch = num_prefetch
         self.rng = random.Random()
         self._EOF = object()
+        self.generator = torch.Generator()
+        self.generator.manual_seed(42)
 
         # load_file arguments
         self.cfg_data = cfg_data
@@ -113,6 +115,7 @@ class PrefetchFilesDataset(IterableDataset):
                 amp_std=self.amp_std,
                 mom_std=self.mom_std,
                 dtype=self.dtype,
+                generator=self.generator,
             )
             idx = torch.randperm(amp.shape[0])
             amp, mom = amp[idx], mom[idx]
