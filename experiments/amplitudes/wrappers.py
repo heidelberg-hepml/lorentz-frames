@@ -64,7 +64,7 @@ class MLPWrapper(AmplitudeWrapper):
 
     def forward(self, fourmomenta_global):
         features_local, _, _, _, tracker = super().forward(fourmomenta_global)
-        features = features_local.view(features_local.shape[0], -1)
+        features = features_local.reshape(features_local.shape[0], -1)
 
         amp = self.net(features)
         return amp, tracker
