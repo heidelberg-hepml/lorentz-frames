@@ -13,6 +13,12 @@ from experiments.amplitudes.experiment import AmplitudeExperiment
 
 
 class AmplitudeXLExperiment(AmplitudeExperiment):
+    def init_data(self):
+        real_subsample = self.cfg.data.subsample
+        self.cfg.data.subsample = None
+        super().init_data()
+        self.cfg.data.subsample = real_subsample
+
     def _init_dataloader(self):
         super()._init_dataloader(log=False)  # init val and test dataloaders
 
