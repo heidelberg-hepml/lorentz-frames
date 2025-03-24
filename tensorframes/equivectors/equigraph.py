@@ -1,8 +1,8 @@
 import torch
 from torch import nn
 import math
-from torch.nn import Identity, Softplus
 from torch_geometric.nn import MessagePassing
+from torch_geometric.utils import softmax
 
 from tensorframes.nn.mlp import MLP
 from tensorframes.equivectors.base import EquiVectors
@@ -14,17 +14,6 @@ from tensorframes.utils.utils import (
 
 
 class EquiEdgeConv(MessagePassing):
-    """
-    Equivariant edge convolution
-    - Compute invariants mij^2 based on multiple vectors
-    - Construct new vectors as linear combinations of the first input vector
-
-    Comments on design choices
-    - Re-compute edge features in each layer, otherwise there is no benefit from num_blocks>1
-    - Is it a problem that I only use the first vector to construct new vectors?
-      I think formally not, because the information from all other vectors is included through the MLP
-    """
-
     def __init__(
         self,
         in_vectors,
@@ -37,9 +26,12 @@ class EquiEdgeConv(MessagePassing):
         nonlinearity="exp",
         dropout_prob=None,
         aggr="sum",
+        layer_norm=False,
     ):
         super().__init__(aggr=aggr)
+        assert num_scalars > 0 or include_edges
         self.include_edges = include_edges
+        self.layer_norm = layer_norm
         self.operation = self.get_operation(operation)
         self.nonlinearity = self.get_nonlinearity(nonlinearity)
 
@@ -80,14 +72,20 @@ class EquiEdgeConv(MessagePassing):
         vecs = self.propagate(
             edge_index, s=scalars, fm=fourmomenta, edge_attr=edge_attr, batch=batch
         )
+
+        # equivariant layer normalization
+        if self.layer_norm:
+            norm = lorentz_squarednorm(vecs.reshape(fourmomenta.shape[0], -1, 4))
+            norm = norm.sum(dim=-1).unsqueeze(-1)
+            vecs = vecs / norm.clamp(min=1e-5).sqrt()
         return vecs
 
-    def message(self, s_i, s_j, fm_i, fm_j, edge_attr=None):
+    def message(self, edge_index, s_i, s_j, fm_i, fm_j, edge_attr=None):
         prefactor = torch.cat([s_i, s_j], dim=-1)
         if edge_attr is not None:
             prefactor = torch.cat([prefactor, edge_attr], dim=-1)
         prefactor = self.mlp(prefactor)
-        prefactor = self.nonlinearity(prefactor)
+        prefactor = self.nonlinearity(prefactor, index=edge_index[0])
 
         fm_rel = self.operation(fm_i, fm_j)[:, None, :4]
         prefactor = prefactor.unsqueeze(-1)
@@ -110,14 +108,16 @@ class EquiEdgeConv(MessagePassing):
 
     def get_nonlinearity(self, nonlinearity):
         if nonlinearity == None:
-            return Identity()
+            return lambda x, index: x
         elif nonlinearity == "exp":
-            return lambda x: torch.clamp(x, min=-10, max=10).exp()
+            return lambda x, index: torch.clamp(x, min=-10, max=10).exp()
         elif nonlinearity == "softplus":
-            return Softplus()
+            return lambda x, index: torch.nn.functional.softplus(x)
+        elif nonlinearity == "softmax":
+            return lambda x, index: softmax(x, index)
         else:
             raise ValueError(
-                f"Invalid nonlinearity {nonlinearity}. Options are (None, exp, softplus)."
+                f"Invalid nonlinearity {nonlinearity}. Options are (None, exp, softplus, softmax)."
             )
 
 
@@ -125,18 +125,12 @@ class EquiGraphNet(EquiVectors):
     def __init__(
         self,
         n_vectors,
-        num_scalars,
-        hidden_channels,
-        num_layers_mlp,
         num_blocks,
+        *args,
         hidden_vectors=1,
-        include_edges=True,
-        operation="single",
-        nonlinearity="exp",
-        dropout_prob=None,
+        **kwargs,
     ):
         super().__init__()
-        assert num_scalars > 0 or include_edges
 
         assert num_blocks >= 1
         in_vectors = [1] + [hidden_vectors] * (num_blocks - 1)
@@ -146,13 +140,8 @@ class EquiGraphNet(EquiVectors):
                 EquiEdgeConv(
                     in_vectors=in_vectors[i],
                     out_vectors=out_vectors[i],
-                    num_scalars=num_scalars,
-                    hidden_channels=hidden_channels,
-                    num_layers_mlp=num_layers_mlp,
-                    include_edges=include_edges,
-                    operation=operation,
-                    nonlinearity=nonlinearity,
-                    dropout_prob=dropout_prob,
+                    *args,
+                    **kwargs,
                 )
                 for i in range(num_blocks)
             ]

@@ -41,10 +41,10 @@ def test_equivariance(
     # input to mlp: only edge attributes
     calc_node_attr = lambda fm: torch.zeros(*fm.shape[:-1], num_scalars, dtype=dtype)
     equivectors = EquiGraphNet(
-        n_vectors,
-        num_scalars,
-        hidden_channels,
-        num_layers_mlp,
+        n_vectors=n_vectors,
+        num_scalars=num_scalars,
+        hidden_channels=hidden_channels,
+        num_layers_mlp=num_layers_mlp,
         num_blocks=num_blocks,
         hidden_vectors=hidden_vectors,
         include_edges=include_edges,
