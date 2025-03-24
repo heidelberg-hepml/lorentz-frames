@@ -192,7 +192,7 @@ class BaselineParticleNetWrapper(TaggerWrapper):
         assert (
             self.lframesnet.is_global
         ), "Non-equivariant model can only handle global lframes"
-        self.net = net(features_dims=self.in_channels, num_classes=self.out_channels)
+        self.net = net(input_dims=self.in_channels, num_classes=self.out_channels)
 
     def forward(self, embedding):
         (
@@ -343,7 +343,7 @@ class TransformerWrapper(AggregatedTaggerWrapper):
         return score, tracker
 
 
-class ParticleNetWrapper(TaggerWrapper):
+class ParticleNetWrapper(AggregatedTaggerWrapper):
     def __init__(
         self,
         net,
