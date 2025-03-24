@@ -20,7 +20,7 @@ TAGGING_FEATURES_PREPROCESSING = [
 ]
 
 
-def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
+def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data, use_float64=True):
     """
     Embed tagging data
     We use torch_geometric sparse representations to be more memory efficient
@@ -36,6 +36,8 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
         Indices of the first particle for each jet
         Also includes the first index after the batch ends
     cfg_data: settings for embedding
+    use_float64: bool
+        Whether to use double precision during creation of the tagging features
 
     Returns
     -------
@@ -103,6 +105,7 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
         global_tagging_features = get_tagging_features(
             fourmomenta,
             jet,
+            use_float64=use_float64,
         )
         global_tagging_features[is_spurion] = 0
     else:
@@ -220,7 +223,7 @@ def get_spurion(
     return spurion
 
 
-def get_tagging_features(fourmomenta, jet, eps=1e-10):
+def get_tagging_features(fourmomenta, jet, eps=1e-10, use_float64=True):
     """
     Compute features typically used in jet tagging
 
@@ -237,6 +240,10 @@ def get_tagging_features(fourmomenta, jet, eps=1e-10):
     features: torch.tensor of shape (n_particles, 7)
         Features: log_pt, log_energy, log_pt_rel, log_energy_rel, dphi, deta, dr
     """
+    if use_float64:
+        original_dtype = fourmomenta.dtype
+        fourmomenta = fourmomenta.to(torch.float64)
+        jet = jet.to(torch.float64)
     log_pt = get_pt(fourmomenta).unsqueeze(-1).log()
     log_energy = fourmomenta[..., 0].unsqueeze(-1).clamp(min=eps).log()
 
@@ -261,4 +268,8 @@ def get_tagging_features(fourmomenta, jet, eps=1e-10):
     for i, feature in enumerate(features):
         mean, factor = TAGGING_FEATURES_PREPROCESSING[i]
         features[i] = (feature - mean) * factor
+    if use_float64:
+        fourmomenta = fourmomenta.to(original_dtype)
+        jet = jet.to(original_dtype)
+        return torch.cat(features, dim=-1).to(original_dtype)
     return torch.cat(features, dim=-1)
