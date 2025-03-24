@@ -21,9 +21,9 @@ def orthogonal_trafo(vecs, use_float64=True, return_reg=False, **kwargs):
         orthogonal_vecs = out
     trafo = torch.stack(orthogonal_vecs, dim=-2)
 
-    metric = lorentz_metric(trafo.shape[:-2], device=trafo.device, dtype=trafo.dtype)
-    trafo = trafo @ metric
     trafo = timelike_first(trafo)
+    metric = lorentz_metric(trafo.shape[:-2], device=trafo.device, dtype=trafo.dtype)
+    trafo = metric @ trafo @ metric
     if use_float64:
         trafo = trafo.to(original_dtype)
     return (trafo, *reg) if return_reg else trafo
@@ -111,7 +111,9 @@ def orthogonalize_gramschmidt(vecs, eps_norm=1e-10):
 def timelike_first(trafo):
     """
     Re-order vectors such that the (single) timelike vector comes first
-    This is necessary to get valid Lorentz transformations
+    and we get the correct metric signature (1,-1,-1,-1).
+    This is only necessary if the orthogonalization starts from a set that
+    includes spacelike vectors, otherwise the first vector stays timelike.
     """
     vecs = [trafo[..., i, :] for i in range(4)]
     norm = torch.stack([lorentz_squarednorm(v) for v in vecs], dim=-1)

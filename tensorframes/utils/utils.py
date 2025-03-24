@@ -110,7 +110,7 @@ def get_ptr_from_batch(batch):
     )
 
 
-def get_edge_index_from_ptr(ptr):
+def get_edge_index_from_ptr(ptr, remove_self_loops=True):
     diffs = torch.diff(ptr)
     edge_index = torch.cat(
         [
@@ -119,10 +119,13 @@ def get_edge_index_from_ptr(ptr):
         ],
         dim=-1,
     )
+    if remove_self_loops:
+        row, col = edge_index
+        edge_index = edge_index[:, row != col]
     return edge_index
 
 
-def build_edge_index_fully_connected(features_ref, remove_self_loops=False):
+def build_edge_index_fully_connected(features_ref, remove_self_loops=True):
     batch_size, seq_len, _ = features_ref.shape
     device = features_ref.device
 

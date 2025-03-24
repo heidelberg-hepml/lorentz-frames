@@ -154,9 +154,7 @@ class EquiGraphNet(EquiVectors):
             scalars = torch.zeros_like(fourmomenta[..., []])
         if len(in_shape) > 1:
             assert ptr is None, "ptr only supported for sparse tensors"
-            edge_index, batch = build_edge_index_fully_connected(
-                fourmomenta, remove_self_loops=True
-            )
+            edge_index, batch = build_edge_index_fully_connected(fourmomenta)
             fourmomenta = fourmomenta.reshape(math.prod(in_shape), 4)
             scalars = scalars.reshape(math.prod(in_shape), scalars.shape[-1])
         else:
