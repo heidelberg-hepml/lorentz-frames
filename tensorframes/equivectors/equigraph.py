@@ -80,7 +80,7 @@ class EquiEdgeConv(MessagePassing):
             vecs = vecs / norm.clamp(min=1e-5).sqrt()
         return vecs
 
-    def message(self, s_i, s_j, fm_i, fm_j, edge_attr=None, edge_index=None):
+    def message(self, edge_index, s_i, s_j, fm_i, fm_j, edge_attr=None):
         prefactor = torch.cat([s_i, s_j], dim=-1)
         if edge_attr is not None:
             prefactor = torch.cat([prefactor, edge_attr], dim=-1)
