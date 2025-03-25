@@ -2,6 +2,7 @@ _target_: experiments.tagging.wrappers.GraphNetWrapper
 in_channels: null
 out_channels: null
 include_edges: false
+use_float64: null
 
 net:
  _target_: tensorframes.nn.graphnet.TFGraphNet
