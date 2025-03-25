@@ -97,8 +97,6 @@ class PrefetchFilesDataset(IterableDataset):
         self.num_prefetch = num_prefetch
         self.rng = random.Random()
         self._EOF = object()
-        self.generator = torch.Generator()
-        self.generator.manual_seed(42)
 
         # load_file arguments
         self.cfg_data = cfg_data
@@ -112,7 +110,9 @@ class PrefetchFilesDataset(IterableDataset):
         return len(self.file_paths) * self.events_per_file
 
     def _worker(self, file_queue):
-        for fpath in self.shuffled_files:
+        for i, fpath in enumerate(self.shuffled_files):
+            # always use the same initial randomness for each file
+            generator = torch.Generator().manual_seed(i)
             amp, mom, _, _, _ = load_file(
                 fpath,
                 cfg_data=self.cfg_data,
@@ -121,7 +121,7 @@ class PrefetchFilesDataset(IterableDataset):
                 amp_std=self.amp_std,
                 mom_std=self.mom_std,
                 dtype=self.dtype,
-                generator=self.generator,
+                generator=generator,
             )
             idx = torch.randperm(amp.shape[0])
             amp, mom = amp[idx], mom[idx]
