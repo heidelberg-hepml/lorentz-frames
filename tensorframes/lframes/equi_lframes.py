@@ -17,6 +17,7 @@ class LearnedLFrames(LFramesPredictor):
         equivectors,
         n_vectors,
         is_global=False,
+        random=False,
         ortho_kwargs={},
     ):
         """
@@ -28,6 +29,9 @@ class LearnedLFrames(LFramesPredictor):
             Number of vectors to predict
         is_global: bool
             If True, average the predicted vectors to construct a global frame
+        random: bool
+            If True, re-initialize the equivectors at each forward pass
+            This is a fancy way of doing data augmentation
         ortho_kwargs: dict
             Keyword arguments for orthogonalization
         """
@@ -35,6 +39,13 @@ class LearnedLFrames(LFramesPredictor):
         self.ortho_kwargs = ortho_kwargs
         self.equivectors = equivectors(n_vectors=n_vectors)
         self.is_global = is_global
+        self.random = random
+        if random:
+            self.equivectors.requires_grad_(False)
+
+    def init_weights_or_not(self):
+        if self.random:
+            self.equivectors.apply(init_weights)
 
     def globalize_vecs_or_not(self, vecs, ptr):
         return average_event(vecs, ptr) if self.is_global else vecs
@@ -60,6 +71,7 @@ class LearnedOrthogonalLFrames(LearnedLFrames):
         super().__init__(*args, n_vectors=3, **kwargs)
 
     def forward(self, fourmomenta, scalars=None, ptr=None, return_tracker=False):
+        self.init_weights_or_not()
         vecs = self.equivectors(fourmomenta, scalars=scalars, ptr=ptr)
         vecs = self.globalize_vecs_or_not(vecs, ptr)
         vecs = [vecs[..., i, :] for i in range(vecs.shape[-2])]
@@ -84,6 +96,7 @@ class LearnedPolarDecompositionLFrames(LearnedLFrames):
         super().__init__(*args, n_vectors=3, **kwargs)
 
     def forward(self, fourmomenta, scalars=None, ptr=None, return_tracker=False):
+        self.init_weights_or_not()
         vecs = self.equivectors(fourmomenta, scalars=scalars, ptr=ptr)
         vecs = self.globalize_vecs_or_not(vecs, ptr)
         fourmomenta = vecs[..., 0, :]
@@ -113,6 +126,7 @@ class LearnedRestLFrames(LearnedLFrames):
         super().__init__(*args, n_vectors=2, **kwargs)
 
     def forward(self, fourmomenta, scalars=None, ptr=None, return_tracker=False):
+        self.init_weights_or_not()
         references = self.equivectors(fourmomenta, scalars=scalars, ptr=ptr)
         references = self.globalize_vecs_or_not(references, ptr)
         references = [references[..., i, :] for i in range(references.shape[-2])]
@@ -144,6 +158,7 @@ class LearnedOrthogonal3DLFrames(LearnedLFrames):
         )
 
     def forward(self, fourmomenta, scalars=None, ptr=None, return_tracker=False):
+        self.init_weights_or_not()
         references = self.equivectors(fourmomenta, scalars=scalars, ptr=ptr)
         references = self.globalize_vecs_or_not(references, ptr)
         fourmomenta = lorentz_eye(
@@ -171,3 +186,8 @@ def average_event(vecs, ptr=None):
         batch = get_batch_from_ptr(ptr)
         vecs = scatter(vecs, batch, dim=0, reduce="mean").index_select(0, batch)
     return vecs
+
+
+def init_weights(module):
+    if hasattr(module, "reset_parameters"):
+        module.reset_parameters()
