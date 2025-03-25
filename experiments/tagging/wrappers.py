@@ -30,7 +30,7 @@ class TaggerWrapper(nn.Module):
         self.out_channels = out_channels
         self.lframesnet = lframesnet
         self.trafo_fourmomenta = TensorRepsTransform(TensorReps("1x1n"))
-        self.use_float64 = use_float64,
+        self.use_float64 = (use_float64,)
 
     def forward(self, embedding):
         # extract embedding

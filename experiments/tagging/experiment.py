@@ -241,7 +241,7 @@ class TaggingExperiment(BaseExperiment):
             batch.scalars,
             batch.ptr,
             self.cfg.data,
-            use_float64=self.cfg.data.use_float64
+            use_float64=self.cfg.data.use_float64,
         )
         y_pred, tracker = self.model(embedding)
         y_pred = y_pred[:, 0]
