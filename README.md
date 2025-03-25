@@ -1,6 +1,6 @@
 # lorentz-frames
 
-We adapt the tensorframes of https://arxiv.org/abs/2405.15389 to the Lorentz group.
+We adapt the tensorframes of https://arxiv.org/abs/2405.15389 to the Lorentz group and benchmark it on amplitude regression and jet tagging.
 
 ## 1. Getting started
 
@@ -18,7 +18,7 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-The datasets can be downloaded from the Heidelberg ITP website ([toptagging](https://www.thphys.uni-heidelberg.de/~plehn/data/toptagging_full.npz)). Finally, keys in the`data` section of the config files have to be adapted to specify where the datasets are located on your machine (`data_path` or `data_dir` depending on the experiment).
+Small test datasets are contained in the `data/` directory. The full datasets can be downloaded from the Heidelberg ITP website ([amplitudes](https://www.thphys.uni-heidelberg.de/~plehn/data/amplitudes.hdf5), [toptagging](https://www.thphys.uni-heidelberg.de/~plehn/data/toptagging_full.npz)) using the script `data/collect_data.py`. Finally, keys in the`data` section of the config files have to be adapted to specify where the datasets are located on your machine (`data_path` or `data_dir` depending on the experiment).
 
 ## 2. Running tests
 
@@ -36,16 +36,16 @@ pytest tests/utils/test_orthogonalize.py::test_lorentz_cross -s
 
 ## 3. Running experiments
 
-You can run a quick test experiment with the following command
+You can run a quick test toptagging experiment with the following command
 
 ```bash
-python run.py -cp config_quick -cn toptagging model=graphnet
+python run.py
 ```
 
-We use hydra for configuration management, allowing to quickly override parameters in e.g. config_quick/toptagging.yaml. Configuration files for small test runs are in `config_quick`, if you want to run the big runs you should use `-cn config`. There we have paired models and training configs, e.g.
+We use hydra for configuration management, allowing to quickly override parameters in e.g. config_quick/toptagging.yaml. Configuration files for small test runs are in `config_quick`, if you want to run the big runs you should use `-cn config`. The `model`, `training`, `lframesnet` and `equivectors` option can be selected as follows, and individual keys can be modified with the `.` operator
 
 ```bash
-python run.py -cp config -cn toptagging model=particlenet training=particlenet
+python run.py -cp config -cn toptagging model=graphnet training=graphnet model/lframesnet=orthogonal model/lframesnet/equivectors=equigraph training.iterations=42
 ```
 
 Further, we use mlflow for tracking. You can start a mlflow server based on the saved results in runs/tracking/mlflow.db on port 4242 of your machine with the following command

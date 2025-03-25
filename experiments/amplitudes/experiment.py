@@ -4,7 +4,6 @@ import torch
 
 from experiments.base_experiment import BaseExperiment
 from experiments.amplitudes.utils import (
-    preprocess_amplitude,
     undo_preprocess_amplitude,
     load_file,
 )
@@ -63,7 +62,13 @@ class AmplitudeExperiment(BaseExperiment):
         data_path = os.path.join(
             self.cfg.data.data_path, f"{self.cfg.data.dataset}.npy"
         )
-        self.amplitude, self.momentum, _ = load_file(
+        (
+            self.amplitude,
+            self.momentum,
+            self.amp_mean,
+            self.amp_std,
+            self.mom_std,
+        ) = load_file(
             data_path,
             self.cfg.data,
             self.dataset,
@@ -71,24 +76,11 @@ class AmplitudeExperiment(BaseExperiment):
         )
         LOGGER.info(f"Loaded events of shape {self.momentum.shape} from {data_path}")
 
-        # bring data into correct shape
-        if self.cfg.data.subsample is not None:
-            assert self.cfg.data.subsample < self.amplitude.shape[0]
-            LOGGER.info(
-                f"Reducing the size of the dataset from {self.amplitude.shape[0]} to {self.cfg.data.subsample}"
-            )
-            self.amplitude = self.amplitude[: self.cfg.data.subsample]
-            self.momentum = self.momentum[: self.cfg.data.subsample]
-
-        # preprocess data
-        self.amplitude_prepd, self.amp_mean, self.amp_std = preprocess_amplitude(
-            self.amplitude
-        )
         if self.cfg.data.standardize:
             self.model.init_standardization(self.momentum)
             self.model.to(device=self.device, dtype=self.dtype)
 
-    def _init_dataloader(self):
+    def _init_dataloader(self, log=True):
         assert sum(self.cfg.data.train_test_val) <= 1
 
         splits = (
@@ -97,7 +89,7 @@ class AmplitudeExperiment(BaseExperiment):
             .tolist()
         )
         trn_amp, tst_amp, val_amp = torch.split(
-            self.amplitude_prepd[: sum(splits)], splits, dim=0
+            self.amplitude[: sum(splits)], splits, dim=0
         )
         trn_mom, tst_mom, val_mom = torch.split(
             self.momentum[: sum(splits)], splits, dim=0
@@ -123,11 +115,12 @@ class AmplitudeExperiment(BaseExperiment):
             shuffle=False,
         )
 
-        LOGGER.info(
-            f"Constructed dataloaders with train_test_val={self.cfg.data.train_test_val}, "
-            f"train_batches={len(self.train_loader)}, test_batches={len(self.test_loader)}, val_batches={len(self.val_loader)}, "
-            f"batch_size={self.cfg.training.batchsize} (training), {self.cfg.evaluation.batchsize} (evaluation)"
-        )
+        if log:
+            LOGGER.info(
+                f"Constructed dataloaders with train_test_val={self.cfg.data.train_test_val}, "
+                f"train_batches={len(self.train_loader)}, test_batches={len(self.test_loader)}, val_batches={len(self.val_loader)}, "
+                f"batch_size={self.cfg.training.batchsize} (training), {self.cfg.evaluation.batchsize} (evaluation)"
+            )
 
     @torch.no_grad()
     def evaluate(self):
