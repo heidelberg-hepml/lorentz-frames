@@ -1,5 +1,4 @@
 import torch
-from random import randint
 from typing import List
 
 from tensorframes.utils.lorentz import lorentz_eye
@@ -67,6 +66,7 @@ def rand_lorentz(
     std_eta: float = 0.5,
     device: str = "cpu",
     dtype: torch.dtype = torch.float32,
+    generator: torch.Generator = None,
 ):
     """
     Create N transformation matrices
@@ -82,6 +82,7 @@ def rand_lorentz(
             Standard deviation of rapidity
         device: str
         dtype: torch.dtype
+        generator: torch.Generator
 
     Returns:
         final_trafo: torch.tensor of shape (*shape, 4, 4)
@@ -89,10 +90,12 @@ def rand_lorentz(
     assert std_eta > 0
     ones = torch.ones(shape, device=device, dtype=torch.long)
     axis = torch.stack([0 * ones, 1 * ones], dim=0)
-    angle = torch.randn(*shape, device=device, dtype=dtype) * std_eta
+    angle = (
+        torch.randn(*shape, device=device, dtype=dtype, generator=generator) * std_eta
+    )
     boost = transform([axis], [angle])
 
-    rotation = rand_rotation(shape, device, dtype)
+    rotation = rand_rotation(shape, device, dtype, generator=generator)
     trafo = torch.einsum("...ij,...jk,...kl->...il", boost, rotation, boost)
     return trafo
 
@@ -101,6 +104,7 @@ def rand_rotation(
     shape: List[int],
     device: str = "cpu",
     dtype: torch.dtype = torch.float32,
+    generator: torch.Generator = None,
 ):
     """
     Create N rotation matrices embedded in the Lorentz group
@@ -115,6 +119,7 @@ def rand_rotation(
             Shape of the transformation matrices
         device: str
         dtype: torch.dtype
+        generator: torch.Generator
 
     Returns:
         final_trafo: torch.tensor of shape (*shape, 4, 4)
@@ -128,7 +133,11 @@ def rand_rotation(
 
     angles = []
     for _ in range(len(axes)):
-        angle = torch.rand(*shape, device=device, dtype=dtype) * 2 * torch.pi
+        angle = (
+            torch.rand(*shape, device=device, dtype=dtype, generator=generator)
+            * 2
+            * torch.pi
+        )
         angles.append(angle)
 
     return transform(axes, angles)
@@ -138,6 +147,7 @@ def rand_xyrotation(
     shape: List[int],
     device: str = "cpu",
     dtype: torch.dtype = torch.float32,
+    generator: torch.Generator = None,
 ):
     """
     Create N xy-plane rotation matrices embedded in the Lorentz group
@@ -148,13 +158,18 @@ def rand_xyrotation(
             Shape of the transformation matrices
         device: str
         dtype: torch.dtype
+        generator: torch.Generator
 
     Returns:
         final_trafo: torch.tensor of shape (*shape, 4, 4)
     """
     axis = torch.tensor([1, 2], dtype=torch.long, device=device)
     axis = axis.view(2, *([1] * len(shape))).repeat(1, *shape)
-    angle = torch.rand(*shape, device=device, dtype=dtype) * 2 * torch.pi
+    angle = (
+        torch.rand(*shape, device=device, dtype=dtype, generator=generator)
+        * 2
+        * torch.pi
+    )
     return transform([axis], [angle])
 
 
@@ -163,6 +178,7 @@ def rand_ztransform(
     std_eta: float = 0.5,
     device: str = "cpu",
     dtype: torch.dtype = torch.float32,
+    generator: torch.Generator = None,
 ):
     """
     Create N combinations of rotations around and boosts along the z-axis.
@@ -175,6 +191,7 @@ def rand_ztransform(
             Standard deviation of rapidity
         device: str
         dtype: torch.dtype
+        generator: torch.Generator
 
     Returns:
         final_trafo: torch.tensor of shape (*shape, 4, 4)
@@ -182,11 +199,17 @@ def rand_ztransform(
     # rotation around z-axis
     axis1 = torch.tensor([1, 2], dtype=torch.long, device=device)
     axis1 = axis1.view(2, *([1] * len(shape))).repeat(1, *shape)
-    angle1 = torch.rand(*shape, device=device, dtype=dtype) * 2 * torch.pi
+    angle1 = (
+        torch.rand(*shape, device=device, dtype=dtype, generator=generator)
+        * 2
+        * torch.pi
+    )
 
     # boost along z-axis
     axis2 = torch.tensor([0, 3], dtype=torch.long, device=device)
     axis2 = axis2.view(2, *([1] * len(shape))).repeat(1, *shape)
-    angle2 = torch.rand(*shape, device=device, dtype=dtype) * std_eta
+    angle2 = (
+        torch.rand(*shape, device=device, dtype=dtype, generator=generator) * std_eta
+    )
 
     return transform([axis1, axis2], [angle1, angle2])

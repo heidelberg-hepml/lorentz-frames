@@ -13,8 +13,18 @@ from experiments.amplitudes.experiment import AmplitudeExperiment
 
 
 class AmplitudeXLExperiment(AmplitudeExperiment):
+    def init_data(self):
+        real_subsample = self.cfg.data.subsample
+        self.cfg.data.subsample = None
+        super().init_data()
+        self.cfg.data.subsample = real_subsample
+
     def _init_dataloader(self):
         super()._init_dataloader(log=False)  # init val and test dataloaders
+
+        assert (
+            self.cfg.data.subsample is None or self.cfg.data.num_train_files == 1
+        ), "You should not subsample while using multiple files"
 
         # overwrite self.train_loader
         get_fname = lambda n: os.path.join(
@@ -104,7 +114,9 @@ class PrefetchFilesDataset(IterableDataset):
         return len(self.file_paths) * self.events_per_file
 
     def _worker(self, file_queue):
-        for fpath in self.shuffled_files:
+        for i, fpath in enumerate(self.shuffled_files):
+            # always use the same initial randomness for each file
+            generator = torch.Generator().manual_seed(i)
             amp, mom, _, _, _ = load_file(
                 fpath,
                 cfg_data=self.cfg_data,
@@ -113,6 +125,7 @@ class PrefetchFilesDataset(IterableDataset):
                 amp_std=self.amp_std,
                 mom_std=self.mom_std,
                 dtype=self.dtype,
+                generator=generator,
             )
             idx = torch.randperm(amp.shape[0])
             amp, mom = amp[idx], mom[idx]
