@@ -4,9 +4,17 @@ import hydra
 
 import experiments.logger
 from experiments.tagging.experiment import TopTaggingExperiment
-from tensorframes.utils.transforms import rand_xyrotation
+from tensorframes.utils.transforms import rand_rotation, rand_lorentz, rand_xyrotation
 
 
+@pytest.mark.parametrize(
+    "rand_trafo,breaking_list",
+    [
+        [rand_rotation, ["data.beam_reference=null", "data.add_time_reference=false"]],
+        [rand_lorentz, ["data.beam_reference=null", "data.add_time_reference=false"]],
+        [rand_xyrotation, []],
+    ],
+)
 @pytest.mark.parametrize(
     "model_list",
     [
@@ -17,7 +25,7 @@ from tensorframes.utils.transforms import rand_xyrotation
 )
 @pytest.mark.parametrize("lframesnet", ["orthogonal", "polardec"])
 @pytest.mark.parametrize("iterations", [1])
-def test_tagging(model_list, lframesnet, iterations):
+def test_amplitudes(rand_trafo, model_list, lframesnet, breaking_list, iterations):
     experiments.logger.LOGGER.disabled = True  # turn off logging
 
     # create experiment environment
@@ -26,6 +34,7 @@ def test_tagging(model_list, lframesnet, iterations):
             *model_list,
             f"model/lframesnet={lframesnet}",
             "save=false",
+            *breaking_list,
             # "training.batchsize=1",
         ]
         cfg = hydra.compose(config_name="toptagging", overrides=overrides)
@@ -48,7 +57,7 @@ def test_tagging(model_list, lframesnet, iterations):
 
         # augmented data
         mom = data_augmented.x
-        trafo = rand_xyrotation(mom.shape[:-2] + (1,))
+        trafo = rand_trafo(mom.shape[:-2] + (1,))
         mom_augmented = torch.einsum(
             "...ij,...j->...i", trafo.to(torch.float64), mom.to(torch.float64)
         ).to(torch.float32)
@@ -57,4 +66,4 @@ def test_tagging(model_list, lframesnet, iterations):
 
         mse = (y_pred_augmented - y_pred) ** 2
         mse_max = max(mse.max().item(), mse_max)
-    print(f"{mse_max:.2e}", model_list)
+    print(f"{mse_max:.2e}", rand_trafo.__name__, lframesnet, breaking_list, model_list)
