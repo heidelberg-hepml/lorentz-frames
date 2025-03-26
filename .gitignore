@@ -16,6 +16,7 @@ mlruns/
 outputs/
 scripts/
 data/jetclass/
+no_tracking/
 *~
 *.hdf5
 *.npy
