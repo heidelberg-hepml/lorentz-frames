@@ -48,11 +48,16 @@ def test_amplitudes(rand_trafo, model_list, lframesnet, breaking_list, iteration
     exp._init_dataloader()
     exp._init_loss()
 
-    mse_max = 0
-    for i, data in enumerate(exp.train_loader):
+    def cycle(iterable):
+        while True:
+            for x in iterable:
+                yield x
+
+    mses = []
+    iterator = iter(cycle(exp.train_loader))
+    for _ in range(iterations):
+        data = next(iterator)
         data_augmented = data.clone()
-        if i == iterations:
-            break
 
         # original data
         y_pred = exp._get_ypred_and_label(data)[0]
@@ -67,5 +72,11 @@ def test_amplitudes(rand_trafo, model_list, lframesnet, breaking_list, iteration
         y_pred_augmented = exp._get_ypred_and_label(data_augmented)[0]
 
         mse = (y_pred_augmented - y_pred) ** 2
-        mse_max = max(mse.max().item(), mse_max)
-    print(f"{mse_max:.2e}", rand_trafo.__name__, lframesnet, breaking_list, model_list)
+        mses.append(mse.detach())
+    mses = torch.cat(mses, dim=0).clamp(min=1e-30)
+    print(
+        f"log-mean={mses.log().mean().exp():.2e} max={mses.max().item():.2e}",
+        model_list,
+        rand_trafo.__name__,
+        lframesnet,
+    )

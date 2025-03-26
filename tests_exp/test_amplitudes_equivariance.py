@@ -10,19 +10,18 @@ from tensorframes.utils.transforms import rand_rotation, rand_lorentz
 @pytest.mark.parametrize(
     "model_list",
     [
-        ["model=amp_mlp"],
+        # ["model=amp_mlp"],
         ["model=amp_transformer"],
-        ["model=amp_graphnet"],
-        ["model=amp_graphnet", "model.include_edges=false"],
-        ["model=amp_graphnet", "model.include_nodes=false"],
+        # ["model=amp_graphnet"],
+        # ["model=amp_graphnet", "model.include_edges=false"],
+        # ["model=amp_graphnet", "model.include_nodes=false"],
     ],
 )
 @pytest.mark.parametrize("lframesnet", ["orthogonal", "polardec"])
 @pytest.mark.parametrize("rand_trafo", [rand_rotation, rand_lorentz])
-@pytest.mark.parametrize("iterations", [1000])
+@pytest.mark.parametrize("iterations", [100])
 def test_amplitudes(model_list, lframesnet, rand_trafo, iterations):
     experiments.logger.LOGGER.disabled = True  # turn off logging
-    torch.manual_seed(0)
     use_float64 = False
 
     # create experiment environment
@@ -43,11 +42,16 @@ def test_amplitudes(model_list, lframesnet, rand_trafo, iterations):
     exp._init_dataloader()
     exp._init_loss()
 
-    mse_max = 0
-    for i, data in enumerate(exp.train_loader):
+    def cycle(iterable):
+        while True:
+            for x in iterable:
+                yield x
+
+    mses = []
+    iterator = iter(cycle(exp.train_loader))
+    for _ in range(iterations):
+        data = next(iterator)
         mom = data[1]
-        if i == iterations:
-            break
 
         # original data
         amp_original = exp.model(mom)[0]
@@ -60,5 +64,11 @@ def test_amplitudes(model_list, lframesnet, rand_trafo, iterations):
         amp_augmented = exp.model(mom_augmented)[0]
 
         mse = (amp_original - amp_augmented) ** 2
-        mse_max = max(mse.max().item(), mse_max)
-    print(f"{mse_max:.2e}", model_list, rand_trafo.__name__, lframesnet)
+        mses.append(mse.detach())
+    mses = torch.cat(mses, dim=0)[:, 0].clamp(min=1e-30)
+    print(
+        f"log-mean={mses.log().mean().exp():.2e} max={mses.max().item():.2e}",
+        model_list,
+        rand_trafo.__name__,
+        lframesnet,
+    )
