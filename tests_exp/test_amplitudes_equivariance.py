@@ -19,9 +19,11 @@ from tensorframes.utils.transforms import rand_rotation, rand_lorentz
 )
 @pytest.mark.parametrize("lframesnet", ["orthogonal", "polardec"])
 @pytest.mark.parametrize("rand_trafo", [rand_rotation, rand_lorentz])
-@pytest.mark.parametrize("iterations", [100])
+@pytest.mark.parametrize("iterations", [1000])
 def test_amplitudes(model_list, lframesnet, rand_trafo, iterations):
     experiments.logger.LOGGER.disabled = True  # turn off logging
+    torch.manual_seed(0)
+    dtype = torch.float32
 
     # create experiment environment
     with hydra.initialize(config_path="../config_quick", version_base=None):
@@ -39,10 +41,11 @@ def test_amplitudes(model_list, lframesnet, rand_trafo, iterations):
     exp.init_data()
     exp._init_dataloader()
     exp._init_loss()
+    exp.model.to(dtype)
 
     mse_max = 0
     for i, data in enumerate(exp.train_loader):
-        mom = data[1]
+        mom = data[1].to(dtype)
         if i == iterations:
             break
 
@@ -53,9 +56,9 @@ def test_amplitudes(model_list, lframesnet, rand_trafo, iterations):
         trafo = rand_trafo(mom.shape[:-2] + (1,))
         mom_augmented = torch.einsum(
             "...ij,...j->...i", trafo.to(torch.float64), mom.to(torch.float64)
-        ).to(torch.float32)
+        ).to(dtype)
         amp_augmented = exp.model(mom_augmented)[0]
 
         mse = (amp_original - amp_augmented) ** 2
         mse_max = max(mse.max().item(), mse_max)
-    print(f"{mse_max:.2e}", model_list)
+    print(f"{mse_max:.2e}", model_list, rand_trafo.__name__, lframesnet)
