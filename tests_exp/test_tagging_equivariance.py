@@ -27,7 +27,7 @@ from tensorframes.utils.transforms import rand_rotation, rand_lorentz, rand_xyro
 @pytest.mark.parametrize("iterations", [1])
 def test_amplitudes(rand_trafo, model_list, lframesnet, breaking_list, iterations):
     experiments.logger.LOGGER.disabled = True  # turn off logging
-    dtype = torch.float32
+    use_float64 = False
 
     # create experiment environment
     with hydra.initialize(config_path="../config_quick", version_base=None):
@@ -36,6 +36,7 @@ def test_amplitudes(rand_trafo, model_list, lframesnet, breaking_list, iteration
             f"model/lframesnet={lframesnet}",
             "save=false",
             *breaking_list,
+            f"use_float64={use_float64}",
             # "training.batchsize=1",
         ]
         cfg = hydra.compose(config_name="toptagging", overrides=overrides)
@@ -46,12 +47,9 @@ def test_amplitudes(rand_trafo, model_list, lframesnet, breaking_list, iteration
     exp.init_data()
     exp._init_dataloader()
     exp._init_loss()
-    exp.model.to(dtype)
 
     mse_max = 0
     for i, data in enumerate(exp.train_loader):
-        data.x = data.x.to(dtype)
-        data.scalars = data.scalars.to(dtype)
         data_augmented = data.clone()
         if i == iterations:
             break
@@ -64,7 +62,7 @@ def test_amplitudes(rand_trafo, model_list, lframesnet, breaking_list, iteration
         trafo = rand_trafo(mom.shape[:-2] + (1,))
         mom_augmented = torch.einsum(
             "...ij,...j->...i", trafo.to(torch.float64), mom.to(torch.float64)
-        ).to(dtype)
+        ).to(exp.dtype)
         data_augmented.x = mom_augmented
         y_pred_augmented = exp._get_ypred_and_label(data_augmented)[0]
 
