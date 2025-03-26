@@ -4,20 +4,26 @@ import hydra
 
 import experiments.logger
 from experiments.tagging.experiment import TopTaggingExperiment
-from tensorframes.utils.transforms import rand_rotation, rand_lorentz
+from tensorframes.utils.transforms import rand_xyrotation
 
 
-@pytest.mark.parametrize("model", ["transformer"])
+@pytest.mark.parametrize(
+    "model_list",
+    [
+        ["model=transformer"],
+        ["model=graphnet"],
+        ["model=graphnet", "model.include_edges=false"],
+    ],
+)
 @pytest.mark.parametrize("lframesnet", ["orthogonal", "polardec"])
-@pytest.mark.parametrize("rand_trafo", [rand_rotation, rand_lorentz])
 @pytest.mark.parametrize("iterations", [1])
-def test_tagging(model, lframesnet, rand_trafo, iterations):
+def test_tagging(model_list, lframesnet, iterations):
     experiments.logger.LOGGER.disabled = True  # turn off logging
 
     # create experiment environment
     with hydra.initialize(config_path="../config_quick", version_base=None):
         overrides = [
-            f"model={model}",
+            *model_list,
             f"model/lframesnet={lframesnet}",
             "save=false",
             # "training.batchsize=1",
@@ -31,6 +37,7 @@ def test_tagging(model, lframesnet, rand_trafo, iterations):
     exp._init_dataloader()
     exp._init_loss()
 
+    mse_max = 0
     for i, data in enumerate(exp.train_loader):
         data_augmented = data.clone()
         if i == iterations:
@@ -41,12 +48,13 @@ def test_tagging(model, lframesnet, rand_trafo, iterations):
 
         # augmented data
         mom = data_augmented.x
-        trafo = rand_trafo(mom.shape[:-2] + (1,))
+        trafo = rand_xyrotation(mom.shape[:-2] + (1,))
         mom_augmented = torch.einsum(
             "...ij,...j->...i", trafo.to(torch.float64), mom.to(torch.float64)
         ).to(torch.float32)
         data_augmented.x = mom_augmented
         y_pred_augmented = exp._get_ypred_and_label(data_augmented)[0]
 
-        diff = y_pred_augmented - y_pred
-        print("Max deviation: ", diff.abs().max())
+        mse = (y_pred_augmented - y_pred) ** 2
+        mse_max = max(mse.max().item(), mse_max)
+    print(f"{mse_max:.2e}", model_list)
