@@ -332,7 +332,9 @@ class TransformerWrapper(AggregatedTaggerWrapper):
         ) = super().forward(embedding)
 
         mask = get_xformers_attention_mask(
-            batch, materialize=features_local.device == torch.device("cpu")
+            batch,
+            materialize=features_local.device == torch.device("cpu"),
+            dtype=features_local.dtype,
         )
 
         # add artificial batch dimension
