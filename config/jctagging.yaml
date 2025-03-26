@@ -2,7 +2,8 @@ exp_type: jctagging
 exp_name: jc_debug
 
 data:
- data_dir: data/jetclass/  # /remote/gpu02/breso/lorentz-gatr-pretrain/data/JetClass/Pythia
+ data_dir: /remote/gpu02/breso/lorentz-gatr-pretrain-old/data/JetClass/Pythia
+ data_config: null
  features: default
  train_files_range: [0, 100]
  test_files_range: [100,120]
