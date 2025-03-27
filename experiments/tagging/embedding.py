@@ -20,7 +20,9 @@ TAGGING_FEATURES_PREPROCESSING = [
 ]
 
 
-def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data, use_float64=True):
+def embed_tagging_data(
+    fourmomenta, scalars, ptr, cfg_data, use_float64_tagging_features=True
+):
     """
     Embed tagging data
     We use torch_geometric sparse representations to be more memory efficient
@@ -105,7 +107,7 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data, use_float64=True):
         global_tagging_features = get_tagging_features(
             fourmomenta,
             jet,
-            use_float64=use_float64,
+            use_float64_tagging_features=use_float64_tagging_features,
         )
         global_tagging_features[is_spurion] = 0
     else:
@@ -223,7 +225,9 @@ def get_spurion(
     return spurion
 
 
-def get_tagging_features(fourmomenta, jet, eps=1e-10, use_float64=True):
+def get_tagging_features(
+    fourmomenta, jet, eps=1e-10, use_float64_tagging_features=True
+):
     """
     Compute features typically used in jet tagging
 
@@ -240,7 +244,7 @@ def get_tagging_features(fourmomenta, jet, eps=1e-10, use_float64=True):
     features: torch.tensor of shape (n_particles, 7)
         Features: log_pt, log_energy, log_pt_rel, log_energy_rel, dphi, deta, dr
     """
-    if use_float64:
+    if use_float64_tagging_features:
         original_dtype = fourmomenta.dtype
         fourmomenta = fourmomenta.to(torch.float64)
         jet = jet.to(torch.float64)
@@ -268,7 +272,7 @@ def get_tagging_features(fourmomenta, jet, eps=1e-10, use_float64=True):
     for i, feature in enumerate(features):
         mean, factor = TAGGING_FEATURES_PREPROCESSING[i]
         features[i] = (feature - mean) * factor
-    if use_float64:
+    if use_float64_tagging_features:
         fourmomenta = fourmomenta.to(original_dtype)
         jet = jet.to(original_dtype)
         return torch.cat(features, dim=-1).to(original_dtype)

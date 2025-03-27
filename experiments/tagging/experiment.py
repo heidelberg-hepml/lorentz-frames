@@ -27,7 +27,9 @@ class TaggingExperiment(BaseExperiment):
             self.cfg.model.lframesnet.equivectors.num_scalars = (
                 7 if self.cfg.data.add_tagging_features_lframesnet else 0
             )
-            self.cfg.model.use_float64 = self.cfg.data.use_float64
+            self.cfg.model.use_float64_tagging_features = (
+                self.cfg.data.use_float64_tagging_features
+            )
 
         if self.cfg.model.net._target_.rsplit(".", 1)[-1] == "TFGraphNet":
             self.cfg.model.net.num_edge_attr = 1 if self.cfg.model.include_edges else 0

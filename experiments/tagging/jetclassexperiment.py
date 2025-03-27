@@ -63,6 +63,19 @@ class JetClassTaggingExperiment(TaggingExperiment):
             )
 
     def init_physics(self):
+        # decide which entries to use for the lframesnet
+        if "equivectors" in self.cfg.model.lframesnet:
+            self.cfg.model.lframesnet.equivectors.num_scalars = (
+                self.cfg.model.in_channels
+                if self.cfg.data.add_tagging_features_lframesnet
+                else 0
+            )
+            self.cfg.model.use_float64_tagging_features = (
+                self.cfg.data.use_float64_tagging_features
+            )
+
+        if self.cfg.model.net._target_.rsplit(".", 1)[-1] == "TFGraphNet":
+            self.cfg.model.net.num_edge_attr = 1 if self.cfg.model.include_edges else 0
         return
 
     def _init_loss(self):
