@@ -47,6 +47,9 @@ class TopXLTaggingExperiment(TaggingExperiment):
                     f"Input feature option {self.cfg.data.features} not implemented"
                 )
 
+    def init_physics(self):
+        return
+
     def init_data(self):
         LOGGER.info("Creating SimpleIterDataset")
         t0 = time.time()

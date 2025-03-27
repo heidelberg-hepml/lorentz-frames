@@ -36,7 +36,7 @@ class JetClassTaggingExperiment(TaggingExperiment):
             "ZToQQ",
         ]
         self.cfg.model.out_channels = len(self.class_names)
-        self.cfg.model.in_channels = 4  # energy-momentum vector
+        self.cfg.model.in_channels = 7  # energy-momentum vector
 
         if self.cfg.data.features == "fourmomenta":
             self.cfg.data.data_config = (
@@ -61,6 +61,9 @@ class JetClassTaggingExperiment(TaggingExperiment):
             raise ValueError(
                 f"Input feature option {self.cfg.data.features} not implemented"
             )
+
+    def init_physics(self):
+        return
 
     def _init_loss(self):
         self.loss = torch.nn.CrossEntropyLoss()
