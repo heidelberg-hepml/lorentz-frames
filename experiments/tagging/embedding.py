@@ -273,7 +273,5 @@ def get_tagging_features(
         mean, factor = TAGGING_FEATURES_PREPROCESSING[i]
         features[i] = (feature - mean) * factor
     if use_float64_tagging_features:
-        fourmomenta = fourmomenta.to(original_dtype)
-        jet = jet.to(original_dtype)
         return torch.cat(features, dim=-1).to(original_dtype)
     return torch.cat(features, dim=-1)

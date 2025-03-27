@@ -5,7 +5,7 @@ data:
  two_beams: true
  add_time_reference: true
  mass_reg: 1e-2
- use_float64: True
+ use_float64_tagging_features: True
 
 evaluation:
  batchsize: 128

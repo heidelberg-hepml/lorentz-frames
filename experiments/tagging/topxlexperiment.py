@@ -53,7 +53,7 @@ class TopXLTaggingExperiment(TaggingExperiment):
             self.cfg.model.lframesnet.equivectors.num_scalars = (
                 self.cfg.model.in_channels
                 if self.cfg.data.add_tagging_features_lframesnet
-                else 0
+                else self.cfg.model.in_channels - 7
             )
             self.cfg.model.use_float64_tagging_features = (
                 self.cfg.data.use_float64_tagging_features
