@@ -46,6 +46,7 @@ def load_file(
     amp_std=None,
     mom_std=None,
     dtype=torch.float32,
+    generator=None,
 ):
     assert os.path.exists(data_path)
     data_raw = load(data_path)
@@ -72,10 +73,10 @@ def load_file(
         trafo = restframe_boost(-lab_momentum)
     elif cfg_data.prepare == "lorentz":
         # add random rotation to existing z-boost -> general Lorentz trafo
-        trafo = rand_rotation(momentum.shape[:-2], dtype=dtype)
+        trafo = rand_rotation(momentum.shape[:-2], generator=generator, dtype=dtype)
     elif cfg_data.prepare == "ztransform":
         # add random xyrotation to existing z-boost -> general ztransform
-        trafo = rand_xyrotation(momentum.shape[:-2], dtype=dtype)
+        trafo = rand_xyrotation(momentum.shape[:-2], generator=generator, dtype=dtype)
     else:
         raise ValueError(f"cfg.data.prepare={cfg_data.prepare} not implemented")
     momentum = torch.einsum("...ij,...kj->...ki", trafo, momentum)
