@@ -1,7 +1,7 @@
 _target_: experiments.tagging.wrappers.ParticleNetWrapper
 in_channels: null
 out_channels: null
-use_float64_tagging_features: null
+use_float64_tagging_features: True
 
 net:
  _target_: tensorframes.nn.particlenet.TFParticleNet
