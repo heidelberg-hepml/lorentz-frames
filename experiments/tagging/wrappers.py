@@ -23,14 +23,12 @@ class TaggerWrapper(nn.Module):
         in_channels: int,
         out_channels: int,
         lframesnet,
-        use_float64_tagging_features,
     ):
         super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.lframesnet = lframesnet
         self.trafo_fourmomenta = TensorRepsTransform(TensorReps("1x1n"))
-        self.use_float64_tagging_features = use_float64_tagging_features
 
     def forward(self, embedding):
         # extract embedding
@@ -82,7 +80,6 @@ class TaggerWrapper(nn.Module):
         local_tagging_features_nospurions = get_tagging_features(
             fourmomenta_local_nospurions,
             jet_local_nospurions,
-            use_float64_tagging_features=self.use_float64_tagging_features,
         )
 
         features_local_nospurions = torch.cat(

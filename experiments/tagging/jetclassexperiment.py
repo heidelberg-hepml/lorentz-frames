@@ -70,9 +70,6 @@ class JetClassTaggingExperiment(TaggingExperiment):
                 if self.cfg.data.add_tagging_features_lframesnet
                 else self.cfg.model.in_channels - 7
             )
-        self.cfg.model.use_float64_tagging_features = (
-            self.cfg.data.use_float64_tagging_features
-        )
 
         if self.cfg.model.net._target_.rsplit(".", 1)[-1] == "TFGraphNet":
             self.cfg.model.net.num_edge_attr = 1 if self.cfg.model.include_edges else 0
@@ -274,7 +271,6 @@ class JetClassTaggingExperiment(TaggingExperiment):
             scalars,
             ptr,
             self.cfg.data,
-            use_float64_tagging_features=self.cfg.data.use_float64_tagging_features,
         )
         y_pred, tracker = self.model(embedding)
         return y_pred, label, tracker
