@@ -3,7 +3,7 @@ import hydra
 
 import experiments.logger
 from experiments.tagging.experiment import TopTaggingExperiment
-from tests_exp.debug import track_clamps
+from tests_exp.utils import track_clamps
 
 
 @pytest.mark.parametrize(
