@@ -1,6 +1,7 @@
 import torch
 import pytest
 import hydra
+import numpy as np
 
 import experiments.logger
 from experiments.amplitudes.experiment import AmplitudeExperiment
@@ -8,21 +9,27 @@ from tensorframes.utils.transforms import rand_rotation, rand_lorentz
 
 
 @pytest.mark.parametrize(
-    "model_list",
-    [
-        # ["model=amp_mlp"],
-        ["model=amp_transformer"],
-        # ["model=amp_graphnet"],
-        # ["model=amp_graphnet", "model.include_edges=false"],
-        # ["model=amp_graphnet", "model.include_nodes=false"],
-    ],
+    "model_idx,model_list",
+    list(
+        enumerate(
+            [
+                ["model=amp_mlp"],
+                ["model=amp_transformer"],
+                ["model=amp_graphnet"],
+                ["model=amp_graphnet", "model.include_edges=false"],
+                ["model=amp_graphnet", "model.include_nodes=false"],
+            ],
+        )
+    ),
 )
 @pytest.mark.parametrize("lframesnet", ["orthogonal", "polardec"])
 @pytest.mark.parametrize("rand_trafo", [rand_rotation, rand_lorentz])
 @pytest.mark.parametrize("iterations", [100])
-def test_amplitudes(model_list, lframesnet, rand_trafo, iterations):
+@pytest.mark.parametrize("use_float64", [False, True])
+def test_amplitudes(
+    model_idx, model_list, lframesnet, rand_trafo, iterations, use_float64
+):
     experiments.logger.LOGGER.disabled = True  # turn off logging
-    use_float64 = False
 
     # create experiment environment
     with hydra.initialize(config_path="../config_quick", version_base=None):
@@ -30,7 +37,7 @@ def test_amplitudes(model_list, lframesnet, rand_trafo, iterations):
             *model_list,
             f"model/lframesnet={lframesnet}",
             "save=false",
-            f"use_float64={use_float64}",
+            # f"use_float64={use_float64}",
             # "training.batchsize=1",
         ]
         cfg = hydra.compose(config_name="amplitudes", overrides=overrides)
@@ -72,3 +79,7 @@ def test_amplitudes(model_list, lframesnet, rand_trafo, iterations):
         rand_trafo.__name__,
         lframesnet,
     )
+    filename = (
+        f"tests_exp/equitest_amp_{model_idx}_{lframesnet}_{rand_trafo.__name__}.npy"
+    )
+    np.save(filename, mses.cpu().numpy())
