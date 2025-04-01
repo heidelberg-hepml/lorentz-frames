@@ -49,7 +49,7 @@ def test_amplitudes(
             f"model/lframesnet={lframesnet}",
             "save=false",
             *breaking_list,
-            # f"use_float64={use_float64}",
+            f"use_float64={use_float64}",
             # "training.batchsize=1",
         ]
         cfg = hydra.compose(config_name="toptagging", overrides=overrides)

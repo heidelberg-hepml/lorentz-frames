@@ -37,7 +37,7 @@ def test_amplitudes(
             *model_list,
             f"model/lframesnet={lframesnet}",
             "save=false",
-            # f"use_float64={use_float64}",
+            f"use_float64={use_float64}",
             # "training.batchsize=1",
         ]
         cfg = hydra.compose(config_name="amplitudes", overrides=overrides)
