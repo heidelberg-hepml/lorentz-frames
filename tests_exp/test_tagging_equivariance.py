@@ -92,8 +92,7 @@ def test_amplitudes(
         model_list,
         rand_trafo.__name__,
         lframesnet,
+        "float64" if use_float64 else "float32",
     )
-    filename = (
-        f"tests_exp/equitest_tag_{model_idx}_{lframesnet}_{rand_trafo.__name__}.npy"
-    )
+    filename = f"tests_exp/equitest_tag_{model_idx}_{lframesnet}_{rand_trafo.__name__}_{'float64' if use_float64 else 'float32'}.npy"
     np.save(filename, mses.cpu().numpy())
