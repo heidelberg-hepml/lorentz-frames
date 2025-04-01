@@ -375,7 +375,14 @@ class ParticleNetWrapper(AggregatedTaggerWrapper):
         phieta_local = phieta_local.transpose(1, 2)
         features_local = features_local.transpose(1, 2)
         lframes_no_spurions = LFrames(
-            to_dense_batch(lframes_no_spurions.matrices, batch)[0].view(-1, 4, 4)
+            to_dense_batch(lframes_no_spurions.matrices, batch)[0].view(-1, 4, 4),
+            is_global=lframes_no_spurions.is_global,
+            det=lframes_no_spurions.det,
+            inv=lframes_no_spurions.inv,
+            is_identity=lframes_no_spurions.is_identity,
+            device=lframes_no_spurions.device,
+            dtype=lframes_no_spurions.dtype,
+            shape=lframes_no_spurions.matrices.shape,
         )
         mask = mask.unsqueeze(1)
 
