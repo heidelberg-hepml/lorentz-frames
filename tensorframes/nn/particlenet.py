@@ -24,13 +24,17 @@ def change_local_frame(x_j_in, idx, lframes, trafo):
     transform x_j from frame 'j' to frame 'i'
     notation: x_j = x[idx_j] = 'fts', x_i = x[idx_i] = 'x'
     """
-    # create trafo
-    idx_i = (
-        torch.arange(x_j_in.shape[-2] * x_j_in.shape[0])
-        .repeat_interleave(x_j_in.shape[-1])
-        .to(x_j_in.device)
+    # create trafo : we use batch_size*num_points with repeats of k for idx_i e.g. for 2 points with 3 batch and k=2,
+    # this idx_i becomes (0,1,2,3,4,5) -> (0,0,1,1,2,2,3,3,4,4,5,5)
+    # the idx_j should have the form of the nearest neighbors with the position in the batch, e.g. idx+idx_base =
+    # (((0,1)(1,0))((0,1)(1,0))((0,1)(1,0)))+(0,2,4) = (0,1,1,0,2,3,3,2,4,5,5,4)
+    # This gives the connections (0,0,1,1,2,2,3,3,4,4,5,5)->(0,1,1,0,2,3,3,2,4,5,5,4)
+    idx_i = torch.arange(
+        x_j_in.shape[-2] * x_j_in.shape[0], device=x_j_in.device
+    ).repeat_interleave(
+        x_j_in.shape[-1]
     )  # identity (batch, num_points*k)
-    idx_j = idx  # indices from kn (batch, num_points*k)
+    idx_j = idx  # indices from knn (batch, num_points*k)
 
     lframes_i = IndexSelectLFrames(lframes, idx_i)
     lframes_j = IndexSelectLFrames(lframes, idx_j)
