@@ -36,7 +36,7 @@ class JetClassTaggingExperiment(TaggingExperiment):
             "ZToQQ",
         ]
         self.cfg.model.out_channels = len(self.class_names)
-        self.cfg.model.in_channels = 7  # energy-momentum vector
+        self.cfg.model.in_channels = 7  # tagging features
 
         if self.cfg.data.features == "fourmomenta":
             self.cfg.data.data_config = (
