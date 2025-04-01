@@ -8,6 +8,7 @@ data:
  train_files_range: [0, 99]
  test_files_range: [100, 119]
  val_files_range: [120, 129]
+ use_float64_tagging_features: True
 
 jc_params:
  num_workers: 4

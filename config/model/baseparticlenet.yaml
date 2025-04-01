@@ -1,7 +1,7 @@
 _target_: experiments.tagging.wrappers.BaselineParticleNetWrapper
 in_channels: null
 out_channels: null
-use_float64_tagging_features: True
+use_float64_tagging_features: null
 
 net:
  _target_: experiments.baselines.particlenet.ParticleNet
