@@ -95,12 +95,12 @@ def rand_lorentz(
     )
     boost = transform([axis], [angle])
 
-    rotation = rand_rotation(shape, device, dtype, generator=generator)
+    rotation = rand_rotation_uniform(shape, device, dtype, generator=generator)
     trafo = torch.einsum("...ij,...jk,...kl->...il", boost, rotation, boost)
     return trafo
 
 
-def rand_rotation(
+def rand_rotation_naive(
     shape: List[int],
     device: str = "cpu",
     dtype: torch.dtype = torch.float32,
@@ -113,6 +113,9 @@ def rand_rotation(
 
     Note that 3 rotations are enough to cover the whole group (Euler angles)
     (two rotations are only enough for point masses)
+
+    Also, note that these rotations are not uniform. For uniform rotations,
+    use rand_rotation_uniform (which is probably more powerful).
 
     Args:
         shape: List[int]
@@ -151,7 +154,7 @@ def rand_xyrotation(
 ):
     """
     Create N xy-plane rotation matrices embedded in the Lorentz group
-    This function is a special case of rand_rotation
+    This function is a special case of rand_rotation_naive
 
     Args:
         shape: List[int]

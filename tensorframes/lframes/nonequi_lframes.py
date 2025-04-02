@@ -2,7 +2,8 @@ import torch
 from tensorframes.lframes.lframes import LFrames
 from tensorframes.utils.transforms import (
     rand_lorentz,
-    rand_rotation,
+    rand_rotation_uniform,
+    rand_rotation_naive,
     rand_xyrotation,
     rand_ztransform,
 )
@@ -52,7 +53,9 @@ class RandomLFrames(LFramesPredictor):
         if self.transform_type == "lorentz":
             return rand_lorentz(shape, std_eta=self.std_eta, device=device)
         elif self.transform_type == "rotation":
-            return rand_rotation(shape, device=device)
+            return rand_rotation_uniform(shape, device=device)
+        elif self.transform_type == "rotation_naive":
+            return rand_rotation_naive(shape, device=device)
         elif self.transform_type == "xyrotation":
             return rand_xyrotation(shape, device=device)
         elif self.transform_type == "ztransform":

@@ -5,7 +5,7 @@ from tests.helpers import lorentz_test
 
 from tensorframes.utils.transforms import (
     rand_lorentz,
-    rand_rotation,
+    rand_rotation_naive,
     rand_xyrotation,
     rand_ztransform,
     rand_rotation_uniform,
@@ -18,7 +18,7 @@ from tensorframes.utils.transforms import (
     "transform_type",
     [
         rand_lorentz,
-        rand_rotation,
+        rand_rotation_naive,
         rand_xyrotation,
         rand_ztransform,
         rand_rotation_uniform,
@@ -40,7 +40,7 @@ def test_rand_lorentz(batch_dims, std_eta, transform_type):
     lorentz_test(transform, **MILD_TOLERANCES)
 
     # test specific properties of the transform
-    if transform_type in [rand_rotation, rand_rotation_uniform, rand_xyrotation]:
+    if transform_type in [rand_rotation_naive, rand_rotation_uniform, rand_xyrotation]:
         should_zero = torch.cat(
             [transform[..., 0, 1:].flatten(), transform[..., 1:, 0].flatten()]
         )
