@@ -213,3 +213,51 @@ def rand_ztransform(
     )
 
     return transform([axis1, axis2], [angle1, angle2])
+
+
+def rand_rotation_uniform(
+    shape: List[int],
+    device: str = "cpu",
+    dtype: torch.dtype = torch.float32,
+    generator: torch.Generator = None,
+):
+    """
+    Create N rotation matrices embedded in the Lorentz group
+    using quaternions. In contrast to the rand_rotation_naive
+    function above, this is formally sound uniform sampling.
+
+    Args:
+        shape: List[int]
+            Shape of the transformation matrices
+        device: str
+        dtype: torch.dtype
+        generator: torch.Generator
+
+    Returns:
+        final_trafo: torch.tensor of shape (*shape, 4, 4)
+    """
+    # generate random quaternions
+    u = torch.rand(*shape, 3, device=device, dtype=dtype, generator=generator)
+    q1 = torch.sqrt(1 - u[..., 0]) * torch.sin(2 * torch.pi * u[..., 1])
+    q2 = torch.sqrt(1 - u[..., 0]) * torch.cos(2 * torch.pi * u[..., 1])
+    q3 = torch.sqrt(u[..., 0]) * torch.sin(2 * torch.pi * u[..., 2])
+    q0 = torch.sqrt(u[..., 0]) * torch.cos(2 * torch.pi * u[..., 2])
+
+    # create rotation matrix from quaternions
+    R1 = torch.stack(
+        [1 - 2 * (q2**2 + q3**2), 2 * (q1 * q2 - q0 * q3), 2 * (q1 * q3 + q0 * q2)],
+        dim=-1,
+    )
+    R2 = torch.stack(
+        [2 * (q1 * q2 + q0 * q3), 1 - 2 * (q1**2 + q3**2), 2 * (q2 * q3 - q0 * q1)],
+        dim=-1,
+    )
+    R3 = torch.stack(
+        [2 * (q1 * q3 - q0 * q2), 2 * (q2 * q3 + q0 * q1), 1 - 2 * (q1**2 + q2**2)],
+        dim=-1,
+    )
+    R = torch.stack([R1, R2, R3], dim=-2)
+
+    trafo = torch.eye(4, device=device, dtype=dtype).expand(*shape, 4, 4).clone()
+    trafo[..., 1:, 1:] = R
+    return trafo
