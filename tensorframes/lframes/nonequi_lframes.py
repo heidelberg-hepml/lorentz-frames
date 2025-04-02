@@ -48,15 +48,17 @@ class RandomLFrames(LFramesPredictor):
         self.std_eta = std_eta
         self.transform_type = transform_type
 
-    def transform(self, shape, device):
+    def transform(self, shape, device, dtype):
         if self.transform_type == "lorentz":
-            return rand_lorentz(shape, std_eta=self.std_eta, device=device)
+            return rand_lorentz(shape, std_eta=self.std_eta, device=device, dtype=dtype)
         elif self.transform_type == "rotation":
-            return rand_rotation(shape, device=device)
+            return rand_rotation(shape, device=device, dtype=dtype)
         elif self.transform_type == "xyrotation":
-            return rand_xyrotation(shape, device=device)
+            return rand_xyrotation(shape, device=device, dtype=dtype)
         elif self.transform_type == "ztransform":
-            return rand_ztransform(shape, std_eta=self.std_eta, device=device)
+            return rand_ztransform(
+                shape, std_eta=self.std_eta, device=device, dtype=dtype
+            )
         else:
             raise ValueError(
                 f"Transformation type {self.transform_type} not implemented"
@@ -66,7 +68,9 @@ class RandomLFrames(LFramesPredictor):
         shape = (
             fourmomenta.shape[:-2] + (1,) if self.is_global else fourmomenta.shape[:-1]
         )
-        matrix = self.transform(shape, device=fourmomenta.device)
+        matrix = self.transform(
+            shape, device=fourmomenta.device, dtype=fourmomenta.dtype
+        )
         matrix = matrix.expand(*fourmomenta.shape[:-1], 4, 4)
 
         lframes = LFrames(

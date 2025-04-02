@@ -10,6 +10,7 @@ from tensorframes.utils.lorentz import lorentz_squarednorm
 from tensorframes.utils.utils import (
     build_edge_index_fully_connected,
     get_edge_index_from_ptr,
+    get_edge_attr,
 )
 
 
@@ -54,10 +55,7 @@ class EquiEdgeConv(MessagePassing):
         # calculate and standardize edge attributes
         fourmomenta = fourmomenta.reshape(scalars.shape[0], -1, 4)
         if self.include_edges:
-            mij2 = lorentz_squarednorm(
-                fourmomenta[edge_index[0]] + fourmomenta[edge_index[1]]
-            ).unsqueeze(-1)
-            edge_attr = mij2.clamp(min=1e-10).log()
+            edge_attr = get_edge_attr(fourmomenta, edge_index)
             if not self.edge_inited:
                 self.edge_mean = edge_attr.mean().detach()
                 self.edge_std = edge_attr.std().clamp(min=1e-5).detach()

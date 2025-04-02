@@ -10,6 +10,7 @@ from tensorframes.utils.utils import (
     get_ptr_from_batch,
     get_edge_index_from_ptr,
     get_xformers_attention_mask,
+    get_edge_attr,
 )
 from tensorframes.reps.tensorreps import TensorReps
 from tensorframes.reps.tensorreps_transform import TensorRepsTransform
@@ -299,10 +300,7 @@ class GraphNetWrapper(AggregatedTaggerWrapper):
         return score, tracker
 
     def get_edge_attr(self, fourmomenta, edge_index):
-        mij2 = lorentz_squarednorm(
-            fourmomenta[edge_index[0]] + fourmomenta[edge_index[1]]
-        )
-        edge_attr = mij2.clamp(min=1e-10).log()
+        edge_attr = get_edge_attr(fourmomenta, edge_index)
         if not self.edge_inited:
             self.edge_mean = edge_attr.mean().detach()
             self.edge_std = edge_attr.std().clamp(min=1e-5).detach()
@@ -332,7 +330,9 @@ class TransformerWrapper(AggregatedTaggerWrapper):
         ) = super().forward(embedding)
 
         mask = get_xformers_attention_mask(
-            batch, materialize=features_local.device == torch.device("cpu")
+            batch,
+            materialize=features_local.device == torch.device("cpu"),
+            dtype=features_local.dtype,
         )
 
         # add artificial batch dimension
