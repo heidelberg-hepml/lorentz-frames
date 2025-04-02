@@ -236,8 +236,8 @@ class TaggingExperiment(BaseExperiment):
     def _get_ypred_and_label(self, batch):
         batch = batch.to(self.device)
         embedding = embed_tagging_data(
-            batch.x,
-            batch.scalars,
+            batch.x.to(self.dtype),
+            batch.scalars.to(self.dtype),
             batch.ptr,
             self.cfg.data,
         )

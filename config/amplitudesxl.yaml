@@ -3,7 +3,7 @@ exp_name: ampxl
 
 data:
  dataset: zgggg_0
- data_path : data/zgggg_xl  # /remote/gpu06/spinner/lorentz-frames/data/zgggg_xl
+ data_path : data/zgggg_xl  # /remote/gpu02/breso/lorentz-gatr/data/zgggg_1000M
  train_test_val: [.4, .5, .1]
  num_train_files: 100
  num_prefetch: 2

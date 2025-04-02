@@ -13,4 +13,4 @@ include_edges: true
 operation: single
 nonlinearity: exp
 aggr: sum
-layer_norm: true
+layer_norm: false

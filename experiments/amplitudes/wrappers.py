@@ -8,7 +8,7 @@ from experiments.baselines.gatr.interface import embed_vector, extract_scalar
 from tensorframes.reps.tensorreps import TensorReps
 from tensorframes.reps.tensorreps_transform import TensorRepsTransform
 from tensorframes.utils.lorentz import lorentz_squarednorm
-from tensorframes.utils.utils import build_edge_index_fully_connected
+from tensorframes.utils.utils import build_edge_index_fully_connected, get_edge_attr
 
 
 class AmplitudeWrapper(nn.Module):
@@ -108,10 +108,7 @@ class GraphNetWrapper(AmplitudeWrapper):
             # edge feature standardization parameters
             edge_index, _ = build_edge_index_fully_connected(fourmomenta)
             fourmomenta = fourmomenta.reshape(-1, 4)
-            mij2 = lorentz_squarednorm(
-                fourmomenta[edge_index[0]] + fourmomenta[edge_index[1]]
-            )
-            edge_attr = mij2.clamp(min=1e-10).log()
+            edge_attr = get_edge_attr(fourmomenta, edge_index)
             self.edge_mean = edge_attr.mean()
             self.edge_std = edge_attr.std().clamp(min=1e-10)
 
@@ -148,10 +145,7 @@ class GraphNetWrapper(AmplitudeWrapper):
         return amp, tracker
 
     def get_edge_attr(self, fourmomenta, edge_index):
-        mij2 = lorentz_squarednorm(
-            fourmomenta[edge_index[0]] + fourmomenta[edge_index[1]]
-        )
-        edge_attr = mij2.clamp(min=1e-10).log()
+        edge_attr = get_edge_attr(fourmomenta, edge_index)
         edge_attr = (edge_attr - self.edge_mean) / self.edge_std
         return edge_attr.unsqueeze(-1)
 

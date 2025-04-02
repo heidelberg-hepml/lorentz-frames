@@ -107,6 +107,12 @@ def scaled_dot_product_attention(
         of shape [batch, head, item, d]
     """
     if isinstance(attn_mask, AttentionBias):
+        in_dtype = query.dtype
+        query, key, value = (
+            query.to(torch.float32),
+            key.to(torch.float32),
+            value.to(torch.float32),
+        )
         assert (
             not is_causal
         ), "is_causal=True not implemented yet for xformers attention"
@@ -125,5 +131,5 @@ def scaled_dot_product_attention(
             attn_bias=attn_mask,
         )
         out = out.transpose(1, 2)  # [batch, item, head, d] -> [batch, head, item, d]
-        return out
+        return out.to(in_dtype)
     return torch_sdpa(query, key, value, attn_mask=attn_mask, is_causal=is_causal)
