@@ -369,16 +369,15 @@ class ParticleNetWrapper(AggregatedTaggerWrapper):
         ) = super().forward(embedding)
         # ParticleNet uses L2 norm in (phi, eta) for kNN
         phieta_local = features_local[..., [4, 5]]
-
         phieta_local, mask = to_dense_batch(phieta_local, batch)
         features_local, _ = to_dense_batch(features_local, batch)
         phieta_local = phieta_local.transpose(1, 2)
         features_local = features_local.transpose(1, 2)
+        dense_lframes = to_dense_batch(lframes_no_spurions.matrices, batch)[0]
+        dense_lframes[~mask] = torch.eye(4, device=lframes_no_spurions.device)
         lframes_no_spurions = LFrames(
-            to_dense_batch(lframes_no_spurions.matrices, batch)[0].view(-1, 4, 4),
+            dense_lframes.view(-1, 4, 4),
             is_global=lframes_no_spurions.is_global,
-            det=lframes_no_spurions.det,
-            inv=lframes_no_spurions.inv,
             is_identity=lframes_no_spurions.is_identity,
             device=lframes_no_spurions.device,
             dtype=lframes_no_spurions.dtype,
