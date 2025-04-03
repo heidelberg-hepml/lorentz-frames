@@ -15,7 +15,6 @@ from tensorframes.utils.utils import (
 from tensorframes.reps.tensorreps import TensorReps
 from tensorframes.reps.tensorreps_transform import TensorRepsTransform
 from experiments.tagging.embedding import get_tagging_features
-from tensorframes.utils.lorentz import lorentz_squarednorm
 
 
 class TaggerWrapper(nn.Module):
