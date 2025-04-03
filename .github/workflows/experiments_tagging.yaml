@@ -54,7 +54,7 @@ jobs:
 
     - name: Run BaseParticleNet + IdentityLFrames
       run: |
-        python run.py model=baseparticlenet-lite save=false evaluate=false training.iterations=3
+        python run.py model=tag_baseparticlenet-lite save=false evaluate=false training.iterations=3
 
     - name: Run TFGraphNet + OrthogonalLearnedLFrames symmetry breaking without scalar
       run: |
