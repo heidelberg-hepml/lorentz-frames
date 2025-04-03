@@ -3,8 +3,8 @@ exp_name: jc_debug
 
 data:
  data_dir: /remote/gpu02/breso/lorentz-gatr-old/data/JetClass/Pythia
- data_config: null
  features: default
+ data_config: null
  train_files_range: [0, 100]
  test_files_range: [100,120]
  val_files_range: [120,125]
