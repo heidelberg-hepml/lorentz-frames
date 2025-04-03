@@ -19,7 +19,7 @@ class TopXLTaggingExperiment(TaggingExperiment):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.cfg.model.out_channels = 1
-        self.cfg.model.in_channels = 4  # energy-momentum vector
+        self.cfg.model.in_channels = 7
 
         if self.cfg.data.features == "fourmomenta":
             self.cfg.data.data_config = (
