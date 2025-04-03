@@ -20,9 +20,7 @@ TAGGING_FEATURES_PREPROCESSING = [
 ]
 
 
-def embed_tagging_data(
-    fourmomenta, scalars, ptr, cfg_data, use_float64_tagging_features=True
-):
+def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
     """
     Embed tagging data
     We use torch_geometric sparse representations to be more memory efficient
@@ -38,8 +36,6 @@ def embed_tagging_data(
         Indices of the first particle for each jet
         Also includes the first index after the batch ends
     cfg_data: settings for embedding
-    use_float64: bool
-        Whether to use double precision during creation of the tagging features
 
     Returns
     -------
@@ -107,7 +103,6 @@ def embed_tagging_data(
         global_tagging_features = get_tagging_features(
             fourmomenta,
             jet,
-            use_float64_tagging_features=use_float64_tagging_features,
         )
         global_tagging_features[is_spurion] = 0
     else:
@@ -243,7 +238,6 @@ def get_tagging_features(fourmomenta, jet, eps=1e-10, use_float64=True):
     features: torch.tensor of shape (n_particles, 7)
         Features: log_pt, log_energy, log_pt_rel, log_energy_rel, dphi, deta, dr
     """
-
     if use_float64:
         in_dtype = fourmomenta.dtype
         fourmomenta = fourmomenta.to(torch.float64)

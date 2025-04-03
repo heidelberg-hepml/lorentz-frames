@@ -3,12 +3,8 @@
 Paper: "ParticleNet: Jet Tagging via Particle Clouds" - https://arxiv.org/abs/1902.08570
 Code: https://github.com/hqucms/weaver-core/blob/main/weaver/nn/model/ParticleNet.py
 
-Adapted from the DGCNN implementation in https://github.com/WangYueFt/dgcnn/blob/master/pytorch/model.py.
-
-Adaptations for tensor frames formalism
-- Pass lframes through the network (same for all message-passing steps)
-- Pass hidden_reps through the network (need different hidden_reps for each message-passing step)
-- Use lframes to transforms features in message-passing
+Use 'git diff --no-index experiments/baselines/particlenet.py tensorframes/nn/particlenet.py'
+to see the changes required to include frame-to-frame transformations.
 """
 import numpy as np
 import torch
@@ -23,12 +19,13 @@ def change_local_frame(x_j_in, idx, lframes, trafo):
     """
     transform x_j from frame 'j' to frame 'i'
     notation: x_j = x[idx_j] = 'fts', x_i = x[idx_i] = 'x'
+
+    create trafo : we use batch_size*num_points with repeats of k for idx_i e.g. for 2 points with 3 batch and k=2,
+    this idx_i becomes (0,1,2,3,4,5) -> (0,0,1,1,2,2,3,3,4,4,5,5)
+    the idx_j should have the form of the nearest neighbors with the position in the batch, e.g. idx+idx_base =
+    (((0,1)(1,0))((0,1)(1,0))((0,1)(1,0)))+(0,2,4) = (0,1,1,0,2,3,3,2,4,5,5,4)
+    This gives the connections (0,0,1,1,2,2,3,3,4,4,5,5)->(0,1,1,0,2,3,3,2,4,5,5,4)
     """
-    # create trafo : we use batch_size*num_points with repeats of k for idx_i e.g. for 2 points with 3 batch and k=2,
-    # this idx_i becomes (0,1,2,3,4,5) -> (0,0,1,1,2,2,3,3,4,4,5,5)
-    # the idx_j should have the form of the nearest neighbors with the position in the batch, e.g. idx+idx_base =
-    # (((0,1)(1,0))((0,1)(1,0))((0,1)(1,0)))+(0,2,4) = (0,1,1,0,2,3,3,2,4,5,5,4)
-    # This gives the connections (0,0,1,1,2,2,3,3,4,4,5,5)->(0,1,1,0,2,3,3,2,4,5,5,4)
     idx_i = torch.arange(
         x_j_in.shape[-2] * x_j_in.shape[0], device=x_j_in.device
     ).repeat_interleave(
