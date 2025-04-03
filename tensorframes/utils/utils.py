@@ -179,12 +179,12 @@ def get_xformers_attention_mask(batch, materialize=False, dtype=torch.float32):
     return mask
 
 
-def get_edge_attr(fourmomenta, edge_index, eps=1e-15, use_float64=True):
+def get_edge_attr(fourmomenta, edge_index, eps=1e-10, use_float64=True):
     if use_float64:
         in_dtype = fourmomenta.dtype
         fourmomenta = fourmomenta.to(torch.float64)
     mij2 = lorentz_squarednorm(fourmomenta[edge_index[0]] + fourmomenta[edge_index[1]])
-    edge_attr = mij2.clamp(min=1e-15).log()
+    edge_attr = mij2.clamp(min=eps).log()
     if use_float64:
         edge_attr = edge_attr.to(in_dtype)
     return edge_attr
