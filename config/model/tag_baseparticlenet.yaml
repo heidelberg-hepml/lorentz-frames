@@ -3,9 +3,12 @@ in_channels: null
 out_channels: null
 
 net:
- _target_: experiments.baselines.particlenet.ParticleNetTagger
+ _target_: experiments.baselines.particlenet.ParticleNet
  _partial_: true
  num_classes: null
+ conv_params: [[16, [64, 64, 64]], [16, [128, 128, 128]], [16, [256, 256, 256]]]
+ fc_params: [[128, 0.1]]
+ input_dims: 7
 
 defaults:
  - lframesnet: identity

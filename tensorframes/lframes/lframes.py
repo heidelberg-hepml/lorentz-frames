@@ -68,6 +68,10 @@ class LFrames:
 
             self.matrices = matrices
             self.is_global = is_global
+            if det is not None:
+                assert det.shape == matrices.shape[:-2]
+            if inv is not None:
+                assert inv.shape == matrices.shape
             self.det = det
             self.inv = inv
 

@@ -36,7 +36,7 @@ class JetClassTaggingExperiment(TaggingExperiment):
             "ZToQQ",
         ]
         self.cfg.model.out_channels = len(self.class_names)
-        self.cfg.model.in_channels = 4  # energy-momentum vector
+        self.cfg.model.in_channels = 7  # tagging features
 
         if self.cfg.data.features == "fourmomenta":
             self.cfg.data.data_config = (
@@ -61,6 +61,18 @@ class JetClassTaggingExperiment(TaggingExperiment):
             raise ValueError(
                 f"Input feature option {self.cfg.data.features} not implemented"
             )
+
+    def init_physics(self):
+        # decide which entries to use for the lframesnet
+        if "equivectors" in self.cfg.model.lframesnet:
+            self.cfg.model.lframesnet.equivectors.num_scalars = (
+                self.cfg.model.in_channels
+                if self.cfg.data.add_tagging_features_lframesnet
+                else self.cfg.model.in_channels - 7
+            )
+
+        if self.cfg.model.net._target_.rsplit(".", 1)[-1] == "TFGraphNet":
+            self.cfg.model.net.num_edge_attr = 1 if self.cfg.model.include_edges else 0
 
     def _init_loss(self):
         self.loss = torch.nn.CrossEntropyLoss()

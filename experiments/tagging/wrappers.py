@@ -192,7 +192,7 @@ class BaselineParticleNetWrapper(TaggerWrapper):
         assert (
             self.lframesnet.is_global
         ), "Non-equivariant model can only handle global lframes"
-        self.net = net(features_dims=self.in_channels, num_classes=self.out_channels)
+        self.net = net(input_dims=self.in_channels, num_classes=self.out_channels)
 
     def forward(self, embedding):
         (
@@ -344,4 +344,51 @@ class TransformerWrapper(AggregatedTaggerWrapper):
 
         # aggregation
         score = self.extract_score(outputs, batch)
+        return score, tracker
+
+
+class ParticleNetWrapper(AggregatedTaggerWrapper):
+    def __init__(
+        self,
+        net,
+        *args,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+        self.net = net(input_dims=self.in_channels, num_classes=self.out_channels)
+
+    def forward(self, embedding):
+        (
+            features_local,
+            _,
+            lframes_no_spurions,
+            _,
+            batch,
+            tracker,
+        ) = super().forward(embedding)
+        # ParticleNet uses L2 norm in (phi, eta) for kNN
+        phieta_local = features_local[..., [4, 5]]
+        phieta_local, mask = to_dense_batch(phieta_local, batch)
+        features_local, _ = to_dense_batch(features_local, batch)
+        phieta_local = phieta_local.transpose(1, 2)
+        features_local = features_local.transpose(1, 2)
+        dense_lframes = to_dense_batch(lframes_no_spurions.matrices, batch)[0]
+        dense_lframes[~mask] = torch.eye(4, device=lframes_no_spurions.device)
+        lframes_no_spurions = LFrames(
+            dense_lframes.view(-1, 4, 4),
+            is_global=lframes_no_spurions.is_global,
+            is_identity=lframes_no_spurions.is_identity,
+            device=lframes_no_spurions.device,
+            dtype=lframes_no_spurions.dtype,
+            shape=lframes_no_spurions.matrices.shape,
+        )
+        mask = mask.unsqueeze(1)
+
+        # network
+        score = self.net(
+            points=phieta_local,
+            features=features_local,
+            lframes=lframes_no_spurions,
+            mask=mask,
+        )
         return score, tracker
