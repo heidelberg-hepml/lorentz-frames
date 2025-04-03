@@ -118,6 +118,11 @@ class LFrames:
             det=self.det.repeat(*shape[:-2]),
         )
 
+    def to(self, dtype=None, device=None):
+        self.matrices = self.matrices.to(device=device, dtype=dtype)
+        self.inv = self.inv.to(device=device, dtype=dtype)
+        self.det = self.det.to(device=device, dtype=dtype)
+
     @property
     def device(self):
         return self.matrices.device
