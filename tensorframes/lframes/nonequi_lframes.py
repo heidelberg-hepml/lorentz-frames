@@ -43,15 +43,24 @@ class RandomLFrames(LFramesPredictor):
     """Randomly generates a local frame for the whole batch,
     corresponding to data augmentation."""
 
-    def __init__(self, transform_type="lorentz", is_global=True, std_eta=0.5):
+    def __init__(
+        self, transform_type="lorentz", is_global=True, std_eta=0.5, truncate=5.0
+    ):
         super().__init__(is_global=is_global)
         self.is_global = is_global
         self.std_eta = std_eta
         self.transform_type = transform_type
+        self.truncate = truncate
 
     def transform(self, shape, device, dtype):
         if self.transform_type == "lorentz":
-            return rand_lorentz(shape, std_eta=self.std_eta, device=device, dtype=dtype)
+            return rand_lorentz(
+                shape,
+                std_eta=self.std_eta,
+                truncate=self.truncate,
+                device=device,
+                dtype=dtype,
+            )
         elif self.transform_type == "rotation":
             return rand_rotation_uniform(shape, device=device, dtype=dtype)
         elif self.transform_type == "rotation_naive":

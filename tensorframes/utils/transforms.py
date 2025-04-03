@@ -64,6 +64,7 @@ def transform(
 def rand_lorentz(
     shape: List[int],
     std_eta: float = 0.5,
+    truncate: float = 5.0,
     device: str = "cpu",
     dtype: torch.dtype = torch.float32,
     generator: torch.Generator = None,
@@ -80,6 +81,8 @@ def rand_lorentz(
             Shape of the transformation matrices
         std_eta: float
             Standard deviation of rapidity
+        truncate: float
+            Range for the truncated Gaussian
         device: str
         dtype: torch.dtype
         generator: torch.Generator
@@ -93,6 +96,15 @@ def rand_lorentz(
     angle = (
         torch.randn(*shape, device=device, dtype=dtype, generator=generator) * std_eta
     )
+    truncate_mask = torch.abs(angle) > std_eta * truncate
+    while truncate_mask.any():
+        new_angle = (
+            torch.randn(*shape, device=device, dtype=dtype, generator=generator)
+            * std_eta
+        )
+        angle[truncate_mask] = new_angle[truncate_mask]
+        truncate_mask = torch.abs(angle) > std_eta * truncate
+
     boost = transform([axis], [angle])
 
     rotation = rand_rotation_uniform(shape, device, dtype, generator=generator)
