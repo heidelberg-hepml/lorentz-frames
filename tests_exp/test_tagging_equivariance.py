@@ -2,6 +2,7 @@ import torch
 import pytest
 import hydra
 import numpy as np
+import os
 
 import experiments.logger
 from experiments.tagging.experiment import TopTaggingExperiment
@@ -39,6 +40,7 @@ def test_amplitudes(
     breaking_list,
     iterations,
     use_float64,
+    save=False,
 ):
     experiments.logger.LOGGER.disabled = True  # turn off logging
 
@@ -94,5 +96,7 @@ def test_amplitudes(
         lframesnet,
         "float64" if use_float64 else "float32",
     )
-    filename = f"scripts/equi-violation/equitest_tag_{model_idx}_{lframesnet}_{rand_trafo.__name__}_{'float64' if use_float64 else 'float32'}.npy"
-    np.save(filename, mses.cpu().numpy())
+    if save:
+        os.makedirs("scripts/equi-violation", exist_ok=True)
+        filename = f"scripts/equi-violation/equitest_tag_{model_idx}_{lframesnet}_{rand_trafo.__name__}_{'float64' if use_float64 else 'float32'}.npy"
+        np.save(filename, mses.cpu().numpy())

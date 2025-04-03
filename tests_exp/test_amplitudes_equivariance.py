@@ -2,6 +2,7 @@ import torch
 import pytest
 import hydra
 import numpy as np
+import os
 
 import experiments.logger
 from experiments.amplitudes.experiment import AmplitudeExperiment
@@ -27,7 +28,13 @@ from tensorframes.utils.transforms import rand_rotation, rand_lorentz
 @pytest.mark.parametrize("iterations", [100])
 @pytest.mark.parametrize("use_float64", [False, True])
 def test_amplitudes(
-    model_idx, model_list, lframesnet, rand_trafo, iterations, use_float64
+    model_idx,
+    model_list,
+    lframesnet,
+    rand_trafo,
+    iterations,
+    use_float64,
+    save=False,
 ):
     experiments.logger.LOGGER.disabled = True  # turn off logging
 
@@ -80,5 +87,7 @@ def test_amplitudes(
         lframesnet,
         "float64" if use_float64 else "float32",
     )
-    filename = f"scripts/equi-violation/equitest_amp_{model_idx}_{lframesnet}_{rand_trafo.__name__}_{'float64' if use_float64 else 'float32'}.npy"
-    np.save(filename, mses.cpu().numpy())
+    if save:
+        os.makedirs("scripts/equi-violation", exist_ok=True)
+        filename = f"scripts/equi-violation/equitest_amp_{model_idx}_{lframesnet}_{rand_trafo.__name__}_{'float64' if use_float64 else 'float32'}.npy"
+        np.save(filename, mses.cpu().numpy())
