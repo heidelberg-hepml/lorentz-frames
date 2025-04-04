@@ -64,7 +64,7 @@ def transform(
 def rand_lorentz(
     shape: List[int],
     std_eta: float = 0.5,
-    truncate: float = 5.0,
+    n_max_std_eta: float = 5.0,
     device: str = "cpu",
     dtype: torch.dtype = torch.float32,
     generator: torch.Generator = None,
@@ -81,8 +81,9 @@ def rand_lorentz(
             Shape of the transformation matrices
         std_eta: float
             Standard deviation of rapidity
-        truncate: float
-            Range for the truncated Gaussian
+        n_max_std_eta: float
+            Allowed number of standard deviations;
+            used to sample from a truncated Gaussian
         device: str
         dtype: torch.dtype
         generator: torch.Generator
@@ -93,17 +94,14 @@ def rand_lorentz(
     assert std_eta > 0
     ones = torch.ones(shape, device=device, dtype=torch.long)
     axis = torch.stack([0 * ones, 1 * ones], dim=0)
-    angle = (
-        torch.randn(*shape, device=device, dtype=dtype, generator=generator) * std_eta
+    angle = sample_rapidity(
+        shape,
+        std_eta=std_eta,
+        n_max_std_eta=n_max_std_eta,
+        device=device,
+        dtype=dtype,
+        generator=generator,
     )
-    truncate_mask = torch.abs(angle) > std_eta * truncate
-    while truncate_mask.any():
-        new_angle = (
-            torch.randn(*shape, device=device, dtype=dtype, generator=generator)
-            * std_eta
-        )
-        angle[truncate_mask] = new_angle[truncate_mask]
-        truncate_mask = torch.abs(angle) > std_eta * truncate
 
     boost = transform([axis], [angle])
 
@@ -191,6 +189,7 @@ def rand_xyrotation(
 def rand_ztransform(
     shape: List[int],
     std_eta: float = 0.5,
+    n_max_std_eta: float = 5.0,
     device: str = "cpu",
     dtype: torch.dtype = torch.float32,
     generator: torch.Generator = None,
@@ -204,6 +203,9 @@ def rand_ztransform(
             Shape of the transformation matrices
         std_eta: float
             Standard deviation of rapidity
+        n_max_std_eta: float
+            Allowed number of standard deviations;
+            used to sample from a truncated Gaussian
         device: str
         dtype: torch.dtype
         generator: torch.Generator
@@ -223,8 +225,13 @@ def rand_ztransform(
     # boost along z-axis
     axis2 = torch.tensor([0, 3], dtype=torch.long, device=device)
     axis2 = axis2.view(2, *([1] * len(shape))).repeat(1, *shape)
-    angle2 = (
-        torch.rand(*shape, device=device, dtype=dtype, generator=generator) * std_eta
+    angle2 = sample_rapidity(
+        shape,
+        std_eta=std_eta,
+        n_max_std_eta=n_max_std_eta,
+        device=device,
+        dtype=dtype,
+        generator=generator,
     )
 
     return transform([axis1, axis2], [angle1, angle2])
@@ -276,3 +283,25 @@ def rand_rotation_uniform(
     trafo = torch.eye(4, device=device, dtype=dtype).expand(*shape, 4, 4).clone()
     trafo[..., 1:, 1:] = R
     return trafo
+
+
+def sample_rapidity(
+    shape,
+    std_eta,
+    n_max_std_eta=5.0,
+    device="cpu",
+    dtype=torch.float32,
+    generator=None,
+):
+    angle = (
+        torch.randn(*shape, device=device, dtype=dtype, generator=generator) * std_eta
+    )
+    truncate_mask = torch.abs(angle) > std_eta * n_max_std_eta
+    while truncate_mask.any():
+        new_angle = (
+            torch.randn(*shape, device=device, dtype=dtype, generator=generator)
+            * std_eta
+        )
+        angle[truncate_mask] = new_angle[truncate_mask]
+        truncate_mask = torch.abs(angle) > std_eta * n_max_std_eta
+    return angle

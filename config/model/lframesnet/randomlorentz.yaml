@@ -1,5 +1,5 @@
 _target_: tensorframes.lframes.nonequi_lframes.RandomLFrames
 std_eta: 0.5
-truncate: 5.0
+n_max_std_eta: 5.0
 is_global: true
 transform_type: lorentz
