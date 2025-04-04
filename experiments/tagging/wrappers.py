@@ -67,6 +67,10 @@ class TaggerWrapper(nn.Module):
             shape=lframes_spurions.matrices[~is_spurion].shape,
         )
 
+        # change dtype (see embedding.py fourmomenta_float64 option)
+        fourmomenta_nospurions = fourmomenta_nospurions.to(scalars_nospurions.dtype)
+        lframes_nospurions.to(scalars_nospurions.dtype)
+
         # transform features into local frames
         fourmomenta_local_nospurions = self.trafo_fourmomenta(
             fourmomenta_nospurions, lframes_nospurions

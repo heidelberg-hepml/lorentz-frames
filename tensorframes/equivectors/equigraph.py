@@ -62,6 +62,9 @@ class EquiEdgeConv(MessagePassing):
                 self.edge_inited.fill_(True)
             edge_attr = (edge_attr - self.edge_mean) / self.edge_std
             edge_attr = edge_attr.reshape(edge_attr.shape[0], -1)
+
+            # related to fourmomenta_float64 option
+            edge_attr = edge_attr.to(scalars.dtype)
         else:
             edge_attr = None
 
