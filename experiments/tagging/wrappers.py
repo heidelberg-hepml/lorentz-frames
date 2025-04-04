@@ -24,12 +24,14 @@ class TaggerWrapper(nn.Module):
         in_channels: int,
         out_channels: int,
         lframesnet,
+        global_points: bool = False,
     ):
         super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.lframesnet = lframesnet
         self.trafo_fourmomenta = TensorRepsTransform(TensorReps("1x1n"))
+        self.global_points = global_points
 
     def forward(self, embedding):
         # extract embedding
@@ -87,6 +89,16 @@ class TaggerWrapper(nn.Module):
             [scalars_nospurions, local_tagging_features_nospurions], dim=-1
         )
 
+        if self.global_points:
+            return (
+                global_tagging_features_withspurions[~is_spurion],
+                features_local_nospurions,
+                fourmomenta_local_nospurions,
+                lframes_nospurions,
+                edge_index_nospurions,
+                batch_nospurions,
+                tracker,
+            )
         return (
             features_local_nospurions,
             fourmomenta_local_nospurions,
@@ -359,16 +371,29 @@ class ParticleNetWrapper(AggregatedTaggerWrapper):
         self.net = net(input_dims=self.in_channels, num_classes=self.out_channels)
 
     def forward(self, embedding):
-        (
-            features_local,
-            _,
-            lframes_no_spurions,
-            _,
-            batch,
-            tracker,
-        ) = super().forward(embedding)
+        if not self.global_points:
+            (
+                features_local,
+                _,
+                lframes_no_spurions,
+                _,
+                batch,
+                tracker,
+            ) = super().forward(embedding)
+            phieta_local = features_local[..., [4, 5]]
+        elif self.global_points:
+            (
+                global_tagging_features,
+                features_local,
+                _,
+                lframes_no_spurions,
+                _,
+                batch,
+                tracker,
+            ) = super().forward(embedding)
+            phieta_local = global_tagging_features[..., [4, 5]]
         # ParticleNet uses L2 norm in (phi, eta) for kNN
-        phieta_local = features_local[..., [4, 5]]
+
         phieta_local, mask = to_dense_batch(phieta_local, batch)
         features_local, _ = to_dense_batch(features_local, batch)
         phieta_local = phieta_local.transpose(1, 2)
