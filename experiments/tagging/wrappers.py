@@ -373,7 +373,9 @@ class ParticleNetWrapper(AggregatedTaggerWrapper):
         phieta_local = phieta_local.transpose(1, 2)
         features_local = features_local.transpose(1, 2)
         dense_lframes = to_dense_batch(lframes_no_spurions.matrices, batch)[0]
-        dense_lframes[~mask] = torch.eye(4, device=lframes_no_spurions.device)
+        dense_lframes[~mask] = torch.eye(
+            4, device=lframes_no_spurions.device, dtype=dense_lframes.dtype
+        )
         lframes_no_spurions = LFrames(
             dense_lframes.view(-1, 4, 4),
             is_global=lframes_no_spurions.is_global,
