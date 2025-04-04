@@ -19,9 +19,9 @@ from tests_exp.utils import track_clamps
 @pytest.mark.parametrize(
     "model_list",
     [
-        ["model=transformer"],
-        ["model=graphnet"],
-        ["model=graphnet", "model.include_edges=false"],
+        ["model=tag_transformer"],
+        ["model=tag_graphnet"],
+        ["model=tag_graphnet", "model.include_edges=false"],
     ],
 )
 @pytest.mark.parametrize("iterations", [1])
