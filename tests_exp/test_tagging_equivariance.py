@@ -22,6 +22,7 @@ from tensorframes.utils.transforms import rand_rotation, rand_lorentz, rand_xyro
     list(
         enumerate(
             [
+                ["model=tag_particlenet-lite"],
                 ["model=tag_transformer"],
                 ["model=tag_graphnet"],
                 ["model=tag_graphnet", "model.include_edges=false"],

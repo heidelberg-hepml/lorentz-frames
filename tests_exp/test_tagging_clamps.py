@@ -19,6 +19,7 @@ from tests_exp.utils import track_clamps
 @pytest.mark.parametrize(
     "model_list",
     [
+        ["model=tag_particlenet-lite"],
         ["model=tag_transformer"],
         ["model=tag_graphnet"],
         ["model=tag_graphnet", "model.include_edges=false"],
