@@ -113,6 +113,31 @@ def get_ptr_from_batch(batch):
 
 
 def get_edge_index_from_ptr(ptr, remove_self_loops=True):
+    row = torch.arange(ptr.max(), device=ptr.device)
+    diff = ptr[1:] - ptr[:-1]
+    repeats = (diff).repeat_interleave(diff)
+    row = row.repeat_interleave(repeats)
+
+    repeater = torch.stack(
+        (-diff + 1, torch.ones_like(diff, device=ptr.device))
+    ).T.reshape(-1)
+    extras = repeater.repeat_interleave(repeater.abs())
+    integ = torch.ones(row.shape[0], dtype=torch.long, device=ptr.device)
+    mask = (row[1:] - row[:-1]).to(torch.bool)
+    integ[0] = 0
+    integ[1:][mask] = extras[:-1]
+    col = torch.cumsum(integ, 0)
+
+    edge_index = torch.stack((row, col))
+
+    if remove_self_loops:
+        row, col = edge_index
+        edge_index = edge_index[:, row != col]
+
+    return edge_index
+
+
+def get_edge_index_from_ptr_old(ptr, remove_self_loops=True):
     diffs = torch.diff(ptr)
     edge_index = torch.cat(
         [

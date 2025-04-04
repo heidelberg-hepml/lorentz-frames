@@ -25,6 +25,7 @@ class TaggerWrapper(nn.Module):
         out_channels: int,
         lframesnet,
         global_points: bool = False,
+        compute_edge_index=True,
     ):
         super().__init__()
         self.in_channels = in_channels
@@ -32,6 +33,7 @@ class TaggerWrapper(nn.Module):
         self.lframesnet = lframesnet
         self.trafo_fourmomenta = TensorRepsTransform(TensorReps("1x1n"))
         self.global_points = global_points
+        self.compute_edge_index = compute_edge_index
 
     def forward(self, embedding):
         # extract embedding
@@ -48,7 +50,10 @@ class TaggerWrapper(nn.Module):
 
         batch_nospurions = batch_withspurions[~is_spurion]
         ptr_nospurions = get_ptr_from_batch(batch_nospurions)
-        edge_index_nospurions = get_edge_index_from_ptr(ptr_nospurions)
+        if self.compute_edge_index:
+            edge_index_nospurions = get_edge_index_from_ptr(ptr_nospurions)
+        else:
+            edge_index_nospurions = None
 
         scalars_withspurions = torch.cat(
             [scalars_withspurions, global_tagging_features_withspurions], dim=-1
@@ -130,8 +135,15 @@ class BaselineTransformerWrapper(AggregatedTaggerWrapper):
         *args,
         **kwargs,
     ):
-        super().__init__(*args, **kwargs)
-        self.net = net(in_channels=self.in_channels, num_classes=self.out_channels)
+        super().__init__(
+            *args,
+            **kwargs,
+            compute_edge_index=True,
+        )
+        self.net = net(
+            in_channels=self.in_channels,
+            num_classes=self.out_channels,
+        )
         assert (
             self.lframesnet.is_global
         ), "Non-equivariant model can only handle global lframes"
@@ -170,8 +182,15 @@ class BaselineGraphNetWrapper(AggregatedTaggerWrapper):
         *args,
         **kwargs,
     ):
-        super().__init__(*args, **kwargs)
-        self.net = net(in_channels=self.in_channels, num_classes=self.out_channels)
+        super().__init__(
+            *args,
+            **kwargs,
+            compute_edge_index=True,
+        )
+        self.net = net(
+            in_channels=self.in_channels,
+            num_classes=self.out_channels,
+        )
         assert (
             self.lframesnet.is_global
         ), "Non-equivariant model can only handle global lframes"
@@ -201,11 +220,18 @@ class BaselineParticleNetWrapper(TaggerWrapper):
         *args,
         **kwargs,
     ):
-        super().__init__(*args, **kwargs)
+        super().__init__(
+            *args,
+            **kwargs,
+            compute_edge_index=True,
+        )
         assert (
             self.lframesnet.is_global
         ), "Non-equivariant model can only handle global lframes"
-        self.net = net(input_dims=self.in_channels, num_classes=self.out_channels)
+        self.net = net(
+            input_dims=self.in_channels,
+            num_classes=self.out_channels,
+        )
 
     def forward(self, embedding):
         (
@@ -241,7 +267,7 @@ class BaselineParTWrapper(TaggerWrapper):
         *args,
         **kwargs,
     ):
-        super().__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs, compute_edge_index=False)
         assert (
             self.lframesnet.is_global
         ), "Non-equivariant model can only handle global lframes"
@@ -277,7 +303,7 @@ class GraphNetWrapper(AggregatedTaggerWrapper):
         *args,
         **kwargs,
     ):
-        super().__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs, compute_edge_index=True)
         self.include_edges = include_edges
         self.net = net(in_channels=self.in_channels, out_channels=self.out_channels)
         if self.include_edges:
@@ -328,8 +354,15 @@ class TransformerWrapper(AggregatedTaggerWrapper):
         *args,
         **kwargs,
     ):
-        super().__init__(*args, **kwargs)
-        self.net = net(in_channels=self.in_channels, out_channels=self.out_channels)
+        super().__init__(
+            *args,
+            **kwargs,
+            compute_edge_index=True,
+        )
+        self.net = net(
+            in_channels=self.in_channels,
+            out_channels=self.out_channels,
+        )
 
     def forward(self, embedding):
         (
@@ -367,7 +400,7 @@ class ParticleNetWrapper(AggregatedTaggerWrapper):
         *args,
         **kwargs,
     ):
-        super().__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs, compute_edge_index=False)
         self.net = net(input_dims=self.in_channels, num_classes=self.out_channels)
 
     def forward(self, embedding):
