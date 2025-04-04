@@ -10,6 +10,7 @@ from tensorframes.utils.utils import (
     get_ptr_from_batch,
     get_edge_index_from_ptr,
     get_xformers_attention_mask,
+    get_edge_attr,
 )
 from tensorframes.reps.tensorreps import TensorReps
 from tensorframes.reps.tensorreps_transform import TensorRepsTransform
@@ -192,7 +193,7 @@ class BaselineParticleNetWrapper(TaggerWrapper):
         assert (
             self.lframesnet.is_global
         ), "Non-equivariant model can only handle global lframes"
-        self.net = net(features_dims=self.in_channels, num_classes=self.out_channels)
+        self.net = net(input_dims=self.in_channels, num_classes=self.out_channels)
 
     def forward(self, embedding):
         (
@@ -299,10 +300,7 @@ class GraphNetWrapper(AggregatedTaggerWrapper):
         return score, tracker
 
     def get_edge_attr(self, fourmomenta, edge_index):
-        mij2 = lorentz_squarednorm(
-            fourmomenta[edge_index[0]] + fourmomenta[edge_index[1]]
-        )
-        edge_attr = mij2.clamp(min=1e-10).log()
+        edge_attr = get_edge_attr(fourmomenta, edge_index)
         if not self.edge_inited:
             self.edge_mean = edge_attr.mean().detach()
             self.edge_std = edge_attr.std().clamp(min=1e-5).detach()
@@ -332,7 +330,9 @@ class TransformerWrapper(AggregatedTaggerWrapper):
         ) = super().forward(embedding)
 
         mask = get_xformers_attention_mask(
-            batch, materialize=features_local.device == torch.device("cpu")
+            batch,
+            materialize=features_local.device == torch.device("cpu"),
+            dtype=features_local.dtype,
         )
 
         # add artificial batch dimension
@@ -345,4 +345,53 @@ class TransformerWrapper(AggregatedTaggerWrapper):
 
         # aggregation
         score = self.extract_score(outputs, batch)
+        return score, tracker
+
+
+class ParticleNetWrapper(AggregatedTaggerWrapper):
+    def __init__(
+        self,
+        net,
+        *args,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+        self.net = net(input_dims=self.in_channels, num_classes=self.out_channels)
+
+    def forward(self, embedding):
+        (
+            features_local,
+            _,
+            lframes_no_spurions,
+            _,
+            batch,
+            tracker,
+        ) = super().forward(embedding)
+        # ParticleNet uses L2 norm in (phi, eta) for kNN
+        phieta_local = features_local[..., [4, 5]]
+        phieta_local, mask = to_dense_batch(phieta_local, batch)
+        features_local, _ = to_dense_batch(features_local, batch)
+        phieta_local = phieta_local.transpose(1, 2)
+        features_local = features_local.transpose(1, 2)
+        dense_lframes = to_dense_batch(lframes_no_spurions.matrices, batch)[0]
+        dense_lframes[~mask] = torch.eye(
+            4, device=lframes_no_spurions.device, dtype=dense_lframes.dtype
+        )
+        lframes_no_spurions = LFrames(
+            dense_lframes.view(-1, 4, 4),
+            is_global=lframes_no_spurions.is_global,
+            is_identity=lframes_no_spurions.is_identity,
+            device=lframes_no_spurions.device,
+            dtype=lframes_no_spurions.dtype,
+            shape=lframes_no_spurions.matrices.shape,
+        )
+        mask = mask.unsqueeze(1)
+
+        # network
+        score = self.net(
+            points=phieta_local,
+            features=features_local,
+            lframes=lframes_no_spurions,
+            mask=mask,
+        )
         return score, tracker

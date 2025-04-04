@@ -316,8 +316,8 @@ class BaseExperiment:
     def _init_backend(self):
         self.device = get_device()
         LOGGER.info(f"Using device {self.device}")
-        self.dtype = torch.float32
-        LOGGER.debug("Using dtype float32")
+        self.dtype = torch.float64 if self.cfg.use_float64 else torch.float32
+        LOGGER.debug(f"Using dtype {self.dtype}")
 
     def _init_optimizer(self, param_groups=None):
         if param_groups is None:

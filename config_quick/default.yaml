@@ -6,6 +6,7 @@ base_dir: .
 jobid: null
 seed: null
 debug: false
+use_float64: false
 
 warm_start_idx: null
 save: true

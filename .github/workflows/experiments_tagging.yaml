@@ -50,11 +50,11 @@ jobs:
 
     - name: TFTransformer + LearnedOrthogonalLFrames
       run: |
-        python run.py model=transformer model/lframesnet=orthogonal save=false evaluate=false training.iterations=3
+        python run.py model=tag_transformer model/lframesnet=orthogonal save=false evaluate=false training.iterations=3
 
-    - name: Run ParticleNet + IdentityLFrames
+    - name: Run BaseParticleNet + IdentityLFrames
       run: |
-        python run.py model=baseparticlenet-lite save=false evaluate=false training.iterations=3
+        python run.py model=tag_baseparticlenet-lite save=false evaluate=false training.iterations=3
 
     - name: Run TFGraphNet + OrthogonalLearnedLFrames symmetry breaking without scalar
       run: |
@@ -67,3 +67,11 @@ jobs:
     - name: Run TFGraphNet + OrthogonalLearnedLFrames symmetry breaking with timelike reference
       run: |
         python run.py model/lframesnet=orthogonal save=false evaluate=false training.iterations=3 data.beam_reference=timelike
+
+    - name: Run Particlenet + Identity
+      run: |
+        python run.py model=tag_particlenet-lite save=false evaluate=false training.iterations=3
+    
+    - name: Run Particlenet + OrthogonalLearnedLFrames
+      run: |
+        python run.py model=tag_particlenet-lite model/lframesnet=orthogonal save=false evaluate=false training.iterations=3
