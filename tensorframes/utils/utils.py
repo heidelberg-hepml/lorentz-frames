@@ -137,7 +137,7 @@ def get_edge_index_from_ptr(ptr, remove_self_loops=True):
     return edge_index
 
 
-def get_edge_index_from_ptr_old(ptr, remove_self_loops=True):
+def get_edge_index_from_ptr_slow(ptr, remove_self_loops=True):
     diffs = torch.diff(ptr)
     edge_index = torch.cat(
         [

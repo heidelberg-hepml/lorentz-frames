@@ -46,8 +46,6 @@ class LFrames:
             dtype: torch.dtype
                 Specifies dtype if is_identity
         """
-        if device is None:
-            device = matrices.device
         # straight-forward initialization
         self.is_identity = is_identity
         if is_identity:

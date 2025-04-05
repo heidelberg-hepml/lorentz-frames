@@ -24,16 +24,12 @@ class TaggerWrapper(nn.Module):
         in_channels: int,
         out_channels: int,
         lframesnet,
-        global_points: bool = False,
-        compute_edge_index=True,
     ):
         super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.lframesnet = lframesnet
         self.trafo_fourmomenta = TensorRepsTransform(TensorReps("1x1n"))
-        self.global_points = global_points
-        self.compute_edge_index = compute_edge_index
 
     def forward(self, embedding):
         # extract embedding
@@ -50,10 +46,6 @@ class TaggerWrapper(nn.Module):
 
         batch_nospurions = batch_withspurions[~is_spurion]
         ptr_nospurions = get_ptr_from_batch(batch_nospurions)
-        if self.compute_edge_index:
-            edge_index_nospurions = get_edge_index_from_ptr(ptr_nospurions)
-        else:
-            edge_index_nospurions = None
 
         scalars_withspurions = torch.cat(
             [scalars_withspurions, global_tagging_features_withspurions], dim=-1
@@ -94,21 +86,11 @@ class TaggerWrapper(nn.Module):
             [scalars_nospurions, local_tagging_features_nospurions], dim=-1
         )
 
-        if self.global_points:
-            return (
-                global_tagging_features_withspurions[~is_spurion],
-                features_local_nospurions,
-                fourmomenta_local_nospurions,
-                lframes_nospurions,
-                edge_index_nospurions,
-                batch_nospurions,
-                tracker,
-            )
         return (
             features_local_nospurions,
             fourmomenta_local_nospurions,
             lframes_nospurions,
-            edge_index_nospurions,
+            ptr_nospurions,
             batch_nospurions,
             tracker,
         )
@@ -135,15 +117,8 @@ class BaselineTransformerWrapper(AggregatedTaggerWrapper):
         *args,
         **kwargs,
     ):
-        super().__init__(
-            *args,
-            **kwargs,
-            compute_edge_index=True,
-        )
-        self.net = net(
-            in_channels=self.in_channels,
-            num_classes=self.out_channels,
-        )
+        super().__init__(*args, **kwargs)
+        self.net = net(in_channels=self.in_channels, num_classes=self.out_channels)
         assert (
             self.lframesnet.is_global
         ), "Non-equivariant model can only handle global lframes"
@@ -182,15 +157,8 @@ class BaselineGraphNetWrapper(AggregatedTaggerWrapper):
         *args,
         **kwargs,
     ):
-        super().__init__(
-            *args,
-            **kwargs,
-            compute_edge_index=True,
-        )
-        self.net = net(
-            in_channels=self.in_channels,
-            num_classes=self.out_channels,
-        )
+        super().__init__(*args, **kwargs)
+        self.net = net(in_channels=self.in_channels, num_classes=self.out_channels)
         assert (
             self.lframesnet.is_global
         ), "Non-equivariant model can only handle global lframes"
@@ -200,11 +168,12 @@ class BaselineGraphNetWrapper(AggregatedTaggerWrapper):
             features_local,
             _,
             _,
-            edge_index,
+            ptr_nospurions,
             batch,
             tracker,
         ) = super().forward(embedding)
 
+        edge_index = get_edge_index_from_ptr(ptr_nospurions)
         # network
         outputs = self.net(x=features_local, edge_index=edge_index)
 
@@ -220,11 +189,7 @@ class BaselineParticleNetWrapper(TaggerWrapper):
         *args,
         **kwargs,
     ):
-        super().__init__(
-            *args,
-            **kwargs,
-            compute_edge_index=True,
-        )
+        super().__init__(*args, **kwargs)
         assert (
             self.lframesnet.is_global
         ), "Non-equivariant model can only handle global lframes"
@@ -264,7 +229,7 @@ class BaselineParTWrapper(TaggerWrapper):
         *args,
         **kwargs,
     ):
-        super().__init__(*args, **kwargs, compute_edge_index=False)
+        super().__init__(*args, **kwargs)
         assert (
             self.lframesnet.is_global
         ), "Non-equivariant model can only handle global lframes"
@@ -300,7 +265,7 @@ class GraphNetWrapper(AggregatedTaggerWrapper):
         *args,
         **kwargs,
     ):
-        super().__init__(*args, **kwargs, compute_edge_index=True)
+        super().__init__(*args, **kwargs)
         self.include_edges = include_edges
         self.net = net(in_channels=self.in_channels, out_channels=self.out_channels)
         if self.include_edges:
@@ -313,11 +278,12 @@ class GraphNetWrapper(AggregatedTaggerWrapper):
             features_local,
             fourmomenta_local,
             lframes,
-            edge_index,
+            ptr_nospurions,
             batch,
             tracker,
         ) = super().forward(embedding)
 
+        edge_index = get_edge_index_from_ptr(ptr_nospurions)
         if self.include_edges:
             edge_attr = self.get_edge_attr(fourmomenta_local, edge_index)
         else:
@@ -351,15 +317,8 @@ class TransformerWrapper(AggregatedTaggerWrapper):
         *args,
         **kwargs,
     ):
-        super().__init__(
-            *args,
-            **kwargs,
-            compute_edge_index=True,
-        )
-        self.net = net(
-            in_channels=self.in_channels,
-            out_channels=self.out_channels,
-        )
+        super().__init__(*args, **kwargs)
+        self.net = net(in_channels=self.in_channels, out_channels=self.out_channels)
 
     def forward(self, embedding):
         (
@@ -397,31 +356,19 @@ class ParticleNetWrapper(AggregatedTaggerWrapper):
         *args,
         **kwargs,
     ):
-        super().__init__(*args, **kwargs, compute_edge_index=False)
+        super().__init__(*args, **kwargs)
         self.net = net(input_dims=self.in_channels, num_classes=self.out_channels)
 
     def forward(self, embedding):
-        if not self.global_points:
-            (
-                features_local,
-                _,
-                lframes_no_spurions,
-                _,
-                batch,
-                tracker,
-            ) = super().forward(embedding)
-            phieta_local = features_local[..., [4, 5]]
-        elif self.global_points:
-            (
-                global_tagging_features,
-                features_local,
-                _,
-                lframes_no_spurions,
-                _,
-                batch,
-                tracker,
-            ) = super().forward(embedding)
-            phieta_local = global_tagging_features[..., [4, 5]]
+        (
+            features_local,
+            _,
+            lframes_no_spurions,
+            _,
+            batch,
+            tracker,
+        ) = super().forward(embedding)
+        phieta_local = features_local[..., [4, 5]]
         # ParticleNet uses L2 norm in (phi, eta) for kNN
 
         phieta_local, mask = to_dense_batch(phieta_local, batch)
