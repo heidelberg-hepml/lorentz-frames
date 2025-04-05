@@ -46,7 +46,6 @@ class TaggerWrapper(nn.Module):
 
         batch_nospurions = batch_withspurions[~is_spurion]
         ptr_nospurions = get_ptr_from_batch(batch_nospurions)
-        edge_index_nospurions = get_edge_index_from_ptr(ptr_nospurions)
 
         scalars_withspurions = torch.cat(
             [scalars_withspurions, global_tagging_features_withspurions], dim=-1
@@ -91,7 +90,7 @@ class TaggerWrapper(nn.Module):
             features_local_nospurions,
             fourmomenta_local_nospurions,
             lframes_nospurions,
-            edge_index_nospurions,
+            ptr_nospurions,
             batch_nospurions,
             tracker,
         )
@@ -169,11 +168,12 @@ class BaselineGraphNetWrapper(AggregatedTaggerWrapper):
             features_local,
             _,
             _,
-            edge_index,
+            ptr_nospurions,
             batch,
             tracker,
         ) = super().forward(embedding)
 
+        edge_index = get_edge_index_from_ptr(ptr_nospurions)
         # network
         outputs = self.net(x=features_local, edge_index=edge_index)
 
@@ -278,11 +278,12 @@ class GraphNetWrapper(AggregatedTaggerWrapper):
             features_local,
             fourmomenta_local,
             lframes,
-            edge_index,
+            ptr_nospurions,
             batch,
             tracker,
         ) = super().forward(embedding)
 
+        edge_index = get_edge_index_from_ptr(ptr_nospurions)
         if self.include_edges:
             edge_attr = self.get_edge_attr(fourmomenta_local, edge_index)
         else:

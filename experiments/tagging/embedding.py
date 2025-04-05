@@ -3,7 +3,7 @@ import math
 from torch_geometric.utils import scatter
 
 from tensorframes.utils.hep import get_eta, get_phi, get_pt
-from tensorframes.utils.utils import get_batch_from_ptr, get_edge_index_from_ptr
+from tensorframes.utils.utils import get_batch_from_ptr
 from experiments.tagging.dataset import EPS
 
 UNITS = 20  # We use units of 20 GeV for all tagging experiments
@@ -95,7 +95,6 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
         scalars[~is_spurion] = scalars_buffer
         ptr[1:] = ptr[1:] + (arange + 1) * n_spurions
 
-    edge_index = get_edge_index_from_ptr(ptr)
     batch = get_batch_from_ptr(ptr)
 
     if cfg_data.add_tagging_features_lframesnet:
@@ -118,7 +117,6 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
         "scalars": scalars,
         "is_spurion": is_spurion,
         "global_tagging_features": global_tagging_features,
-        "edge_index": edge_index,
         "batch": batch,
         "ptr": ptr,
     }
