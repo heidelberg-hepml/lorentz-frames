@@ -368,9 +368,8 @@ class ParticleNetWrapper(AggregatedTaggerWrapper):
             batch,
             tracker,
         ) = super().forward(embedding)
-        phieta_local = features_local[..., [4, 5]]
         # ParticleNet uses L2 norm in (phi, eta) for kNN
-
+        phieta_local = features_local[..., [4, 5]]
         phieta_local, mask = to_dense_batch(phieta_local, batch)
         features_local, _ = to_dense_batch(features_local, batch)
         phieta_local = phieta_local.transpose(1, 2)

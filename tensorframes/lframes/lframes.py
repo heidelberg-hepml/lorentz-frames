@@ -192,8 +192,6 @@ class ChangeOfLFrames(LFrames):
                 is_global=False,
                 inv=lframes_start.matrices @ lframes_end.inv,
                 det=lframes_start.det * lframes_end.det,
-                device=lframes_start.device,
-                dtype=lframes_start.dtype,
             )
 
 
