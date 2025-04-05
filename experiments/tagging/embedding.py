@@ -50,15 +50,6 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data, fourmomenta_float64=
     batchsize = len(ptr) - 1
     arange = torch.arange(batchsize, device=fourmomenta.device)
 
-    # add mass regulator
-    in_dtype = fourmomenta.dtype
-    if fourmomenta_float64:
-        fourmomenta = fourmomenta.to(torch.float64)
-    if cfg_data.mass_reg is not None:
-        fourmomenta[..., 0] = (
-            (fourmomenta[..., 1:] ** 2).sum(dim=-1) + cfg_data.mass_reg**2
-        ).sqrt()
-
     if cfg_data.rescale_data:
         fourmomenta /= UNITS
 
@@ -103,6 +94,16 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data, fourmomenta_float64=
         )
         scalars[~is_spurion] = scalars_buffer
         ptr[1:] = ptr[1:] + (arange + 1) * n_spurions
+
+    # add mass regulator
+    in_dtype = fourmomenta.dtype
+    if fourmomenta_float64:
+        fourmomenta = fourmomenta.to(torch.float64)
+    if cfg_data.mass_reg is not None:
+        mass_reg = cfg_data.mass_reg / UNITS
+        fourmomenta[..., 0] = (
+            (fourmomenta[..., 1:] ** 2).sum(dim=-1) + mass_reg**2
+        ).sqrt()
 
     batch = get_batch_from_ptr(ptr)
 
