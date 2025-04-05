@@ -9,4 +9,4 @@ optimizer: Ranger
 scheduler: flat+decay
 
 defaults:
- - default
+ - tag_default
