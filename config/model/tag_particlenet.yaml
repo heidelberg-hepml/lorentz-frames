@@ -1,7 +1,6 @@
 _target_: experiments.tagging.wrappers.ParticleNetWrapper
 in_channels: null
 out_channels: null
-global_points: False
 
 net:
  _target_: tensorframes.nn.particlenet.TFParticleNet
