@@ -15,7 +15,7 @@ def restframe_boost(fourmomenta):
     Returns:
         trafo: torch.tensor of shape (*dims, 4, 4)
     """
-    beta = fourmomenta[..., 1:] / fourmomenta[..., [0]]
+    beta = fourmomenta[..., 1:] / fourmomenta[..., [0]].clamp(min=1e-10)
     beta2 = (beta**2).sum(dim=-1, keepdim=True)
     gamma = 1 / (1 - beta2).clamp(min=1e-10).sqrt()
 

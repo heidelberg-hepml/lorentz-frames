@@ -4,7 +4,7 @@ particle_type: null
 net:
  _target_: experiments.baselines.dsi.DSI
 
- use_deepset: true
+ use_deepset: false
  sum_deepset: true
  use_invariants: true
  type_token_list: null

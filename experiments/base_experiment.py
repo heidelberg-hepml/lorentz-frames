@@ -606,11 +606,13 @@ class BaseExperiment:
         self.optimizer.zero_grad()
         loss.backward()
 
-        grad_norm_lframes = torch.nn.utils.get_total_norm(
-            self.model.lframesnet.parameters()
+        grad_norm_lframes = torch.nn.utils.clip_grad_norm_(
+            self.model.lframesnet.parameters(),
+            float("inf"),
         ).detach()
-        grad_norm_net = torch.nn.utils.get_total_norm(
-            self.model.net.parameters()
+        grad_norm_net = torch.nn.utils.clip_grad_norm_(
+            self.model.net.parameters(),
+            float("inf"),
         ).detach()
 
         if self.cfg.training.clip_grad_value is not None:

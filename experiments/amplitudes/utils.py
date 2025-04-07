@@ -4,6 +4,7 @@ import torch
 
 from experiments.amplitudes.constants import get_mass
 
+from tensorframes.utils.lorentz import lorentz_eye
 from tensorframes.utils.transforms import (
     rand_rotation,
     rand_xyrotation,
@@ -77,6 +78,8 @@ def load_file(
     elif cfg_data.prepare == "ztransform":
         # add random xyrotation to existing z-boost -> general ztransform
         trafo = rand_xyrotation(momentum.shape[:-2], generator=generator, dtype=dtype)
+    elif cfg_data.prepare == "identity":
+        trafo = lorentz_eye(momentum.shape[:-2], device=momentum.device, dtype=dtype)
     else:
         raise ValueError(f"cfg.data.prepare={cfg_data.prepare} not implemented")
     momentum = torch.einsum("...ij,...kj->...ki", trafo, momentum)

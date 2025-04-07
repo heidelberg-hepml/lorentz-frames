@@ -25,6 +25,7 @@ class EquiEdgeConv(MessagePassing):
         include_edges=True,
         operation="single",
         nonlinearity="exp",
+        fm_norm=False,
         dropout_prob=None,
         aggr="sum",
         layer_norm=False,
@@ -35,6 +36,10 @@ class EquiEdgeConv(MessagePassing):
         self.layer_norm = layer_norm
         self.operation = self.get_operation(operation)
         self.nonlinearity = self.get_nonlinearity(nonlinearity)
+        self.fm_norm = fm_norm
+        assert not (
+            operation == "single" and fm_norm
+        ), "this combinations is numerically unstable"
 
         in_edges = in_vectors if include_edges else 0
         in_channels = 2 * num_scalars + in_edges
@@ -62,6 +67,9 @@ class EquiEdgeConv(MessagePassing):
                 self.edge_inited.fill_(True)
             edge_attr = (edge_attr - self.edge_mean) / self.edge_std
             edge_attr = edge_attr.reshape(edge_attr.shape[0], -1)
+
+            # related to fourmomenta_float64 option
+            edge_attr = edge_attr.to(scalars.dtype)
         else:
             edge_attr = None
 
@@ -79,13 +87,21 @@ class EquiEdgeConv(MessagePassing):
         return vecs
 
     def message(self, edge_index, s_i, s_j, fm_i, fm_j, edge_attr=None):
+        fm_rel = self.operation(fm_i, fm_j)
+        # should not be used with operation "single"
+        if self.fm_norm:
+            fm_rel_norm = lorentz_squarednorm(fm_rel).unsqueeze(-1)
+            fm_rel_norm = fm_rel_norm.abs().sqrt().clamp(min=1e-6)
+        else:
+            fm_rel_norm = 1.0
+
         prefactor = torch.cat([s_i, s_j], dim=-1)
         if edge_attr is not None:
             prefactor = torch.cat([prefactor, edge_attr], dim=-1)
         prefactor = self.mlp(prefactor)
         prefactor = self.nonlinearity(prefactor, index=edge_index[0])
 
-        fm_rel = self.operation(fm_i, fm_j)[:, None, :4]
+        fm_rel = (fm_rel / fm_rel_norm)[:, None, :4]
         prefactor = prefactor.unsqueeze(-1)
 
         out = prefactor * fm_rel

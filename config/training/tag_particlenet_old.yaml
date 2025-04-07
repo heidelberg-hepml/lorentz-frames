@@ -8,4 +8,4 @@ scheduler: particlenet-scheduler
 lr: 3e-4
 
 defaults:
- - default
+ - tag_default

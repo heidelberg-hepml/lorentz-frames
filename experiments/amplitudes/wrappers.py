@@ -63,11 +63,11 @@ class MLPWrapper(AmplitudeWrapper):
         self.net = net
 
     def forward(self, fourmomenta_global):
-        features_local, _, _, _, tracker = super().forward(fourmomenta_global)
+        features_local, _, _, lframes, tracker = super().forward(fourmomenta_global)
         features = features_local.reshape(features_local.shape[0], -1)
 
         amp = self.net(features)
-        return amp, tracker
+        return amp, tracker, lframes
 
 
 class TransformerWrapper(AmplitudeWrapper):
@@ -86,7 +86,7 @@ class TransformerWrapper(AmplitudeWrapper):
         features = torch.cat([features_local, particle_type], dim=-1)
         output = self.net(features, lframes)
         amp = output.mean(dim=-2)
-        return amp, tracker
+        return amp, tracker, lframes
 
 
 class GraphNetWrapper(AmplitudeWrapper):
@@ -142,7 +142,7 @@ class GraphNetWrapper(AmplitudeWrapper):
             edge_attr=edge_attr,
         )
         amp = self.aggregator(output, index=batch)
-        return amp, tracker
+        return amp, tracker, lframes
 
     def get_edge_attr(self, fourmomenta, edge_index):
         edge_attr = get_edge_attr(fourmomenta, edge_index)
@@ -160,7 +160,7 @@ class GATrWrapper(AmplitudeWrapper):
             _,
             fourmomenta_local,
             particle_type,
-            _,
+            lframes,
             tracker,
         ) = super().forward(fourmomenta_global)
 
@@ -174,7 +174,7 @@ class GATrWrapper(AmplitudeWrapper):
 
         # mean aggregation
         amp = out_mv.mean(dim=-2)
-        return amp, tracker
+        return amp, tracker, lframes
 
 
 class DSIWrapper(AmplitudeWrapper):
@@ -187,9 +187,9 @@ class DSIWrapper(AmplitudeWrapper):
             _,
             fourmomenta_local,
             _,
-            _,
+            lframes,
             tracker,
         ) = super().forward(fourmomenta_global)
 
         amp = self.net(fourmomenta_local)
-        return amp, tracker
+        return amp, tracker, lframes
