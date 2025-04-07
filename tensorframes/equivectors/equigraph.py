@@ -25,6 +25,7 @@ class EquiEdgeConv(MessagePassing):
         include_edges=True,
         operation="single",
         nonlinearity="exp",
+        fm_norm=False,
         dropout_prob=None,
         aggr="sum",
         layer_norm=False,
@@ -35,6 +36,7 @@ class EquiEdgeConv(MessagePassing):
         self.layer_norm = layer_norm
         self.operation = self.get_operation(operation)
         self.nonlinearity = self.get_nonlinearity(nonlinearity)
+        self.fm_norm = fm_norm
 
         in_edges = in_vectors if include_edges else 0
         in_channels = 2 * num_scalars + in_edges
@@ -82,13 +84,16 @@ class EquiEdgeConv(MessagePassing):
         return vecs
 
     def message(self, edge_index, s_i, s_j, fm_i, fm_j, edge_attr=None):
+        fm_rel = self.operation(fm_i, fm_j)
+        fm_rel_norm = lorentz_squarednorm(fm_rel).unsqueeze(-1) if self.fm_norm else 1
+
         prefactor = torch.cat([s_i, s_j], dim=-1)
         if edge_attr is not None:
             prefactor = torch.cat([prefactor, edge_attr], dim=-1)
         prefactor = self.mlp(prefactor)
         prefactor = self.nonlinearity(prefactor, index=edge_index[0])
 
-        fm_rel = self.operation(fm_i, fm_j)[:, None, :4]
+        fm_rel = (fm_rel / fm_rel_norm)[:, None, :4]
         prefactor = prefactor.unsqueeze(-1)
 
         out = prefactor * fm_rel
