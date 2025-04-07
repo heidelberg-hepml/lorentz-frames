@@ -10,8 +10,8 @@ num_blocks: 1
 dropout_prob: null
 
 include_edges: true
-operation: single
+operation: add
 nonlinearity: exp
 aggr: sum
-layer_norm: false
+layer_norm: true
 fm_norm: false
