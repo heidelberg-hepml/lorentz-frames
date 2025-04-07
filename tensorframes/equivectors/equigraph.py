@@ -86,8 +86,11 @@ class EquiEdgeConv(MessagePassing):
     def message(self, edge_index, s_i, s_j, fm_i, fm_j, edge_attr=None):
         fm_rel = self.operation(fm_i, fm_j)
         # should not be used with operation "single"
-        fm_rel_norm = lorentz_squarednorm(fm_rel).unsqueeze(-1) if self.fm_norm else 1
-        fm_rel_norm = fm_rel_norm.abs().sqrt().clamp(min=1e-6)
+        if self.fm_norm:
+            fm_rel_norm = lorentz_squarednorm(fm_rel).unsqueeze(-1)
+            fm_rel_norm = fm_rel_norm.abs().sqrt().clamp(min=1e-6)
+        else:
+            fm_rel_norm = 1.0
 
         prefactor = torch.cat([s_i, s_j], dim=-1)
         if edge_attr is not None:
