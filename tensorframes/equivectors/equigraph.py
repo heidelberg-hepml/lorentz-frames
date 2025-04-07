@@ -37,6 +37,9 @@ class EquiEdgeConv(MessagePassing):
         self.operation = self.get_operation(operation)
         self.nonlinearity = self.get_nonlinearity(nonlinearity)
         self.fm_norm = fm_norm
+        assert not (
+            operation == "single" and fm_norm
+        ), "this combinations is numerically unstable"
 
         in_edges = in_vectors if include_edges else 0
         in_channels = 2 * num_scalars + in_edges
