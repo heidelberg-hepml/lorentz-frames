@@ -1,10 +1,6 @@
 """ Particle Transformer (ParT)
 
 Paper: "Particle Transformer for Jet Tagging" - https://arxiv.org/abs/2202.03772
-Code: https://github.com/hqucms/weaver-core/blob/dev/custom_train_eval/weaver/nn/model/ParticleTransformer.py
-
-This is the newer version from the /dev/custom_train_eval branch of the weaver-core repository
-It has changes in October 2024, whereas the main branch was unchanged since 2022
 """
 import math
 import random
@@ -1112,45 +1108,6 @@ class ParticleTransformer(nn.Module):
                 output = torch.softmax(output, dim=1)
             # print('output:\n', output)
             return output
-
-    @torch.jit.ignore
-    def no_weight_decay(self):
-        return {
-            "part.cls_token",
-        }
-
-    def forward(
-        self,
-        x,
-        v=None,
-        mask=None,
-        uu=None,
-        uu_idx=None,
-    ):
-        # x: (N, C, P)
-        # v: (N, 4, P) [px,py,pz,energy]
-        # mask: (N, 1, P) -- real particle = 1, padded = 0
-
-        with torch.no_grad():
-            if not self.for_inference:
-                if uu_idx is not None:
-                    uu = build_sparse_tensor(uu, uu_idx, x.size(-1))
-
-            x, v, mask, uu = self.trimmer(x, v, mask, uu)
-            uu_new = torch.zeros(
-                v.size(0),
-                uu.size(1),
-                v.size(2),
-                v.size(2),
-                dtype=v.dtype,
-                device=v.device,
-            )
-            uu_new[:, :, : x.size(2), : x.size(2)] = uu
-
-        with torch.autocast("cuda", enabled=self.use_amp):
-            x = self.embed(x)  # after embed: (batch, seq_len, embed_dim)
-
-            return self.part(x, v, mask, uu_new)
 
 
 ### weight initialization methods ###
