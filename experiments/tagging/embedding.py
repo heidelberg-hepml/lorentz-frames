@@ -61,6 +61,7 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data, fourmomenta_float64=
         fourmomenta.device,
         fourmomenta.dtype,
     )
+    spurions *= cfg_data.spurion_scale
 
     n_spurions = spurions.shape[0]
     is_spurion = torch.zeros(
