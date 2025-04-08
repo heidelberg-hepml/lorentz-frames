@@ -1,4 +1,4 @@
 batchsize: 256
 
 defaults:
- - default
+ - tag_default

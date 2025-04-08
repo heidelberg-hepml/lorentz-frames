@@ -2,4 +2,4 @@ weight_decay: 0.1
 lr: 3e-4
 
 defaults:
- - default
+ - tag_default

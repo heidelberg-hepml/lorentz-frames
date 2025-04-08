@@ -158,7 +158,7 @@ class AmplitudeExperiment(BaseExperiment):
         t0 = time.time()
         amp_truth_prepd, amp_model_prepd = [], []
         for data in loader:
-            amp_model, amp_truth, _ = self._call_model(data)
+            amp_model, amp_truth, _, _ = self._call_model(data)
             amp_model, amp_truth = amp_model.squeeze(dim=-1), amp_truth.squeeze(dim=-1)
 
             amp_truth_prepd.append(amp_truth.cpu())
@@ -224,9 +224,9 @@ class AmplitudeExperiment(BaseExperiment):
             plot_dict["val_loss"] = self.val_loss
             plot_dict["train_lr"] = self.train_lr
             plot_dict["val_metrics"] = self.val_metrics
-            plot_dict["grad_norm"] = self.grad_norm_train
-            plot_dict["grad_norm_lframes"] = self.grad_norm_lframes
-            plot_dict["grad_norm_net"] = self.grad_norm_net
+            plot_dict["grad_norm"] = torch.stack(self.grad_norm_train).cpu()
+            plot_dict["grad_norm_lframes"] = torch.stack(self.grad_norm_lframes).cpu()
+            plot_dict["grad_norm_net"] = torch.stack(self.grad_norm_net).cpu()
             for key, value in self.train_metrics.items():
                 plot_dict[key] = value
         plot_mixer(self.cfg, plot_path, title, plot_dict)
@@ -235,7 +235,7 @@ class AmplitudeExperiment(BaseExperiment):
         self.loss = torch.nn.MSELoss()
 
     def _batch_loss(self, data):
-        amp_pred, amp_truth, tracker = self._call_model(data)
+        amp_pred, amp_truth, tracker, _ = self._call_model(data)
         loss = self.loss(amp_truth, amp_pred)
 
         metrics = tracker
@@ -244,8 +244,8 @@ class AmplitudeExperiment(BaseExperiment):
     def _call_model(self, data):
         amplitude, momentum = data
         amplitude, momentum = amplitude.to(self.device), momentum.to(self.device)
-        amplitude_model, tracker = self.model(momentum)
-        return amplitude_model, amplitude, tracker
+        amplitude_model, tracker, lframes = self.model(momentum)
+        return amplitude_model, amplitude, tracker, lframes
 
     def _init_metrics(self):
         return {"reg_collinear": [], "reg_coplanar": [], "reg_lightlike": []}

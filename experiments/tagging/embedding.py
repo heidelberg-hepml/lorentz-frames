@@ -3,7 +3,7 @@ import math
 from torch_geometric.utils import scatter
 
 from tensorframes.utils.hep import get_eta, get_phi, get_pt
-from tensorframes.utils.utils import get_batch_from_ptr, get_edge_index_from_ptr
+from tensorframes.utils.utils import get_batch_from_ptr
 from experiments.tagging.dataset import EPS
 
 UNITS = 20  # We use units of 20 GeV for all tagging experiments
@@ -20,7 +20,7 @@ TAGGING_FEATURES_PREPROCESSING = [
 ]
 
 
-def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
+def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data, fourmomenta_float64=True):
     """
     Embed tagging data
     We use torch_geometric sparse representations to be more memory efficient
@@ -36,6 +36,12 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
         Indices of the first particle for each jet
         Also includes the first index after the batch ends
     cfg_data: settings for embedding
+    fourmomenta_float64: bool
+        Option to keep the fourmomenta in float64 throughout the equivectors.
+        Note that no learnable operations are done with float64.
+        We observe that this is required to not violate equivariance,
+        because small cfg_data.mass_reg might not be resolvable in float32.
+        The scalars are kept in the default dtype throughout, serving as a reference.
 
     Returns
     -------
@@ -43,12 +49,6 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
     """
     batchsize = len(ptr) - 1
     arange = torch.arange(batchsize, device=fourmomenta.device)
-
-    # add mass regulator
-    if cfg_data.mass_reg is not None:
-        fourmomenta[..., 0] = (
-            (fourmomenta[..., 1:] ** 2).sum(dim=-1) + cfg_data.mass_reg**2
-        ).sqrt()
 
     if cfg_data.rescale_data:
         fourmomenta /= UNITS
@@ -95,7 +95,16 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
         scalars[~is_spurion] = scalars_buffer
         ptr[1:] = ptr[1:] + (arange + 1) * n_spurions
 
-    edge_index = get_edge_index_from_ptr(ptr)
+    # add mass regulator
+    in_dtype = fourmomenta.dtype
+    if fourmomenta_float64:
+        fourmomenta = fourmomenta.to(torch.float64)
+    if cfg_data.mass_reg is not None:
+        mass_reg = cfg_data.mass_reg / UNITS
+        fourmomenta[..., 0] = (
+            (fourmomenta[..., 1:] ** 2).sum(dim=-1) + mass_reg**2
+        ).sqrt()
+
     batch = get_batch_from_ptr(ptr)
 
     if cfg_data.add_tagging_features_lframesnet:
@@ -112,13 +121,13 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
             dtype=fourmomenta.dtype,
             device=fourmomenta.device,
         )
+    global_tagging_features = global_tagging_features.to(in_dtype)
 
     embedding = {
         "fourmomenta": fourmomenta,
         "scalars": scalars,
         "is_spurion": is_spurion,
         "global_tagging_features": global_tagging_features,
-        "edge_index": edge_index,
         "batch": batch,
         "ptr": ptr,
     }

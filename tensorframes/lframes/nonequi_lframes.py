@@ -2,7 +2,8 @@ import torch
 from tensorframes.lframes.lframes import LFrames
 from tensorframes.utils.transforms import (
     rand_lorentz,
-    rand_rotation,
+    rand_rotation_uniform,
+    rand_rotation_naive,
     rand_xyrotation,
     rand_ztransform,
 )
@@ -42,22 +43,37 @@ class RandomLFrames(LFramesPredictor):
     """Randomly generates a local frame for the whole batch,
     corresponding to data augmentation."""
 
-    def __init__(self, transform_type="lorentz", is_global=True, std_eta=0.5):
+    def __init__(
+        self, transform_type="lorentz", is_global=True, std_eta=0.5, n_max_std_eta=5.0
+    ):
         super().__init__(is_global=is_global)
         self.is_global = is_global
         self.std_eta = std_eta
         self.transform_type = transform_type
+        self.n_max_std_eta = n_max_std_eta
 
     def transform(self, shape, device, dtype):
         if self.transform_type == "lorentz":
-            return rand_lorentz(shape, std_eta=self.std_eta, device=device, dtype=dtype)
+            return rand_lorentz(
+                shape,
+                std_eta=self.std_eta,
+                n_max_std_eta=self.n_max_std_eta,
+                device=device,
+                dtype=dtype,
+            )
         elif self.transform_type == "rotation":
-            return rand_rotation(shape, device=device, dtype=dtype)
+            return rand_rotation_uniform(shape, device=device, dtype=dtype)
+        elif self.transform_type == "rotation_naive":
+            return rand_rotation_naive(shape, device=device, dtype=dtype)
         elif self.transform_type == "xyrotation":
             return rand_xyrotation(shape, device=device, dtype=dtype)
         elif self.transform_type == "ztransform":
             return rand_ztransform(
-                shape, std_eta=self.std_eta, device=device, dtype=dtype
+                shape,
+                std_eta=self.std_eta,
+                n_max_std_eta=self.n_max_std_eta,
+                device=device,
+                dtype=dtype,
             )
         else:
             raise ValueError(

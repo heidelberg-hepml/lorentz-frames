@@ -606,18 +606,14 @@ class BaseExperiment:
         self.optimizer.zero_grad()
         loss.backward()
 
-        grad_norm_lframes = (
-            torch.nn.utils.clip_grad_norm_(
-                self.model.lframesnet.parameters(), float("inf")
-            )
-            .cpu()
-            .item()
-        )
-        grad_norm_net = (
-            torch.nn.utils.clip_grad_norm_(self.model.net.parameters(), float("inf"))
-            .cpu()
-            .item()
-        )
+        grad_norm_lframes = torch.nn.utils.clip_grad_norm_(
+            self.model.lframesnet.parameters(),
+            float("inf"),
+        ).detach()
+        grad_norm_net = torch.nn.utils.clip_grad_norm_(
+            self.model.net.parameters(),
+            float("inf"),
+        ).detach()
 
         if self.cfg.training.clip_grad_value is not None:
             # clip gradients at a certain value (this is dangerous!)
@@ -626,17 +622,13 @@ class BaseExperiment:
                 self.cfg.training.clip_grad_value,
             )
         # rescale gradients such that their norm matches a given number
-        grad_norm = (
-            torch.nn.utils.clip_grad_norm_(
-                self.model.parameters(),
-                self.cfg.training.clip_grad_norm
-                if self.cfg.training.clip_grad_norm is not None
-                else float("inf"),
-                error_if_nonfinite=True,
-            )
-            .cpu()
-            .item()
-        )
+        grad_norm = torch.nn.utils.clip_grad_norm_(
+            self.model.parameters(),
+            self.cfg.training.clip_grad_norm
+            if self.cfg.training.clip_grad_norm is not None
+            else float("inf"),
+            error_if_nonfinite=True,
+        ).detach()
         if step > MIN_STEP_SKIP and self.cfg.training.max_grad_norm is not None:
             if grad_norm > self.cfg.training.max_grad_norm:
                 LOGGER.warning(

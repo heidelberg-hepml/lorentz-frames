@@ -15,7 +15,6 @@ from tensorframes.utils.utils import (
 from tensorframes.reps.tensorreps import TensorReps
 from tensorframes.reps.tensorreps_transform import TensorRepsTransform
 from experiments.tagging.embedding import get_tagging_features
-from tensorframes.utils.lorentz import lorentz_squarednorm
 
 
 class TaggerWrapper(nn.Module):
@@ -46,7 +45,6 @@ class TaggerWrapper(nn.Module):
 
         batch_nospurions = batch_withspurions[~is_spurion]
         ptr_nospurions = get_ptr_from_batch(batch_nospurions)
-        edge_index_nospurions = get_edge_index_from_ptr(ptr_nospurions)
 
         scalars_withspurions = torch.cat(
             [scalars_withspurions, global_tagging_features_withspurions], dim=-1
@@ -87,11 +85,20 @@ class TaggerWrapper(nn.Module):
             [scalars_nospurions, local_tagging_features_nospurions], dim=-1
         )
 
+        # change dtype (see embedding.py fourmomenta_float64 option)
+        features_local_nospurions = features_local_nospurions.to(
+            scalars_nospurions.dtype
+        )
+        fourmomenta_local_nospurions = fourmomenta_local_nospurions.to(
+            scalars_nospurions.dtype
+        )
+        lframes_nospurions.to(scalars_nospurions.dtype)
+
         return (
             features_local_nospurions,
             fourmomenta_local_nospurions,
             lframes_nospurions,
-            edge_index_nospurions,
+            ptr_nospurions,
             batch_nospurions,
             tracker,
         )
@@ -128,7 +135,7 @@ class BaselineTransformerWrapper(AggregatedTaggerWrapper):
         (
             features_local,
             _,
-            _,
+            lframes,
             _,
             batch,
             tracker,
@@ -148,7 +155,7 @@ class BaselineTransformerWrapper(AggregatedTaggerWrapper):
 
         # aggregation
         score = self.extract_score(outputs, batch)
-        return score, tracker
+        return score, tracker, lframes
 
 
 class BaselineGraphNetWrapper(AggregatedTaggerWrapper):
@@ -168,18 +175,19 @@ class BaselineGraphNetWrapper(AggregatedTaggerWrapper):
         (
             features_local,
             _,
-            _,
-            edge_index,
+            lframes,
+            ptr,
             batch,
             tracker,
         ) = super().forward(embedding)
 
+        edge_index = get_edge_index_from_ptr(ptr)
         # network
         outputs = self.net(x=features_local, edge_index=edge_index)
 
         # aggregation
         score = self.extract_score(outputs, batch)
-        return score, tracker
+        return score, tracker, lframes
 
 
 class BaselineParticleNetWrapper(TaggerWrapper):
@@ -199,7 +207,7 @@ class BaselineParticleNetWrapper(TaggerWrapper):
         (
             features_local,
             _,
-            _,
+            lframes,
             _,
             batch,
             tracker,
@@ -219,7 +227,7 @@ class BaselineParticleNetWrapper(TaggerWrapper):
             features=features_local,
             mask=mask,
         )
-        return score, tracker
+        return score, tracker, lframes
 
 
 class BaselineParTWrapper(TaggerWrapper):
@@ -239,7 +247,7 @@ class BaselineParTWrapper(TaggerWrapper):
         (
             features_local,
             _,
-            _,
+            lframes,
             _,
             batch,
             tracker,
@@ -254,7 +262,7 @@ class BaselineParTWrapper(TaggerWrapper):
             x=features_local,
             mask=mask,
         )
-        return score, tracker
+        return score, tracker, lframes
 
 
 class GraphNetWrapper(AggregatedTaggerWrapper):
@@ -278,11 +286,12 @@ class GraphNetWrapper(AggregatedTaggerWrapper):
             features_local,
             fourmomenta_local,
             lframes,
-            edge_index,
+            ptr,
             batch,
             tracker,
         ) = super().forward(embedding)
 
+        edge_index = get_edge_index_from_ptr(ptr)
         if self.include_edges:
             edge_attr = self.get_edge_attr(fourmomenta_local, edge_index)
         else:
@@ -297,7 +306,7 @@ class GraphNetWrapper(AggregatedTaggerWrapper):
 
         # aggregation
         score = self.extract_score(outputs, batch)
-        return score, tracker
+        return score, tracker, lframes
 
     def get_edge_attr(self, fourmomenta, edge_index):
         edge_attr = get_edge_attr(fourmomenta, edge_index)
@@ -345,7 +354,7 @@ class TransformerWrapper(AggregatedTaggerWrapper):
 
         # aggregation
         score = self.extract_score(outputs, batch)
-        return score, tracker
+        return score, tracker, lframes
 
 
 class ParticleNetWrapper(AggregatedTaggerWrapper):
@@ -362,7 +371,7 @@ class ParticleNetWrapper(AggregatedTaggerWrapper):
         (
             features_local,
             _,
-            lframes_no_spurions,
+            lframes,
             _,
             batch,
             tracker,
@@ -373,17 +382,17 @@ class ParticleNetWrapper(AggregatedTaggerWrapper):
         features_local, _ = to_dense_batch(features_local, batch)
         phieta_local = phieta_local.transpose(1, 2)
         features_local = features_local.transpose(1, 2)
-        dense_lframes = to_dense_batch(lframes_no_spurions.matrices, batch)[0]
+        dense_lframes = to_dense_batch(lframes.matrices, batch)[0]
         dense_lframes[~mask] = torch.eye(
-            4, device=lframes_no_spurions.device, dtype=dense_lframes.dtype
+            4, device=lframes.device, dtype=dense_lframes.dtype
         )
-        lframes_no_spurions = LFrames(
+        lframes = LFrames(
             dense_lframes.view(-1, 4, 4),
-            is_global=lframes_no_spurions.is_global,
-            is_identity=lframes_no_spurions.is_identity,
-            device=lframes_no_spurions.device,
-            dtype=lframes_no_spurions.dtype,
-            shape=lframes_no_spurions.matrices.shape,
+            is_global=lframes.is_global,
+            is_identity=lframes.is_identity,
+            device=lframes.device,
+            dtype=lframes.dtype,
+            shape=lframes.matrices.shape,
         )
         mask = mask.unsqueeze(1)
 
@@ -391,7 +400,7 @@ class ParticleNetWrapper(AggregatedTaggerWrapper):
         score = self.net(
             points=phieta_local,
             features=features_local,
-            lframes=lframes_no_spurions,
+            lframes=lframes,
             mask=mask,
         )
-        return score, tracker
+        return score, tracker, lframes

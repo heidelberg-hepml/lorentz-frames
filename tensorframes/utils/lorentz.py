@@ -26,7 +26,8 @@ def lorentz_metric(dims, device=torch.device("cpu"), dtype=torch.float32):
     """
     Create a metric tensor of shape (*dims, 4, 4)
     """
-    eye = torch.diag(torch.tensor([1.0, -1.0, -1.0, -1.0], dtype=dtype, device=device))
+    eye = torch.eye(4, device=device, dtype=dtype)
+    eye[1:, 1:] *= -1
     eye = eye.view((1,) * len(dims) + eye.shape).repeat(*dims, 1, 1)
     return eye
 
