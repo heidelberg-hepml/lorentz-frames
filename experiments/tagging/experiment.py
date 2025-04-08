@@ -93,6 +93,7 @@ class TaggingExperiment(BaseExperiment):
                     loader_dict[set_label], set_label, mode="eval"
                 )
 
+    @torch.no_grad()
     def _evaluate_single(self, loader, title, mode, step=None):
         assert mode in ["val", "eval"]
 
@@ -108,12 +109,11 @@ class TaggingExperiment(BaseExperiment):
         self.model.eval()
         if self.cfg.training.optimizer == "ScheduleFree":
             self.optimizer.eval()
-        with torch.no_grad():
-            for batch in loader:
-                y_pred, label, _, _ = self._get_ypred_and_label(batch)
-                y_pred = torch.nn.functional.sigmoid(y_pred)
-                labels_true.append(label.cpu().float())
-                labels_predict.append(y_pred.cpu().float())
+        for batch in loader:
+            y_pred, label, _, _ = self._get_ypred_and_label(batch)
+            y_pred = torch.nn.functional.sigmoid(y_pred)
+            labels_true.append(label.cpu().float())
+            labels_predict.append(y_pred.cpu().float())
         labels_true, labels_predict = torch.cat(labels_true), torch.cat(labels_predict)
         if mode == "eval":
             metrics["labels_true"], metrics["labels_predict"] = (

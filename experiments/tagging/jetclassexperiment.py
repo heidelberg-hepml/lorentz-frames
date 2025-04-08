@@ -157,6 +157,7 @@ class JetClassTaggingExperiment(TaggingExperiment):
             **self.loader_kwargs,
         )
 
+    @torch.no_grad()
     def _evaluate_single(self, loader, title, mode, step=None):
         assert mode in ["val", "eval"]
 
@@ -169,11 +170,10 @@ class JetClassTaggingExperiment(TaggingExperiment):
         self.model.eval()
         if self.cfg.training.optimizer == "ScheduleFree":
             self.optimizer.eval()
-        with torch.no_grad():
-            for batch in loader:
-                y_pred, label, _, _ = self._get_ypred_and_label(batch)
-                labels_true.append(label.cpu())
-                labels_predict.append(y_pred.cpu().float())
+        for batch in loader:
+            y_pred, label, _, _ = self._get_ypred_and_label(batch)
+            labels_true.append(label.cpu())
+            labels_predict.append(y_pred.cpu().float())
 
         labels_true, labels_predict = torch.cat(labels_true), torch.cat(labels_predict)
         if mode == "eval":
