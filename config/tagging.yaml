@@ -3,7 +3,7 @@ data:
  beam_reference: lightlike
  two_beams: true
  add_time_reference: true
- mass_reg: 1e-2
+ mass_reg: 5e-3
  spurions_scale: 1
 
 evaluation:
