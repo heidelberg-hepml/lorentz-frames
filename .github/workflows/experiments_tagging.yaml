@@ -75,3 +75,10 @@ jobs:
     - name: Run Particlenet + OrthogonalLearnedLFrames
       run: |
         python run.py model=tag_particlenet-lite model/lframesnet=orthogonal save=false evaluate=false training.iterations=3
+
+    - name: Baseline ParT
+      run: |
+        python run.py model=tag_baseParT save=false evaluate=false training.iterations=3
+    - name: Baseline ParT without pairwise features
+      run: |
+        python run.py model=tag_baseParT save=false evaluate=false training.iterations=3 model.net.pair_input_dim=0
