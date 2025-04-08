@@ -107,8 +107,6 @@ class TaggingExperiment(BaseExperiment):
         # predictions
         labels_true, labels_predict = [], []
         self.model.eval()
-        if self.cfg.training.optimizer == "ScheduleFree":
-            self.optimizer.eval()
         for batch in loader:
             y_pred, label, _, _ = self._get_ypred_and_label(batch)
             y_pred = torch.nn.functional.sigmoid(y_pred)

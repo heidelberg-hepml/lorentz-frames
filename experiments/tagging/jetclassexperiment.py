@@ -168,8 +168,6 @@ class JetClassTaggingExperiment(TaggingExperiment):
         # predictions
         labels_true, labels_predict = [], []
         self.model.eval()
-        if self.cfg.training.optimizer == "ScheduleFree":
-            self.optimizer.eval()
         for batch in loader:
             y_pred, label, _, _ = self._get_ypred_and_label(batch)
             labels_true.append(label.cpu())
