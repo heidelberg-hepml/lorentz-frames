@@ -1,5 +1,5 @@
 data:
- add_tagging_features_lframesnet: false
+ add_tagging_features_lframesnet: true
  beam_reference: lightlike
  two_beams: true
  add_time_reference: true
