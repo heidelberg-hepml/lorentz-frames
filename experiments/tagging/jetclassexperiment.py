@@ -259,10 +259,10 @@ class JetClassTaggingExperiment(TaggingExperiment):
                 0,
                 fourmomenta.shape[2],
                 device=fourmomenta.device,
-                dtype=fourmomenta.dtype,
+                dtype=self.dtype,
             )
         else:
-            scalars = batch[0]["pf_features"].to(self.device)
+            scalars = batch[0]["pf_features"].to(self.device, self.dtype)
         label = batch[1]["_label_"].to(self.device)
         fourmomenta, scalars, ptr = dense_to_sparse_jet(fourmomenta, scalars)
         embedding = embed_tagging_data(fourmomenta, scalars, ptr, self.cfg.data)
