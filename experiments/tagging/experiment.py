@@ -197,8 +197,6 @@ class TaggingExperiment(BaseExperiment):
             plot_dict["train_loss"] = self.train_loss
             plot_dict["val_loss"] = self.val_loss
             plot_dict["train_lr"] = self.train_lr
-            plot_dict["train_metrics"] = self.train_metrics
-            plot_dict["val_metrics"] = self.val_metrics
             plot_dict["grad_norm"] = torch.stack(self.grad_norm_train).cpu()
             plot_dict["grad_norm_lframes"] = torch.stack(self.grad_norm_lframes).cpu()
             plot_dict["grad_norm_net"] = torch.stack(self.grad_norm_net).cpu()
