@@ -6,14 +6,12 @@ from tensorframes.utils.hep import get_eta, get_phi, get_pt
 from tensorframes.utils.utils import get_batch_from_ptr
 from experiments.tagging.dataset import EPS
 
-UNITS = 20  # We use units of 20 GeV for all tagging experiments
-
 # weaver defaults for tagging features standardization (mean, std)
 TAGGING_FEATURES_PREPROCESSING = [
-    [1.7 - math.log(UNITS), 0.7],  # log_pt
-    [2.0 - math.log(UNITS), 0.7],  # log_energy
-    [-4.7 - math.log(UNITS), 0.7],  # log_pt_rel
-    [-4.7 - math.log(UNITS), 0.7],  # log_energy_rel
+    [1.7, 0.7],  # log_pt
+    [2.0, 0.7],  # log_energy
+    [-4.7, 0.7],  # log_pt_rel
+    [-4.7, 0.7],  # log_energy_rel
     [0, 1],  # dphi
     [0, 1],  # deta
     [0.2, 4],  # dr
@@ -49,9 +47,6 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data, fourmomenta_float64=
     """
     batchsize = len(ptr) - 1
     arange = torch.arange(batchsize, device=fourmomenta.device)
-
-    if cfg_data.rescale_data:
-        fourmomenta /= UNITS
 
     # beam reference
     spurions = get_spurion(
@@ -101,7 +96,7 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data, fourmomenta_float64=
     if fourmomenta_float64:
         fourmomenta = fourmomenta.to(torch.float64)
     if cfg_data.mass_reg is not None:
-        mass_reg = cfg_data.mass_reg / UNITS
+        mass_reg = cfg_data.mass_reg
         fourmomenta[..., 0] = (
             (fourmomenta[..., 1:] ** 2).sum(dim=-1) + mass_reg**2
         ).sqrt()

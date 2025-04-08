@@ -37,10 +37,9 @@ class TaggingExperiment(BaseExperiment):
     def _init_data(self, Dataset, data_path):
         LOGGER.info(f"Creating {Dataset.__name__} from {data_path}")
         t0 = time.time()
-        kwargs = {"rescale_data": self.cfg.data.rescale_data}
-        self.data_train = Dataset(**kwargs)
-        self.data_test = Dataset(**kwargs)
-        self.data_val = Dataset(**kwargs)
+        self.data_train = Dataset()
+        self.data_test = Dataset()
+        self.data_val = Dataset()
         self.data_train.load_data(data_path, "train")
         self.data_test.load_data(data_path, "test")
         self.data_val.load_data(data_path, "val")
