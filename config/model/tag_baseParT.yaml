@@ -3,9 +3,14 @@ in_channels: null
 out_channels: null
 
 net:
- _target_: experiments.baselines.particletransformerv2.ParticleTransformerTagger
+ _target_: experiments.baselines.particletransformer.ParticleTransformer
  _partial_: true
+ input_dim: null
  num_classes: null
+
+ pair_input_dim: null
+ use_amp: false
+ trim: true
 
 defaults:
  - lframesnet: identity
