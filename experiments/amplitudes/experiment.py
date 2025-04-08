@@ -157,12 +157,14 @@ class AmplitudeExperiment(BaseExperiment):
         self.model.eval()
         t0 = time.time()
         amp_truth_prepd, amp_model_prepd = [], []
+        lframes_list = []
         for data in loader:
-            amp_model, amp_truth, _, _ = self._call_model(data)
+            amp_model, amp_truth, _, lframes = self._call_model(data)
             amp_model, amp_truth = amp_model.squeeze(dim=-1), amp_truth.squeeze(dim=-1)
 
             amp_truth_prepd.append(amp_truth.cpu())
             amp_model_prepd.append(amp_model.cpu())
+            lframes_list.append(lframes.matrices.cpu())
         dt = time.time() - t0
         LOGGER.info(
             f"Evaluation time: {dt*1e6/len(loader.dataset):.2f}s for 1M events "
@@ -170,6 +172,15 @@ class AmplitudeExperiment(BaseExperiment):
         )
         amp_truth_prepd = torch.cat(amp_truth_prepd, dim=0)
         amp_model_prepd = torch.cat(amp_model_prepd, dim=0)
+        lframes_list = torch.cat(lframes_list, dim=0)
+
+        # save lframes
+        if self.cfg.evaluation.save_lframes and title == "test":
+            path = os.path.join(self.cfg.run_dir, f"plots_{self.cfg.run_idx}")
+            os.makedirs(path, exist_ok=True)
+            filename = os.path.join(path, f"lframes_{title}.npy")
+            LOGGER.info(f"Saving lframes to {filename}")
+            np.save(filename, lframes_list.numpy())
 
         # MSE over preprocessed amplitudes
         mse_prepd = torch.mean((amp_model_prepd - amp_truth_prepd) ** 2)
@@ -210,7 +221,7 @@ class AmplitudeExperiment(BaseExperiment):
 
     def plot(self):
         plot_path = os.path.join(self.cfg.run_dir, f"plots_{self.cfg.run_idx}")
-        os.makedirs(plot_path)
+        os.makedirs(plot_path, exist_ok=True)
         model_title = self.cfg.model.net._target_.rsplit(".", 1)[-1]
         title = f"{MODEL_TITLE[model_title]} ({DATASET_TITLE[self.dataset]})"
         LOGGER.info(f"Creating plots in {plot_path}")
