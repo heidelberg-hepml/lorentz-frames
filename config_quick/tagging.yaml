@@ -1,10 +1,10 @@
 data:
  add_tagging_features_lframesnet: false
- rescale_data: true
- beam_reference: timelike
+ beam_reference: lightlike
  two_beams: true
  add_time_reference: true
- mass_reg: 1e-2
+ mass_reg: 5e-3
+ spurion_scale: 1
 
 evaluation:
  batchsize: 128
