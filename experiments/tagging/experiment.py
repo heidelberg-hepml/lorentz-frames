@@ -2,6 +2,7 @@ import numpy as np
 import torch
 from torch_geometric.loader import DataLoader
 import os, time
+from torch_geometric.utils import to_dense_batch
 
 from sklearn.metrics import roc_curve, roc_auc_score, accuracy_score
 
@@ -104,16 +105,41 @@ class TaggingExperiment(BaseExperiment):
 
         # predictions
         labels_true, labels_predict = [], []
+        lframes_list = []
         self.model.eval()
         if self.cfg.training.optimizer == "ScheduleFree":
             self.optimizer.eval()
         with torch.no_grad():
             for batch in loader:
-                y_pred, label, _, _ = self._get_ypred_and_label(batch)
+                y_pred, label, _, lframes = self._get_ypred_and_label(batch)
                 y_pred = torch.nn.functional.sigmoid(y_pred)
                 labels_true.append(label.cpu().float())
                 labels_predict.append(y_pred.cpu().float())
+
+                if self.cfg.evaluation.save_lframes:
+                    lframes = lframes.matrices.cpu()
+                    lframes_dense, _ = to_dense_batch(lframes, batch.batch)  # zero-pad
+                    lframes_list.append(lframes_dense)
         labels_true, labels_predict = torch.cat(labels_true), torch.cat(labels_predict)
+
+        # save lframes
+        if self.cfg.evaluation.save_lframes and title == "test":
+            # zero-pad across batches
+            max_particles = max(lframes.shape[1] for lframes in lframes_list)
+            lframes_list_pad = [
+                torch.nn.functional.pad(
+                    lframes, (0, 0, 0, 0, 0, max_particles - lframes.shape[1])
+                )
+                for lframes in lframes_list
+            ]
+            lframes_list = torch.cat(lframes_list_pad, dim=0)
+
+            path = os.path.join(self.cfg.run_dir, f"plots_{self.cfg.run_idx}")
+            os.makedirs(path, exist_ok=True)
+            filename = os.path.join(path, f"lframes_{title}.npy")
+            LOGGER.info(f"Saving lframes to {filename}")
+            np.save(filename, lframes_list.numpy())
+
         if mode == "eval":
             metrics["labels_true"], metrics["labels_predict"] = (
                 labels_true,
@@ -176,7 +202,7 @@ class TaggingExperiment(BaseExperiment):
 
     def plot(self):
         plot_path = os.path.join(self.cfg.run_dir, f"plots_{self.cfg.run_idx}")
-        os.makedirs(plot_path)
+        os.makedirs(plot_path, exist_ok=True)
         title = type(self.model.net).__name__
         LOGGER.info(f"Creating plots in {plot_path}")
 

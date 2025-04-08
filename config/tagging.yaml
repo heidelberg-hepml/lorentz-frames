@@ -10,6 +10,7 @@ evaluation:
  batchsize: 512
  save_roc: false
  eval_set: [train, test, val]
+ save_lframes: false
 
 plotting:
  roc: true
