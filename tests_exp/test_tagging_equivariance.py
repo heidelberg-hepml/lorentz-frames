@@ -6,13 +6,20 @@ import os
 
 import experiments.logger
 from experiments.tagging.experiment import TopTaggingExperiment
-from tensorframes.utils.transforms import rand_rotation, rand_lorentz, rand_xyrotation
+from tensorframes.utils.transforms import (
+    rand_rotation_uniform,
+    rand_lorentz,
+    rand_xyrotation,
+)
 
 
 @pytest.mark.parametrize(
     "rand_trafo,breaking_list",
     [
-        [rand_rotation, ["data.beam_reference=null", "data.add_time_reference=false"]],
+        [
+            rand_rotation_uniform,
+            ["data.beam_reference=null", "data.add_time_reference=false"],
+        ],
         [rand_lorentz, ["data.beam_reference=null", "data.add_time_reference=false"]],
         [rand_xyrotation, []],
     ],

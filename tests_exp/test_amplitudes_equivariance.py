@@ -6,7 +6,7 @@ import os
 
 import experiments.logger
 from experiments.amplitudes.experiment import AmplitudeExperiment
-from tensorframes.utils.transforms import rand_rotation, rand_lorentz
+from tensorframes.utils.transforms import rand_rotation_uniform, rand_lorentz
 
 
 @pytest.mark.parametrize(
@@ -24,7 +24,7 @@ from tensorframes.utils.transforms import rand_rotation, rand_lorentz
     ),
 )
 @pytest.mark.parametrize("lframesnet", ["orthogonal", "polardec"])
-@pytest.mark.parametrize("rand_trafo", [rand_rotation, rand_lorentz])
+@pytest.mark.parametrize("rand_trafo", [rand_rotation_uniform, rand_lorentz])
 @pytest.mark.parametrize("iterations", [100])
 @pytest.mark.parametrize("use_float64", [False, True])
 def test_amplitudes(
