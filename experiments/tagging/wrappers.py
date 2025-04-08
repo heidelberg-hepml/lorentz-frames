@@ -89,9 +89,6 @@ class TaggerWrapper(nn.Module):
         features_local_nospurions = features_local_nospurions.to(
             scalars_nospurions.dtype
         )
-        fourmomenta_local_nospurions = fourmomenta_local_nospurions.to(
-            scalars_nospurions.dtype
-        )
         lframes_nospurions.to(scalars_nospurions.dtype)
 
         return (
@@ -293,7 +290,9 @@ class GraphNetWrapper(AggregatedTaggerWrapper):
 
         edge_index = get_edge_index_from_ptr(ptr)
         if self.include_edges:
-            edge_attr = self.get_edge_attr(fourmomenta_local, edge_index)
+            edge_attr = self.get_edge_attr(fourmomenta_local, edge_index).to(
+                features_local.dtype
+            )
         else:
             edge_attr = None
         # network
