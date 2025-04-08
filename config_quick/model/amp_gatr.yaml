@@ -1,5 +1,6 @@
 _target_: experiments.amplitudes.wrappers.GATrWrapper
 particle_type: null
+use_float64: null
 
 net:
  _target_: experiments.baselines.gatr.nets.GATr

@@ -38,7 +38,7 @@ class AmplitudeXLExperiment(AmplitudeExperiment):
             amp_mean=self.amp_mean,
             amp_std=self.amp_std,
             mom_std=self.mom_std,
-            dtype=self.dtype,
+            input_dtype=self.dtype,
             num_prefetch=self.cfg.data.num_prefetch,
         )
         self.train_loader = torch.utils.data.DataLoader(

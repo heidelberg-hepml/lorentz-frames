@@ -46,12 +46,35 @@ def load_file(
     amp_mean=None,
     amp_std=None,
     mom_std=None,
-    dtype=torch.float32,
+    input_dtype=torch.float32,
+    save_dtype=torch.float64,
     generator=None,
 ):
+    """
+    Parameters
+    ----------
+    data_path : str
+        Path to the data file.
+    cfg_data : object
+        Configuration object with data loading parameters.
+    dataset : str
+        Name of the dataset file, like 'zgg', 'zgggg' or 'zgggg_0'.
+    amp_mean : float
+        Mean of the amplitude for standardization.
+    amp_std : float
+        Standard deviation of the amplitude for standardization.
+    mom_std : float
+        Standard deviation of the momentum for standardization.
+    input_dtype : torch.dtype
+        Data type for neural network inputs, usually float32.
+    save_dtype : torch.dtype
+        Safer data type for preprocessing, usually float64.
+    generator : torch.Generator
+        Random generator for reproducibility. Used for AmplitudeXL loading.
+    """
     assert os.path.exists(data_path)
     data_raw = load(data_path)
-    data_raw = torch.tensor(data_raw, dtype=dtype)
+    data_raw = torch.tensor(data_raw, dtype=save_dtype)
 
     if cfg_data.subsample is not None:
         assert cfg_data.subsample <= data_raw.shape[0]
@@ -64,7 +87,7 @@ def load_file(
     # mass regulator
     if cfg_data.mass_reg is not None:
         mass = get_mass(dataset, cfg_data.mass_reg)
-        mass = torch.tensor(mass, dtype=dtype).unsqueeze(0)
+        mass = torch.tensor(mass, dtype=save_dtype).unsqueeze(0)
         momentum[..., 0] = torch.sqrt((momentum[..., 1:] ** 2).sum(dim=-1) + mass**2)
 
     # prepare momenta
@@ -74,12 +97,18 @@ def load_file(
         trafo = restframe_boost(-lab_momentum)
     elif cfg_data.prepare == "lorentz":
         # add random rotation to existing z-boost -> general Lorentz trafo
-        trafo = rand_rotation_uniform(momentum.shape[:-2], generator=generator, dtype=dtype)
+        trafo = rand_rotation_uniform(
+            momentum.shape[:-2], generator=generator, dtype=save_dtype
+        )
     elif cfg_data.prepare == "ztransform":
         # add random xyrotation to existing z-boost -> general ztransform
-        trafo = rand_xyrotation(momentum.shape[:-2], generator=generator, dtype=dtype)
+        trafo = rand_xyrotation(
+            momentum.shape[:-2], generator=generator, dtype=save_dtype
+        )
     elif cfg_data.prepare == "identity":
-        trafo = lorentz_eye(momentum.shape[:-2], device=momentum.device, dtype=dtype)
+        trafo = lorentz_eye(
+            momentum.shape[:-2], device=momentum.device, dtype=save_dtype
+        )
     else:
         raise ValueError(f"cfg.data.prepare={cfg_data.prepare} not implemented")
     momentum = torch.einsum("...ij,...kj->...ki", trafo, momentum)
@@ -91,4 +120,10 @@ def load_file(
     amplitude, amp_mean, amp_std = preprocess_amplitude(
         amplitude, std=amp_std, mean=amp_mean
     )
+
+    # move everything except momentum to less safe dtype
+    amplitude = amplitude.to(input_dtype)
+    amp_mean = amp_mean.to(input_dtype)
+    amp_std = amp_std.to(input_dtype)
+    mom_std = mom_std.to(input_dtype)
     return amplitude, momentum, amp_mean, amp_std, mom_std
