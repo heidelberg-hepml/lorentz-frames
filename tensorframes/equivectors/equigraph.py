@@ -131,7 +131,7 @@ class EquiEdgeConv(MessagePassing):
         elif nonlinearity == "relu":
             return lambda x, index: torch.nn.functional.relu(x)
         elif nonlinearity == "rescaled_relu":
-            return lambda x, index: (x - x.mean(dim=-1)).relu()
+            return lambda x, index: (x - x.mean(dim=-1, keepdims=True)).relu()
         else:
             raise ValueError(
                 f"Invalid nonlinearity {nonlinearity}. Options are (None, exp, softplus, softmax, relu, rescaled-relu)."
