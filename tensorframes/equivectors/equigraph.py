@@ -78,7 +78,6 @@ class EquiEdgeConv(MessagePassing):
         vecs = self.propagate(
             edge_index, s=scalars, fm=fourmomenta, edge_attr=edge_attr, batch=batch
         )
-
         # equivariant layer normalization
         if self.layer_norm:
             norm = lorentz_squarednorm(vecs.reshape(fourmomenta.shape[0], -1, 4))
@@ -129,9 +128,13 @@ class EquiEdgeConv(MessagePassing):
             return lambda x, index: torch.nn.functional.softplus(x)
         elif nonlinearity == "softmax":
             return lambda x, index: softmax(x, index)
+        elif nonlinearity == "relu":
+            return lambda x, index: torch.nn.functional.relu(x)
+        elif nonlinearity == "rescaled_relu":
+            return lambda x, index: (x - x.mean(dim=-1)).relu()
         else:
             raise ValueError(
-                f"Invalid nonlinearity {nonlinearity}. Options are (None, exp, softplus, softmax)."
+                f"Invalid nonlinearity {nonlinearity}. Options are (None, exp, softplus, softmax, relu, rescaled-relu)."
             )
 
 
