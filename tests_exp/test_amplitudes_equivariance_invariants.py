@@ -91,10 +91,9 @@ def test_amplitudes(
             tracker,
         ) = parent.forward(mom_augmented)
 
-        batch_fm = fourmomenta_local.mean(dim=-2)
-        batch_fm_augmented = fourmomenta_local_augmented.mean(dim=-2)
+        diff = (fourmomenta_local - fourmomenta_local_augmented) ** 2
+        diff = diff.mean(dim=-2)
 
-        diff = (batch_fm - batch_fm_augmented) ** 2
         mses.append(diff.detach())
     mses = torch.cat(mses, dim=0).clamp(min=1e-30)
     print(
