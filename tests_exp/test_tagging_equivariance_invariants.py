@@ -79,6 +79,7 @@ def test_amplitudes(
                 yield x
 
     mses = []
+    infs = []
     agg = MeanAggregation()
     iterator = iter(cycle(exp.train_loader))
     for _ in range(iterations):
@@ -124,12 +125,18 @@ def test_amplitudes(
             tracker_augmented,
         ) = parent.forward(embedded_data_augmented)
 
+        norm = fourmomenta_local_nospurions + fourmomenta_local_nospurions_augmented
         diff = (
-            fourmomenta_local_nospurions - fourmomenta_local_nospurions_augmented
+            (fourmomenta_local_nospurions - fourmomenta_local_nospurions_augmented)
+            / norm
         ) ** 2
+        infs.append((~diff.isfinite()).sum().detach().item())
+        diff[~diff.isfinite()] = 0
         diff = agg(diff, index=batch_nospurions)
+
         mses.append(diff.detach())
     mses = torch.cat(mses, dim=0).clamp(min=1e-30)
+    print("infs: ", infs)
     print(
         f"log-mean={mses.log().mean().exp():.2e} max={mses.max().item():.2e}",
         model_list,
@@ -138,6 +145,6 @@ def test_amplitudes(
         "float64" if use_float64 else "float32",
     )
     if save:
-        os.makedirs("scripts/equi-violation_invariants", exist_ok=True)
-        filename = f"scripts/equi-violation_invariants/equitest_tag_{model_idx}_{lframesnet}_{rand_trafo.__name__}_{'float64' if use_float64 else 'float32'}.npy"
+        os.makedirs("scripts/equi-violation", exist_ok=True)
+        filename = f"scripts/equi-violation/equitest_tag_invariants_{model_idx}_{lframesnet}_{rand_trafo.__name__}_{'float64' if use_float64 else 'float32'}.npy"
         np.save(filename, mses.cpu().numpy())

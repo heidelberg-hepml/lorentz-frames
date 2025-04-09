@@ -62,6 +62,7 @@ def test_amplitudes(
                 yield x
 
     mses = []
+    infs = []
     iterator = iter(cycle(exp.train_loader))
     for _ in range(iterations):
         data = next(iterator)
@@ -91,11 +92,15 @@ def test_amplitudes(
             tracker,
         ) = parent.forward(mom_augmented)
 
-        diff = (fourmomenta_local - fourmomenta_local_augmented) ** 2
+        norm = fourmomenta_local + fourmomenta_local_augmented
+        diff = ((fourmomenta_local - fourmomenta_local_augmented) / norm) ** 2
+        infs.append((~diff.isfinite()).sum().detach().item())
+        diff[~diff.isfinite()] = 0
         diff = diff.mean(dim=-2)
 
         mses.append(diff.detach())
     mses = torch.cat(mses, dim=0).clamp(min=1e-30)
+    print("infs: ", infs)
     print(
         f"log-mean={mses.log().mean().exp():.2e} max={mses.max().item():.2e}",
         model_list,
@@ -104,6 +109,6 @@ def test_amplitudes(
         "float64" if use_float64 else "float32",
     )
     if save:
-        os.makedirs("scripts/equi-violation_invariants", exist_ok=True)
-        filename = f"scripts/equi-violation_invariants/equitest_amp_{model_idx}_{lframesnet}_{rand_trafo.__name__}_{'float64' if use_float64 else 'float32'}.npy"
+        os.makedirs("scripts/equi-violation", exist_ok=True)
+        filename = f"scripts/equi-violation/equitest_amp_invariants_{model_idx}_{lframesnet}_{rand_trafo.__name__}_{'float64' if use_float64 else 'float32'}.npy"
         np.save(filename, mses.cpu().numpy())
