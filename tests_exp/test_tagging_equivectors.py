@@ -32,19 +32,19 @@ from tensorframes.lframes.lframes import LFrames
     list(
         enumerate(
             [
-                ["model=tag_particlenet-lite"],
-                # ["model=tag_transformer"],
-                # ["model=tag_graphnet"],
-                # ["model=tag_graphnet", "model.include_edges=false"],
+                #["model=tag_particlenet-lite"],
+                ["model=tag_transformer"],
+                #["model=tag_graphnet"],
+                #["model=tag_graphnet", "model.include_edges=false"],
             ]
         )
     ),
 )
-@pytest.mark.parametrize("operation", ["diff", "add", "single"])
-@pytest.mark.parametrize(
-    "nonlinearity", ["exp", "softplus", "softmax", "relu", "relu_shifted"]
-)
 @pytest.mark.parametrize("lframesnet", ["orthogonal", "polardec"])
+@pytest.mark.parametrize("operation", ["add", "single"])
+@pytest.mark.parametrize(
+    "nonlinearity", ["exp", "softplus", "softmax"]#, "relu", "relu_shifted", "top10_softplus", "top10_softmax"]
+)
 @pytest.mark.parametrize("iterations", [10])
 @pytest.mark.parametrize("use_float64", [False, True])
 def test_amplitudes(
@@ -71,7 +71,7 @@ def test_amplitudes(
             f"use_float64={use_float64}",
             f"model.lframesnet.equivectors.operation={operation}",
             f"model.lframesnet.equivectors.nonlinearity={nonlinearity}",
-            # "training.batchsize=1",
+            #"training.batchsize=1",
         ]
         cfg = hydra.compose(config_name="toptagging", overrides=overrides)
         exp = TopTaggingExperiment(cfg)
@@ -120,7 +120,7 @@ def test_amplitudes(
         mom = data_augmented.x.to(exp.device)
         trafo = rand_trafo(mom.shape[:-2] + (1,)).to(exp.device)
         mom_augmented = torch.einsum(
-            "...ij,...j->...i", trafo.to(torch.float64), mom.to(torch.float64)
+            "...ij,...j->...i", trafo.to(exp.dtype), mom.to(exp.dtype)
         ).to(exp.dtype)
         data_augmented.x = mom_augmented
 
@@ -146,9 +146,9 @@ def test_amplitudes(
             ptr=ptr,
         )
 
-        lframes = LFrames(trafo.to(torch.float64))
+        lframes = LFrames(trafo.to(exp.dtype))
         vecs_augmented = torch.einsum(
-            "...ij,...j->...i", lframes.inv, vecs_augmented.to(torch.float64)
+            "...ij,...j->...i", lframes.inv, vecs_augmented.to(exp.dtype)
         ).to(exp.dtype)
 
         norm = vecs + vecs_augmented

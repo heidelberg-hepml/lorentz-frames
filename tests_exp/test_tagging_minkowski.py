@@ -11,17 +11,16 @@ from tensorframes.utils.transforms import (
     rand_lorentz,
     rand_xyrotation,
 )
+from experiments.tagging.embedding import embed_tagging_data
+from torch_geometric.nn.aggr import MeanAggregation
+from tensorframes.lframes.lframes import LFrames
+from tensorframes.utils.lorentz import lorentz_metric
 
 
 @pytest.mark.parametrize(
-    "rand_trafo,breaking_list",
+    "breaking_list",
     [
-        [
-            rand_rotation_uniform,
             ["data.beam_reference=null", "data.add_time_reference=false"],
-        ],
-        [rand_lorentz, ["data.beam_reference=null", "data.add_time_reference=false"]],
-        # [rand_xyrotation, ["data.beam_reference=null", "data.add_time_reference=false"]],
     ],
 )
 @pytest.mark.parametrize(
@@ -29,10 +28,10 @@ from tensorframes.utils.transforms import (
     list(
         enumerate(
             [
-                ["model=tag_particlenet-lite"],
+                #["model=tag_particlenet-lite"],
                 ["model=tag_transformer"],
-                ["model=tag_graphnet"],
-                ["model=tag_graphnet", "model.include_edges=false"],
+                #["model=tag_graphnet"],
+                #["model=tag_graphnet", "model.include_edges=false"],
             ]
         )
     ),
@@ -40,17 +39,16 @@ from tensorframes.utils.transforms import (
 @pytest.mark.parametrize("lframesnet", ["orthogonal", "polardec"])
 @pytest.mark.parametrize("operation", ["add", "single"])
 @pytest.mark.parametrize(
-    "nonlinearity", ["exp", "softplus", "softmax", "relu", "relu_shifted", "top10_softplus", "top10_softmax"]  
+    "nonlinearity", ["exp", "softplus", "softmax"]#, "relu", "relu_shifted", "top10_softplus", "top10_softmax"]
 )
-@pytest.mark.parametrize("iterations", [100])
+@pytest.mark.parametrize("iterations", [10])
 @pytest.mark.parametrize("use_float64", [False, True])
 def test_amplitudes(
-    rand_trafo,
     model_idx,
     model_list,
-    lframesnet,
     operation,
     nonlinearity,
+    lframesnet,
     breaking_list,
     iterations,
     use_float64,
@@ -66,7 +64,9 @@ def test_amplitudes(
             "save=false",
             *breaking_list,
             f"use_float64={use_float64}",
-            # "training.batchsize=1",
+            f"model.lframesnet.equivectors.operation={operation}",
+            f"model.lframesnet.equivectors.nonlinearity={nonlinearity}",
+            #"training.batchsize=1",
         ]
         cfg = hydra.compose(config_name="toptagging", overrides=overrides)
         exp = TopTaggingExperiment(cfg)
@@ -83,30 +83,36 @@ def test_amplitudes(
                 yield x
 
     mses = []
+    infs = []
+    agg = MeanAggregation()
     iterator = iter(cycle(exp.train_loader))
     for _ in range(iterations):
-        data = next(iterator)
-        data_augmented = data.clone()
+        data = next(iterator).to(exp.device)
+        metric = lorentz_metric(data.x.shape[:-1], device=exp.device).to(exp.dtype)
 
-        # original data
-        y_pred = exp._get_ypred_and_label(data)[0]
+        embedded_data = embed_tagging_data(
+            data.x.to(exp.dtype),
+            data.scalars.to(exp.dtype),
+            data.ptr,
+            exp.cfg.data,
+        )
 
-        # augmented data
-        mom = data_augmented.x
-        trafo = rand_trafo(mom.shape[:-2] + (1,))
-        mom_augmented = torch.einsum(
-            "...ij,...j->...i", trafo.to(torch.float64), mom.to(torch.float64)
-        ).to(exp.dtype)
-        data_augmented.x = mom_augmented
-        y_pred_augmented = exp._get_ypred_and_label(data_augmented)[0]
+        mom = embedded_data["fourmomenta"]
+        global_tagging_features = embedded_data["global_tagging_features"]
+        scalars = embedded_data["scalars"]
+        ptr = embedded_data["ptr"]
+        batch_nospurions = embedded_data["batch"]
+        scalars_withspurions = torch.cat([scalars, global_tagging_features], dim=-1)
 
-        mse = (y_pred_augmented - y_pred) ** 2
-        mses.append(mse.detach())
-    mses = torch.cat(mses, dim=0).clamp(min=1e-30)
+        lframes = exp.model.lframesnet(fourmomenta=mom, scalars=scalars_withspurions, ptr=ptr)
+        minkowski_mse = (lframes.matrices.transpose(-2, -1)@metric@lframes.matrices-metric).pow(2)
+        mses.append(agg(minkowski_mse, index=batch_nospurions, dim=0))
+
+    mses = torch.cat(mses, dim=0)
+    # print("infs: ", infs)
     print(
         f"log-mean={mses.log().mean().exp():.2e} max={mses.max().item():.2e}",
         model_list,
-        rand_trafo.__name__,
         lframesnet,
         operation,
         nonlinearity,
@@ -114,5 +120,5 @@ def test_amplitudes(
     )
     if save:
         os.makedirs("scripts/equi-violation", exist_ok=True)
-        filename = f"scripts/equi-violation/equitest_tag_{model_idx}_{lframesnet}_{rand_trafo.__name__}_{'float64' if use_float64 else 'float32'}.npy"
+        filename = f"scripts/equi-violation/equitest_tag_minkowski_{model_idx}_{lframesnet}_{'float64' if use_float64 else 'float32'}.npy"
         np.save(filename, mses.cpu().numpy())

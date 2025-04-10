@@ -35,6 +35,11 @@ def test_tagging(lframesnet, model_list, iterations):
             *model_list,
             f"model/lframesnet={lframesnet}",
             "save=false",
+<<<<<<< Updated upstream
+=======
+            "data.beam_reference=null",
+            "data.add_time_reference=false",
+>>>>>>> Stashed changes
             # "training.batchsize=1",
         ]
         cfg = hydra.compose(config_name="toptagging", overrides=overrides)

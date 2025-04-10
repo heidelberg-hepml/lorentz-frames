@@ -15,23 +15,23 @@ from tensorframes.lframes.lframes import LFrames
     list(
         enumerate(
             [
-                ["model=amp_mlp"],
-                ["model=amp_transformer"],
+                #["model=amp_mlp"],
+                #["model=amp_transformer"],
                 ["model=amp_graphnet"],
-                ["model=amp_graphnet", "model.include_edges=false"],
-                ["model=amp_graphnet", "model.include_nodes=false"],
+                #["model=amp_graphnet", "model.include_edges=false"],
+                #["model=amp_graphnet", "model.include_nodes=false"],
             ],
         )
     ),
 )
-@pytest.mark.parametrize("operation", ["diff", "add", "single"])
+@pytest.mark.parametrize("lframesnet", ["orthogonal"])#, "polardec"])
+@pytest.mark.parametrize("operation", ["add", "single"])
 @pytest.mark.parametrize(
-    "nonlinearity", ["exp", "softplus", "softmax", "relu", "relu_shifted"]
+    "nonlinearity", ["softplus","top5_softplus","top10_softplus","top20_softplus"]#, "top10_relu"]#["exp", "softplus", "softmax", "relu", "relu_shifted", "top10_softplus", "top10_relu"]
 )
-@pytest.mark.parametrize("lframesnet", ["orthogonal", "polardec"])
 @pytest.mark.parametrize("rand_trafo", [rand_rotation_uniform, rand_lorentz])
 @pytest.mark.parametrize("iterations", [100])
-@pytest.mark.parametrize("use_float64", [False, True])
+@pytest.mark.parametrize("use_float64", [False])#, True])
 def test_amplitudes(
     model_idx,
     model_list,

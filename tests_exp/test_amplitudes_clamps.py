@@ -26,7 +26,7 @@ from tests_exp.utils import track_clamps
         ["model=amp_graphnet", "model.include_nodes=false"],
     ],
 )
-@pytest.mark.parametrize("iterations", [100])
+@pytest.mark.parametrize("iterations", [1])
 def test_amplitudes(lframesnet, model_list, iterations):
     experiments.logger.LOGGER.disabled = True  # turn off logging
 
@@ -48,7 +48,7 @@ def test_amplitudes(lframesnet, model_list, iterations):
     exp._init_loss()
 
     for i, data in enumerate(exp.train_loader):
-        mom = data[1]
+        mom = data[1].to(device=exp.device)
         if i == iterations:
             break
 

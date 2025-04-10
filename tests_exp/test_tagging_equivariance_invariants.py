@@ -40,13 +40,19 @@ from torch_geometric.nn.aggr import MeanAggregation
     ),
 )
 @pytest.mark.parametrize("lframesnet", ["orthogonal", "polardec"])
-@pytest.mark.parametrize("iterations", [10])
+@pytest.mark.parametrize("operation", ["add", "single"])
+@pytest.mark.parametrize(
+    "nonlinearity", ["exp", "softplus", "softmax", "relu", "relu_shifted", "top10_softplus", "top10_softmax"]
+)
+@pytest.mark.parametrize("iterations", [100])
 @pytest.mark.parametrize("use_float64", [False, True])
 def test_amplitudes(
     rand_trafo,
     model_idx,
     model_list,
     lframesnet,
+    operation,
+    nonlinearity,
     breaking_list,
     iterations,
     use_float64,
@@ -62,6 +68,8 @@ def test_amplitudes(
             "save=false",
             *breaking_list,
             f"use_float64={use_float64}",
+            f"model.lframesnet.equivectors.operation={operation}",
+            f"model.lframesnet.equivectors.nonlinearity={nonlinearity}",
             # "training.batchsize=1",
         ]
         cfg = hydra.compose(config_name="toptagging", overrides=overrides)
@@ -130,18 +138,21 @@ def test_amplitudes(
             (fourmomenta_local_nospurions - fourmomenta_local_nospurions_augmented)
             / norm
         ) ** 2
+        
         infs.append((~diff.isfinite()).sum().detach().item())
-        diff[~diff.isfinite()] = 0
+        diff[~diff.isfinite()] = 1e-12
         diff = agg(diff, index=batch_nospurions)
 
         mses.append(diff.detach())
     mses = torch.cat(mses, dim=0).clamp(min=1e-30)
-    print("infs: ", infs)
+    #print("infs: ", infs)
     print(
         f"log-mean={mses.log().mean().exp():.2e} max={mses.max().item():.2e}",
         model_list,
         rand_trafo.__name__,
         lframesnet,
+        operation,
+        nonlinearity,
         "float64" if use_float64 else "float32",
     )
     if save:
