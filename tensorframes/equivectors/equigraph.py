@@ -154,13 +154,14 @@ class EquiEdgeConv(MessagePassing):
                 )
 
             def func(x, batch):
-                x_dense, mask = to_dense_batch(x, batch, fill_value=float("-inf"))
+                x = nonlinearity(x)
+                x_dense, mask = to_dense_batch(x, batch, fill_value=0)
                 k_local = min(int(k), x_dense.shape[-2])
                 top_vals, top_idx = x_dense.topk(k_local, dim=-2)
                 out_dense = torch.zeros_like(x_dense)
-                out_dense.scatter_(dim=-2, index=top_idx, src=top_vals.exp())
+                out_dense.scatter_(dim=-2, index=top_idx, src=top_vals)
                 out = out_dense[mask]
-                return out.exp()
+                return out
 
             return func
         else:
