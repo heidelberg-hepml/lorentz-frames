@@ -98,7 +98,7 @@ class EquiEdgeConv(MessagePassing):
         if edge_attr is not None:
             prefactor = torch.cat([prefactor, edge_attr], dim=-1)
         prefactor = self.mlp(prefactor)
-        prefactor = self.nonlinearity(prefactor, index=edge_index[0])
+        prefactor = self.nonlinearity(prefactor, batch=edge_index[0])
 
         fm_rel = (fm_rel / fm_rel_norm)[:, None, :4]
         prefactor = prefactor.unsqueeze(-1)
@@ -121,17 +121,17 @@ class EquiEdgeConv(MessagePassing):
 
     def get_nonlinearity(self, nonlinearity):
         if nonlinearity == None:
-            return lambda x, index: x
+            return lambda x, batch: x
         elif nonlinearity == "exp":
-            return lambda x, index: torch.clamp(x, min=-10, max=10).exp()
+            return lambda x, batch: torch.clamp(x, min=-10, max=10).exp()
         elif nonlinearity == "softplus":
-            return lambda x, index: torch.nn.functional.softplus(x)
+            return lambda x, batch: torch.nn.functional.softplus(x)
         elif nonlinearity == "softmax":
-            return lambda x, index: softmax(x, index)
+            return lambda x, batch: softmax(x, batch)
         elif nonlinearity == "relu":
-            return lambda x, index: torch.nn.functional.relu(x)
+            return lambda x, batch: torch.nn.functional.relu(x)
         elif nonlinearity == "rescaled_relu":
-            return lambda x, index: (x - x.mean(dim=-1, keepdims=True)).relu()
+            return lambda x, batch: (x - x.mean(dim=-1, keepdim=True)).relu()
         else:
             raise ValueError(
                 f"Invalid nonlinearity {nonlinearity}. Options are (None, exp, softplus, softmax, relu, rescaled-relu)."
