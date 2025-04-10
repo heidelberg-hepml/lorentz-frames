@@ -2,7 +2,7 @@ import torch
 from torch import nn
 import math
 from torch_geometric.nn import MessagePassing
-from torch_geometric.utils import softmax
+from torch_geometric.utils import softmax, to_dense_batch
 from torch_geometric.nn.aggr import MeanAggregation
 
 from tensorframes.nn.mlp import MLP
@@ -140,9 +140,32 @@ class EquiEdgeConv(MessagePassing):
                 return (x - mean).relu()
 
             return func
+        elif nonlinearity[:3] == "top":
+            k, nonlinearity = nonlinearity[3:].split("_")
+            if nonlinearity == "exp":
+                nonlinearity = lambda x: x.exp()
+            elif nonlinearity == "relu":
+                nonlinearity = lambda x: x.relu()
+            elif nonlinearity == "softplus":
+                nonlinearity = lambda x: torch.nn.functional.softplus(x)
+            else:
+                raise ValueError(
+                    f"Invalid nonlinearity {nonlinearity}. Options are (exp, relu, softplus)"
+                )
+
+            def func(x, batch):
+                x_dense, mask = to_dense_batch(x, batch, fill_value=float("-inf"))
+                k_local = min(int(k), x_dense.shape[-2])
+                top_vals, top_idx = x_dense.topk(k_local, dim=-2)
+                out_dense = torch.zeros_like(x_dense)
+                out_dense.scatter_(dim=-2, index=top_idx, src=top_vals.exp())
+                out = out_dense[mask]
+                return out.exp()
+
+            return func
         else:
             raise ValueError(
-                f"Invalid nonlinearity {nonlinearity}. Options are (None, exp, softplus, softmax, relu, rescaled-relu)."
+                f"Invalid nonlinearity {nonlinearity}. Options are (None, exp, softplus, softmax, relu, relu_shifted and topk_nonlinearity (flexible))."
             )
 
 
