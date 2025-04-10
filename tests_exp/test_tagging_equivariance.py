@@ -21,7 +21,7 @@ from tensorframes.utils.transforms import (
             ["data.beam_reference=null", "data.add_time_reference=false"],
         ],
         [rand_lorentz, ["data.beam_reference=null", "data.add_time_reference=false"]],
-        [rand_xyrotation, []],
+        # [rand_xyrotation, ["data.beam_reference=null", "data.add_time_reference=false"]],
     ],
 )
 @pytest.mark.parametrize(

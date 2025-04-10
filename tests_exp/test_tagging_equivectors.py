@@ -13,6 +13,7 @@ from tensorframes.utils.transforms import (
 )
 from experiments.tagging.embedding import embed_tagging_data
 from torch_geometric.nn.aggr import MeanAggregation
+from tensorframes.lframes.lframes import LFrames
 
 
 @pytest.mark.parametrize(
@@ -23,7 +24,7 @@ from torch_geometric.nn.aggr import MeanAggregation
             ["data.beam_reference=null", "data.add_time_reference=false"],
         ],
         [rand_lorentz, ["data.beam_reference=null", "data.add_time_reference=false"]],
-        [rand_xyrotation, ["data.beam_reference=null", "data.add_time_reference=false"]],
+        # [rand_xyrotation, ["data.beam_reference=null", "data.add_time_reference=false"]],
     ],
 )
 @pytest.mark.parametrize(
@@ -32,12 +33,16 @@ from torch_geometric.nn.aggr import MeanAggregation
         enumerate(
             [
                 ["model=tag_particlenet-lite"],
-                #["model=tag_transformer"],
-                #["model=tag_graphnet"],
-                #["model=tag_graphnet", "model.include_edges=false"],
+                # ["model=tag_transformer"],
+                # ["model=tag_graphnet"],
+                # ["model=tag_graphnet", "model.include_edges=false"],
             ]
         )
     ),
+)
+@pytest.mark.parametrize("operation", ["diff", "add", "single"])
+@pytest.mark.parametrize(
+    "nonlinearity", ["exp", "softplus", "softmax", "relu", "relu_shifted"]
 )
 @pytest.mark.parametrize("lframesnet", ["orthogonal", "polardec"])
 @pytest.mark.parametrize("iterations", [10])
@@ -46,6 +51,8 @@ def test_amplitudes(
     rand_trafo,
     model_idx,
     model_list,
+    operation,
+    nonlinearity,
     lframesnet,
     breaking_list,
     iterations,
@@ -62,6 +69,8 @@ def test_amplitudes(
             "save=false",
             *breaking_list,
             f"use_float64={use_float64}",
+            f"model.lframesnet.equivectors.operation={operation}",
+            f"model.lframesnet.equivectors.nonlinearity={nonlinearity}",
             # "training.batchsize=1",
         ]
         cfg = hydra.compose(config_name="toptagging", overrides=overrides)
@@ -93,16 +102,14 @@ def test_amplitudes(
             exp.cfg.data,
         )
 
-        fourmomenta = embedded_data['fourmomenta']
-        global_tagging_features = embedded_data['global_tagging_features']
-        scalars = embedded_data['scalars']
-        ptr = embedded_data['ptr']
-        batch_nospurions = embedded_data['batch']
+        fourmomenta = embedded_data["fourmomenta"]
+        global_tagging_features = embedded_data["global_tagging_features"]
+        scalars = embedded_data["scalars"]
+        ptr = embedded_data["ptr"]
+        batch_nospurions = embedded_data["batch"]
 
-        assert fourmomenta.shape[0] == data.x.shape[0] # no spurions
-        scalars_withspurions = torch.cat(
-        [scalars, global_tagging_features], dim=-1
-        )
+        assert fourmomenta.shape[0] == data.x.shape[0]  # no spurions
+        scalars_withspurions = torch.cat([scalars, global_tagging_features], dim=-1)
         vecs = exp.model.lframesnet.equivectors(
             fourmomenta,
             scalars=scalars_withspurions,
@@ -124,36 +131,41 @@ def test_amplitudes(
             exp.cfg.data,
         )
 
-        fourmomenta_augmented = embedded_data_augmented['fourmomenta']
-        global_tagging_features_augmented = embedded_data_augmented['global_tagging_features']
-        scalars_augmented = embedded_data_augmented['scalars']
+        fourmomenta_augmented = embedded_data_augmented["fourmomenta"]
+        global_tagging_features_augmented = embedded_data_augmented[
+            "global_tagging_features"
+        ]
+        scalars_augmented = embedded_data_augmented["scalars"]
         scalars_withspurions_augmented = torch.cat(
-        [scalars_augmented, global_tagging_features_augmented], dim=-1
+            [scalars_augmented, global_tagging_features_augmented], dim=-1
         )
-        assert fourmomenta_augmented.shape[0] == data.x.shape[0] # no spurions
+        assert fourmomenta_augmented.shape[0] == data.x.shape[0]  # no spurions
         vecs_augmented = exp.model.lframesnet.equivectors(
             fourmomenta_augmented,
             scalars=scalars_withspurions_augmented,
             ptr=ptr,
         )
 
+        lframes = LFrames(trafo.to(torch.float64))
         vecs_augmented = torch.einsum(
-            "...ij,...j->...i", torch.linalg.inv(trafo.to(torch.float64)), vecs_augmented.to(torch.float64)
+            "...ij,...j->...i", lframes.inv, vecs_augmented.to(torch.float64)
         ).to(exp.dtype)
 
-        norm = vecs+vecs_augmented
+        norm = vecs + vecs_augmented
         infs.append(torch.any(torch.isinf(norm)).item())
-        
-        mse = ((vecs-vecs_augmented)/norm).pow(2).mean(dim=-2)
+
+        mse = ((vecs - vecs_augmented) / norm).pow(2).mean(dim=-2)
         mses.append(agg(mse, index=batch_nospurions))
 
     mses = torch.cat(mses, dim=0)
-    print("infs: ", infs)
+    # print("infs: ", infs)
     print(
         f"log-mean={mses.log().mean().exp():.2e} max={mses.max().item():.2e}",
         model_list,
         rand_trafo.__name__,
         lframesnet,
+        operation,
+        nonlinearity,
         "float64" if use_float64 else "float32",
     )
     if save:

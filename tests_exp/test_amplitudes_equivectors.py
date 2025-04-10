@@ -7,6 +7,7 @@ import os
 import experiments.logger
 from experiments.amplitudes.experiment import AmplitudeExperiment
 from tensorframes.utils.transforms import rand_rotation_uniform, rand_lorentz
+from tensorframes.lframes.lframes import LFrames
 
 
 @pytest.mark.parametrize(
@@ -23,6 +24,10 @@ from tensorframes.utils.transforms import rand_rotation_uniform, rand_lorentz
         )
     ),
 )
+@pytest.mark.parametrize("operation", ["diff", "add", "single"])
+@pytest.mark.parametrize(
+    "nonlinearity", ["exp", "softplus", "softmax", "relu", "relu_shifted"]
+)
 @pytest.mark.parametrize("lframesnet", ["orthogonal", "polardec"])
 @pytest.mark.parametrize("rand_trafo", [rand_rotation_uniform, rand_lorentz])
 @pytest.mark.parametrize("iterations", [100])
@@ -30,6 +35,8 @@ from tensorframes.utils.transforms import rand_rotation_uniform, rand_lorentz
 def test_amplitudes(
     model_idx,
     model_list,
+    operation,
+    nonlinearity,
     lframesnet,
     rand_trafo,
     iterations,
@@ -45,6 +52,8 @@ def test_amplitudes(
             f"model/lframesnet={lframesnet}",
             "save=false",
             f"use_float64={use_float64}",
+            f"model.lframesnet.equivectors.operation={operation}",
+            f"model.lframesnet.equivectors.nonlinearity={nonlinearity}",
             # "training.batchsize=1",
         ]
         cfg = hydra.compose(config_name="amplitudes", overrides=overrides)
@@ -71,10 +80,7 @@ def test_amplitudes(
         particle_type = exp.model.encode_particle_type(mom.shape[0]).to(
             dtype=exp.model.input_dtype, device=mom.device
         )
-        vecs = exp.model.lframesnet.equivectors(
-            mom, scalars=particle_type, ptr=None
-        )
-        
+        vecs = exp.model.lframesnet.equivectors(mom, scalars=particle_type, ptr=None)
 
         # augmented data
         trafo = rand_trafo(mom.shape[:-2]).to(exp.device)
@@ -82,29 +88,32 @@ def test_amplitudes(
             "...nm,...vm->...vn", trafo.to(torch.float64), mom.to(torch.float64)
         ).to(exp.dtype)
 
-        particle_type_augmented = exp.model.encode_particle_type(mom_augmented.shape[0]).to(
-            dtype=exp.model.input_dtype, device=mom_augmented.device
-        )
+        particle_type_augmented = exp.model.encode_particle_type(
+            mom_augmented.shape[0]
+        ).to(dtype=exp.model.input_dtype, device=mom_augmented.device)
         vecs_augmented = exp.model.lframesnet.equivectors(
             mom_augmented, scalars=particle_type_augmented, ptr=None
         )
 
+        lframes = LFrames(trafo.to(torch.float64))
         vecs_augmented = torch.einsum(
-            "...nm,...vim->...vin", torch.linalg.inv(trafo.to(torch.float64)), vecs_augmented.to(torch.float64)
+            "...nm,...vim->...vin", lframes.inv, vecs_augmented.to(torch.float64)
         ).to(exp.dtype)
-        
-        norm = vecs+vecs_augmented
+
+        norm = vecs + vecs_augmented
         infs.append(torch.any(torch.isinf(norm)).item())
-        
-        mse = ((vecs-vecs_augmented)/norm).pow(2).mean(dim=-2)
+
+        mse = ((vecs - vecs_augmented) / norm).pow(2).mean(dim=-2)
         mses.append(mse.mean(dim=-2))
     mses = torch.cat(mses, dim=0).clamp(min=1e-30)
-    print("infs: ", infs)
+    # print("infs: ", infs)
     print(
         f"log-mean={mses.log().mean().exp():.2e} max={mses.max().item():.2e}",
         model_list,
         rand_trafo.__name__,
         lframesnet,
+        operation,
+        nonlinearity,
         "float64" if use_float64 else "float32",
     )
     if save:

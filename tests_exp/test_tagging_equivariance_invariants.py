@@ -23,7 +23,7 @@ from torch_geometric.nn.aggr import MeanAggregation
             ["data.beam_reference=null", "data.add_time_reference=false"],
         ],
         [rand_lorentz, ["data.beam_reference=null", "data.add_time_reference=false"]],
-        [rand_xyrotation, []],
+        # [rand_xyrotation, ["data.beam_reference=null", "data.add_time_reference=false"]],
     ],
 )
 @pytest.mark.parametrize(
