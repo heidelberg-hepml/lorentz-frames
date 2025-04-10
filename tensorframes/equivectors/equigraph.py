@@ -3,6 +3,7 @@ from torch import nn
 import math
 from torch_geometric.nn import MessagePassing
 from torch_geometric.utils import softmax
+from torch_geometric.nn.aggr import MeanAggregation
 
 from tensorframes.nn.mlp import MLP
 from tensorframes.equivectors.base import EquiVectors
@@ -130,8 +131,15 @@ class EquiEdgeConv(MessagePassing):
             return lambda x, batch: softmax(x, batch)
         elif nonlinearity == "relu":
             return lambda x, batch: torch.nn.functional.relu(x)
-        elif nonlinearity == "rescaled_relu":
-            return lambda x, batch: (x - x.mean(dim=-1, keepdim=True)).relu()
+        elif nonlinearity == "relu_shifted":
+            meanaggr = MeanAggregation()
+
+            def func(x, batch):
+                mean = meanaggr(x, batch, dim=-2)
+                mean = mean[batch]
+                return (x - mean).relu()
+
+            return func
         else:
             raise ValueError(
                 f"Invalid nonlinearity {nonlinearity}. Options are (None, exp, softplus, softmax, relu, rescaled-relu)."
