@@ -252,6 +252,7 @@ class BaselineParTWrapper(TaggerWrapper):
             batch,
             tracker,
         ) = super().forward(embedding)
+        fourmomenta_local = fourmomenta_local.to(features_local.dtype)
         fourmomenta_local = fourmomenta_local[..., [1, 2, 3, 0]]  # need (px, py, pz, E)
 
         features_local, mask = to_dense_batch(features_local, batch)
