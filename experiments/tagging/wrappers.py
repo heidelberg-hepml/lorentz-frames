@@ -430,7 +430,9 @@ class LGATrWrapper(nn.Module):
         fourmomenta = embedding["fourmomenta"]
         scalars = embedding["scalars"]
         batch = embedding["batch"]
+        is_spurion = embedding["is_spurion"]
 
+        fourmomenta[~is_spurion] = fourmomenta[~is_spurion] / 20
         fourmomenta = fourmomenta.unsqueeze(0).to(scalars.dtype)
         scalars = scalars.unsqueeze(0)
 
