@@ -15,10 +15,10 @@ from tensorframes.utils.transforms import rand_rotation_uniform, rand_lorentz
         enumerate(
             [
                 ["model=amp_mlp"],
-                ["model=amp_transformer"],
-                ["model=amp_graphnet"],
-                ["model=amp_graphnet", "model.include_edges=false"],
-                ["model=amp_graphnet", "model.include_nodes=false"],
+                # ["model=amp_transformer"],
+                # ["model=amp_graphnet"],
+                # ["model=amp_graphnet", "model.include_edges=false"],
+                # ["model=amp_graphnet", "model.include_nodes=false"],
             ],
         )
     ),
@@ -26,10 +26,10 @@ from tensorframes.utils.transforms import rand_rotation_uniform, rand_lorentz
 @pytest.mark.parametrize("lframesnet", ["orthogonal", "polardec"])
 @pytest.mark.parametrize("operation", ["add", "single"])
 @pytest.mark.parametrize(
-    "nonlinearity", ["exp", "softplus", "softmax", "relu", "relu_shifted"]
+    "nonlinearity", ["softplus", "top5_softplus", "top10_softplus", "top20_softplus"]
 )
 @pytest.mark.parametrize("rand_trafo", [rand_rotation_uniform, rand_lorentz])
-@pytest.mark.parametrize("iterations", [100])
+@pytest.mark.parametrize("iterations", [10])
 @pytest.mark.parametrize("use_float64", [False, True])
 def test_amplitudes(
     model_idx,
@@ -108,7 +108,7 @@ def test_amplitudes(
 
         mses.append(diff.detach())
     mses = torch.cat(mses, dim=0).clamp(min=1e-30)
-    #print("infs: ", infs)
+    # print("infs: ", infs)
     print(
         f"log-mean={mses.log().mean().exp():.2e} max={mses.max().item():.2e}",
         model_list,
@@ -120,5 +120,14 @@ def test_amplitudes(
     )
     if save:
         os.makedirs("scripts/equi-violation", exist_ok=True)
-        filename = f"scripts/equi-violation/equitest_amp_invariants_{model_idx}_{lframesnet}_{rand_trafo.__name__}_{'float64' if use_float64 else 'float32'}.npy"
+        # ">" for different plots, "~" for different lines in the same plot
+        filename = (
+            f"scripts/equi-violation/equitest_amp_invariants"
+            f">{model_idx}"
+            f">{lframesnet}"
+            f">{rand_trafo.__name__}"
+            f">{'float64' if use_float64 else 'float32'}"
+            f">{operation}"
+            f"~{nonlinearity}.npy"
+        )
         np.save(filename, mses.cpu().numpy())

@@ -20,7 +20,7 @@ from tensorframes.utils.lorentz import lorentz_metric
 @pytest.mark.parametrize(
     "breaking_list",
     [
-            ["data.beam_reference=null", "data.add_time_reference=false"],
+        ["data.beam_reference=null", "data.add_time_reference=false"],
     ],
 )
 @pytest.mark.parametrize(
@@ -28,10 +28,10 @@ from tensorframes.utils.lorentz import lorentz_metric
     list(
         enumerate(
             [
-                #["model=tag_particlenet-lite"],
+                # ["model=tag_particlenet-lite"],
                 ["model=tag_transformer"],
-                #["model=tag_graphnet"],
-                #["model=tag_graphnet", "model.include_edges=false"],
+                # ["model=tag_graphnet"],
+                # ["model=tag_graphnet", "model.include_edges=false"],
             ]
         )
     ),
@@ -39,7 +39,12 @@ from tensorframes.utils.lorentz import lorentz_metric
 @pytest.mark.parametrize("lframesnet", ["orthogonal", "polardec"])
 @pytest.mark.parametrize("operation", ["add", "single"])
 @pytest.mark.parametrize(
-    "nonlinearity", ["exp", "softplus", "softmax"]#, "relu", "relu_shifted", "top10_softplus", "top10_softmax"]
+    "nonlinearity",
+    [
+        "exp",
+        "softplus",
+        "softmax",
+    ],  # , "relu", "relu_shifted", "top10_softplus", "top10_softmax"]
 )
 @pytest.mark.parametrize("iterations", [10])
 @pytest.mark.parametrize("use_float64", [False, True])
@@ -66,7 +71,7 @@ def test_amplitudes(
             f"use_float64={use_float64}",
             f"model.lframesnet.equivectors.operation={operation}",
             f"model.lframesnet.equivectors.nonlinearity={nonlinearity}",
-            #"training.batchsize=1",
+            # "training.batchsize=1",
         ]
         cfg = hydra.compose(config_name="toptagging", overrides=overrides)
         exp = TopTaggingExperiment(cfg)
@@ -104,8 +109,12 @@ def test_amplitudes(
         batch_nospurions = embedded_data["batch"]
         scalars_withspurions = torch.cat([scalars, global_tagging_features], dim=-1)
 
-        lframes = exp.model.lframesnet(fourmomenta=mom, scalars=scalars_withspurions, ptr=ptr)
-        minkowski_mse = (lframes.matrices.transpose(-2, -1)@metric@lframes.matrices-metric).pow(2)
+        lframes = exp.model.lframesnet(
+            fourmomenta=mom, scalars=scalars_withspurions, ptr=ptr
+        )
+        minkowski_mse = (
+            lframes.matrices.transpose(-2, -1) @ metric @ lframes.matrices - metric
+        ).pow(2)
         mses.append(agg(minkowski_mse, index=batch_nospurions, dim=0))
 
     mses = torch.cat(mses, dim=0)
@@ -120,5 +129,12 @@ def test_amplitudes(
     )
     if save:
         os.makedirs("scripts/equi-violation", exist_ok=True)
-        filename = f"scripts/equi-violation/equitest_tag_minkowski_{model_idx}_{lframesnet}_{'float64' if use_float64 else 'float32'}.npy"
+        filename = (
+            f"scripts/equi-violation/equitest_tag_minkowski"
+            f">{model_idx}"
+            f">{lframesnet}"
+            f">{'float64' if use_float64 else 'float32'}"
+            f">{operation}"
+            f"~{nonlinearity}.npy"
+        )
         np.save(filename, mses.cpu().numpy())

@@ -16,22 +16,28 @@ from tensorframes.utils.lorentz import lorentz_metric
     list(
         enumerate(
             [
-                #["model=amp_mlp"],
-                #["model=amp_transformer"],
+                # ["model=amp_mlp"],
+                # ["model=amp_transformer"],
                 ["model=amp_graphnet"],
-                #["model=amp_graphnet", "model.include_edges=false"],
-                #["model=amp_graphnet", "model.include_nodes=false"],
+                # ["model=amp_graphnet", "model.include_edges=false"],
+                # ["model=amp_graphnet", "model.include_nodes=false"],
             ],
         )
     ),
 )
-@pytest.mark.parametrize("lframesnet", ["orthogonal"])#, "polardec"])
+@pytest.mark.parametrize("lframesnet", ["orthogonal"])  # , "polardec"])
 @pytest.mark.parametrize("operation", ["add", "single"])
 @pytest.mark.parametrize(
-    "nonlinearity", ["softplus","top5_softplus","top10_softplus","top20_softplus"]#, "top10_relu"]#["exp", "softplus", "softmax", "relu", "relu_shifted", "top10_softplus", "top10_relu"]
+    "nonlinearity",
+    [
+        "softplus",
+        "top5_softplus",
+        "top10_softplus",
+        "top20_softplus",
+    ],  # , "top10_relu"]#["exp", "softplus", "softmax", "relu", "relu_shifted", "top10_softplus", "top10_relu"]
 )
 @pytest.mark.parametrize("iterations", [100])
-@pytest.mark.parametrize("use_float64", [False])#, True])
+@pytest.mark.parametrize("use_float64", [False])  # , True])
 def test_amplitudes(
     model_idx,
     model_list,
@@ -81,7 +87,11 @@ def test_amplitudes(
             dtype=exp.model.input_dtype, device=mom.device
         )
         lframes = exp.model.lframesnet(fourmomenta=mom, scalars=particle_type, ptr=None)
-        minkowski_mse = (lframes.matrices.transpose(-2, -1)@metric@lframes.matrices-metric).pow(2).mean(dim=(-1,-2,-3))
+        minkowski_mse = (
+            (lframes.matrices.transpose(-2, -1) @ metric @ lframes.matrices - metric)
+            .pow(2)
+            .mean(dim=(-1, -2, -3))
+        )
         mses.append(minkowski_mse)
     mses = torch.cat(mses, dim=0).clamp(min=1e-30)
     print(
@@ -94,5 +104,13 @@ def test_amplitudes(
     )
     if save:
         os.makedirs("scripts/equi-violation", exist_ok=True)
-        filename = f"scripts/equi-violation/equitest_amp_minkowski_{model_idx}_{lframesnet}_{'float64' if use_float64 else 'float32'}.npy"
+        # ">" for different plots, "~" for different lines in the same plot
+        filename = (
+            f"scripts/equi-violation/equitest_amp_minkowski"
+            f">{model_idx}"
+            f">{lframesnet}"
+            f">{'float64' if use_float64 else 'float32'}"
+            f">{operation}"
+            f"~{nonlinearity}.npy"
+        )
         np.save(filename, mses.cpu().numpy())

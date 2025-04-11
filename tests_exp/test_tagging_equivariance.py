@@ -40,7 +40,16 @@ from tensorframes.utils.transforms import (
 @pytest.mark.parametrize("lframesnet", ["orthogonal", "polardec"])
 @pytest.mark.parametrize("operation", ["add", "single"])
 @pytest.mark.parametrize(
-    "nonlinearity", ["exp", "softplus", "softmax", "relu", "relu_shifted", "top10_softplus", "top10_softmax"]  
+    "nonlinearity",
+    [
+        "exp",
+        "softplus",
+        "softmax",
+        "relu",
+        "relu_shifted",
+        "top10_softplus",
+        "top10_softmax",
+    ],
 )
 @pytest.mark.parametrize("iterations", [100])
 @pytest.mark.parametrize("use_float64", [False, True])
@@ -114,5 +123,13 @@ def test_amplitudes(
     )
     if save:
         os.makedirs("scripts/equi-violation", exist_ok=True)
-        filename = f"scripts/equi-violation/equitest_tag_{model_idx}_{lframesnet}_{rand_trafo.__name__}_{'float64' if use_float64 else 'float32'}.npy"
+        filename = (
+            f"scripts/equi-violation/equitest_tag"
+            f">{model_idx}"
+            f">{lframesnet}"
+            f">{rand_trafo.__name__}"
+            f">{'float64' if use_float64 else 'float32'}"
+            f">{operation}"
+            f"~{nonlinearity}.npy"
+        )
         np.save(filename, mses.cpu().numpy())

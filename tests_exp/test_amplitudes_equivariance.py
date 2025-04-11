@@ -26,7 +26,16 @@ from tensorframes.utils.transforms import rand_rotation_uniform, rand_lorentz
 @pytest.mark.parametrize("lframesnet", ["orthogonal", "polardec"])
 @pytest.mark.parametrize("operation", ["add", "single"])
 @pytest.mark.parametrize(
-    "nonlinearity", ["exp", "softplus", "softmax", "relu", "relu_shifted", "top10_softplus", "top10_softmax"]
+    "nonlinearity",
+    [
+        "exp",
+        "softplus",
+        "softmax",
+        "relu",
+        "relu_shifted",
+        "top10_softplus",
+        "top10_softmax",
+    ],
 )
 @pytest.mark.parametrize("rand_trafo", [rand_rotation_uniform, rand_lorentz])
 @pytest.mark.parametrize("iterations", [100])
@@ -99,5 +108,14 @@ def test_amplitudes(
     )
     if save:
         os.makedirs("scripts/equi-violation", exist_ok=True)
-        filename = f"scripts/equi-violation/equitest_amp_{model_idx}_{lframesnet}_{rand_trafo.__name__}_{'float64' if use_float64 else 'float32'}.npy"
+        # ">" for different plots, "~" for different lines in the same plot
+        filename = (
+            f"scripts/equi-violation/equitest_amp"
+            f">{model_idx}"
+            f">{lframesnet}"
+            f">{rand_trafo.__name__}"
+            f">{'float64' if use_float64 else 'float32'}"
+            f">{operation}"
+            f"~{nonlinearity}.npy"
+        )
         np.save(filename, mses.cpu().numpy())

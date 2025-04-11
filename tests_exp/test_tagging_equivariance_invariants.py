@@ -31,20 +31,20 @@ from torch_geometric.nn.aggr import MeanAggregation
     list(
         enumerate(
             [
-                ["model=tag_particlenet-lite"],
+                # ["model=tag_particlenet-lite"],
                 ["model=tag_transformer"],
                 ["model=tag_graphnet"],
-                ["model=tag_graphnet", "model.include_edges=false"],
+                # ["model=tag_graphnet", "model.include_edges=false"],
             ]
         )
     ),
 )
 @pytest.mark.parametrize("lframesnet", ["orthogonal", "polardec"])
-@pytest.mark.parametrize("operation", ["add", "single"])
+@pytest.mark.parametrize("operation", ["add"])  # , "single"])
 @pytest.mark.parametrize(
-    "nonlinearity", ["exp", "softplus", "softmax", "relu", "relu_shifted", "top10_softplus", "top10_softmax"]
+    "nonlinearity", ["exp", "softplus", "softmax", "relu", "relu_shifted"]
 )
-@pytest.mark.parametrize("iterations", [100])
+@pytest.mark.parametrize("iterations", [10])
 @pytest.mark.parametrize("use_float64", [False, True])
 def test_amplitudes(
     rand_trafo,
@@ -56,7 +56,7 @@ def test_amplitudes(
     breaking_list,
     iterations,
     use_float64,
-    save=False,
+    save=True,
 ):
     experiments.logger.LOGGER.disabled = True  # turn off logging
 
@@ -138,14 +138,13 @@ def test_amplitudes(
             (fourmomenta_local_nospurions - fourmomenta_local_nospurions_augmented)
             / norm
         ) ** 2
-        
         infs.append((~diff.isfinite()).sum().detach().item())
         diff[~diff.isfinite()] = 1e-12
         diff = agg(diff, index=batch_nospurions)
 
         mses.append(diff.detach())
     mses = torch.cat(mses, dim=0).clamp(min=1e-30)
-    #print("infs: ", infs)
+    # print("infs: ", infs)
     print(
         f"log-mean={mses.log().mean().exp():.2e} max={mses.max().item():.2e}",
         model_list,
@@ -157,5 +156,13 @@ def test_amplitudes(
     )
     if save:
         os.makedirs("scripts/equi-violation", exist_ok=True)
-        filename = f"scripts/equi-violation/equitest_tag_invariants_{model_idx}_{lframesnet}_{rand_trafo.__name__}_{'float64' if use_float64 else 'float32'}.npy"
+        filename = (
+            f"scripts/equi-violation/equitest_tag_invariants"
+            f">{model_idx}"
+            f">{lframesnet}"
+            f">{rand_trafo.__name__}"
+            f">{'float64' if use_float64 else 'float32'}"
+            f">{operation}"
+            f"~{nonlinearity}.npy"
+        )
         np.save(filename, mses.cpu().numpy())

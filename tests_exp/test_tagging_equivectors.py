@@ -32,10 +32,10 @@ from tensorframes.lframes.lframes import LFrames
     list(
         enumerate(
             [
-                #["model=tag_particlenet-lite"],
+                # ["model=tag_particlenet-lite"],
                 ["model=tag_transformer"],
-                #["model=tag_graphnet"],
-                #["model=tag_graphnet", "model.include_edges=false"],
+                # ["model=tag_graphnet"],
+                # ["model=tag_graphnet", "model.include_edges=false"],
             ]
         )
     ),
@@ -43,7 +43,12 @@ from tensorframes.lframes.lframes import LFrames
 @pytest.mark.parametrize("lframesnet", ["orthogonal", "polardec"])
 @pytest.mark.parametrize("operation", ["add", "single"])
 @pytest.mark.parametrize(
-    "nonlinearity", ["exp", "softplus", "softmax"]#, "relu", "relu_shifted", "top10_softplus", "top10_softmax"]
+    "nonlinearity",
+    [
+        "exp",
+        "softplus",
+        "softmax",
+    ],  # , "relu", "relu_shifted", "top10_softplus", "top10_softmax"]
 )
 @pytest.mark.parametrize("iterations", [10])
 @pytest.mark.parametrize("use_float64", [False, True])
@@ -71,7 +76,7 @@ def test_amplitudes(
             f"use_float64={use_float64}",
             f"model.lframesnet.equivectors.operation={operation}",
             f"model.lframesnet.equivectors.nonlinearity={nonlinearity}",
-            #"training.batchsize=1",
+            # "training.batchsize=1",
         ]
         cfg = hydra.compose(config_name="toptagging", overrides=overrides)
         exp = TopTaggingExperiment(cfg)
@@ -170,5 +175,13 @@ def test_amplitudes(
     )
     if save:
         os.makedirs("scripts/equi-violation", exist_ok=True)
-        filename = f"scripts/equi-violation/equitest_tag_equivectors_{model_idx}_{lframesnet}_{rand_trafo.__name__}_{'float64' if use_float64 else 'float32'}.npy"
+        filename = (
+            f"scripts/equi-violation/equitest_tag_equivectors"
+            f">{model_idx}"
+            f">{lframesnet}"
+            f">{rand_trafo.__name__}"
+            f">{'float64' if use_float64 else 'float32'}"
+            f">{operation}"
+            f"~{nonlinearity}.npy"
+        )
         np.save(filename, mses.cpu().numpy())
