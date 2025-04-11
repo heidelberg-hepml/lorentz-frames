@@ -184,4 +184,4 @@ def test_amplitudes(
             f">{operation}"
             f"~{nonlinearity}.npy"
         )
-        np.save(filename, mses.cpu().numpy())
+        np.save(filename, mses.detach().cpu().numpy())
