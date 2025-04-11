@@ -23,6 +23,7 @@ xformers
 torch-cluster>=1.6.3
 einops
 opt_einsum
+torchdiffeq
 
 #weaver packages
 tqdm>=4.41.0
