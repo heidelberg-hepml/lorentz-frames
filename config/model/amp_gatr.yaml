@@ -1,8 +1,8 @@
-_target_: experiments.amplitudes.wrappers.GATrWrapper
+_target_: experiments.amplitudes.wrappers.LGATrWrapper
 particle_type: null
 
 net:
- _target_: experiments.baselines.gatr.nets.GATr
+ _target_: lgatr.LGATr
 
  in_mv_channels: 1
  in_s_channels: null
@@ -14,8 +14,8 @@ net:
  num_blocks: 8
  attention:
   num_heads: 8
+ mlp:
+  activation: gelu
 
 defaults:
  - lframesnet: identity
- - /base_attention@net.attention
- - /base_mlp@net.mlp
