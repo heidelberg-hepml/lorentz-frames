@@ -261,11 +261,6 @@ class BaselineParTWrapper(TaggerWrapper):
         fourmomenta_local = fourmomenta_local.transpose(1, 2)
         mask = mask.unsqueeze(1).float()
 
-        n_pad = 128 - features_local.shape[-1]
-        features_local = torch.nn.functional.pad(features_local, (0, n_pad))
-        fourmomenta_local = torch.nn.functional.pad(fourmomenta_local, (0, n_pad))
-        mask = torch.nn.functional.pad(mask, (0, n_pad))
-
         # network
         score = self.net(
             x=features_local,

@@ -136,7 +136,6 @@ class TaggingExperiment(BaseExperiment):
         self.model.eval()
         for batch in loader:
             y_pred, label, _, _ = self._get_ypred_and_label(batch)
-            y_pred = y_pred[:, 1] - y_pred[:, 0]
             y_pred = torch.nn.functional.sigmoid(y_pred)
             labels_true.append(label.cpu().float())
             labels_predict.append(y_pred.cpu().float())
@@ -233,7 +232,7 @@ class TaggingExperiment(BaseExperiment):
         plot_mixer(self.cfg, plot_path, title, plot_dict)
 
     def _init_loss(self):
-        self.loss = torch.nn.CrossEntropyLoss()
+        self.loss = torch.nn.BCEWithLogitsLoss()
 
     # overwrite _validate method to compute metrics over the full validation set
     def _validate(self, step):
@@ -266,7 +265,8 @@ class TaggingExperiment(BaseExperiment):
             self.cfg.data,
         )
         y_pred, tracker, lframes = self.model(embedding)
-        return y_pred, batch.label.long(), tracker, lframes
+        y_pred = y_pred[:, 0]
+        return y_pred, batch.label.to(self.dtype), tracker, lframes
 
     def _init_metrics(self):
         return {"reg_collinear": [], "reg_coplanar": [], "reg_lightlike": []}
@@ -275,7 +275,7 @@ class TaggingExperiment(BaseExperiment):
 class TopTaggingExperiment(TaggingExperiment):
     def __init__(self, cfg):
         super().__init__(cfg)
-        self.cfg.model.out_channels = 2
+        self.cfg.model.out_channels = 1
 
     def init_data(self):
         data_path = os.path.join(
