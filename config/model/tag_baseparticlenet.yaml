@@ -7,8 +7,9 @@ net:
  _partial_: true
  num_classes: null
  conv_params: [[16, [64, 64, 64]], [16, [128, 128, 128]], [16, [256, 256, 256]]]
- fc_params: [[128, 0.1]]
+ fc_params: [[256, 0.1]]
  input_dims: 7
+ use_fusion: false
 
 defaults:
  - lframesnet: identity
