@@ -10,6 +10,7 @@ net:
 
  use_amp: false
 
+ # see https://github.com/jet-universe/particle_transformer/blob/main/networks/example_ParticleTransformer.py
  use_pre_activation_pair: false
  pair_input_dim: 4
  cls_block_params:
