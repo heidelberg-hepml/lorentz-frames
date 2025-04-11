@@ -19,8 +19,13 @@ class TaggingExperiment(BaseExperiment):
     """
 
     def init_physics(self):
+        modelname = self.cfg.model.net._target_.rsplit(".", 1)[-1]
+
         # decide which entries to use for the net
-        self.cfg.model.in_channels = 7
+        if modelname == "LGATr":
+            self.cfg.model.net.in_s_channels = 0
+        else:
+            self.cfg.model.in_channels = 7
 
         # decide which entries to use for the lframesnet
         if "equivectors" in self.cfg.model.lframesnet:
@@ -28,7 +33,7 @@ class TaggingExperiment(BaseExperiment):
                 7 if self.cfg.data.add_tagging_features_lframesnet else 0
             )
 
-        if self.cfg.model.net._target_.rsplit(".", 1)[-1] == "TFGraphNet":
+        if modelname == "TFGraphNet":
             self.cfg.model.net.num_edge_attr = 1 if self.cfg.model.include_edges else 0
 
     def init_data(self):
@@ -247,7 +252,10 @@ class TaggingExperiment(BaseExperiment):
 class TopTaggingExperiment(TaggingExperiment):
     def __init__(self, cfg):
         super().__init__(cfg)
-        self.cfg.model.out_channels = 1
+        if self.cfg.model.net._target_.rsplit(".", 1)[-1] == "LGATr":
+            self.cfg.model.net.out_mv_channels = 1
+        else:
+            self.cfg.model.out_channels = 1
 
     def init_data(self):
         data_path = os.path.join(

@@ -14,7 +14,9 @@ from tensorframes.utils.utils import (
 )
 from tensorframes.reps.tensorreps import TensorReps
 from tensorframes.reps.tensorreps_transform import TensorRepsTransform
+from tensorframes.lframes.nonequi_lframes import IdentityLFrames
 from experiments.tagging.embedding import get_tagging_features
+from lgatr import embed_vector, embed_scalar, extract_scalar
 
 
 class TaggerWrapper(nn.Module):
@@ -408,3 +410,46 @@ class ParticleNetWrapper(AggregatedTaggerWrapper):
             mask=mask,
         )
         return score, tracker, lframes
+
+
+class LGATrWrapper(nn.Module):
+    def __init__(
+        self,
+        net,
+        lframesnet,
+    ):
+        super().__init__()
+        self.net = net
+        self.aggregator = MeanAggregation()
+
+        self.lframesnet = lframesnet  # not actually used
+        assert isinstance(lframesnet, IdentityLFrames)
+
+    def forward(self, embedding):
+        # extract embedding (includes spurions)
+        fourmomenta = embedding["fourmomenta"]
+        scalars = embedding["scalars"]
+        batch = embedding["batch"]
+
+        fourmomenta = fourmomenta.unsqueeze(0).to(scalars.dtype)
+        scalars = scalars.unsqueeze(0)
+
+        mask = get_xformers_attention_mask(
+            batch,
+            materialize=fourmomenta.device == torch.device("cpu"),
+            dtype=fourmomenta.dtype,
+        )
+        kwargs = {
+            "attn_mask"
+            if fourmomenta.device == torch.device("cpu")
+            else "attn_bias": mask
+        }
+
+        mv = embed_vector(fourmomenta).unsqueeze(-2)
+        s = embed_scalar(scalars) if scalars.shape[-1] > 0 else None
+
+        mv_outputs, _ = self.net(mv, s, **kwargs)
+        out = extract_scalar(mv_outputs)[0, :, :, 0]
+
+        logits = self.aggregator(out, index=batch)
+        return logits, {}, None
