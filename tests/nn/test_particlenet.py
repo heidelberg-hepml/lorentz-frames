@@ -10,7 +10,7 @@ from tests.constants import (
 from tests.helpers import sample_particle, equivectors_builder
 from torch_geometric.utils import dense_to_sparse
 
-from tensorframes.nn.particlenet import EdgeConvBlock, TFParticleNet
+from tensorframes.nn.particlenet import EdgeConvBlock, ParticleNet
 from tensorframes.reps.tensorreps import TensorReps
 from tensorframes.reps.tensorreps_transform import TensorRepsTransform
 from tensorframes.utils.transforms import rand_lorentz
@@ -125,7 +125,7 @@ def test_particlenet_invariance(
     in_reps = TensorReps("1x1n")
     trafo = TensorRepsTransform(TensorReps(in_reps))
     hidden_reps_list = ["3x0n+1x1n", "16x0n+4x1n"]  # pick something
-    particlenet = TFParticleNet(
+    particlenet = ParticleNet(
         input_dims=TensorReps(hidden_reps_list[0]).dim,
         hidden_reps_list=hidden_reps_list,
         num_classes=1,
