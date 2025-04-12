@@ -8,9 +8,16 @@ net:
  input_dim: null
  num_classes: null
 
- pair_input_dim: null
  use_amp: false
- trim: true
+
+ # see https://github.com/jet-universe/particle_transformer/blob/main/networks/example_ParticleTransformer.py
+ use_pre_activation_pair: false
+ pair_input_dim: 4
+ cls_block_params:
+  dropout: 0
+  attn_dropout: 0
+  activation_dropout: 0
+ version: 1
 
 defaults:
  - lframesnet: identity

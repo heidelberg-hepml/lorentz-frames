@@ -94,21 +94,19 @@ def pairwise_lv_fts_pp(xi, xj, num_outputs=4, eps=1e-8):
     pti, rapi, phii = to_ptrapphim(xi, False, eps=None).split((1, 1, 1), dim=1)
     ptj, rapj, phij = to_ptrapphim(xj, False, eps=None).split((1, 1, 1), dim=1)
 
-    delta = delta_r2(rapi, phii, rapj, phij).sqrt()
-    lndelta = torch.log(delta.clamp(min=eps))
-    if num_outputs == 1:
-        return lndelta
+    # modified this for convenience (only lorentz scalars is most conservative)
+    xij = xi + xj
+    lnm2 = torch.log(to_m2(xij, eps=eps))
+    if num_outputs > 0:
+        outputs = [lnm2]
 
     if num_outputs > 1:
+        delta = delta_r2(rapi, phii, rapj, phij).sqrt()
+        lndelta = torch.log(delta.clamp(min=eps))
         ptmin = torch.minimum(pti, ptj)
         lnkt = torch.log((ptmin * delta).clamp(min=eps))
         lnz = torch.log((ptmin / (pti + ptj).clamp(min=eps)).clamp(min=eps))
-        outputs = [lnkt, lnz, lndelta]
-
-    if num_outputs > 3:
-        xij = xi + xj
-        lnm2 = torch.log(to_m2(xij, eps=eps))
-        outputs.append(lnm2)
+        outputs += [lnkt, lnz, lndelta]
 
     if num_outputs > 4:
         lnds2 = torch.log(torch.clamp(-to_m2(xi - xj, eps=None), min=eps))

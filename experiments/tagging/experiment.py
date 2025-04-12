@@ -69,6 +69,34 @@ class TaggingExperiment(BaseExperiment):
             f"batch_size={self.cfg.training.batchsize} (training), {self.cfg.evaluation.batchsize} (evaluation)"
         )
 
+    def _init_optimizer(self, param_groups=None):
+        if self.cfg.model.net._target_.rsplit(".", 1)[-1] == "ParticleTransformer":
+            # special treatment for ParT, see
+            # https://github.com/hqucms/weaver-core/blob/dev/custom_train_eval/weaver/train.py#L464
+            # have to adapt this for finetuning!!!
+            decay, no_decay = {}, {}
+            for name, param in self.model.net.named_parameters():
+                if not param.requires_grad:
+                    continue
+                if (
+                    len(param.shape) == 1
+                    or name.endswith(".bias")
+                    or (
+                        hasattr(self.model.net, "no_weight_decay")
+                        and name in {"cls_token"}
+                    )
+                ):
+                    no_decay[name] = param
+                else:
+                    decay[name] = param
+            decay_1x, no_decay_1x = list(decay.values()), list(no_decay.values())
+            param_groups = [
+                {"params": no_decay_1x, "weight_decay": 0.0},
+                {"params": decay_1x, "weight_decay": self.cfg.training.weight_decay},
+            ]
+
+        super()._init_optimizer(param_groups=param_groups)
+
     def evaluate(self):
         self.results = {}
         loader_dict = {

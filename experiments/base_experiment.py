@@ -15,6 +15,7 @@ from experiments.misc import get_device, flatten_dict
 import experiments.logger
 from experiments.logger import LOGGER, MEMORY_HANDLER, FORMATTER
 from experiments.mlflow import log_mlflow
+from experiments.ranger import Ranger
 
 # for GATr (ignored by others)
 from hydra.core.config_store import ConfigStore
@@ -355,13 +356,15 @@ class BaseExperiment:
         elif self.cfg.training.optimizer == "Ranger":
             # default optimizer used in the weaver package
             # see https://github.com/hqucms/weaver-core/blob/main/weaver/utils/nn/optimizer/ranger.py
-            radam = torch.optim.RAdam(
+            self.optimizer = Ranger(
                 param_groups,
+                lr=self.cfg.training.lr,
                 betas=(0.95, 0.999),
                 eps=1e-5,
                 weight_decay=self.cfg.training.weight_decay,
+                alpha=0.5,
+                k=6,
             )
-            self.optimizer = pytorch_optimizer.Lookahead(radam, k=6, alpha=0.5)
         else:
             raise ValueError(f"Optimizer {self.cfg.training.optimizer} not implemented")
         LOGGER.debug(
