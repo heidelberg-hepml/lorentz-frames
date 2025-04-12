@@ -8,6 +8,7 @@ from torch_geometric.utils import to_dense_batch
 from tensorframes.lframes.lframes import LFrames
 from tensorframes.utils.utils import (
     get_ptr_from_batch,
+    get_batch_from_ptr,
     get_edge_index_from_ptr,
     get_xformers_attention_mask,
     get_edge_attr,
@@ -417,10 +418,11 @@ class LGATrWrapper(nn.Module):
         self,
         net,
         lframesnet,
+        mean_aggregation=False,
     ):
         super().__init__()
         self.net = net
-        self.aggregator = MeanAggregation()
+        self.aggregator = MeanAggregation() if mean_aggregation else None
 
         self.lframesnet = lframesnet  # not actually used
         assert isinstance(lframesnet, IdentityLFrames)
@@ -430,9 +432,70 @@ class LGATrWrapper(nn.Module):
         fourmomenta = embedding["fourmomenta"]
         scalars = embedding["scalars"]
         batch = embedding["batch"]
+        ptr = embedding["ptr"]
         is_spurion = embedding["is_spurion"]
 
+        # rescale fourmomenta (but not the spurions)
         fourmomenta[~is_spurion] = fourmomenta[~is_spurion] / 20
+
+        # handle global token
+        if self.aggregator is None:
+            batchsize = len(ptr) - 1
+            global_idxs = ptr[:-1] + torch.arange(batchsize, device=batch.device)
+            is_global = torch.zeros(
+                fourmomenta.shape[0] + batchsize,
+                dtype=torch.bool,
+                device=ptr.device,
+            )
+            is_global[global_idxs] = True
+            fourmomenta_buffer = fourmomenta.clone()
+            fourmomenta = torch.zeros(
+                is_global.shape[0],
+                *fourmomenta.shape[1:],
+                dtype=fourmomenta.dtype,
+                device=fourmomenta.device,
+            )
+            fourmomenta[~is_global] = fourmomenta_buffer
+            scalars_buffer = scalars.clone()
+            scalars = torch.zeros(
+                fourmomenta.shape[0],
+                scalars.shape[1] + 1,
+                dtype=scalars.dtype,
+                device=scalars.device,
+            )
+            token_idx = torch.nn.functional.one_hot(
+                torch.arange(1, device=scalars.device)
+            )
+            token_idx = token_idx.repeat(batchsize, 1)
+            scalars[~is_global] = torch.cat(
+                (
+                    scalars_buffer,
+                    torch.zeros(
+                        scalars_buffer.shape[0],
+                        token_idx.shape[1],
+                        dtype=scalars.dtype,
+                        device=scalars.device,
+                    ),
+                ),
+                dim=-1,
+            )
+            scalars[is_global] = torch.cat(
+                (
+                    torch.zeros(
+                        token_idx.shape[0],
+                        scalars_buffer.shape[1],
+                        dtype=scalars.dtype,
+                        device=scalars.device,
+                    ),
+                    token_idx,
+                ),
+                dim=-1,
+            )
+            ptr[1:] = ptr[1:] + (torch.arange(batchsize, device=ptr.device) + 1)
+            batch = get_batch_from_ptr(ptr)
+        else:
+            is_global = None
+
         fourmomenta = fourmomenta.unsqueeze(0).to(scalars.dtype)
         scalars = scalars.unsqueeze(0)
 
@@ -448,10 +511,13 @@ class LGATrWrapper(nn.Module):
         }
 
         mv = embed_vector(fourmomenta).unsqueeze(-2)
-        s = embed_scalar(scalars) if scalars.shape[-1] > 0 else None
+        s = scalars if scalars.shape[-1] > 0 else None
 
         mv_outputs, _ = self.net(mv, s, **kwargs)
         out = extract_scalar(mv_outputs)[0, :, :, 0]
 
-        logits = self.aggregator(out, index=batch)
+        if self.aggregator is not None:
+            logits = self.aggregator(out, index=batch)
+        else:
+            logits = out[is_global]
         return logits, {}, None

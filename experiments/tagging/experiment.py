@@ -23,7 +23,9 @@ class TaggingExperiment(BaseExperiment):
 
         # decide which entries to use for the net
         if modelname == "LGATr":
-            self.cfg.model.net.in_s_channels = 0
+            self.cfg.model.net.in_s_channels = (
+                0 if self.cfg.model.mean_aggregation else 1
+            )
         else:
             self.cfg.model.in_channels = 7
 
