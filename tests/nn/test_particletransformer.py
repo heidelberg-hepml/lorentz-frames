@@ -4,11 +4,8 @@ from tests.constants import (
     TOLERANCES,
     MILD_TOLERANCES,
     LOGM2_MEAN_STD,
-    REPS,
-    LFRAMES_PREDICTOR,
 )
 from tests.helpers import sample_particle, equivectors_builder
-from torch_geometric.utils import dense_to_sparse
 
 from tensorframes.nn.particletransformer import ParticleTransformer
 from tensorframes.reps.tensorreps import TensorReps
@@ -26,7 +23,7 @@ from experiments.tagging.embedding import get_tagging_features
     "LFramesPredictor", [LearnedOrthogonalLFrames, LearnedPolarDecompositionLFrames]
 )  # RestLFrames gives nans sometimes
 @pytest.mark.parametrize("batch_dims", [[10]])
-@pytest.mark.parametrize("logm2_mean,logm2_std", [(0, 1)])  # LOGM2_MEAN_STD)
+@pytest.mark.parametrize("logm2_mean,logm2_std", LOGM2_MEAN_STD)
 def test_particlenet_invariance(
     LFramesPredictor,
     batch_dims,

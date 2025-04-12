@@ -32,14 +32,14 @@ class InvariantParticleAttention(torch.nn.Module):
 
         Comments
         - dimensions: *dims (optional), H (head), N (particles), C (channels)
-        - TODO: dynamically reshape attn_mask for default torch attention (in attn function?)
+        - supports cross-attention with lframes_q (different lframes for q and k/v)
 
         Parameters
         ----------
         q_local: torch.tensor of shape (*dims, H, Nq, C)
-        k_local: torch.tensor of shape (*dims, H, N, C)
-        v_local: torch.tensor of shape (*dims, H, N, C)
-        lframes: (*dims, N, 4, 4)
+        k_local: torch.tensor of shape (*dims, H, Nkv, C)
+        v_local: torch.tensor of shape (*dims, H, Nkv, C)
+        lframes: (*dims, Nkv, 4, 4)
         lframes_q: (*dims, Nq, 4, 4)
         attn_kwargs: dict
             Optional arguments that are passed on to attention
@@ -55,27 +55,27 @@ class InvariantParticleAttention(torch.nn.Module):
         assert k_local.shape == v_local.shape  # has to match perfectly
         assert (
             q_local[..., 0, :].shape == k_local[..., 0, :].shape
-        )  # N can be different
+        )  # Nq and Nkv can be different
         assert q_local.shape[:-3] == lframes_q.shape[:-3]  # *dims match
-        assert q_local.shape[-2] == lframes_q.shape[-3]  # N matches
+        assert q_local.shape[-2] == lframes_q.shape[-3]  # Nq matches
         assert k_local.shape[:-3] == lframes.shape[:-3]  # *dims match
-        assert k_local.shape[-2] == lframes.shape[-3]  # N matches
+        assert k_local.shape[-2] == lframes.shape[-3]  # Nkv matches
 
         # insert lframes head dimension
-        lframes = lframes.reshape(*k_local.shape[:-3], 1, lframes.shape[-3], 4, 4)
-        lframes = lframes.expand(*k_local.shape[:-1], 4, 4)
         lframes_q = lframes_q.reshape(*q_local.shape[:-3], 1, lframes_q.shape[-3], 4, 4)
         lframes_q = lframes_q.expand(*q_local.shape[:-1], 4, 4)
+        lframes = lframes.reshape(*k_local.shape[:-3], 1, lframes.shape[-3], 4, 4)
+        lframes = lframes.expand(*k_local.shape[:-1], 4, 4)
 
         inv_lframes = InverseLFrames(lframes)
-        lower_inv_lframes = LowerIndices(inv_lframes)
         inv_lframes_q = InverseLFrames(lframes_q)
+        lower_inv_lframes = LowerIndices(inv_lframes)
 
         q_global = self.transform(q_local, inv_lframes_q)
         k_global = self.transform(k_local, lower_inv_lframes)
         v_global = self.transform(v_local, inv_lframes)
 
-        # (B, H, N, C) format required for xformers
+        # (B, H, N, C) format required for scaled_dot_product_attention
         shape_q, shape_k = q_global.shape, k_global.shape
         q_global = q_global.reshape(-1, *shape_q[-3:])
         k_global = k_global.reshape(-1, *shape_k[-3:])
