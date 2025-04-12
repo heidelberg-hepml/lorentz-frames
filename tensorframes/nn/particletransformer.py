@@ -858,8 +858,8 @@ class Block(nn.Module):
                 det=det,
                 inv=inv,
                 is_global=lframes.is_global,
-                is_identity=lframes.is_identity,
-            )
+                is_identity=True,  # lframes.is_identity,
+            )  # set lframes to identity (should not be necessary)
 
             x = self.attn(
                 x_cls,
