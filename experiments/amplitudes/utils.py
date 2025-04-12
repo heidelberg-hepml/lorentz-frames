@@ -74,7 +74,9 @@ def load_file(
         trafo = restframe_boost(-lab_momentum)
     elif cfg_data.prepare == "lorentz":
         # add random rotation to existing z-boost -> general Lorentz trafo
-        trafo = rand_rotation_uniform(momentum.shape[:-2], generator=generator, dtype=dtype)
+        trafo = rand_rotation_uniform(
+            momentum.shape[:-2], generator=generator, dtype=dtype
+        )
     elif cfg_data.prepare == "ztransform":
         # add random xyrotation to existing z-boost -> general ztransform
         trafo = rand_xyrotation(momentum.shape[:-2], generator=generator, dtype=dtype)

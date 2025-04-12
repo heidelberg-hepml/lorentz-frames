@@ -25,9 +25,8 @@ class TaggingDataset(torch.utils.data.Dataset):
         We set is_global=None if no global token is used
     """
 
-    def __init__(self, rescale_data):
+    def __init__(self):
         super().__init__()
-        self.rescale_data = rescale_data
 
     def load_data(self, filename, mode):
         raise NotImplementedError

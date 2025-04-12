@@ -37,10 +37,9 @@ class TaggingExperiment(BaseExperiment):
     def _init_data(self, Dataset, data_path):
         LOGGER.info(f"Creating {Dataset.__name__} from {data_path}")
         t0 = time.time()
-        kwargs = {"rescale_data": self.cfg.data.rescale_data}
-        self.data_train = Dataset(**kwargs)
-        self.data_test = Dataset(**kwargs)
-        self.data_val = Dataset(**kwargs)
+        self.data_train = Dataset()
+        self.data_test = Dataset()
+        self.data_val = Dataset()
         self.data_train.load_data(data_path, "train")
         self.data_test.load_data(data_path, "test")
         self.data_val.load_data(data_path, "val")
@@ -70,6 +69,34 @@ class TaggingExperiment(BaseExperiment):
             f"batch_size={self.cfg.training.batchsize} (training), {self.cfg.evaluation.batchsize} (evaluation)"
         )
 
+    def _init_optimizer(self, param_groups=None):
+        if self.cfg.model.net._target_.rsplit(".", 1)[-1] == "ParticleTransformer":
+            # special treatment for ParT, see
+            # https://github.com/hqucms/weaver-core/blob/dev/custom_train_eval/weaver/train.py#L464
+            # have to adapt this for finetuning!!!
+            decay, no_decay = {}, {}
+            for name, param in self.model.net.named_parameters():
+                if not param.requires_grad:
+                    continue
+                if (
+                    len(param.shape) == 1
+                    or name.endswith(".bias")
+                    or (
+                        hasattr(self.model.net, "no_weight_decay")
+                        and name in {"cls_token"}
+                    )
+                ):
+                    no_decay[name] = param
+                else:
+                    decay[name] = param
+            decay_1x, no_decay_1x = list(decay.values()), list(no_decay.values())
+            param_groups = [
+                {"params": no_decay_1x, "weight_decay": 0.0},
+                {"params": decay_1x, "weight_decay": self.cfg.training.weight_decay},
+            ]
+
+        super()._init_optimizer(param_groups=param_groups)
+
     def evaluate(self):
         self.results = {}
         loader_dict = {
@@ -93,6 +120,7 @@ class TaggingExperiment(BaseExperiment):
                     loader_dict[set_label], set_label, mode="eval"
                 )
 
+    @torch.no_grad()
     def _evaluate_single(self, loader, title, mode, step=None):
         assert mode in ["val", "eval"]
 
@@ -106,14 +134,11 @@ class TaggingExperiment(BaseExperiment):
         # predictions
         labels_true, labels_predict = [], []
         self.model.eval()
-        if self.cfg.training.optimizer == "ScheduleFree":
-            self.optimizer.eval()
-        with torch.no_grad():
-            for batch in loader:
-                y_pred, label, _, _ = self._get_ypred_and_label(batch)
-                y_pred = torch.nn.functional.sigmoid(y_pred)
-                labels_true.append(label.cpu().float())
-                labels_predict.append(y_pred.cpu().float())
+        for batch in loader:
+            y_pred, label, _, _ = self._get_ypred_and_label(batch)
+            y_pred = torch.nn.functional.sigmoid(y_pred)
+            labels_true.append(label.cpu().float())
+            labels_predict.append(y_pred.cpu().float())
         labels_true, labels_predict = torch.cat(labels_true), torch.cat(labels_predict)
         if mode == "eval":
             metrics["labels_true"], metrics["labels_predict"] = (
@@ -169,9 +194,9 @@ class TaggingExperiment(BaseExperiment):
             )
 
             LOGGER.info(
-                f"table {title}: {lframeString} ({self.cfg.training.iterations} epochs)"
-                f" & {num_parameters} & {metrics['accuracy']:.4f}&{metrics['auc']:.4f}"
-                f" & {metrics['rej03']:.0f}&{metrics['rej05']:.0f}&{metrics['rej08']:.0f} \\\\"
+                f"table {title}: {lframeString} ({self.cfg.training.iterations} iterations)"
+                f" & {num_parameters} & {metrics['accuracy']:.4f} & {metrics['auc']:.4f}"
+                f" & {metrics['rej03']:.0f} & {metrics['rej05']:.0f} & {metrics['rej08']:.0f} \\\\"
             )
         return metrics
 
@@ -199,8 +224,6 @@ class TaggingExperiment(BaseExperiment):
             plot_dict["train_loss"] = self.train_loss
             plot_dict["val_loss"] = self.val_loss
             plot_dict["train_lr"] = self.train_lr
-            plot_dict["train_metrics"] = self.train_metrics
-            plot_dict["val_metrics"] = self.val_metrics
             plot_dict["grad_norm"] = torch.stack(self.grad_norm_train).cpu()
             plot_dict["grad_norm_lframes"] = torch.stack(self.grad_norm_lframes).cpu()
             plot_dict["grad_norm_net"] = torch.stack(self.grad_norm_net).cpu()
