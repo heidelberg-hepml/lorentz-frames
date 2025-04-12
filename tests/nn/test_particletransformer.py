@@ -24,7 +24,7 @@ from experiments.tagging.embedding import get_tagging_features
 )  # RestLFrames gives nans sometimes
 @pytest.mark.parametrize("batch_dims", [[10]])
 @pytest.mark.parametrize("logm2_mean,logm2_std", LOGM2_MEAN_STD)
-def test_particlenet_invariance(
+def test_ParT_invariance(
     LFramesPredictor,
     batch_dims,
     logm2_std,
@@ -38,7 +38,7 @@ def test_particlenet_invariance(
     predictor = LFramesPredictor(equivectors=equivectors).to(dtype=dtype)
     call_predictor = lambda fm: predictor(fm)
 
-    # define particlenet
+    # define ParT
     in_reps = TensorReps("1x1n")
     trafo = TensorRepsTransform(TensorReps(in_reps))
     model = ParticleTransformer(
@@ -68,10 +68,10 @@ def test_particlenet_invariance(
     lframes = call_predictor(fm)
     fm_local = trafo(fm, lframes)
 
-    # particlenet
+    # ParT
     score_prime_local = ParT_wrapper(fm_local, lframes)
 
-    # global - particlenet
+    # global - ParT
     fm_transformed = torch.einsum("...ij,...j->...i", random, fm)
     lframes_transformed = call_predictor(fm_transformed)
     fm_tr_local = trafo(fm_transformed, lframes_transformed)

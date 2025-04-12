@@ -8,7 +8,6 @@ from tests.constants import (
     LFRAMES_PREDICTOR,
 )
 from tests.helpers import sample_particle, equivectors_builder
-from torch_geometric.utils import dense_to_sparse
 
 from tensorframes.nn.particlenet import EdgeConvBlock, ParticleNet
 from tensorframes.reps.tensorreps import TensorReps
@@ -39,8 +38,6 @@ def test_edgeconvblock_invariance_equivariance(
     hidden_reps,
 ):
     dtype = torch.float64
-
-    edge_index = dense_to_sparse(torch.ones(batch_dims[0], batch_dims[0]))[0]
 
     assert len(batch_dims) == 1
     equivectors = equivectors_builder()
