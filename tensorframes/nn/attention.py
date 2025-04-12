@@ -21,7 +21,9 @@ class InvariantParticleAttention(torch.nn.Module):
         super().__init__()
         self.transform = TensorRepsTransform(TensorReps(attn_reps))
 
-    def forward(self, q_local, k_local, v_local, lframes, **attn_kwargs):
+    def forward(
+        self, q_local, k_local, v_local, lframes, lframes_q=None, **attn_kwargs
+    ):
         """
         Strategy
         1) Transform q, k, v into global frame
@@ -34,34 +36,50 @@ class InvariantParticleAttention(torch.nn.Module):
 
         Parameters
         ----------
-        q_local: torch.tensor of shape (*dims, H, N, C)
+        q_local: torch.tensor of shape (*dims, H, Nq, C)
         k_local: torch.tensor of shape (*dims, H, N, C)
         v_local: torch.tensor of shape (*dims, H, N, C)
         lframes: (*dims, N, 4, 4)
+        lframes_q: (*dims, Nq, 4, 4)
         attn_kwargs: dict
             Optional arguments that are passed on to attention
+
+        Returns
+        -------
+        out_local: torch.tensor of shape (*dims, H, Nq, C)
         """
         # check input shapes
-        assert q_local.shape == k_local.shape == v_local.shape
-        assert q_local.shape[:-3] == lframes.shape[:-3]  # *dims match
-        assert q_local.shape[-2] == lframes.shape[-3]  # N matches
+        if lframes_q is None:
+            assert k_local.shape == q_local.shape
+            lframes_q = lframes
+        assert k_local.shape == v_local.shape  # has to match perfectly
+        assert (
+            q_local[..., 0, :].shape == k_local[..., 0, :].shape
+        )  # N can be different
+        assert q_local.shape[:-3] == lframes_q.shape[:-3]  # *dims match
+        assert q_local.shape[-2] == lframes_q.shape[-3]  # N matches
+        assert k_local.shape[:-3] == lframes.shape[:-3]  # *dims match
+        assert k_local.shape[-2] == lframes.shape[-3]  # N matches
 
         # insert lframes head dimension
-        lframes = lframes.reshape(*q_local.shape[:-3], 1, lframes.shape[-3], 4, 4)
-        lframes = lframes.expand(*q_local.shape[:-1], 4, 4)
+        lframes = lframes.reshape(*k_local.shape[:-3], 1, lframes.shape[-3], 4, 4)
+        lframes = lframes.expand(*k_local.shape[:-1], 4, 4)
+        lframes_q = lframes_q.reshape(*q_local.shape[:-3], 1, lframes_q.shape[-3], 4, 4)
+        lframes_q = lframes_q.expand(*q_local.shape[:-1], 4, 4)
 
         inv_lframes = InverseLFrames(lframes)
         lower_inv_lframes = LowerIndices(inv_lframes)
+        inv_lframes_q = InverseLFrames(lframes_q)
 
-        q_global = self.transform(q_local, inv_lframes)
+        q_global = self.transform(q_local, inv_lframes_q)
         k_global = self.transform(k_local, lower_inv_lframes)
         v_global = self.transform(v_local, inv_lframes)
 
         # (B, H, N, C) format required for xformers
-        shape = q_global.shape
-        q_global = q_global.reshape(-1, *shape[-3:])
-        k_global = k_global.reshape(-1, *shape[-3:])
-        v_global = v_global.reshape(-1, *shape[-3:])
+        shape_q, shape_k = q_global.shape, k_global.shape
+        q_global = q_global.reshape(-1, *shape_q[-3:])
+        k_global = k_global.reshape(-1, *shape_k[-3:])
+        v_global = v_global.reshape(-1, *shape_k[-3:])
 
         # attention (in global frame)
         out_global = scaled_dot_product_attention(
@@ -71,10 +89,10 @@ class InvariantParticleAttention(torch.nn.Module):
             **attn_kwargs,
         )
 
-        out_global = out_global.view(*shape)  # (*dims, H, N, C)
+        out_global = out_global.view(*shape_q)  # (*dims, H, N, C)
 
         # transform out back into local frame
-        out_local = self.transform(out_global, lframes)
+        out_local = self.transform(out_global, lframes_q)
         return out_local
 
 
@@ -84,6 +102,7 @@ def scaled_dot_product_attention(
     value: Tensor,
     attn_mask: Optional[Union[AttentionBias, Tensor]] = None,
     is_causal=False,
+    dropout_p=0.0,
 ) -> Tensor:
     """Execute (vanilla) scaled dot-product attention.
 
@@ -132,4 +151,6 @@ def scaled_dot_product_attention(
         )
         out = out.transpose(1, 2)  # [batch, item, head, d] -> [batch, head, item, d]
         return out.to(in_dtype)
-    return torch_sdpa(query, key, value, attn_mask=attn_mask, is_causal=is_causal)
+    return torch_sdpa(
+        query, key, value, attn_mask=attn_mask, is_causal=is_causal, dropout_p=dropout_p
+    )
