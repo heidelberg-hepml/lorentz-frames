@@ -99,7 +99,7 @@ class EquiEdgeConv(MessagePassing):
         if edge_attr is not None:
             prefactor = torch.cat([prefactor, edge_attr], dim=-1)
         prefactor = self.mlp(prefactor)
-        prefactor = self.nonlinearity(prefactor, batch=edge_index[0])
+        prefactor = self.nonlinearity(prefactor, batch=edge_index[1])
 
         fm_rel = (fm_rel / fm_rel_norm)[:, None, :4]
         prefactor = prefactor.unsqueeze(-1)
@@ -155,12 +155,18 @@ class EquiEdgeConv(MessagePassing):
 
             def func(x, batch):
                 x = nonlinearity(x)
-                x_dense, mask = to_dense_batch(x, batch, fill_value=0)
+
+                # sort manually because to_dense_batch assumes that 'batch' is sorted
+                batch_sorted, perm = batch.sort()
+                inv_perm = perm.argsort()
+                x_dense, mask = to_dense_batch(x[perm], batch_sorted, fill_value=0)
+
                 k_local = min(int(k), x_dense.shape[-2])
                 top_vals, top_idx = x_dense.topk(k_local, dim=-2)
                 out_dense = torch.zeros_like(x_dense)
                 out_dense.scatter_(dim=-2, index=top_idx, src=top_vals)
-                out = out_dense[mask]
+                out_sorted = out_dense[mask]
+                out = out_sorted[inv_perm]
                 return out
 
             return func
