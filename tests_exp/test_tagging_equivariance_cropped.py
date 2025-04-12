@@ -30,10 +30,10 @@ from tensorframes.utils.utils import get_ptr_from_batch
     list(
         enumerate(
             [
-                #["model=tag_particlenet-lite"],
+                # ["model=tag_particlenet-lite"],
                 ["model=tag_transformer"],
                 ["model=tag_graphnet"],
-                #["model=tag_graphnet", "model.include_edges=false"],
+                # ["model=tag_graphnet", "model.include_edges=false"],
             ]
         )
     ),
@@ -115,7 +115,7 @@ def test_amplitudes(
         batch = batch[mask]
         label = label
         ptr = get_ptr_from_batch(batch)
-        
+
         data.x = x
         data.scalars = scalars
         data.label = label
