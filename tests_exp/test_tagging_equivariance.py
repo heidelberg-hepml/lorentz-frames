@@ -85,6 +85,7 @@ def test_amplitudes(
     exp.init_data()
     exp._init_dataloader()
     exp._init_loss()
+    exp.model().eval()  # turn off dropout
 
     def cycle(iterable):
         while True:
