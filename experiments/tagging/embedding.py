@@ -1,9 +1,9 @@
 import torch
-import math
 from torch_geometric.utils import scatter
 
 from tensorframes.utils.hep import get_eta, get_phi, get_pt
 from tensorframes.utils.utils import get_batch_from_ptr
+from tensorframes.utils.lorentz import lorentz_squarednorm
 from experiments.tagging.dataset import EPS
 
 # weaver defaults for tagging features standardization (mean, std)
@@ -88,8 +88,9 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
     # add mass regulator
     if cfg_data.mass_reg is not None:
         mass_reg = cfg_data.mass_reg
-        fourmomenta[..., 0] = (
-            (fourmomenta[..., 1:] ** 2).sum(dim=-1) + mass_reg**2
+        mask = lorentz_squarednorm(fourmomenta) < mass_reg**2
+        fourmomenta[mask][..., 0] = (
+            (fourmomenta[mask][..., 1:] ** 2).sum(dim=-1) + mass_reg**2
         ).sqrt()
 
     batch = get_batch_from_ptr(ptr)
