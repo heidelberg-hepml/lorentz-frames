@@ -49,16 +49,17 @@ class LFrames:
         # straight-forward initialization
         self.is_identity = is_identity
         if is_identity:
-            assert device and dtype
             if matrices is None:
-                assert shape is not None
+                assert shape and device and dtype
             else:
                 shape = matrices.shape[:-2]
+                device = matrices.device
+                dtype = matrices.dtype
 
             self.matrices = lorentz_eye(shape, device=device, dtype=dtype)
             self.is_global = True
-            self.det = None
-            self.inv = None
+            self.det = torch.ones(self.shape[:-2], dtype=self.dtype, device=self.device)
+            self.inv = self.matrices
         else:
             assert matrices is not None
             assert matrices.shape[-2:] == (
@@ -80,17 +81,9 @@ class LFrames:
             self.shape[:-2], device=self.device, dtype=self.dtype
         )
         if self.det is None:
-            if self.is_identity:
-                self.det = torch.ones(
-                    self.shape[:-2], dtype=self.dtype, device=self.device
-                )
-            else:
-                self.det = torch.linalg.det(self.matrices)
+            self.det = torch.linalg.det(self.matrices)
         if self.inv is None:
-            if self.is_identity:
-                self.inv = self.matrices
-            else:
-                self.inv = self.metric @ self.matrices.transpose(-1, -2) @ self.metric
+            self.inv = self.metric @ self.matrices.transpose(-1, -2) @ self.metric
 
     def __repr__(self):
         return repr(self.matrices)
