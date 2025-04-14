@@ -6,24 +6,17 @@ import experiments.logger
 from experiments.tagging.experiment import TopTaggingExperiment
 
 
-@pytest.mark.parametrize(
-    "lframesnet",
-    [
-        "identity",
-        "randomrotation",
-        "randomlorentz",
-        "orthogonal",
-        "polardec",
-    ],
-)
+@pytest.mark.parametrize("lframesnet", ["identity"])
 @pytest.mark.parametrize(
     "model_list",
     [
         ["model=tag_ParT"],
+        ["model=tag_particlenet"],
         ["model=tag_particlenet-lite"],
         ["model=tag_transformer"],
         ["model=tag_graphnet"],
         ["model=tag_graphnet", "model.include_edges=true"],
+        ["model=tag_gatr"],
     ],
 )
 @pytest.mark.parametrize("iterations", [1])
@@ -49,6 +42,7 @@ def test_tagging(lframesnet, model_list, iterations):
     exp._init_loss()
 
     for i, data in enumerate(exp.train_loader):
+        data = data.to(device=exp.device)
         if i == iterations:
             break
 

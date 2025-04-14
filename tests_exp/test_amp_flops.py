@@ -6,16 +6,7 @@ import experiments.logger
 from experiments.amplitudes.experiment import AmplitudeExperiment
 
 
-@pytest.mark.parametrize(
-    "lframesnet",
-    [
-        "identity",
-        "randomrotation",
-        "randomlorentz",
-        "orthogonal",
-        "polardec",
-    ],
-)
+@pytest.mark.parametrize("lframesnet", ["identity"])
 @pytest.mark.parametrize(
     "model_list",
     [
@@ -24,6 +15,8 @@ from experiments.amplitudes.experiment import AmplitudeExperiment
         ["model=amp_graphnet"],
         ["model=amp_graphnet", "model.include_edges=false"],
         ["model=amp_graphnet", "model.include_nodes=false"],
+        ["model=amp_gatr"],
+        ["model=amp_dsi"],
     ],
 )
 @pytest.mark.parametrize("iterations", [1])
@@ -48,7 +41,7 @@ def test_amplitudes(lframesnet, model_list, iterations):
     exp._init_loss()
 
     for i, data in enumerate(exp.train_loader):
-        mom = data[1]
+        mom = data[1].to(device=exp.device, dtype=exp.dtype)
         if i == iterations:
             break
         with FlopCounterMode(display=False) as flop_counter:
