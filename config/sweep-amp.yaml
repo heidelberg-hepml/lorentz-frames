@@ -9,4 +9,3 @@ model_name: amp_transformer
 
 cfg_overrides:
  - evaluation.eval_set=[val,test]
- - training.iterations=100
