@@ -14,33 +14,19 @@ from tensorframes.utils.transforms import (
 from tensorframes.utils.utils import get_ptr_from_batch
 
 
+BREAKING = [
+    "data.beam_reference=null",
+    "data.add_time_reference=false",
+    "data.add_tagging_features_lframesnet=false",
+]
+
+
 @pytest.mark.parametrize(
     "rand_trafo,breaking_list",
     [
-        [
-            rand_rotation_uniform,
-            [
-                "data.beam_reference=null",
-                "data.add_time_reference=false",
-                "data.add_tagging_features_lframesnet=false",
-            ],
-        ],
-        [
-            rand_lorentz,
-            [
-                "data.beam_reference=null",
-                "data.add_time_reference=false",
-                "data.add_tagging_features_lframesnet=false",
-            ],
-        ],
-        [
-            rand_xyrotation,
-            [
-                "data.beam_reference=null",
-                "data.add_time_reference=false",
-                "data.add_tagging_features_lframesnet=false",
-            ],
-        ],
+        [rand_rotation_uniform, BREAKING],
+        [rand_lorentz, BREAKING],
+        [rand_xyrotation, BREAKING],
     ],
 )
 @pytest.mark.parametrize(
