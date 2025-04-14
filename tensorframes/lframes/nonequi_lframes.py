@@ -44,13 +44,19 @@ class RandomLFrames(LFramesPredictor):
     corresponding to data augmentation."""
 
     def __init__(
-        self, transform_type="lorentz", is_global=True, std_eta=0.5, n_max_std_eta=5.0
+        self,
+        transform_type="lorentz",
+        is_global=True,
+        std_eta=0.5,
+        n_max_std_eta=5.0,
+        is_cauchy=False,
     ):
         super().__init__(is_global=is_global)
         self.is_global = is_global
         self.std_eta = std_eta
         self.transform_type = transform_type
         self.n_max_std_eta = n_max_std_eta
+        self.is_cauchy = is_cauchy
 
     def transform(self, shape, device, dtype):
         if self.transform_type == "lorentz":
@@ -58,6 +64,7 @@ class RandomLFrames(LFramesPredictor):
                 shape,
                 std_eta=self.std_eta,
                 n_max_std_eta=self.n_max_std_eta,
+                is_cauchy=self.is_cauchy,
                 device=device,
                 dtype=dtype,
             )
@@ -72,6 +79,7 @@ class RandomLFrames(LFramesPredictor):
                 shape,
                 std_eta=self.std_eta,
                 n_max_std_eta=self.n_max_std_eta,
+                is_cauchy=self.is_cauchy,
                 device=device,
                 dtype=dtype,
             )
