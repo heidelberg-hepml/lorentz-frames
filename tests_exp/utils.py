@@ -1,6 +1,7 @@
 import torch
 import inspect
 from contextlib import contextmanager
+from tensorframes.utils.utils import get_ptr_from_batch
 
 
 @contextmanager
@@ -67,3 +68,46 @@ def track_clamps():
         torch.clamp = original_clamp_fn
         torch.Tensor.clamp = original_tensor_clamp
         torch.Tensor.clamp_ = original_tensor_clamp_
+
+
+def crop_particles(data, n=None):
+    """
+    Crops the amount of particles in the jet to the first n
+
+    Args:
+        data: dictionary with fourmomenta x, scalars, batch, label, ptr
+        n: number of particles to crop to, None for no cropping, defaults to None
+    Returns:
+        data: changed data
+    """
+    if n is None:
+        return data
+
+    batch = data.batch
+    x = data.x
+    scalars = data.scalars
+    label = data.label
+
+    _, counts = torch.unique_consecutive(batch, return_counts=True)
+
+    # create a mask: first n elements per group
+    idx_within_group = torch.cat([torch.arange(c) for c in counts])
+    idx_within_group = idx_within_group.to(batch.device)
+
+    mask = idx_within_group < n
+
+    # apply mask
+    x = x[mask]
+    scalars = scalars[mask]
+    batch = batch[mask]
+    label = label
+    ptr = get_ptr_from_batch(batch)
+
+    data = data.clone()
+    data.x = x
+    data.scalars = scalars
+    data.label = label
+    data.batch = batch
+    data.ptr = ptr
+
+    return data

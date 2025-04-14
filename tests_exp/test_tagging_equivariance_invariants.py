@@ -20,6 +20,7 @@ BREAKING = [
     "data.add_time_reference=false",
     "data.add_tagging_features_lframesnet=false",
 ]
+from tests_exp.utils import crop_particles
 
 
 @pytest.mark.parametrize(
@@ -50,6 +51,7 @@ BREAKING = [
 )
 @pytest.mark.parametrize("iterations", [1])
 @pytest.mark.parametrize("use_float64", [False, True])
+@pytest.mark.parametrize("cropped_particles", [None, 10])
 def test_amplitudes(
     rand_trafo,
     model_idx,
@@ -60,6 +62,7 @@ def test_amplitudes(
     breaking_list,
     iterations,
     use_float64,
+    cropped_particles,
     save=True,
 ):
     experiments.logger.LOGGER.disabled = True  # turn off logging
@@ -95,8 +98,9 @@ def test_amplitudes(
     agg = MeanAggregation()
     iterator = iter(cycle(exp.train_loader))
     for _ in range(iterations):
-        data = next(iterator).to(exp.device)
-        data_augmented = data.clone().to(exp.device)
+        data = next(iterator)
+        data = crop_particles(data, n=cropped_particles)
+        data_augmented = data.clone()
 
         parent = super(type(exp.model), exp.model)
         embedded_data = embed_tagging_data(
@@ -115,7 +119,7 @@ def test_amplitudes(
         ) = parent.forward(embedded_data)
 
         # augmented data
-        mom = data_augmented.x.to(exp.device)
+        mom = data_augmented.x
         trafo = rand_trafo(mom.shape[:-2] + (1,), dtype=mom.dtype)
         mom_augmented = torch.einsum("...ij,...j->...i", trafo, mom)
         data_augmented.x = mom_augmented
@@ -154,6 +158,7 @@ def test_amplitudes(
         lframesnet,
         operation,
         nonlinearity,
+        f"{cropped_particles=}",
         "float64" if use_float64 else "float32",
     )
     if save:
@@ -165,6 +170,7 @@ def test_amplitudes(
             f">{rand_trafo.__name__}"
             f">{'float64' if use_float64 else 'float32'}"
             f">{operation}"
+            f">{cropped_particles=}"
             f"~{nonlinearity}.npy"
         )
         np.save(filename, mses.cpu().numpy())

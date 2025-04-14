@@ -15,6 +15,7 @@ from experiments.tagging.embedding import embed_tagging_data
 from torch_geometric.nn.aggr import MeanAggregation
 from tensorframes.lframes.lframes import LFrames
 from tensorframes.utils.lorentz import lorentz_metric
+from tests_exp.utils import crop_particles
 
 
 @pytest.mark.parametrize(
@@ -50,8 +51,9 @@ from tensorframes.utils.lorentz import lorentz_metric
         "softmax",
     ],  # , "relu", "relu_shifted", "top10_softplus", "top10_softmax"]
 )
-@pytest.mark.parametrize("iterations", [10])
+@pytest.mark.parametrize("iterations", [1])
 @pytest.mark.parametrize("use_float64", [False, True])
+@pytest.mark.parametrize("cropped_particles", [None, 10])
 def test_amplitudes(
     model_idx,
     model_list,
@@ -61,6 +63,7 @@ def test_amplitudes(
     breaking_list,
     iterations,
     use_float64,
+    cropped_particles,
     save=False,
 ):
     experiments.logger.LOGGER.disabled = True  # turn off logging
@@ -97,6 +100,7 @@ def test_amplitudes(
     iterator = iter(cycle(exp.train_loader))
     for _ in range(iterations):
         data = next(iterator).to(exp.device)
+        data = crop_particles(data, n=cropped_particles)
         metric = lorentz_metric(data.x.shape[:-1], device=exp.device).to(exp.dtype)
 
         embedded_data = embed_tagging_data(
@@ -129,6 +133,7 @@ def test_amplitudes(
         lframesnet,
         operation,
         nonlinearity,
+        f"{cropped_particles=}",
         "float64" if use_float64 else "float32",
     )
     if save:
@@ -137,8 +142,9 @@ def test_amplitudes(
             f"scripts/equi-violation/equitest_tag_minkowski"
             f">{model_idx}"
             f">{lframesnet}"
-            f">{'float64' if use_float64 else 'float32'}"
+            f"~{'float64' if use_float64 else 'float32'}"
             f">{operation}"
+            f">{cropped_particles=}"
             f"~{nonlinearity}.npy"
         )
         np.save(filename, mses.detach().cpu().numpy())

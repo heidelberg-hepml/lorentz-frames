@@ -18,6 +18,7 @@ BREAKING = [
     "data.add_time_reference=false",
     "data.add_tagging_features_lframesnet=false",
 ]
+from tests_exp.utils import crop_particles
 
 
 @pytest.mark.parametrize(
@@ -57,6 +58,7 @@ BREAKING = [
 )
 @pytest.mark.parametrize("iterations", [1])
 @pytest.mark.parametrize("use_float64", [False, True])
+@pytest.mark.parametrize("cropped_particles", [None, 10])
 def test_amplitudes(
     rand_trafo,
     model_idx,
@@ -67,6 +69,7 @@ def test_amplitudes(
     breaking_list,
     iterations,
     use_float64,
+    cropped_particles,
     save=False,
 ):
     experiments.logger.LOGGER.disabled = True  # turn off logging
@@ -100,6 +103,7 @@ def test_amplitudes(
     iterator = iter(cycle(exp.train_loader))
     for _ in range(iterations):
         data = next(iterator)
+        data = crop_particles(data, n=cropped_particles)
         data_augmented = data.clone()
 
         # original data
@@ -122,6 +126,7 @@ def test_amplitudes(
         lframesnet,
         operation,
         nonlinearity,
+        f"{cropped_particles=}",
         "float64" if use_float64 else "float32",
     )
     if save:
@@ -131,8 +136,9 @@ def test_amplitudes(
             f">{model_idx}"
             f">{lframesnet}"
             f">{rand_trafo.__name__}"
-            f">{'float64' if use_float64 else 'float32'}"
+            f"~{'float64' if use_float64 else 'float32'}"
             f">{operation}"
+            f">{cropped_particles=}"
             f"~{nonlinearity}.npy"
         )
         np.save(filename, mses.cpu().numpy())

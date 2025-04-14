@@ -11,7 +11,7 @@ from tensorframes.utils.transforms import (
     rand_lorentz,
     rand_xyrotation,
 )
-from tensorframes.utils.utils import get_ptr_from_batch
+from tensorframes.utils.utils import crop_particles
 
 
 BREAKING = [
@@ -53,7 +53,7 @@ BREAKING = [
 )
 @pytest.mark.parametrize("iterations", [1])
 @pytest.mark.parametrize("use_float64", [False, True])
-@pytest.mark.parametrize("n", [300])
+@pytest.mark.parametrize("cropped_particles", [None, 10])
 def test_amplitudes(
     rand_trafo,
     model_idx,
@@ -64,7 +64,7 @@ def test_amplitudes(
     breaking_list,
     iterations,
     use_float64,
-    n,
+    cropped_particles,
     save=False,
 ):
     experiments.logger.LOGGER.disabled = True  # turn off logging
@@ -98,33 +98,7 @@ def test_amplitudes(
     iterator = iter(cycle(exp.train_loader))
     for _ in range(iterations):
         data = next(iterator)
-
-        batch = data.batch
-        x = data.x
-        scalars = data.scalars
-        label = data.label
-
-        unique, counts = torch.unique_consecutive(batch, return_counts=True)
-        max_group = unique.max().item() + 1
-
-        # create a mask: first n elements per group
-        idx_within_group = torch.cat([torch.arange(c) for c in counts])
-        idx_within_group = idx_within_group.to(batch.device)
-
-        mask = idx_within_group < n
-
-        # apply mask
-        x = x[mask]
-        scalars = scalars[mask]
-        batch = batch[mask]
-        label = label
-        ptr = get_ptr_from_batch(batch)
-
-        data.x = x
-        data.scalars = scalars
-        data.label = label
-        data.batch = batch
-        data.ptr = ptr
+        data = crop_particles(data, n=cropped_particles)
         data_augmented = data.clone()
 
         # original data
@@ -147,6 +121,7 @@ def test_amplitudes(
         lframesnet,
         operation,
         nonlinearity,
+        f"{cropped_particles=}",
         "float64" if use_float64 else "float32",
     )
     if save:
@@ -159,6 +134,6 @@ def test_amplitudes(
             f">{'float64' if use_float64 else 'float32'}"
             f">{operation}"
             f">{nonlinearity}"
-            f"~{n=}.npy"
+            f"~{cropped_particles=}.npy"
         )
         np.save(filename, mses.cpu().numpy())
