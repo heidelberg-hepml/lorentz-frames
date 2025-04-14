@@ -89,10 +89,8 @@ def test_amplitudes(
         vecs = exp.model.lframesnet.equivectors(mom, scalars=particle_type, ptr=None)
 
         # augmented data
-        trafo = rand_trafo(mom.shape[:-2]).to(exp.device)
-        mom_augmented = torch.einsum(
-            "...nm,...vm->...vn", trafo.to(torch.float64), mom.to(torch.float64)
-        ).to(exp.dtype)
+        trafo = rand_trafo(mom.shape[:-2], dtype=mom.dtype)
+        mom_augmented = torch.einsum("...nm,...vm->...vn", trafo, mom)
 
         particle_type_augmented = exp.model.encode_particle_type(
             mom_augmented.shape[0]

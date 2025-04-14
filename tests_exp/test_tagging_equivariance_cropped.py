@@ -128,10 +128,8 @@ def test_amplitudes(
 
         # augmented data
         mom = data_augmented.x
-        trafo = rand_trafo(mom.shape[:-2] + (1,))
-        mom_augmented = torch.einsum(
-            "...ij,...j->...i", trafo.to(torch.float64), mom.to(torch.float64)
-        ).to(exp.dtype)
+        trafo = rand_trafo(mom.shape[:-2] + (1,), dtype=mom.dtype)
+        mom_augmented = torch.einsum("...ij,...j->...i", trafo, mom)
         data_augmented.x = mom_augmented
         y_pred_augmented = exp._get_ypred_and_label(data_augmented)[0]
 

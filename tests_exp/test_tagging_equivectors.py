@@ -123,10 +123,8 @@ def test_amplitudes(
 
         # augmented data
         mom = data_augmented.x.to(exp.device)
-        trafo = rand_trafo(mom.shape[:-2] + (1,)).to(exp.device)
-        mom_augmented = torch.einsum(
-            "...ij,...j->...i", trafo.to(exp.dtype), mom.to(exp.dtype)
-        ).to(exp.dtype)
+        trafo = rand_trafo(mom.shape[:-2] + (1,), dtype=mom.dtype)
+        mom_augmented = torch.einsum("...ij,...j->...i", trafo, mom)
         data_augmented.x = mom_augmented
 
         embedded_data_augmented = embed_tagging_data(

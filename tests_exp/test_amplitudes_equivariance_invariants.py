@@ -87,10 +87,8 @@ def test_amplitudes(
         ) = parent.forward(mom)
 
         # augmented data
-        trafo = rand_trafo(mom.shape[:-2] + (1,)).to(exp.device)
-        mom_augmented = torch.einsum(
-            "...ij,...j->...i", trafo.to(torch.float64), mom.to(torch.float64)
-        ).to(exp.dtype)
+        trafo = rand_trafo(mom.shape[:-2] + (1,), dtype=mom.dtype)
+        mom_augmented = torch.einsum("...ij,...j->...i", trafo, mom)
 
         (
             features_local_augmented,

@@ -88,10 +88,8 @@ def test_amplitudes(
         amp_original = exp.model(mom)[0]
 
         # augmented data
-        trafo = rand_trafo(mom.shape[:-2] + (1,)).to(exp.device)
-        mom_augmented = torch.einsum(
-            "...ij,...j->...i", trafo.to(torch.float64), mom.to(torch.float64)
-        ).to(exp.dtype)
+        trafo = rand_trafo(mom.shape[:-2] + (1,), dtype=mom.dtype)
+        mom_augmented = torch.einsum("...ij,...j->...i", trafo, mom)
         amp_augmented = exp.model(mom_augmented)[0]
 
         mse = (amp_original - amp_augmented) ** 2
