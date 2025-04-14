@@ -195,7 +195,7 @@ class EdgeConvBlock(nn.Module):
         return self.sc_act(sc + fts)  # (N, C_out, P)
 
 
-class TFParticleNet(nn.Module):
+class ParticleNet(nn.Module):
     def __init__(
         self,
         input_dims,
@@ -211,7 +211,7 @@ class TFParticleNet(nn.Module):
         **kwargs
     ):
         # hidden_reps_list: hidden representation for message-passing at beginning of each layer
-        super(TFParticleNet, self).__init__(**kwargs)
+        super(ParticleNet, self).__init__(**kwargs)
         hidden_reps_list = [TensorReps(x) for x in hidden_reps_list]
         assert input_dims == hidden_reps_list[0].dim
         assert len(hidden_reps_list) == len(conv_params)
