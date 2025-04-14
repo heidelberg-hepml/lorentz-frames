@@ -3,11 +3,10 @@ from torch import nn
 from torch_geometric.nn.aggr import MeanAggregation
 
 from experiments.amplitudes.utils import standardize_momentum
-from experiments.baselines.gatr.interface import embed_vector, extract_scalar
+from lgatr import embed_vector, extract_scalar
 
 from tensorframes.reps.tensorreps import TensorReps
 from tensorframes.reps.tensorreps_transform import TensorRepsTransform
-from tensorframes.utils.lorentz import lorentz_squarednorm
 from tensorframes.utils.utils import build_edge_index_fully_connected, get_edge_attr
 
 
@@ -150,7 +149,7 @@ class GraphNetWrapper(AmplitudeWrapper):
         return edge_attr.unsqueeze(-1)
 
 
-class GATrWrapper(AmplitudeWrapper):
+class LGATrWrapper(AmplitudeWrapper):
     def __init__(self, net, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.net = net
