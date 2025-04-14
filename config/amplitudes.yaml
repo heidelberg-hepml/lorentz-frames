@@ -17,7 +17,7 @@ evaluation:
  save_lframes: false
 
 plotting:
- histograms: true
+ histograms: false
  delta: false
  delta_prepd: false
 
