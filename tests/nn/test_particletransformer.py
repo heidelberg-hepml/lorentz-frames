@@ -9,7 +9,7 @@ from tests.constants import (
 )
 from tests.helpers import sample_particle, equivectors_builder
 
-from tensorframes.nn.particlenet import EdgeConvBlock, ParticleNet
+from tensorframes.nn.particletransformer import ParticleTransformer, Block
 from tensorframes.reps.tensorreps import TensorReps
 from tensorframes.reps.tensorreps_transform import TensorRepsTransform
 from tensorframes.utils.transforms import rand_lorentz
@@ -24,18 +24,16 @@ from experiments.tagging.embedding import get_tagging_features
 
 @pytest.mark.parametrize("LFramesPredictor", LFRAMES_PREDICTOR)
 @pytest.mark.parametrize("batch_dims", [[10]])
-@pytest.mark.parametrize("k", [2, 5])
-@pytest.mark.parametrize("out_feats", [(12, 12)])
-@pytest.mark.parametrize("hidden_reps", REPS)
+@pytest.mark.parametrize("num_heads", [8])
+@pytest.mark.parametrize("attn_reps", REPS)
 @pytest.mark.parametrize("logm2_mean,logm2_std", LOGM2_MEAN_STD)
-def test_edgeconvblock_invariance_equivariance(
+def test_block_invariance_equivariance(
     LFramesPredictor,
     batch_dims,
-    k,
-    out_feats,
     logm2_std,
     logm2_mean,
-    hidden_reps,
+    attn_reps,
+    num_heads,
 ):
     dtype = torch.float64
 
@@ -46,20 +44,21 @@ def test_edgeconvblock_invariance_equivariance(
 
     # define edgeconv
     in_reps = TensorReps("1x1n")
-    hidden_reps = TensorReps(hidden_reps)
+    attn_reps = TensorReps(attn_reps)
     trafo = TensorRepsTransform(TensorReps(in_reps))
-    linear_in = torch.nn.Linear(in_reps.dim, hidden_reps.dim).to(dtype=dtype)
-    linear_out = torch.nn.Linear(out_feats[-1], in_reps.dim).to(dtype=dtype)
-    edgeconv = EdgeConvBlock(k=k, in_reps=hidden_reps, out_feats=out_feats).to(dtype)
+    linear_in = torch.nn.Linear(in_reps.dim, attn_reps.dim * num_heads).to(dtype=dtype)
+    linear_out = torch.nn.Linear(attn_reps.dim * num_heads, in_reps.dim).to(dtype=dtype)
+    ParT_block = Block(attn_reps=attn_reps, embed_dim=attn_reps.dim * num_heads).to(
+        dtype
+    )
+    ParT_block.eval()  # turn off dropout
 
-    def edgeconvblock_wrapper(x, lframes):
-        # use features as points for simplicity
-        # this is equivariant, because features in local frame are invariant
-        # and hence the knn ordering on them is also invariant
-        # have to reshape to match ParticleNet format
-        x = x.transpose(-1, -2).unsqueeze(0)
-        x = edgeconv(points=x, features=x, lframes=lframes)
-        x = x.transpose(-1, -2).squeeze(0)
+    def block_wrapper(x, lframes):
+        x = x.unsqueeze(0)
+        mask = torch.ones_like(x[..., 0])
+        lframes = lframes.reshape(1, *lframes.shape)
+        x = ParT_block(x=x, lframes=lframes, padding_mask=mask)
+        x = x.squeeze(0)
         return x
 
     # get global transformation
@@ -73,7 +72,7 @@ def test_edgeconvblock_invariance_equivariance(
 
     # edgeconv - global
     x_local = linear_in(fm_local)
-    x_prime_local = edgeconvblock_wrapper(x_local, lframes)
+    x_prime_local = block_wrapper(x_local, lframes)
     fm_prime_local = linear_out(x_prime_local)
     # back to global
     fm_prime_global = trafo(fm_prime_local, InverseLFrames(lframes))
@@ -84,7 +83,7 @@ def test_edgeconvblock_invariance_equivariance(
     lframes_transformed = call_predictor(fm_transformed)
     fm_tr_local = trafo(fm_transformed, lframes_transformed)
     x_tr_local = linear_in(fm_tr_local)
-    x_tr_prime_local = edgeconvblock_wrapper(x_tr_local, lframes_transformed)
+    x_tr_prime_local = block_wrapper(x_tr_local, lframes_transformed)
     fm_tr_prime_local = linear_out(x_tr_prime_local)
     # back to global frame
     fm_tr_prime_global = trafo(fm_tr_prime_local, InverseLFrames(lframes_transformed))
@@ -104,7 +103,7 @@ def test_edgeconvblock_invariance_equivariance(
 )  # RestLFrames gives nans sometimes
 @pytest.mark.parametrize("batch_dims", [[10]])
 @pytest.mark.parametrize("logm2_mean,logm2_std", LOGM2_MEAN_STD)
-def test_particlenet_invariance(
+def test_ParT_invariance(
     LFramesPredictor,
     batch_dims,
     logm2_std,
@@ -118,22 +117,24 @@ def test_particlenet_invariance(
     predictor = LFramesPredictor(equivectors=equivectors).to(dtype=dtype)
     call_predictor = lambda fm: predictor(fm)
 
-    # define particlenet
+    # define ParT
     in_reps = TensorReps("1x1n")
     trafo = TensorRepsTransform(TensorReps(in_reps))
-    hidden_reps_list = ["3x0n+1x1n", "16x0n+4x1n"]  # pick something
-    particlenet = ParticleNet(
-        input_dims=TensorReps(hidden_reps_list[0]).dim,
-        hidden_reps_list=hidden_reps_list,
+    model = ParticleTransformer(
+        input_dim=7,
         num_classes=1,
+        attn_reps="8x0n+2x1n",
     ).to(dtype=dtype)
-    particlenet.eval()  # turn off dropout
+    model.eval()  # turn off dropout
 
-    def edgeconvblock_wrapper(p_local, lframes):
+    def ParT_wrapper(p_local, lframes):
         fts_local = get_tagging_features(p_local, batch)
         fts_local = fts_local.transpose(-1, -2).unsqueeze(0)
-        points_local = fts_local[:, [4, 5], :]
-        x = particlenet(points=points_local, features=fts_local, lframes=lframes)
+        p_local = p_local[..., [1, 2, 3, 0]]
+        p_local = p_local.transpose(-1, -2).unsqueeze(0)
+        mask = torch.ones_like(p_local[..., [0], :])
+        lframes = lframes.reshape(1, *lframes.shape)
+        x = model(x=fts_local, v=p_local, lframes=lframes, mask=mask)
         x = x.transpose(-1, -2).squeeze(0)
         return x
 
@@ -146,14 +147,14 @@ def test_particlenet_invariance(
     lframes = call_predictor(fm)
     fm_local = trafo(fm, lframes)
 
-    # particlenet
-    score_prime_local = edgeconvblock_wrapper(fm_local, lframes)
+    # ParT
+    score_prime_local = ParT_wrapper(fm_local, lframes)
 
-    # global - particlenet
+    # global - ParT
     fm_transformed = torch.einsum("...ij,...j->...i", random, fm)
     lframes_transformed = call_predictor(fm_transformed)
     fm_tr_local = trafo(fm_transformed, lframes_transformed)
-    score_tr_prime_local = edgeconvblock_wrapper(fm_tr_local, lframes_transformed)
+    score_tr_prime_local = ParT_wrapper(fm_tr_local, lframes_transformed)
 
     # test feature invariance before the operation
     torch.testing.assert_close(fm_local, fm_tr_local, **TOLERANCES)

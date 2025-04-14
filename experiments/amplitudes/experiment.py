@@ -16,7 +16,7 @@ MODEL_TITLE = {
     "TFTransformer": "Tr",
     "MLP": "MLP",
     "TFGraphNet": "GN",
-    "GATr": "GATr",
+    "LGATr": "LGATr",
     "DSI": "DSI",
 }
 
@@ -43,8 +43,8 @@ class AmplitudeExperiment(BaseExperiment):
                 self.cfg.model.net.in_channels += 4
         elif modelname == "MLP":
             self.cfg.model.net.in_shape = 4 * len(particle_type)
-        elif modelname == "GATr":
-            assert not learnable_lframesnet, "GATr is no tensorframes model"
+        elif modelname == "LGATr":
+            assert not learnable_lframesnet, "LGATr is no tensorframes model"
             self.cfg.model.net.in_s_channels = num_particle_types
         elif modelname == "DSI":
             assert not learnable_lframesnet, "DSI is no tensorframes model"
