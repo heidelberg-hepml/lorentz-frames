@@ -82,3 +82,10 @@ jobs:
     - name: Baseline ParT without pairwise features
       run: |
         python run.py model=tag_baseParT save=false evaluate=false training.iterations=3 model.net.pair_input_dim=0
+
+    - name: Tensorframes ParT
+      run: |
+        python run.py model=tag_ParT save=false evaluate=false training.iterations=3
+    - name: Tensorframes ParT without pairwise features
+      run: |
+        python run.py model=tag_ParT save=false evaluate=false training.iterations=3 model.net.pair_input_dim=0

@@ -19,5 +19,5 @@ plotting:
 
 defaults:
  - default
- - training: default
+ - training: tag_default
  - model: tag_graphnet

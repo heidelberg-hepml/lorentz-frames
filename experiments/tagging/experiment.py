@@ -20,8 +20,15 @@ class TaggingExperiment(BaseExperiment):
     """
 
     def init_physics(self):
+        modelname = self.cfg.model.net._target_.rsplit(".", 1)[-1]
+
         # decide which entries to use for the net
-        self.cfg.model.in_channels = 7
+        if modelname == "LGATr":
+            self.cfg.model.net.in_s_channels = (
+                0 if self.cfg.model.mean_aggregation else 1
+            )
+        else:
+            self.cfg.model.in_channels = 7
 
         # decide which entries to use for the lframesnet
         if "equivectors" in self.cfg.model.lframesnet:
@@ -29,7 +36,7 @@ class TaggingExperiment(BaseExperiment):
                 7 if self.cfg.data.add_tagging_features_lframesnet else 0
             )
 
-        if self.cfg.model.net._target_.rsplit(".", 1)[-1] == "TFGraphNet":
+        if modelname == "TFGraphNet":
             self.cfg.model.net.num_edge_attr = 1 if self.cfg.model.include_edges else 0
 
     def init_data(self):
@@ -69,6 +76,34 @@ class TaggingExperiment(BaseExperiment):
             f"train_batches={len(self.train_loader)}, test_batches={len(self.test_loader)}, val_batches={len(self.val_loader)}, "
             f"batch_size={self.cfg.training.batchsize} (training), {self.cfg.evaluation.batchsize} (evaluation)"
         )
+
+    def _init_optimizer(self, param_groups=None):
+        if self.cfg.model.net._target_.rsplit(".", 1)[-1] == "ParticleTransformer":
+            # special treatment for ParT, see
+            # https://github.com/hqucms/weaver-core/blob/dev/custom_train_eval/weaver/train.py#L464
+            # have to adapt this for finetuning!!!
+            decay, no_decay = {}, {}
+            for name, param in self.model.net.named_parameters():
+                if not param.requires_grad:
+                    continue
+                if (
+                    len(param.shape) == 1
+                    or name.endswith(".bias")
+                    or (
+                        hasattr(self.model.net, "no_weight_decay")
+                        and name in {"cls_token"}
+                    )
+                ):
+                    no_decay[name] = param
+                else:
+                    decay[name] = param
+            decay_1x, no_decay_1x = list(decay.values()), list(no_decay.values())
+            param_groups = [
+                {"params": no_decay_1x, "weight_decay": 0.0},
+                {"params": decay_1x, "weight_decay": self.cfg.training.weight_decay},
+            ]
+
+        super()._init_optimizer(param_groups=param_groups)
 
     def evaluate(self):
         self.results = {}
@@ -273,7 +308,10 @@ class TaggingExperiment(BaseExperiment):
 class TopTaggingExperiment(TaggingExperiment):
     def __init__(self, cfg):
         super().__init__(cfg)
-        self.cfg.model.out_channels = 1
+        if self.cfg.model.net._target_.rsplit(".", 1)[-1] == "LGATr":
+            self.cfg.model.net.out_mv_channels = 1
+        else:
+            self.cfg.model.out_channels = 1
 
     def init_data(self):
         data_path = os.path.join(

@@ -1,16 +1,18 @@
-_target_: experiments.tagging.wrappers.BaselineParTWrapper
+_target_: experiments.tagging.wrappers.ParTWrapper
 in_channels: null
 out_channels: null
 
 net:
- _target_: experiments.baselines.particletransformer.ParticleTransformer
+ _target_: tensorframes.nn.particletransformer.ParticleTransformer
  _partial_: true
  input_dim: null
  num_classes: null
 
- use_amp: false
+ attn_reps: 8x0n+2x1n
 
- # see https://github.com/jet-universe/particle_transformer/blob/main/networks/example_ParticleTransformer.py
+ use_amp: false
+ trim: false
+
  use_pre_activation_pair: false
  pair_input_dim: 4
  cls_block_params:
