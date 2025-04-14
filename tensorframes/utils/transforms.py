@@ -64,7 +64,8 @@ def transform(
 def rand_lorentz(
     shape: List[int],
     std_eta: float = 0.5,
-    n_max_std_eta: float = 5.0,
+    n_max_std_eta: float = 2.0,
+    is_cauchy: bool = False,
     device: str = "cpu",
     dtype: torch.dtype = torch.float32,
     generator: torch.Generator = None,
@@ -84,6 +85,8 @@ def rand_lorentz(
         n_max_std_eta: float
             Allowed number of standard deviations;
             used to sample from a truncated Gaussian
+        is_cauchy: bool
+            Sample from a Cauchy distribution instead of Gaussian
         device: str
         dtype: torch.dtype
         generator: torch.Generator
@@ -189,7 +192,8 @@ def rand_xyrotation(
 def rand_ztransform(
     shape: List[int],
     std_eta: float = 0.5,
-    n_max_std_eta: float = 5.0,
+    n_max_std_eta: float = 2.0,
+    is_cauchy: bool = False,
     device: str = "cpu",
     dtype: torch.dtype = torch.float32,
     generator: torch.Generator = None,
@@ -206,6 +210,8 @@ def rand_ztransform(
         n_max_std_eta: float
             Allowed number of standard deviations;
             used to sample from a truncated Gaussian
+        is_cauchy: bool
+            Sample from a Cauchy distribution instead of Gaussian
         device: str
         dtype: torch.dtype
         generator: torch.Generator
@@ -288,14 +294,20 @@ def rand_rotation_uniform(
 def sample_rapidity(
     shape,
     std_eta,
-    n_max_std_eta=5.0,
+    n_max_std_eta=2.0,
+    is_cauchy=False,
     device="cpu",
     dtype=torch.float32,
     generator=None,
 ):
-    angle = (
-        torch.randn(*shape, device=device, dtype=dtype, generator=generator) * std_eta
-    )
+    if is_cauchy:
+        angle = torch.zeros(*shape, device=device, dtype=dtype)
+        angle.cauchy_(median=0, sigma=std_eta, generator=generator)
+    else:
+        angle = (
+            torch.randn(*shape, device=device, dtype=dtype, generator=generator)
+            * std_eta
+        )
     truncate_mask = torch.abs(angle) > std_eta * n_max_std_eta
     while truncate_mask.any():
         new_angle = (
