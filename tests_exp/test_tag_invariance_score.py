@@ -128,7 +128,7 @@ def test_amplitudes(
             f">{rand_trafo.__name__}"
             f"~{'float64' if use_float64 else 'float32'}"
             f">{operation}"
-            f">{max_particles=}"
-            f"~{nonlinearity}.npy"
+            f"~{max_particles}"
+            f">{nonlinearity}.npy"
         )
-        np.save(filename, mses)
+        np.save(filename, mses.detach().cpu())

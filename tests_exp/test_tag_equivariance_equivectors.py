@@ -116,10 +116,10 @@ def test_amplitudes(
         assert fourmomenta.shape[0] == data.x.shape[0]  # no spurions
         scalars_withspurions = torch.cat([scalars, global_tagging_features], dim=-1)
         vecs = exp.model.lframesnet.equivectors(
-            fourmomenta,
-            scalars=scalars_withspurions,
-            ptr=ptr,
-        )
+            fourmomenta.to(exp.device),
+            scalars=scalars_withspurions.to(exp.device),
+            ptr=ptr.to(exp.device),
+        ).to("cpu")
 
         # augmented data
         mom = data_augmented.x
@@ -144,17 +144,17 @@ def test_amplitudes(
         )
         assert fourmomenta_augmented.shape[0] == data.x.shape[0]  # no spurions
         vecs_augmented = exp.model.lframesnet.equivectors(
-            fourmomenta_augmented,
-            scalars=scalars_withspurions_augmented,
-            ptr=ptr,
-        )
+            fourmomenta_augmented.to(exp.device),
+            scalars=scalars_withspurions_augmented.to(exp.device),
+            ptr=ptr.to(exp.device),
+        ).to("cpu")
 
         lframes = LFrames(trafo.to(vecs_augmented.dtype))
         vecs_augmented = torch.einsum("...ij,...j->...i", lframes.inv, vecs_augmented)
 
         diff = vecs - vecs_augmented
         if use_asymmetry:
-            diff /= (vecs + vecs_augmented).clamp(min=1e-20)
+            diff /= (vecs + vecs_augmented).abs().clamp(min=1e-20)
         diff = diff**2
         diffs.append(diff.detach())
 
@@ -170,15 +170,15 @@ def test_amplitudes(
         "float64" if use_float64 else "float32",
     )
     if save:
-        os.makedirs("scripts/equi-violation", exist_ok=True)
+        os.makedirs("scripts/equivariance-equivectors", exist_ok=True)
         filename = (
-            f"scripts/equi-violation/equitest_tag_equivectors"
+            f"scripts/equivariance-equivectors/equitest_tag_equivectors"
             f">{model_idx}"
             f">{lframesnet}"
-            f">{rand_trafo.__name__}"
+            f"~{rand_trafo.__name__}"
             f"~{'float64' if use_float64 else 'float32'}"
             f">{operation}"
-            f">{max_particles=}"
-            f"~{nonlinearity}.npy"
+            f"~{max_particles}"
+            f">{nonlinearity}.npy"
         )
         np.save(filename, diffs)

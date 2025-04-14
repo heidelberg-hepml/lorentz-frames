@@ -96,9 +96,9 @@ def test_amplitudes(
     diffs = []
     iterator = iter(cycle(exp.train_loader))
     for _ in range(iterations):
-        data = next(iterator)
+        data = next(iterator).to(exp.device)
         data = crop_particles(data, n=max_particles)
-        data_augmented = data.clone()
+        data_augmented = data.clone().to(exp.device)
 
         parent = super(type(exp.model), exp.model)
         embedded_data = embed_tagging_data(
@@ -112,7 +112,7 @@ def test_amplitudes(
         # augmented data
         mom = data_augmented.x
         trafo = rand_trafo(mom.shape[:-2] + (1,), dtype=mom.dtype)
-        mom_augmented = torch.einsum("...ij,...j->...i", trafo, mom)
+        mom_augmented = torch.einsum("...ij,...j->...i", trafo.to(exp.device), mom)
         data_augmented.x = mom_augmented
 
         embedded_data_augmented = embed_tagging_data(
@@ -129,7 +129,7 @@ def test_amplitudes(
         if use_asymmetry:
             diff /= (
                 fourmomenta_local_nospurions + fourmomenta_local_nospurions_augmented
-            ).clamp(min=1e-20)
+            ).abs().clamp(min=1e-20)
         diff = diff**2
         diff[~diff.isfinite()] = 0
 
@@ -146,15 +146,15 @@ def test_amplitudes(
         "float64" if use_float64 else "float32",
     )
     if save:
-        os.makedirs("scripts/equi-violation", exist_ok=True)
+        os.makedirs("scripts/invariance_fmlocal", exist_ok=True)
         filename = (
-            f"scripts/equi-violation/equitest_tag_invariants"
+            f"scripts/invariance_fmlocal/equitest_tag_invariants"
             f">{model_idx}"
             f">{lframesnet}"
-            f">{rand_trafo.__name__}"
-            f">{'float64' if use_float64 else 'float32'}"
+            f"~{rand_trafo.__name__}"
+            f"~{'float64' if use_float64 else 'float32'}"
             f">{operation}"
-            f">{max_particles=}"
-            f"~{nonlinearity}.npy"
+            f"~{max_particles}"
+            f">{nonlinearity}.npy"
         )
-        np.save(filename, diffs)
+        np.save(filename, diffs.detach().cpu())
