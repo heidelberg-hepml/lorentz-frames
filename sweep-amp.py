@@ -99,6 +99,10 @@ def run_trial(trial: Trial, seed, exp_name, model, cfg_overrides):
             print(e)
             print("Pruning trial {trial.number} due to torch.cuda.OutOfMemoryError")
             raise optuna.TrialPruned()
+        except AssertionError:
+            print(e)
+            print("Pruning trial {trial.number} due to AssertionError")
+            raise optuna.TrialPruned()
 
         # Run experiment
         exp()
