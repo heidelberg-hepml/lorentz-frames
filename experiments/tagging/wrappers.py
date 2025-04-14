@@ -13,6 +13,7 @@ from tensorframes.utils.utils import (
     get_xformers_attention_mask,
     get_edge_attr,
 )
+from tensorframes.utils.lorentz import lorentz_eye
 from tensorframes.reps.tensorreps import TensorReps
 from tensorframes.reps.tensorreps_transform import TensorRepsTransform
 from tensorframes.lframes.nonequi_lframes import IdentityLFrames
@@ -255,6 +256,7 @@ class BaselineParTWrapper(TaggerWrapper):
             batch,
             tracker,
         ) = super().forward(embedding)
+        fourmomenta_local = fourmomenta_local.to(features_local.dtype)
         fourmomenta_local = fourmomenta_local[..., [1, 2, 3, 0]]  # need (px, py, pz, E)
 
         features_local, mask = to_dense_batch(features_local, batch)
@@ -521,3 +523,61 @@ class LGATrWrapper(nn.Module):
         else:
             logits = out[is_global]
         return logits, {}, None
+
+
+class ParTWrapper(TaggerWrapper):
+    def __init__(
+        self,
+        net,
+        *args,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+        self.net = net(input_dim=self.in_channels, num_classes=self.out_channels)
+
+    def forward(self, embedding):
+        (
+            features_local,
+            fourmomenta_local,
+            lframes,
+            _,
+            batch,
+            tracker,
+        ) = super().forward(embedding)
+        fourmomenta_local = fourmomenta_local.to(features_local.dtype)
+        fourmomenta_local = fourmomenta_local[..., [1, 2, 3, 0]]  # need (px, py, pz, E)
+
+        features_local, mask = to_dense_batch(features_local, batch)
+        fourmomenta_local, _ = to_dense_batch(fourmomenta_local, batch)
+        features_local = features_local.transpose(1, 2)
+        fourmomenta_local = fourmomenta_local.transpose(1, 2)
+
+        lframes_matrices, _ = to_dense_batch(lframes.matrices, batch)
+        det, _ = to_dense_batch(lframes.det, batch)
+        inv, _ = to_dense_batch(lframes.inv, batch)
+        lframes_matrices[~mask] = lorentz_eye(
+            lframes_matrices[~mask].shape[:-2],
+            device=lframes.device,
+            dtype=lframes.dtype,
+        )
+        lframes = LFrames(
+            matrices=lframes_matrices,
+            is_global=lframes.is_global,
+            det=det,
+            inv=inv,
+            is_identity=lframes.is_identity,
+            device=lframes.device,
+            dtype=lframes.dtype,
+            shape=lframes.matrices.shape,
+        )
+
+        mask = mask.unsqueeze(1).float()
+
+        # network
+        score = self.net(
+            x=features_local,
+            lframes=lframes,
+            v=fourmomenta_local,
+            mask=mask,
+        )
+        return score, tracker, lframes
