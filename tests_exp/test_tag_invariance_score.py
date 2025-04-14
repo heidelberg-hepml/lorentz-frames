@@ -59,7 +59,7 @@ def test_amplitudes(
     breaking_list,
     iterations,
     use_float64,
-    max_particles=None,
+    max_particles,
     save=False,
 ):
     experiments.logger.LOGGER.disabled = True  # turn off logging

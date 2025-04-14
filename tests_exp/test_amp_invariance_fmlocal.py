@@ -62,7 +62,7 @@ def test_amplitudes(
     exp.init_data()
     exp._init_dataloader()
     exp._init_loss()
-    exp.eval()
+    exp.model.eval()
 
     def cycle(iterable):
         while True:

@@ -60,7 +60,7 @@ def test_amplitudes(
     breaking_list,
     iterations,
     use_float64,
-    max_particles=None,
+    max_particles,
     use_asymmetry=True,
     save=False,
 ):
@@ -86,6 +86,7 @@ def test_amplitudes(
     exp.init_data()
     exp._init_dataloader()
     exp._init_loss()
+    exp.model.eval()
 
     def cycle(iterable):
         while True:
