@@ -11,6 +11,7 @@ from tensorframes.utils.transforms import (
     rand_lorentz,
     rand_xyrotation,
 )
+from tests_exp.utils import crop_particles
 
 
 BREAKING = [
@@ -18,7 +19,6 @@ BREAKING = [
     "data.add_time_reference=false",
     "data.add_tagging_features_lframesnet=false",
 ]
-from tests_exp.utils import crop_particles
 
 
 @pytest.mark.parametrize(
@@ -34,31 +34,21 @@ from tests_exp.utils import crop_particles
     list(
         enumerate(
             [
+                ["model=tag_ParT"],
                 ["model=tag_particlenet-lite"],
                 ["model=tag_transformer"],
                 ["model=tag_graphnet"],
-                ["model=tag_graphnet", "model.include_edges=false"],
+                ["model=tag_graphnet", "model.include_edges=true"],
             ]
         )
     ),
 )
 @pytest.mark.parametrize("lframesnet", ["orthogonal", "polardec"])
 @pytest.mark.parametrize("operation", ["add", "single"])
-@pytest.mark.parametrize(
-    "nonlinearity",
-    [
-        "exp",
-        "softplus",
-        "softmax",
-        "relu",
-        "relu_shifted",
-        "top10_softplus",
-        "top10_softmax",
-    ],
-)
+@pytest.mark.parametrize("nonlinearity", ["exp"])
 @pytest.mark.parametrize("iterations", [1])
 @pytest.mark.parametrize("use_float64", [False, True])
-@pytest.mark.parametrize("cropped_particles", [None, 10])
+@pytest.mark.parametrize("max_particles", [None, 10])
 def test_amplitudes(
     rand_trafo,
     model_idx,
@@ -69,7 +59,7 @@ def test_amplitudes(
     breaking_list,
     iterations,
     use_float64,
-    cropped_particles,
+    max_particles=None,
     save=False,
 ):
     experiments.logger.LOGGER.disabled = True  # turn off logging
@@ -103,7 +93,7 @@ def test_amplitudes(
     iterator = iter(cycle(exp.train_loader))
     for _ in range(iterations):
         data = next(iterator)
-        data = crop_particles(data, n=cropped_particles)
+        data = crop_particles(data, n=max_particles)
         data_augmented = data.clone()
 
         # original data
@@ -118,7 +108,7 @@ def test_amplitudes(
 
         mse = (y_pred_augmented - y_pred) ** 2
         mses.append(mse.detach())
-    mses = torch.cat(mses, dim=0).clamp(min=1e-30)
+    mses = torch.cat(mses, dim=0)
     print(
         f"log-mean={mses.log().mean().exp():.2e} max={mses.max().item():.2e}",
         model_list,
@@ -126,7 +116,7 @@ def test_amplitudes(
         lframesnet,
         operation,
         nonlinearity,
-        f"{cropped_particles=}",
+        f"{max_particles=}",
         "float64" if use_float64 else "float32",
     )
     if save:
@@ -138,7 +128,7 @@ def test_amplitudes(
             f">{rand_trafo.__name__}"
             f"~{'float64' if use_float64 else 'float32'}"
             f">{operation}"
-            f">{cropped_particles=}"
+            f">{max_particles=}"
             f"~{nonlinearity}.npy"
         )
-        np.save(filename, mses.cpu().numpy())
+        np.save(filename, mses)

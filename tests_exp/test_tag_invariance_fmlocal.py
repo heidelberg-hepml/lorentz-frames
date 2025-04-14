@@ -12,7 +12,7 @@ from tensorframes.utils.transforms import (
     rand_xyrotation,
 )
 from experiments.tagging.embedding import embed_tagging_data
-from torch_geometric.nn.aggr import MeanAggregation
+from tests_exp.utils import crop_particles
 
 
 BREAKING = [
@@ -20,7 +20,6 @@ BREAKING = [
     "data.add_time_reference=false",
     "data.add_tagging_features_lframesnet=false",
 ]
-from tests_exp.utils import crop_particles
 
 
 @pytest.mark.parametrize(
@@ -36,22 +35,21 @@ from tests_exp.utils import crop_particles
     list(
         enumerate(
             [
-                # ["model=tag_particlenet-lite"],
+                ["model=tag_ParT"],
+                ["model=tag_particlenet-lite"],
                 ["model=tag_transformer"],
                 ["model=tag_graphnet"],
-                # ["model=tag_graphnet", "model.include_edges=false"],
+                ["model=tag_graphnet", "model.include_edges=true"],
             ]
         )
     ),
 )
 @pytest.mark.parametrize("lframesnet", ["orthogonal", "polardec"])
-@pytest.mark.parametrize("operation", ["add"])  # , "single"])
-@pytest.mark.parametrize(
-    "nonlinearity", ["exp", "softplus", "softmax", "relu", "relu_shifted"]
-)
+@pytest.mark.parametrize("operation", ["add", "single"])
+@pytest.mark.parametrize("nonlinearity", ["exp"])
 @pytest.mark.parametrize("iterations", [1])
-@pytest.mark.parametrize("use_float64", [False, True])
-@pytest.mark.parametrize("cropped_particles", [None, 10])
+@pytest.mark.parametrize("use_float64", [False])
+@pytest.mark.parametrize("max_particles", [None, 10])
 def test_amplitudes(
     rand_trafo,
     model_idx,
@@ -62,8 +60,9 @@ def test_amplitudes(
     breaking_list,
     iterations,
     use_float64,
-    cropped_particles,
-    save=True,
+    max_particles=None,
+    use_asymmetry=True,
+    save=False,
 ):
     experiments.logger.LOGGER.disabled = True  # turn off logging
 
@@ -93,30 +92,21 @@ def test_amplitudes(
             for x in iterable:
                 yield x
 
-    mses = []
-    infs = []
-    agg = MeanAggregation()
+    diffs = []
     iterator = iter(cycle(exp.train_loader))
     for _ in range(iterations):
         data = next(iterator)
-        data = crop_particles(data, n=cropped_particles)
+        data = crop_particles(data, n=max_particles)
         data_augmented = data.clone()
 
         parent = super(type(exp.model), exp.model)
         embedded_data = embed_tagging_data(
-            data.x.to(exp.dtype),
+            data.x,
             data.scalars.to(exp.dtype),
             data.ptr,
             exp.cfg.data,
         )
-        (
-            features_local_nospurions,
-            fourmomenta_local_nospurions,
-            lframes_nospurions,
-            ptr_nospurions,
-            batch_nospurions,
-            tracker,
-        ) = parent.forward(embedded_data)
+        fourmomenta_local_nospurions = parent.forward(embedded_data)[1]
 
         # augmented data
         mom = data_augmented.x
@@ -125,40 +115,33 @@ def test_amplitudes(
         data_augmented.x = mom_augmented
 
         embedded_data_augmented = embed_tagging_data(
-            data_augmented.x.to(exp.dtype),
+            data_augmented.x,
             data_augmented.scalars.to(exp.dtype),
             data_augmented.ptr,
             exp.cfg.data,
         )
-        (
-            features_local_nospurions_augmented,
-            fourmomenta_local_nospurions_augmented,
-            lframes_nospurions_augmented,
-            ptr_nospurions_augmented,
-            batch_nospurions_augmented,
-            tracker_augmented,
-        ) = parent.forward(embedded_data_augmented)
+        fourmomenta_local_nospurions_augmented = parent.forward(
+            embedded_data_augmented
+        )[1]
 
-        norm = fourmomenta_local_nospurions + fourmomenta_local_nospurions_augmented
-        diff = (
-            (fourmomenta_local_nospurions - fourmomenta_local_nospurions_augmented)
-            / norm
-        ) ** 2
-        infs.append((~diff.isfinite()).sum().detach().item())
-        diff[~diff.isfinite()] = 1e-12
-        diff = agg(diff, index=batch_nospurions)
+        diff = fourmomenta_local_nospurions - fourmomenta_local_nospurions_augmented
+        if use_asymmetry:
+            diff /= (
+                fourmomenta_local_nospurions + fourmomenta_local_nospurions_augmented
+            ).clamp(min=1e-20)
+        diff = diff**2
+        diff[~diff.isfinite()] = 0
 
-        mses.append(diff.detach())
-    mses = torch.cat(mses, dim=0).clamp(min=1e-30)
-    # print("infs: ", infs)
+        diffs.append(diff.detach())
+    diffs = torch.cat(diffs, dim=0)
     print(
-        f"log-mean={mses.log().mean().exp():.2e} max={mses.max().item():.2e}",
+        f"log-mean={diffs.log().mean().exp():.2e} max={diffs.max().item():.2e}",
         model_list,
         rand_trafo.__name__,
         lframesnet,
         operation,
         nonlinearity,
-        f"{cropped_particles=}",
+        f"{max_particles=}",
         "float64" if use_float64 else "float32",
     )
     if save:
@@ -170,7 +153,7 @@ def test_amplitudes(
             f">{rand_trafo.__name__}"
             f">{'float64' if use_float64 else 'float32'}"
             f">{operation}"
-            f">{cropped_particles=}"
+            f">{max_particles=}"
             f"~{nonlinearity}.npy"
         )
-        np.save(filename, mses.cpu().numpy())
+        np.save(filename, diffs)

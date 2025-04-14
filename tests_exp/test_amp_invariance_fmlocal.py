@@ -15,22 +15,20 @@ from tensorframes.utils.transforms import rand_rotation_uniform, rand_lorentz
         enumerate(
             [
                 ["model=amp_mlp"],
-                # ["model=amp_transformer"],
-                # ["model=amp_graphnet"],
-                # ["model=amp_graphnet", "model.include_edges=false"],
-                # ["model=amp_graphnet", "model.include_nodes=false"],
+                ["model=amp_transformer"],
+                ["model=amp_graphnet"],
+                ["model=amp_graphnet", "model.include_edges=false"],
+                ["model=amp_graphnet", "model.include_nodes=false"],
             ],
         )
     ),
 )
 @pytest.mark.parametrize("lframesnet", ["orthogonal", "polardec"])
 @pytest.mark.parametrize("operation", ["add", "single"])
-@pytest.mark.parametrize(
-    "nonlinearity", ["softplus", "top5_softplus", "top10_softplus", "top20_softplus"]
-)
+@pytest.mark.parametrize("nonlinearity", ["exp"])
 @pytest.mark.parametrize("rand_trafo", [rand_rotation_uniform, rand_lorentz])
 @pytest.mark.parametrize("iterations", [10])
-@pytest.mark.parametrize("use_float64", [False, True])
+@pytest.mark.parametrize("use_float64", [False])
 def test_amplitudes(
     model_idx,
     model_list,
@@ -40,7 +38,8 @@ def test_amplitudes(
     rand_trafo,
     iterations,
     use_float64,
-    save=True,
+    use_asymmetry=True,
+    save=False,
 ):
     experiments.logger.LOGGER.disabled = True  # turn off logging
 
@@ -63,52 +62,39 @@ def test_amplitudes(
     exp.init_data()
     exp._init_dataloader()
     exp._init_loss()
+    exp.eval()
 
     def cycle(iterable):
         while True:
             for x in iterable:
                 yield x
 
-    mses = []
-    infs = []
+    diffs = []
     iterator = iter(cycle(exp.train_loader))
     for _ in range(iterations):
         data = next(iterator)
-        mom = data[1].to(exp.device)
+        mom = data[1]
 
         parent = super(type(exp.model), exp.model)
 
-        (
-            features_local,
-            fourmomenta_local,
-            particle_type,
-            lframes,
-            tracker,
-        ) = parent.forward(mom)
+        fourmomenta_local = parent.forward(mom)[1]
 
         # augmented data
         trafo = rand_trafo(mom.shape[:-2] + (1,), dtype=mom.dtype)
         mom_augmented = torch.einsum("...ij,...j->...i", trafo, mom)
 
-        (
-            features_local_augmented,
-            fourmomenta_local_augmented,
-            particle_type_augmented,
-            lframes_augmented,
-            tracker,
-        ) = parent.forward(mom_augmented)
+        fourmomenta_local_augmented = parent.forward(mom_augmented)[1]
 
-        norm = fourmomenta_local + fourmomenta_local_augmented
-        diff = ((fourmomenta_local - fourmomenta_local_augmented) / norm) ** 2
-        infs.append((~diff.isfinite()).sum().detach().item())
-        diff[~diff.isfinite()] = 1e-12
-        diff = diff.mean(dim=-2)
+        diff = fourmomenta_local - fourmomenta_local_augmented
+        if use_asymmetry:
+            diff /= (fourmomenta_local + fourmomenta_local_augmented).clamp(min=1e-20)
+        diff = diff**2
+        diff[~diff.isfinite()] = 0
 
-        mses.append(diff.detach())
-    mses = torch.cat(mses, dim=0).clamp(min=1e-30)
-    # print("infs: ", infs)
+        diffs.append(diff.detach())
+    diffs = torch.cat(diffs, dim=0)
     print(
-        f"log-mean={mses.log().mean().exp():.2e} max={mses.max().item():.2e}",
+        f"log-mean={diffs.log().mean().exp():.2e} max={diffs.max().item():.2e}",
         model_list,
         rand_trafo.__name__,
         lframesnet,
@@ -128,4 +114,4 @@ def test_amplitudes(
             f">{operation}"
             f"~{nonlinearity}.npy"
         )
-        np.save(filename, mses.cpu().numpy())
+        np.save(filename, diffs)

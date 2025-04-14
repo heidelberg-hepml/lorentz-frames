@@ -19,10 +19,11 @@ from tests_exp.utils import track_clamps
 @pytest.mark.parametrize(
     "model_list",
     [
+        ["model=tag_ParT"],
         ["model=tag_particlenet-lite"],
         ["model=tag_transformer"],
         ["model=tag_graphnet"],
-        ["model=tag_graphnet", "model.include_edges=false"],
+        ["model=tag_graphnet", "model.include_edges=true"],
     ],
 )
 @pytest.mark.parametrize("iterations", [1])
@@ -54,7 +55,7 @@ def test_tagging(lframesnet, model_list, iterations):
 
         # original data
         with track_clamps() as tracking:
-            y_pred = exp._get_ypred_and_label(data)[0]
+            exp._get_ypred_and_label(data)[0]
 
         sorted_calls = sorted(
             tracking,

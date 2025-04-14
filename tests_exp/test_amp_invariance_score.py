@@ -25,21 +25,10 @@ from tensorframes.utils.transforms import rand_rotation_uniform, rand_lorentz
 )
 @pytest.mark.parametrize("lframesnet", ["orthogonal", "polardec"])
 @pytest.mark.parametrize("operation", ["add", "single"])
-@pytest.mark.parametrize(
-    "nonlinearity",
-    [
-        "exp",
-        "softplus",
-        "softmax",
-        "relu",
-        "relu_shifted",
-        "top10_softplus",
-        "top10_softmax",
-    ],
-)
+@pytest.mark.parametrize("nonlinearity", ["exp"])
 @pytest.mark.parametrize("rand_trafo", [rand_rotation_uniform, rand_lorentz])
 @pytest.mark.parametrize("iterations", [100])
-@pytest.mark.parametrize("use_float64", [False, True])
+@pytest.mark.parametrize("use_float64", [False])
 def test_amplitudes(
     model_idx,
     model_list,
@@ -72,6 +61,7 @@ def test_amplitudes(
     exp.init_data()
     exp._init_dataloader()
     exp._init_loss()
+    exp.eval()
 
     def cycle(iterable):
         while True:
@@ -82,7 +72,7 @@ def test_amplitudes(
     iterator = iter(cycle(exp.train_loader))
     for _ in range(iterations):
         data = next(iterator)
-        mom = data[1].to(exp.device)
+        mom = data[1]
 
         # original data
         amp_original = exp.model(mom)[0]
@@ -94,7 +84,7 @@ def test_amplitudes(
 
         mse = (amp_original - amp_augmented) ** 2
         mses.append(mse.detach())
-    mses = torch.cat(mses, dim=0)[:, 0].clamp(min=1e-30)
+    mses = torch.cat(mses, dim=0).flatten()
     print(
         f"log-mean={mses.log().mean().exp():.2e} max={mses.max().item():.2e}",
         model_list,
@@ -116,4 +106,4 @@ def test_amplitudes(
             f">{operation}"
             f"~{nonlinearity}.npy"
         )
-        np.save(filename, mses.cpu().numpy())
+        np.save(filename, mses)

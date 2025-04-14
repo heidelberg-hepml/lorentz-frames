@@ -15,29 +15,21 @@ from tensorframes.lframes.lframes import LFrames
     list(
         enumerate(
             [
-                # ["model=amp_mlp"],
-                # ["model=amp_transformer"],
+                ["model=amp_mlp"],
+                ["model=amp_transformer"],
                 ["model=amp_graphnet"],
-                # ["model=amp_graphnet", "model.include_edges=false"],
-                # ["model=amp_graphnet", "model.include_nodes=false"],
+                ["model=amp_graphnet", "model.include_edges=false"],
+                ["model=amp_graphnet", "model.include_nodes=false"],
             ],
         )
     ),
 )
-@pytest.mark.parametrize("lframesnet", ["orthogonal"])  # , "polardec"])
+@pytest.mark.parametrize("lframesnet", ["orthogonal", "polardec"])
 @pytest.mark.parametrize("operation", ["add", "single"])
-@pytest.mark.parametrize(
-    "nonlinearity",
-    [
-        "softplus",
-        "top5_softplus",
-        "top10_softplus",
-        "top20_softplus",
-    ],  # , "top10_relu"]#["exp", "softplus", "softmax", "relu", "relu_shifted", "top10_softplus", "top10_relu"]
-)
+@pytest.mark.parametrize("nonlinearity", ["exp"])
 @pytest.mark.parametrize("rand_trafo", [rand_rotation_uniform, rand_lorentz])
 @pytest.mark.parametrize("iterations", [100])
-@pytest.mark.parametrize("use_float64", [False])  # , True])
+@pytest.mark.parametrize("use_float64", [False])
 def test_amplitudes(
     model_idx,
     model_list,
@@ -47,6 +39,7 @@ def test_amplitudes(
     rand_trafo,
     iterations,
     use_float64,
+    use_asymmetry=True,
     save=False,
 ):
     experiments.logger.LOGGER.disabled = True  # turn off logging
@@ -70,21 +63,21 @@ def test_amplitudes(
     exp.init_data()
     exp._init_dataloader()
     exp._init_loss()
+    exp.eval()
 
     def cycle(iterable):
         while True:
             for x in iterable:
                 yield x
 
-    mses = []
-    infs = []
+    diffs = []
     iterator = iter(cycle(exp.train_loader))
     for _ in range(iterations):
         data = next(iterator)
-        mom = data[1].to(exp.device)
+        mom = data[1]
 
         particle_type = exp.model.encode_particle_type(mom.shape[0]).to(
-            dtype=exp.model.input_dtype, device=mom.device
+            dtype=exp.model.input_dtype
         )
         vecs = exp.model.lframesnet.equivectors(mom, scalars=particle_type, ptr=None)
 
@@ -94,25 +87,24 @@ def test_amplitudes(
 
         particle_type_augmented = exp.model.encode_particle_type(
             mom_augmented.shape[0]
-        ).to(dtype=exp.model.input_dtype, device=mom_augmented.device)
+        ).to(dtype=exp.model.input_dtype)
         vecs_augmented = exp.model.lframesnet.equivectors(
             mom_augmented, scalars=particle_type_augmented, ptr=None
         )
 
-        lframes = LFrames(trafo.to(torch.float64))
+        lframes = LFrames(trafo)
         vecs_augmented = torch.einsum(
-            "...nm,...vim->...vin", lframes.inv, vecs_augmented.to(torch.float64)
-        ).to(exp.dtype)
+            "...nm,...vim->...vin", lframes.inv, vecs_augmented
+        )
 
-        norm = vecs + vecs_augmented
-        infs.append(torch.any(torch.isinf(norm)).item())
-
-        mse = ((vecs - vecs_augmented) / norm).pow(2).mean(dim=-2)
-        mses.append(mse.mean(dim=-2))
-    mses = torch.cat(mses, dim=0).clamp(min=1e-30)
-    # print("infs: ", infs)
+        diff = vecs - vecs_augmented
+        if use_asymmetry:
+            diff /= (vecs + vecs_augmented).abs().clamp(min=1e-20)
+        diff = diff**2
+        diffs.append(diff)
+    diffs = torch.cat(diffs, dim=0)
     print(
-        f"log-mean={mses.log().mean().exp():.2e} max={mses.max().item():.2e}",
+        f"log-mean={diffs.log().mean().exp():.2e} max={diffs.max().item():.2e}",
         model_list,
         rand_trafo.__name__,
         lframesnet,
@@ -132,4 +124,4 @@ def test_amplitudes(
             f">{operation}"
             f"~{nonlinearity}.npy"
         )
-        np.save(filename, mses.cpu().numpy())
+        np.save(filename, diffs)

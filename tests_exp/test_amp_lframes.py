@@ -6,8 +6,6 @@ import os
 
 import experiments.logger
 from experiments.amplitudes.experiment import AmplitudeExperiment
-from tensorframes.utils.transforms import rand_rotation_uniform, rand_lorentz
-from tensorframes.lframes.lframes import LFrames
 from tensorframes.utils.lorentz import lorentz_metric
 
 
@@ -16,28 +14,20 @@ from tensorframes.utils.lorentz import lorentz_metric
     list(
         enumerate(
             [
-                # ["model=amp_mlp"],
-                # ["model=amp_transformer"],
+                ["model=amp_mlp"],
+                ["model=amp_transformer"],
                 ["model=amp_graphnet"],
-                # ["model=amp_graphnet", "model.include_edges=false"],
-                # ["model=amp_graphnet", "model.include_nodes=false"],
+                ["model=amp_graphnet", "model.include_edges=false"],
+                ["model=amp_graphnet", "model.include_nodes=false"],
             ],
         )
     ),
 )
-@pytest.mark.parametrize("lframesnet", ["orthogonal"])  # , "polardec"])
+@pytest.mark.parametrize("lframesnet", ["orthogonal", "polardec"])
 @pytest.mark.parametrize("operation", ["add", "single"])
-@pytest.mark.parametrize(
-    "nonlinearity",
-    [
-        "softplus",
-        "top5_softplus",
-        "top10_softplus",
-        "top20_softplus",
-    ],  # , "top10_relu"]#["exp", "softplus", "softmax", "relu", "relu_shifted", "top10_softplus", "top10_relu"]
-)
+@pytest.mark.parametrize("nonlinearity", ["exp"])
 @pytest.mark.parametrize("iterations", [100])
-@pytest.mark.parametrize("use_float64", [False])  # , True])
+@pytest.mark.parametrize("use_float64", [False])
 def test_amplitudes(
     model_idx,
     model_list,
@@ -75,27 +65,25 @@ def test_amplitudes(
             for x in iterable:
                 yield x
 
-    mses = []
-    infs = []
+    diffs = []
     iterator = iter(cycle(exp.train_loader))
     for _ in range(iterations):
         data = next(iterator)
-        mom = data[1].to(exp.device).to(exp.dtype)
-        metric = lorentz_metric(mom.shape[:-1], device=exp.device).to(exp.dtype)
+        mom = data[1].to(exp.dtype)
+        metric = lorentz_metric(mom.shape[:-1]).to(exp.dtype)
 
         particle_type = exp.model.encode_particle_type(mom.shape[0]).to(
-            dtype=exp.model.input_dtype, device=mom.device
+            dtype=exp.model.input_dtype,
         )
         lframes = exp.model.lframesnet(fourmomenta=mom, scalars=particle_type, ptr=None)
         minkowski_mse = (
-            (lframes.matrices.transpose(-2, -1) @ metric @ lframes.matrices - metric)
-            .pow(2)
-            .mean(dim=(-1, -2, -3))
+            lframes.matrices.transpose(-2, -1) @ metric @ lframes.matrices - metric
         )
-        mses.append(minkowski_mse)
-    mses = torch.cat(mses, dim=0).clamp(min=1e-30)
+        minkowski_mse = minkowski_mse.pow(2).mean(dim=(-1, -2))
+        diffs.append(minkowski_mse.detach())
+    diffs = torch.cat(diffs, dim=0).clamp(min=1e-30)
     print(
-        f"log-mean={mses.log().mean().exp():.2e} max={mses.max().item():.2e}",
+        f"log-mean={diffs.log().mean().exp():.2e} max={diffs.max().item():.2e}",
         model_list,
         lframesnet,
         operation,
@@ -113,4 +101,4 @@ def test_amplitudes(
             f">{operation}"
             f"~{nonlinearity}.npy"
         )
-        np.save(filename, mses.cpu().numpy())
+        np.save(filename, diffs)

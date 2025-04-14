@@ -19,10 +19,11 @@ from experiments.tagging.experiment import TopTaggingExperiment
 @pytest.mark.parametrize(
     "model_list",
     [
+        ["model=tag_ParT"],
         ["model=tag_particlenet-lite"],
         ["model=tag_transformer"],
         ["model=tag_graphnet"],
-        ["model=tag_graphnet", "model.include_edges=false"],
+        ["model=tag_graphnet", "model.include_edges=true"],
     ],
 )
 @pytest.mark.parametrize("iterations", [1])
