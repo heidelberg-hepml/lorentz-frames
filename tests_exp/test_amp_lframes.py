@@ -81,7 +81,7 @@ def test_amplitudes(
         )
         minkowski_mse = minkowski_mse.pow(2).mean(dim=(-1, -2))
         diffs.append(minkowski_mse.detach())
-    diffs = torch.cat(diffs, dim=0).clamp(min=1e-30)
+    diffs = torch.cat(diffs, dim=0).clamp(min=1e-20)
     print(
         f"log-mean={diffs.log().mean().exp():.2e} max={diffs.max().item():.2e}",
         model_list,

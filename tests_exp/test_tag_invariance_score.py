@@ -108,7 +108,7 @@ def test_amplitudes(
 
         mse = (y_pred_augmented - y_pred) ** 2
         mses.append(mse.detach())
-    mses = torch.cat(mses, dim=0)
+    mses = torch.cat(mses, dim=0).clamp(min=1e-20)
     print(
         f"log-mean={mses.log().mean().exp():.2e} max={mses.max().item():.2e}",
         model_list,

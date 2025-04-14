@@ -102,7 +102,7 @@ def test_amplitudes(
             diff /= (vecs + vecs_augmented).abs().clamp(min=1e-20)
         diff = diff**2
         diffs.append(diff)
-    diffs = torch.cat(diffs, dim=0)
+    diffs = torch.cat(diffs, dim=0).clamp(min=1e-20)
     print(
         f"log-mean={diffs.log().mean().exp():.2e} max={diffs.max().item():.2e}",
         model_list,

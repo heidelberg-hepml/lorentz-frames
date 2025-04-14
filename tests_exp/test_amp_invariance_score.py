@@ -84,7 +84,7 @@ def test_amplitudes(
 
         mse = (amp_original - amp_augmented) ** 2
         mses.append(mse.detach())
-    mses = torch.cat(mses, dim=0).flatten()
+    mses = torch.cat(mses, dim=0).flatten().clamp(min=1e-20)
     print(
         f"log-mean={mses.log().mean().exp():.2e} max={mses.max().item():.2e}",
         model_list,
