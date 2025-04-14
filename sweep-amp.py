@@ -53,7 +53,7 @@ def run_trial(trial: Trial, seed, exp_name, model, cfg_overrides):
     fm_norm = trial.suggest_categorical("fm_norm", ["true", "false"])
 
     # catch runs with invalid hyperparameters
-    if False:
+    if operation == "single" and fm_norm == "true":
         raise optuna.TrialPruned()
 
     with initialize(config_path="config", version_base=None):
@@ -65,6 +65,7 @@ def run_trial(trial: Trial, seed, exp_name, model, cfg_overrides):
             f"seed={seed}",
             # Fixed parameters
             f"model={model}",
+            f"training={model}",
             f"data.data_path=/remote/gpu02/breso/lorentz-gatr/data/zgggg_1000M",
             # Tuned parameters
             f"model/lframesnet={lframesnet}",
@@ -99,9 +100,13 @@ def run_trial(trial: Trial, seed, exp_name, model, cfg_overrides):
             print(e)
             print("Pruning trial {trial.number} due to torch.cuda.OutOfMemoryError")
             raise optuna.TrialPruned()
-        except AssertionError:
+        except AssertionError as e:
             print(e)
             print("Pruning trial {trial.number} due to AssertionError")
+            raise optuna.TrialPruned()
+        except RuntimeError as e:
+            print(e)
+            print("Pruning trial {trial.number} due to RuntimeError")
             raise optuna.TrialPruned()
 
         # Run experiment

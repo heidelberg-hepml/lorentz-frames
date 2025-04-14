@@ -8,4 +8,5 @@ optuna_db: 'runs/${exp_name}/optuna/optuna.db'
 model_name: amp_transformer
 
 cfg_overrides:
- - training.iterations=1000
+ - evaluation.eval_set=[val,test]
+ - training.iterations=100
