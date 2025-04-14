@@ -20,7 +20,11 @@ from tensorframes.utils.lorentz import lorentz_metric
 @pytest.mark.parametrize(
     "breaking_list",
     [
-        ["data.beam_reference=null", "data.add_time_reference=false"],
+        [
+            "data.beam_reference=null",
+            "data.add_time_reference=false",
+            "data.add_tagging_features_lframesnet=false",
+        ],
     ],
 )
 @pytest.mark.parametrize(
