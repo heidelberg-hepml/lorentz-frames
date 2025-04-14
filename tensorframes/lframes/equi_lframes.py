@@ -44,7 +44,7 @@ class LearnedLFrames(LFramesPredictor):
             self.equivectors.requires_grad_(False)
 
     def init_weights_or_not(self):
-        if self.random:
+        if self.random and self.training:
             self.equivectors.apply(init_weights)
 
     def globalize_vecs_or_not(self, vecs, ptr):
