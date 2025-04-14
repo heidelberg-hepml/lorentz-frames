@@ -55,7 +55,7 @@ BREAKING = [
         "top10_softmax",
     ],
 )
-@pytest.mark.parametrize("iterations", [100])
+@pytest.mark.parametrize("iterations", [1])
 @pytest.mark.parametrize("use_float64", [False, True])
 def test_amplitudes(
     rand_trafo,

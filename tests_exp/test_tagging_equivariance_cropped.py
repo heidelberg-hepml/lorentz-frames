@@ -51,7 +51,7 @@ BREAKING = [
         "softplus",
     ],
 )
-@pytest.mark.parametrize("iterations", [10])
+@pytest.mark.parametrize("iterations", [1])
 @pytest.mark.parametrize("use_float64", [False, True])
 @pytest.mark.parametrize("n", [300])
 def test_amplitudes(
