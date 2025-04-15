@@ -6,6 +6,9 @@ betas: [.9, .999]
 eps: 1e-8
 weight_decay: 0
 
+lr_factor_lframesnet: 1
+weight_decay_lframesnet: 0
+
 lr: 1e-3
 scheduler: ReduceLROnPlateau
 scheduler_scale: 1

@@ -315,7 +315,16 @@ class BaseExperiment:
     def _init_optimizer(self, param_groups=None):
         if param_groups is None:
             param_groups = [
-                {"params": self.model.parameters(), "lr": self.cfg.training.lr}
+                {
+                    "params": self.model.net.parameters(),
+                    "lr": self.cfg.training.lr,
+                    "weight_decay": self.cfg.training.weight_decay,
+                },
+                {
+                    "params": self.model.lframesnet.parameters(),
+                    "lr": self.cfg.training.lr_factor_lframesnet * self.cfg.training.lr,
+                    "weight_decay": self.cfg.training.weight_decay_lframesnet,
+                },
             ]
 
         if self.cfg.training.optimizer == "Adam":
@@ -323,27 +332,23 @@ class BaseExperiment:
                 param_groups,
                 betas=self.cfg.training.betas,
                 eps=self.cfg.training.eps,
-                weight_decay=self.cfg.training.weight_decay,
             )
         elif self.cfg.training.optimizer == "AdamW":
             self.optimizer = torch.optim.AdamW(
                 param_groups,
                 betas=self.cfg.training.betas,
                 eps=self.cfg.training.eps,
-                weight_decay=self.cfg.training.weight_decay,
             )
         elif self.cfg.training.optimizer == "RAdam":
             self.optimizer = torch.optim.RAdam(
                 param_groups,
                 betas=self.cfg.training.betas,
                 eps=self.cfg.training.eps,
-                weight_decay=self.cfg.training.weight_decay,
             )
         elif self.cfg.training.optimizer == "Lion":
             self.optimizer = pytorch_optimizer.Lion(
                 param_groups,
                 betas=self.cfg.training.betas,
-                weight_decay=self.cfg.training.weight_decay,
             )
         elif self.cfg.training.optimizer == "Ranger":
             # default optimizer used in the weaver package
@@ -352,7 +357,6 @@ class BaseExperiment:
                 param_groups,
                 betas=(0.95, 0.999),
                 eps=1e-5,
-                weight_decay=self.cfg.training.weight_decay,
                 alpha=0.5,
                 k=6,
             )
