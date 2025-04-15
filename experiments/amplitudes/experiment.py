@@ -230,6 +230,7 @@ class AmplitudeExperiment(BaseExperiment):
         plot_dict = {}
         if self.cfg.evaluate and ("test" in self.cfg.evaluation.eval_set):
             plot_dict["results_test"] = self.results["test"]
+        if self.cfg.evaluate and ("train" in self.cfg.evaluation.eval_set):
             plot_dict["results_train"] = self.results["train"]
         if self.cfg.train:
             plot_dict["train_loss"] = self.train_loss

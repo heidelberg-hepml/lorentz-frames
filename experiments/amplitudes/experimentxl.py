@@ -14,6 +14,8 @@ from experiments.amplitudes.experiment import AmplitudeExperiment
 
 class AmplitudeXLExperiment(AmplitudeExperiment):
     def init_data(self):
+        assert not "train" in self.cfg.evaluation.eval_set
+
         real_subsample = self.cfg.data.subsample
         self.cfg.data.subsample = None
         super().init_data()
