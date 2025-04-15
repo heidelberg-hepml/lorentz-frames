@@ -1,9 +1,9 @@
 import torch
-import math
 from torch_geometric.utils import scatter
 
 from tensorframes.utils.hep import get_eta, get_phi, get_pt
 from tensorframes.utils.utils import get_batch_from_ptr
+from tensorframes.utils.lorentz import lorentz_squarednorm
 from experiments.tagging.dataset import EPS
 
 # weaver defaults for tagging features standardization (mean, std)
@@ -18,7 +18,7 @@ TAGGING_FEATURES_PREPROCESSING = [
 ]
 
 
-def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data, fourmomenta_float64=True):
+def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
     """
     Embed tagging data
     We use torch_geometric sparse representations to be more memory efficient
@@ -34,12 +34,6 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data, fourmomenta_float64=
         Indices of the first particle for each jet
         Also includes the first index after the batch ends
     cfg_data: settings for embedding
-    fourmomenta_float64: bool
-        Option to keep the fourmomenta in float64 throughout the equivectors.
-        Note that no learnable operations are done with float64.
-        We observe that this is required to not violate equivariance,
-        because small cfg_data.mass_reg might not be resolvable in float32.
-        The scalars are kept in the default dtype throughout, serving as a reference.
 
     Returns
     -------
@@ -92,13 +86,11 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data, fourmomenta_float64=
         ptr[1:] = ptr[1:] + (arange + 1) * n_spurions
 
     # add mass regulator
-    in_dtype = fourmomenta.dtype
-    if fourmomenta_float64:
-        fourmomenta = fourmomenta.to(torch.float64)
     if cfg_data.mass_reg is not None:
         mass_reg = cfg_data.mass_reg
-        fourmomenta[..., 0] = (
-            (fourmomenta[..., 1:] ** 2).sum(dim=-1) + mass_reg**2
+        mask = lorentz_squarednorm(fourmomenta) < mass_reg**2
+        fourmomenta[mask][..., 0] = (
+            (fourmomenta[mask][..., 1:] ** 2).sum(dim=-1) + mass_reg**2
         ).sqrt()
 
     batch = get_batch_from_ptr(ptr)
@@ -117,7 +109,7 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data, fourmomenta_float64=
             dtype=fourmomenta.dtype,
             device=fourmomenta.device,
         )
-    global_tagging_features = global_tagging_features.to(in_dtype)
+    global_tagging_features = global_tagging_features.to(scalars.dtype)
 
     embedding = {
         "fourmomenta": fourmomenta,

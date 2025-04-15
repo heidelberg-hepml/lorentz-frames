@@ -2,7 +2,8 @@ import torch
 from torch import nn
 import math
 from torch_geometric.nn import MessagePassing
-from torch_geometric.utils import softmax
+from torch_geometric.utils import softmax, to_dense_batch
+from torch_geometric.nn.aggr import MeanAggregation
 
 from tensorframes.nn.mlp import MLP
 from tensorframes.equivectors.base import EquiVectors
@@ -37,9 +38,7 @@ class EquiEdgeConv(MessagePassing):
         self.operation = self.get_operation(operation)
         self.nonlinearity = self.get_nonlinearity(nonlinearity)
         self.fm_norm = fm_norm
-        assert not (
-            operation == "single" and fm_norm
-        ), "this combinations is numerically unstable"
+        assert not (operation == "single" and fm_norm)  # unstable
 
         in_edges = in_vectors if include_edges else 0
         in_channels = 2 * num_scalars + in_edges
@@ -78,7 +77,6 @@ class EquiEdgeConv(MessagePassing):
         vecs = self.propagate(
             edge_index, s=scalars, fm=fourmomenta, edge_attr=edge_attr, batch=batch
         )
-
         # equivariant layer normalization
         if self.layer_norm:
             norm = lorentz_squarednorm(vecs.reshape(fourmomenta.shape[0], -1, 4))
@@ -99,7 +97,7 @@ class EquiEdgeConv(MessagePassing):
         if edge_attr is not None:
             prefactor = torch.cat([prefactor, edge_attr], dim=-1)
         prefactor = self.mlp(prefactor)
-        prefactor = self.nonlinearity(prefactor, index=edge_index[0])
+        prefactor = self.nonlinearity(prefactor, batch=edge_index[1])
 
         fm_rel = (fm_rel / fm_rel_norm)[:, None, :4]
         prefactor = prefactor.unsqueeze(-1)
@@ -122,16 +120,57 @@ class EquiEdgeConv(MessagePassing):
 
     def get_nonlinearity(self, nonlinearity):
         if nonlinearity == None:
-            return lambda x, index: x
+            return lambda x, batch: x
         elif nonlinearity == "exp":
-            return lambda x, index: torch.clamp(x, min=-10, max=10).exp()
+            return lambda x, batch: torch.clamp(x, min=-10, max=10).exp()
         elif nonlinearity == "softplus":
-            return lambda x, index: torch.nn.functional.softplus(x)
+            return lambda x, batch: torch.nn.functional.softplus(x)
         elif nonlinearity == "softmax":
-            return lambda x, index: softmax(x, index)
+            return lambda x, batch: softmax(x, batch)
+        elif nonlinearity == "relu":
+            return lambda x, batch: torch.nn.functional.relu(x)
+        elif nonlinearity == "relu_shifted":
+            meanaggr = MeanAggregation()
+
+            def func(x, batch):
+                mean = meanaggr(x, batch, dim=-2)
+                mean = mean[batch]
+                return (x - mean).relu()
+
+            return func
+        elif nonlinearity[:3] == "top":
+            k, nonlinearity = nonlinearity[3:].split("_")
+            if nonlinearity == "exp":
+                nonlinearity = lambda x: x.exp()
+            elif nonlinearity == "relu":
+                nonlinearity = lambda x: x.relu()
+            elif nonlinearity == "softplus":
+                nonlinearity = lambda x: torch.nn.functional.softplus(x)
+            else:
+                raise ValueError(
+                    f"Invalid nonlinearity {nonlinearity}. Options are (exp, relu, softplus)"
+                )
+
+            def func(x, batch):
+                x = nonlinearity(x)
+
+                # sort manually because to_dense_batch assumes that 'batch' is sorted
+                batch_sorted, perm = batch.sort()
+                inv_perm = perm.argsort()
+                x_dense, mask = to_dense_batch(x[perm], batch_sorted, fill_value=0)
+
+                k_local = min(int(k), x_dense.shape[-2])
+                top_vals, top_idx = x_dense.topk(k_local, dim=-2)
+                out_dense = torch.zeros_like(x_dense)
+                out_dense.scatter_(dim=-2, index=top_idx, src=top_vals)
+                out_sorted = out_dense[mask]
+                out = out_sorted[inv_perm]
+                return out
+
+            return func
         else:
             raise ValueError(
-                f"Invalid nonlinearity {nonlinearity}. Options are (None, exp, softplus, softmax)."
+                f"Invalid nonlinearity {nonlinearity}. Options are (None, exp, softplus, softmax, relu, relu_shifted and topk_nonlinearity (flexible))."
             )
 
 

@@ -64,7 +64,7 @@ def transform(
 def rand_lorentz(
     shape: List[int],
     std_eta: float = 0.5,
-    n_max_std_eta: float = 5.0,
+    n_max_std_eta: float = 2.0,
     device: str = "cpu",
     dtype: torch.dtype = torch.float32,
     generator: torch.Generator = None,
@@ -189,7 +189,7 @@ def rand_xyrotation(
 def rand_ztransform(
     shape: List[int],
     std_eta: float = 0.5,
-    n_max_std_eta: float = 5.0,
+    n_max_std_eta: float = 2.0,
     device: str = "cpu",
     dtype: torch.dtype = torch.float32,
     generator: torch.Generator = None,
@@ -288,7 +288,7 @@ def rand_rotation_uniform(
 def sample_rapidity(
     shape,
     std_eta,
-    n_max_std_eta=5.0,
+    n_max_std_eta=2.0,
     device="cpu",
     dtype=torch.float32,
     generator=None,
