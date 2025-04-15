@@ -350,7 +350,6 @@ class BaseExperiment:
             # see https://github.com/hqucms/weaver-core/blob/main/weaver/utils/nn/optimizer/ranger.py
             self.optimizer = Ranger(
                 param_groups,
-                lr=self.cfg.training.lr,
                 betas=(0.95, 0.999),
                 eps=1e-5,
                 weight_decay=self.cfg.training.weight_decay,
