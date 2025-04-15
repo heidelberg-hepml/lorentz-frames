@@ -17,7 +17,7 @@ def run_trial(trial: Trial, seed, exp_name, model, cfg_overrides):
     # global parameters
     lframesnet = trial.suggest_categorical("lframesnet", ["orthogonal", "polardec"])
     # experiment
-    mass_reg = 10 ** trial.suggest_int("log10_mass_reg", -10, 2, log=True)
+    mass_reg = 10 ** trial.suggest_int("log10_mass_reg", -10, 2)
     # lframesnet
     method = trial.suggest_categorical("method", ["gramschmidt", "cross"])
     eps_norm = 10 ** trial.suggest_int("log10_eps_norm", -20, -2)
@@ -102,7 +102,6 @@ def run_trial(trial: Trial, seed, exp_name, model, cfg_overrides):
         return score
 
 
-# add sweep configuration to the basic cfg -> Have optuna.db in same directory as everything else
 @hydra.main(config_path=".", config_name="sweep-amp", version_base=None)
 def sweep(cfg):
     """Entrance point to parameter sweep (wrapped with hydra)"""
@@ -136,5 +135,6 @@ def sweep(cfg):
     )
 
 
+# execute with 'python -m sweep.sweep-amp seed=0' (or any other hydra overrides)
 if __name__ == "__main__":
     sweep()
