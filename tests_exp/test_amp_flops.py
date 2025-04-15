@@ -4,6 +4,7 @@ from torch.utils.flop_counter import FlopCounterMode
 
 import experiments.logger
 from experiments.amplitudes.experiment import AmplitudeExperiment
+from tests_exp.utils import fix_seeds
 
 
 @pytest.mark.parametrize("lframesnet", ["identity"])
@@ -22,7 +23,7 @@ from experiments.amplitudes.experiment import AmplitudeExperiment
 @pytest.mark.parametrize("iterations", [1])
 def test_amplitudes(lframesnet, model_list, iterations):
     experiments.logger.LOGGER.disabled = True  # turn off logging
-
+    fix_seeds(0)
     # create experiment environment
     with hydra.initialize(config_path="../config", version_base=None):
         overrides = [

@@ -13,7 +13,7 @@ from tensorframes.utils.transforms import (
 )
 from experiments.tagging.embedding import embed_tagging_data
 from tensorframes.lframes.lframes import LFrames
-from tests_exp.utils import crop_particles
+from tests_exp.utils import crop_particles, fix_seeds
 
 
 BREAKING = [
@@ -66,7 +66,7 @@ def test_amplitudes(
     save=False,
 ):
     experiments.logger.LOGGER.disabled = True  # turn off logging
-
+    fix_seeds(0)
     # create experiment environment
     with hydra.initialize(config_path="../config_quick", version_base=None):
         overrides = [

@@ -8,7 +8,7 @@ import experiments.logger
 from experiments.tagging.experiment import TopTaggingExperiment
 from experiments.tagging.embedding import embed_tagging_data
 from tensorframes.utils.lorentz import lorentz_metric
-from tests_exp.utils import crop_particles
+from tests_exp.utils import crop_particles, fix_seeds
 
 
 @pytest.mark.parametrize(
@@ -39,7 +39,7 @@ from tests_exp.utils import crop_particles
 @pytest.mark.parametrize("operation", ["add", "single"])
 @pytest.mark.parametrize("nonlinearity", ["exp"])
 @pytest.mark.parametrize("iterations", [1])
-@pytest.mark.parametrize("use_float64", [False])
+@pytest.mark.parametrize("use_float64", [False, True])
 @pytest.mark.parametrize("max_particles", [None, 10])
 def test_amplitudes(
     model_idx,
@@ -50,11 +50,11 @@ def test_amplitudes(
     breaking_list,
     iterations,
     use_float64,
-    max_particles=None,
-    save=False,
+    max_particles,
+    save=True,
 ):
     experiments.logger.LOGGER.disabled = True  # turn off logging
-
+    fix_seeds(0)
     # create experiment environment
     with hydra.initialize(config_path="../config_quick", version_base=None):
         overrides = [
@@ -84,9 +84,13 @@ def test_amplitudes(
     diffs = []
     iterator = iter(cycle(exp.train_loader))
     for _ in range(iterations):
-        data = next(iterator)
+        data = next(iterator).to(exp.device)
         data = crop_particles(data, n=max_particles)
-        metric = lorentz_metric(data.x.shape[:-1], dtype=exp.dtype)
+        metric = (
+            lorentz_metric(data.x.shape[:-1], dtype=exp.dtype)
+            .to(exp.device)
+            .to(torch.float64)
+        )
 
         embedded_data = embed_tagging_data(
             data.x,
@@ -120,14 +124,14 @@ def test_amplitudes(
         "float64" if use_float64 else "float32",
     )
     if save:
-        os.makedirs("scripts/equi-violation", exist_ok=True)
+        os.makedirs("scripts/lframes", exist_ok=True)
         filename = (
-            f"scripts/equi-violation/equitest_tag_minkowski"
+            f"scripts/lframes/equitest_tag_minkowski"
             f">{model_idx}"
-            f">{lframesnet}"
+            f"~{lframesnet}"
             f"~{'float64' if use_float64 else 'float32'}"
             f">{operation}"
-            f">{max_particles=}"
+            f">{max_particles}"
             f"~{nonlinearity}.npy"
         )
-        np.save(filename, diffs)
+        np.save(filename, diffs.detach().cpu())

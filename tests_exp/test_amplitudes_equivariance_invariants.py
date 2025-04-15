@@ -7,6 +7,7 @@ import os
 import experiments.logger
 from experiments.amplitudes.experiment import AmplitudeExperiment
 from tensorframes.utils.transforms import rand_rotation_uniform, rand_lorentz
+from tests_exp.utils import fix_seeds
 
 
 @pytest.mark.parametrize(
@@ -26,7 +27,16 @@ from tensorframes.utils.transforms import rand_rotation_uniform, rand_lorentz
 @pytest.mark.parametrize("lframesnet", ["orthogonal", "polardec"])
 @pytest.mark.parametrize("operation", ["add", "single"])
 @pytest.mark.parametrize(
-    "nonlinearity", ["exp", "softplus", "softmax", "relu", "relu_shifted", "top10_softplus", "top10_softmax"]
+    "nonlinearity",
+    [
+        "exp",
+        "softplus",
+        "softmax",
+        "relu",
+        "relu_shifted",
+        "top10_softplus",
+        "top10_softmax",
+    ],
 )
 @pytest.mark.parametrize("rand_trafo", [rand_rotation_uniform, rand_lorentz])
 @pytest.mark.parametrize("iterations", [100])
@@ -43,7 +53,7 @@ def test_amplitudes(
     save=True,
 ):
     experiments.logger.LOGGER.disabled = True  # turn off logging
-
+    fix_seeds(0)
     # create experiment environment
     with hydra.initialize(config_path="../config_quick", version_base=None):
         overrides = [
@@ -108,7 +118,7 @@ def test_amplitudes(
 
         mses.append(diff.detach())
     mses = torch.cat(mses, dim=0).clamp(min=1e-30)
-    #print("infs: ", infs)
+    # print("infs: ", infs)
     print(
         f"log-mean={mses.log().mean().exp():.2e} max={mses.max().item():.2e}",
         model_list,

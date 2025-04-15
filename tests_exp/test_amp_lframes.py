@@ -7,6 +7,7 @@ import os
 import experiments.logger
 from experiments.amplitudes.experiment import AmplitudeExperiment
 from tensorframes.utils.lorentz import lorentz_metric
+from tests_exp.utils import fix_seeds
 
 
 @pytest.mark.parametrize(
@@ -39,7 +40,7 @@ def test_amplitudes(
     save=False,
 ):
     experiments.logger.LOGGER.disabled = True  # turn off logging
-
+    fix_seeds(0)
     # create experiment environment
     with hydra.initialize(config_path="../config_quick", version_base=None):
         overrides = [

@@ -12,7 +12,7 @@ from tensorframes.utils.transforms import (
     rand_xyrotation,
 )
 from experiments.tagging.embedding import embed_tagging_data
-from tests_exp.utils import crop_particles
+from tests_exp.utils import crop_particles, fix_seeds
 
 
 BREAKING = [
@@ -46,7 +46,9 @@ BREAKING = [
 )
 @pytest.mark.parametrize("lframesnet", ["orthogonal", "polardec"])
 @pytest.mark.parametrize("operation", ["add", "single"])
-@pytest.mark.parametrize("nonlinearity", ["exp"])
+@pytest.mark.parametrize(
+    "nonlinearity", ["exp", "softplus", "top5_exp", "top5_softplus"]
+)
 @pytest.mark.parametrize("iterations", [1])
 @pytest.mark.parametrize("use_float64", [False])
 @pytest.mark.parametrize("max_particles", [None, 10])
@@ -62,10 +64,10 @@ def test_amplitudes(
     use_float64,
     max_particles,
     use_asymmetry=True,
-    save=False,
+    save=True,
 ):
     experiments.logger.LOGGER.disabled = True  # turn off logging
-
+    fix_seeds(0)
     # create experiment environment
     with hydra.initialize(config_path="../config_quick", version_base=None):
         overrides = [
@@ -128,8 +130,10 @@ def test_amplitudes(
         diff = fourmomenta_local_nospurions - fourmomenta_local_nospurions_augmented
         if use_asymmetry:
             diff /= (
-                fourmomenta_local_nospurions + fourmomenta_local_nospurions_augmented
-            ).abs().clamp(min=1e-20)
+                (fourmomenta_local_nospurions + fourmomenta_local_nospurions_augmented)
+                .abs()
+                .clamp(min=1e-20)
+            )
         diff = diff**2
         diff[~diff.isfinite()] = 0
 

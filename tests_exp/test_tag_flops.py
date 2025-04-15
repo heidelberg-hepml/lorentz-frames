@@ -4,6 +4,7 @@ from torch.utils.flop_counter import FlopCounterMode
 
 import experiments.logger
 from experiments.tagging.experiment import TopTaggingExperiment
+from tests_exp.utils import fix_seeds
 
 
 @pytest.mark.parametrize("lframesnet", ["identity"])
@@ -22,7 +23,7 @@ from experiments.tagging.experiment import TopTaggingExperiment
 @pytest.mark.parametrize("iterations", [1])
 def test_tagging(lframesnet, model_list, iterations):
     experiments.logger.LOGGER.disabled = True  # turn off logging
-
+    fix_seeds(0)
     # create experiment environment
     # note: use the full models
     with hydra.initialize(config_path="../config", version_base=None):

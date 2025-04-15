@@ -11,7 +11,7 @@ from tensorframes.utils.transforms import (
     rand_lorentz,
     rand_xyrotation,
 )
-from tests_exp.utils import crop_particles
+from tests_exp.utils import crop_particles, fix_seeds
 
 
 BREAKING = [
@@ -48,7 +48,7 @@ BREAKING = [
 @pytest.mark.parametrize("nonlinearity", ["exp"])
 @pytest.mark.parametrize("iterations", [1])
 @pytest.mark.parametrize("use_float64", [False, True])
-@pytest.mark.parametrize("max_particles", [None, 10])
+@pytest.mark.parametrize("max_particles", [None])
 def test_amplitudes(
     rand_trafo,
     model_idx,
@@ -60,10 +60,10 @@ def test_amplitudes(
     iterations,
     use_float64,
     max_particles,
-    save=False,
+    save=True,
 ):
     experiments.logger.LOGGER.disabled = True  # turn off logging
-
+    fix_seeds(0)
     # create experiment environment
     with hydra.initialize(config_path="../config_quick", version_base=None):
         overrides = [

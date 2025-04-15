@@ -3,7 +3,7 @@ import hydra
 
 import experiments.logger
 from experiments.tagging.experiment import TopTaggingExperiment
-from tests_exp.utils import track_clamps
+from tests_exp.utils import track_clamps, fix_seeds
 
 
 @pytest.mark.parametrize(
@@ -29,7 +29,7 @@ from tests_exp.utils import track_clamps
 @pytest.mark.parametrize("iterations", [1])
 def test_tagging(lframesnet, model_list, iterations):
     experiments.logger.LOGGER.disabled = True  # turn off logging
-
+    fix_seeds(0)
     # create experiment environment
     with hydra.initialize(config_path="../config_quick", version_base=None):
         overrides = [

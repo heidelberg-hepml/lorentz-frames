@@ -1,4 +1,7 @@
 import torch
+import random
+import numpy as np
+import os
 import inspect
 from contextlib import contextmanager
 from tensorframes.utils.utils import get_ptr_from_batch
@@ -111,3 +114,16 @@ def crop_particles(data, n=None):
     data.ptr = ptr
 
     return data
+
+
+def fix_seeds(seed: int = 0):
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+
+    torch.use_deterministic_algorithms(True, warn_only=True)
+
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
