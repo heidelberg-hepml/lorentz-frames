@@ -17,16 +17,7 @@ def run_trial(trial: Trial, seed, exp_name, model, cfg_overrides):
     # global parameters
     lframesnet = trial.suggest_categorical("lframesnet", ["orthogonal", "polardec"])
     # experiment
-    mass_reg = trial.suggest_float("mass_reg", 1e-10, 1e2, log=True)
-    # model
-    if model == "amp_transformer":
-        attn_reps = trial.suggest_categorical("attn_reps", ["8x0n+2x1n", "12x0n+1x1n"])
-    elif model == "amp_graphnet":
-        hidden_reps = trial.suggest_categorical(
-            "hidden_reps", ["64x0n+16x1n", "96x0n+8x1n"]
-        )
-    else:
-        raise ValueError(f"Model {model} not implemented")
+    mass_reg = 10 ** trial.suggest_int("log10_mass_reg", -10, 2, log=True)
     # lframesnet
     method = trial.suggest_categorical("method", ["gramschmidt", "cross"])
     eps_norm = 10 ** trial.suggest_int("log10_eps_norm", -20, -2)
@@ -87,10 +78,6 @@ def run_trial(trial: Trial, seed, exp_name, model, cfg_overrides):
             overrides += [
                 f"model.lframesnet.ortho_kwargs.eps_reg={eps_reg}",
             ]
-        if model == "amp_transformer":
-            overrides += [f"model.net.attn_reps={attn_reps}"]
-        elif model == "amp_graphnet":
-            overrides += [f"model.net.hidden_reps={hidden_reps}"]
 
         cfg = compose(config_name="amplitudesxl", overrides=overrides)
         try:

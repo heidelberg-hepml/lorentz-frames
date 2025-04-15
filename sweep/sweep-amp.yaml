@@ -8,4 +8,4 @@ optuna_db: 'runs/${exp_name}/optuna/optuna.db'
 model_name: amp_transformer
 
 cfg_overrides:
- - evaluation.eval_set=[val,test]
+ - model.net.num_blocks=4
