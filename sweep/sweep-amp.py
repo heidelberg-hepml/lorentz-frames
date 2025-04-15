@@ -56,7 +56,7 @@ def run_trial(trial: Trial, seed, exp_name, model, cfg_overrides):
     if operation == "single" and fm_norm == "true":
         raise optuna.TrialPruned()
 
-    with initialize(config_path="config", version_base=None):
+    with initialize(config_path="../config", version_base=None):
         overrides = cfg_overrides
         overrides += [
             # optuna-related settings
@@ -66,7 +66,6 @@ def run_trial(trial: Trial, seed, exp_name, model, cfg_overrides):
             # Fixed parameters
             f"model={model}",
             f"training={model}",
-            f"data.data_path=/remote/gpu02/breso/lorentz-gatr/data/zgggg_1000M",
             # Tuned parameters
             f"model/lframesnet={lframesnet}",
             f"data.mass_reg={mass_reg}",
@@ -117,7 +116,7 @@ def run_trial(trial: Trial, seed, exp_name, model, cfg_overrides):
 
 
 # add sweep configuration to the basic cfg -> Have optuna.db in same directory as everything else
-@hydra.main(config_path="config", config_name="sweep-amp", version_base=None)
+@hydra.main(config_path=".", config_name="sweep-amp", version_base=None)
 def sweep(cfg):
     """Entrance point to parameter sweep (wrapped with hydra)"""
 

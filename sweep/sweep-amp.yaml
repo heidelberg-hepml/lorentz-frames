@@ -1,7 +1,7 @@
 exp_name: sweep-amp
 
 trials: 1  # one trial run per job
-seed: null
+seed: 0
 n_startup_trials: 100
 optuna_db: 'runs/${exp_name}/optuna/optuna.db'
 
