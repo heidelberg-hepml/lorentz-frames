@@ -14,6 +14,8 @@ from experiments.amplitudes.experiment import AmplitudeExperiment
 
 class AmplitudeXLExperiment(AmplitudeExperiment):
     def init_data(self):
+        assert not "train" in self.cfg.evaluation.eval_set
+
         real_subsample = self.cfg.data.subsample
         self.cfg.data.subsample = None
         super().init_data()
@@ -38,7 +40,7 @@ class AmplitudeXLExperiment(AmplitudeExperiment):
             amp_mean=self.amp_mean,
             amp_std=self.amp_std,
             mom_std=self.mom_std,
-            dtype=self.dtype,
+            input_dtype=self.dtype,
             num_prefetch=self.cfg.data.num_prefetch,
         )
         self.train_loader = torch.utils.data.DataLoader(
@@ -71,7 +73,7 @@ class PrefetchFilesDataset(IterableDataset):
         amp_mean,
         amp_std,
         mom_std,
-        dtype,
+        input_dtype,
         num_prefetch=2,
         events_per_file=1000000,
     ):
@@ -85,7 +87,7 @@ class PrefetchFilesDataset(IterableDataset):
         amp_mean : float
         amp_std : float
         mom_std : float
-        dtype : torch.dtype
+        input_dtype : torch.dtype
         num_prefetch : int
             Number of files to prefetch.
         events_per_file : int
@@ -108,7 +110,7 @@ class PrefetchFilesDataset(IterableDataset):
         self.amp_mean = amp_mean
         self.amp_std = amp_std
         self.mom_std = mom_std
-        self.dtype = dtype
+        self.input_dtype = input_dtype
 
     def __len__(self):
         return len(self.file_paths) * self.events_per_file
@@ -124,7 +126,7 @@ class PrefetchFilesDataset(IterableDataset):
                 amp_mean=self.amp_mean,
                 amp_std=self.amp_std,
                 mom_std=self.mom_std,
-                dtype=self.dtype,
+                input_dtype=self.input_dtype,
                 generator=generator,
             )
             idx = torch.randperm(amp.shape[0])

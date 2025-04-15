@@ -58,7 +58,7 @@ class TopTaggingDataset(TaggingDataset):
         kinematics = data[f"kinematics_{mode}"]
         labels = data[f"labels_{mode}"]
 
-        kinematics = torch.tensor(kinematics, dtype=dtype)
+        kinematics = torch.tensor(kinematics, dtype=torch.float64)
         labels = torch.tensor(labels, dtype=torch.bool)
 
         # create list of torch_geometric.data.Data objects

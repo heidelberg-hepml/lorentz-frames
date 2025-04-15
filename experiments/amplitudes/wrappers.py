@@ -3,11 +3,10 @@ from torch import nn
 from torch_geometric.nn.aggr import MeanAggregation
 
 from experiments.amplitudes.utils import standardize_momentum
-from experiments.baselines.gatr.interface import embed_vector, extract_scalar
+from lgatr import embed_vector, extract_scalar
 
 from tensorframes.reps.tensorreps import TensorReps
 from tensorframes.reps.tensorreps_transform import TensorRepsTransform
-from tensorframes.utils.lorentz import lorentz_squarednorm
 from tensorframes.utils.utils import build_edge_index_fully_connected, get_edge_attr
 
 
@@ -16,9 +15,11 @@ class AmplitudeWrapper(nn.Module):
         self,
         particle_type,
         lframesnet,
+        use_float64=False,
     ):
         super().__init__()
         self.lframesnet = lframesnet
+        self.input_dtype = torch.float64 if use_float64 else torch.float32
 
         self.register_buffer("particle_type", torch.tensor(particle_type))
         self.register_buffer("mom_mean", torch.tensor(0.0))
@@ -31,7 +32,7 @@ class AmplitudeWrapper(nn.Module):
 
     def forward(self, fourmomenta):
         particle_type = self.encode_particle_type(fourmomenta.shape[0]).to(
-            dtype=fourmomenta.dtype, device=fourmomenta.device
+            dtype=self.input_dtype, device=fourmomenta.device
         )
         lframes, tracker = self.lframesnet(
             fourmomenta, scalars=particle_type, ptr=None, return_tracker=True
@@ -41,6 +42,10 @@ class AmplitudeWrapper(nn.Module):
         features_local, _, _ = standardize_momentum(
             fourmomenta_local, self.mom_mean, self.mom_std
         )
+
+        # move everything to less safe dtype
+        features_local = features_local.to(self.input_dtype)
+        lframes.to(self.input_dtype)
         return (
             features_local,
             fourmomenta_local,
@@ -130,7 +135,7 @@ class GraphNetWrapper(AmplitudeWrapper):
         lframes = lframes.reshape(-1, 4, 4)
         if self.include_edges:
             fourmomenta = fourmomenta_local.reshape(-1, 4)
-            edge_attr = self.get_edge_attr(fourmomenta, edge_index)
+            edge_attr = self.get_edge_attr(fourmomenta, edge_index).to(self.input_dtype)
         else:
             edge_attr = None
 
@@ -150,7 +155,7 @@ class GraphNetWrapper(AmplitudeWrapper):
         return edge_attr.unsqueeze(-1)
 
 
-class GATrWrapper(AmplitudeWrapper):
+class LGATrWrapper(AmplitudeWrapper):
     def __init__(self, net, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.net = net
@@ -165,7 +170,9 @@ class GATrWrapper(AmplitudeWrapper):
         ) = super().forward(fourmomenta_global)
 
         # prepare multivectors and scalars
-        multivectors = embed_vector(fourmomenta_local.unsqueeze(-2))
+        multivectors = embed_vector(
+            fourmomenta_local.unsqueeze(-2).to(self.input_dtype)
+        )
         scalars = particle_type
 
         # call network
@@ -191,5 +198,5 @@ class DSIWrapper(AmplitudeWrapper):
             tracker,
         ) = super().forward(fourmomenta_global)
 
-        amp = self.net(fourmomenta_local)
+        amp = self.net(fourmomenta_local.to(self.input_dtype))
         return amp, tracker, lframes

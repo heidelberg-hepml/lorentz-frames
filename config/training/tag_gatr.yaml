@@ -1,0 +1,10 @@
+iterations: 200000
+batchsize: 128
+
+optimizer: Lion
+weight_decay: 0.2
+
+lr: 3e-4
+
+defaults:
+ - tag_default

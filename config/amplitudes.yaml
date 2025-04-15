@@ -14,9 +14,10 @@ data:
 evaluation:
  eval_set: [train, test, val]
  batchsize: 4096
+ save_lframes: false
 
 plotting:
- histograms: true
+ histograms: false
  delta: false
  delta_prepd: false
 
