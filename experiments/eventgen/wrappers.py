@@ -1,39 +1,83 @@
 import torch
-import numpy as np
+from torch import nn
 
 from experiments.eventgen.cfm import EventCFM
-from experiments.eventgen.utils import get_type_token, get_process_token
+from tensorframes.lframes.lframes import InverseLFrames
+from tensorframes.reps.tensorreps import TensorReps
+from tensorframes.reps.tensorreps_transform import TensorRepsTransform
 
 
-class MLPCFM(EventCFM):
-    """
-    Baseline MLP velocity network
-    """
-
+class CFMWrapper(EventCFM):
     def __init__(
         self,
-        net,
+        lframesnet,
         cfm,
         odeint,
+        n_particles,
+        beam_reference="timelike",
+        two_beams=True,
+        add_time_reference=True,
+        scalar_dims=[0, 3],
     ):
-        # See GATrCFM.__init__ for documentation
         super().__init__(
             cfm,
             odeint,
         )
-        self.net = net
+        self.lframesnet = lframesnet
+        self.trafo_fourmomenta = TensorRepsTransform(TensorReps("1x1n"))
 
-    def get_velocity(self, x, t, ijet):
-        t_embedding = self.t_embedding(t).squeeze()
-        x = x.reshape(x.shape[0], -1)
+        self.register_buffer("particle_type", torch.arange(n_particles))
+        self.scalar_dims = scalar_dims
 
-        x = torch.cat([x, t_embedding], dim=-1)
-        v = self.net(x)
-        v = v.reshape(v.shape[0], v.shape[1] // 4, 4)
-        return v
+        self.beam_reference = beam_reference
+        self.two_beams = two_beams
+        self.add_time_reference = add_time_reference
+
+    def preprocess_velocity(self, x, t):
+        t_embedding = self.t_embedding(t).expand(x.shape[0], x.shape[1], -1)
+        particle_type = self.encode_particle_type(x.shape)
+
+        # TODO: include spurions (as extra particles) for lframesnet input
+
+        fm = self.coordinates.x_to_fourmomenta(x)
+        scalars = torch.cat([t_embedding, particle_type], dim=-1)
+        lframes, tracker = self.lframesnet(
+            fm, scalars=scalars, ptr=None, return_tracker=True
+        )
+
+        # move everything to self.input_dtype
+        fm_local = self.trafo_fourmomenta(fm, lframes)
+        x_local = self.coordinates.fourmomenta_to_x(fm_local)
+        x_local = x_local.to(self.input_dtype)
+        lframes.to(self.input_dtype)
+
+        return (
+            x_local,
+            t_embedding,
+            particle_type,
+            lframes,
+            tracker,
+        )
+
+    def postprocess_velocity(self, v_mixed_local, x, lframes):
+        v_fm_local, v_s_local = v_mixed_local[..., 0:4], v_mixed_local[..., 4:]
+
+        v_fm = self.trafo_fourmomenta(v_fm_local, InverseLFrames(lframes))
+        fm = self.coordinates.x_to_fourmomenta(x)
+
+        v_x, _ = self.coordinates.velocity_fourmomenta_to_x(v_fm, fm)
+        v_x[..., self.scalar_dims] = v_s_local
+        return v_x
+
+    def encode_particle_type(self, shape):
+        particle_type = torch.nn.functional.one_hot(
+            self.particle_type, num_classes=self.particle_type.max() + 1
+        )
+        particle_type = particle_type.unsqueeze(0).repeat(shape[0], 1, 1)
+        return particle_type
 
 
-class TransformerCFM(EventCFM):
+class TransformerCFM(CFMWrapper):
     """
     Baseline Transformer velocity network
     """
@@ -41,23 +85,21 @@ class TransformerCFM(EventCFM):
     def __init__(
         self,
         net,
-        cfm,
-        type_token_channels,
-        odeint,
+        **kwargs,
     ):
-        # See GATrCFM.__init__ for documentation
-        super().__init__(
-            cfm,
-            odeint,
-        )
+        super().__init__(**kwargs)
         self.net = net
-        self.type_token_channels = type_token_channels
 
-    def get_velocity(self, x, t, ijet):
-        # note: flow matching happens directly in x space
-        type_token = get_type_token(x, self.type_token_channels)
-        t_embedding = self.t_embedding(t).expand(x.shape[0], x.shape[1], -1)
+    def get_velocity(self, x, t):
+        (
+            x_local,
+            t_embedding,
+            particle_type,
+            lframes,
+            tracker,
+        ) = super().preprocess_velocity(x, t)
 
-        x = torch.cat([x, type_token, t_embedding], dim=-1)
-        v = self.net(x)
-        return v
+        fts = torch.cat([x_local, particle_type, t_embedding], dim=-1)
+        v_local = self.net(fts, lframes)
+        v = self.postprocess_velocity(v_local, x, lframes)
+        return v  # and tracker

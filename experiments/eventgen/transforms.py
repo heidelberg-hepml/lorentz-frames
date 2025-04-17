@@ -437,36 +437,31 @@ class StandardNormal(BaseTransform):
         self.dims_fixed = dims_fixed
         self.onshell_list = onshell_list
 
-    def init_fit(self, xs):
-        n_particles = [x.shape[-2] for x in xs]
-        assert len(n_particles) == len(
-            set(n_particles)
-        ), f"n_particles should have unique elements, but n_particles={n_particles}"
-        self.params = {n_p: {"mean": None, "std": None} for n_p in n_particles}
-        for i, n_p in enumerate(n_particles):
-            assert len(xs[i].shape) == 3
-            self.params[n_p]["mean"] = xs[i].mean(dim=0)
-            std = xs[i].std(dim=0)
-            if self.onshell_list is not None:
-                std[self.onshell_list, 3] = 1.0
-            assert torch.isfinite(std).all()
-            self.params[n_p]["std"] = std
+    def init_fit(self, x):
+        self.params = {"mean": None, "std": None}
 
-            # do not fit some distributions
-            self.params[n_p]["mean"][..., self.dims_fixed] = 0.0
-            self.params[n_p]["std"][..., self.dims_fixed] = 1.0
+        assert len(x.shape) == 3
+        self.params["mean"] = x.mean(dim=0)
+        std = x.std(dim=0)
+        if self.onshell_list is not None:
+            std[self.onshell_list, 3] = 1.0
+        assert torch.isfinite(std).all()
+        self.params["std"] = std
+
+        # do not fit some distributions
+        self.params["mean"][..., self.dims_fixed] = 0.0
+        self.params["std"][..., self.dims_fixed] = 1.0
 
     def init_unit(self, n_particles):
         # initialize to zero mean and unit std
         # only for debugging and tests
-        self.params = {n_p: {"mean": None, "std": None} for n_p in n_particles}
-        for i, n_p in enumerate(n_particles):
-            self.params[n_p]["mean"] = torch.zeros(n_p, 4)
-            self.params[n_p]["std"] = torch.ones(n_p, 4)
+        self.params = {"mean": None, "std": None}
+
+        self.params["mean"] = torch.zeros(n_particles, 4)
+        self.params["std"] = torch.ones(n_particles, 4)
 
     def get_mean_std(self, x):
-        params = self.params[x.shape[-2]]
-        return params["mean"].to(x.device, dtype=x.dtype), params["std"].to(
+        return self.params["mean"].to(x.device, dtype=x.dtype), self.params["std"].to(
             x.device, dtype=x.dtype
         )
 

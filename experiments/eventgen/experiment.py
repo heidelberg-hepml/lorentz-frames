@@ -19,18 +19,17 @@ class EventGenerationExperiment(BaseExperiment):
 
         # dynamically set wrapper properties
         self.modelname = self.cfg.model.net._target_.rsplit(".", 1)[-1]
-        n_particles = self.n_hard_particles + max(self.cfg.data.n_jets)
-        n_datasets = len(self.cfg.data.n_jets)
+        n_particles = self.n_hard_particles + self.cfg.data.n_jets
         with open_dict(self.cfg):
             # dynamically set channel dimensions
             if self.modelname == "TFTransformer":
                 self.cfg.model.net.in_channels = (
-                    4 + n_datasets + n_particles + self.cfg.cfm.embed_t_dim
+                    n_particles + self.cfg.cfm.embed_t_dim + 4
                 )
-                self.cfg.model.type_token_channels = n_particles
-            elif self.modelname == "MLP":
-                self.cfg.model.net.in_shape = 4 * n_particles + self.cfg.cfm.embed_t_dim
-                self.cfg.model.net.out_shape = 4 * n_particles
+                self.cfg.model.net.out_channels = 4 + len(self.cfg.model.scalar_dims)
+                self.cfg.model.n_particles = n_particles
+            else:
+                raise NotImplementedError
 
             # copy model-specific parameters
             self.cfg.model.odeint = self.cfg.odeint
@@ -53,7 +52,7 @@ class EventGenerationExperiment(BaseExperiment):
             )
             data_raw = data_raw[: self.cfg.data.subsample, :]
         data_raw = data_raw.reshape(data_raw.shape[0], data_raw.shape[1] // 4, 4)
-        data_raw = torch.tensor(data_raw, dtype=self.dtype)
+        data_raw = torch.tensor(data_raw, dtype=torch.float64)
 
         # collect everything
         self.events_raw = data_raw
@@ -115,7 +114,7 @@ class EventGenerationExperiment(BaseExperiment):
             batch_size=self.cfg.training.batchsize,
             shuffle=True,
         )
-        test_dataset = torch.utils.data.TensorDataset(self.data_prepd["test"])
+        test_dataset = torch.utils.data.TensorDataset(self.data_prepd["tst"])
         self.test_loader = torch.utils.data.DataLoader(
             dataset=test_dataset,
             batch_size=self.cfg.evaluation.batchsize,
@@ -394,7 +393,8 @@ class EventGenerationExperiment(BaseExperiment):
         pass
 
     def _batch_loss(self, data):
-        data = data.to(self.device)
+        assert len(data) == 1
+        data = data[0].to(self.device)
         loss, component_mse = self.model.batch_loss(data)
         assert torch.isfinite(loss).all()
 
@@ -404,7 +404,7 @@ class EventGenerationExperiment(BaseExperiment):
         return loss, metrics
 
     def _init_metrics(self):
-        metrics = {"mse"}
+        metrics = {}
         for k in range(4):
             metrics[f"mse_{k}"] = []
         return metrics

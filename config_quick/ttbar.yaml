@@ -54,6 +54,7 @@ plotting:
  create_mask: false
 
 defaults:
+- training: default
 - model: eg_transformer
 - classifier: classifier
 - default

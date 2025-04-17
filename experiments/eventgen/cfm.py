@@ -49,6 +49,7 @@ class CFM(nn.Module):
         self,
         cfm,
         odeint={"method": "dopri5", "atol": 1e-5, "rtol": 1e-5, "options": None},
+        use_float64=False,
     ):
         super().__init__()
         self.t_embedding = nn.Sequential(
@@ -60,6 +61,7 @@ class CFM(nn.Module):
         self.trace_fn = hutchinson_trace if cfm.hutchinson else autograd_trace
         self.odeint = odeint
         self.cfm = cfm
+        self.input_dtype = torch.float64 if use_float64 else torch.float32
 
         # initialize to base objects, this will be overwritten later
         self.distribution = BaseDistribution()
@@ -86,13 +88,12 @@ class CFM(nn.Module):
         )
         return fourmomenta
 
-    def get_velocity(self, x, t, ijet):
+    def get_velocity(self, x, t):
         """
         Parameters
         ----------
         x : torch.tensor with shape (batchsize, n_particles, 4)
         t : torch.tensor with shape (batchsize, 1, 1)
-        ijet: int
         """
         # implemented by architecture-specific subclasses
         raise NotImplementedError
@@ -101,7 +102,7 @@ class CFM(nn.Module):
         # default: do nothing
         return v
 
-    def batch_loss(self, x0_fourmomenta, ijet):
+    def batch_loss(self, fm0):
         """
         Construct the conditional flow matching objective
 
@@ -109,52 +110,40 @@ class CFM(nn.Module):
         ----------
         x0_fourmomenta : torch.tensor with shape (batchsize, n_particles, 4)
             Target space particles in fourmomenta space
-        ijet: int
-            Process information (eg ttbar+0j vs ttbar+1j)
-            Only used in transformer architectures, ignored for MLP and GAP
 
         Returns
         -------
         loss : torch.tensor with shape (1)
         """
         t = torch.rand(
-            x0_fourmomenta.shape[0],
+            fm0.shape[0],
             1,
             1,
-            dtype=x0_fourmomenta.dtype,
-            device=x0_fourmomenta.device,
+            dtype=self.input_dtype,
+            device=fm0.device,
         )
-        x1_fourmomenta = self.sample_base(
-            x0_fourmomenta.shape, x0_fourmomenta.device, x0_fourmomenta.dtype
-        )
+        fm1 = self.sample_base(fm0.shape, fm0.device, fm0.dtype)
 
         # construct target trajectories
-        x0_straight = self.coordinates.fourmomenta_to_x(x0_fourmomenta)
-        x1_straight = self.coordinates.fourmomenta_to_x(x1_fourmomenta)
-        xt_straight, vt_straight = self.geometry.get_trajectory(
-            x0_straight, x1_straight, t
-        )
-        vp_straight = self.get_velocity(xt_straight, t, ijet=ijet)
+        x0 = self.coordinates.fourmomenta_to_x(fm0)
+        x1 = self.coordinates.fourmomenta_to_x(fm1)
+        xt, vt_x = self.geometry.get_trajectory(x0, x1, t)
+        vp_x = self.get_velocity(vt_x, t)
 
         # evaluate conditional flow matching objective
-        distance = self.geometry.get_metric(
-            vp_straight, vt_straight, xt_straight
-        ).mean()
+        distance = self.geometry.get_metric(vp_x, vt_x, xt).mean()
         distance_particlewise = [
-            ((vp_straight - vt_straight) ** 2)[..., i].mean() / 2 for i in range(4)
+            ((vp_x - vt_x) ** 2)[..., i].mean() / 2 for i in range(4)
         ]
         return distance, distance_particlewise
 
-    def sample(self, ijet, shape, device, dtype):
+    def sample(self, shape, device, dtype):
         """
         Sample from CFM model
         Solve an ODE using a NN-parametrized velocity field
 
         Parameters
         ----------
-        ijet : int
-            Process information (eg ttbar+0j vs ttbar+1j)
-            Only used in transformer architectures
         shape : List[int]
             Shape of events that should be generated
         device : torch.device
@@ -171,12 +160,12 @@ class CFM(nn.Module):
             t = t * torch.ones(
                 shape[0], 1, 1, dtype=xt_straight.dtype, device=xt_straight.device
             )
-            vt_straight = self.get_velocity(xt_straight, t, ijet=ijet)
+            vt_straight = self.get_velocity(xt_straight, t)
             vt_straight = self.handle_velocity(vt_straight)
             return vt_straight
 
         # sample fourmomenta from base distribution
-        x1_fourmomenta = self.sample_base(shape, device, dtype)
+        x1_fourmomenta = self.sample_base(shape, device, dtype=torch.float64)
         x1_straight = self.coordinates.fourmomenta_to_x(x1_fourmomenta)
 
         # solve ODE in straight space
@@ -204,7 +193,7 @@ class CFM(nn.Module):
         x0_fourmomenta = self.coordinates.x_to_fourmomenta(x0_straight)
         return x0_fourmomenta
 
-    def log_prob(self, x0_fourmomenta, ijet):
+    def log_prob(self, x0_fourmomenta):
         """
         Evaluate log_prob for existing target samples in a CFM model
         Solve ODE involving the trace of the velocity field, this is more expensive than normal sampling
@@ -217,9 +206,6 @@ class CFM(nn.Module):
         ----------
         x0_fourmomenta : torch.tensor with shape (batchsize, n_particles, 4)
             Target space particles in fourmomenta space
-        ijet: int
-            Process information (eg ttbar+0j vs ttbar+1j)
-            Only used in transformer architectures
 
         Returns
         -------
@@ -239,7 +225,7 @@ class CFM(nn.Module):
                     dtype=xt_straight.dtype,
                     device=xt_straight.device,
                 )
-                vt_straight = self.get_velocity(xt_straight, t, ijet=ijet)
+                vt_straight = self.get_velocity(xt_straight, t)
                 vt_straight = self.handle_velocity(vt_straight)
                 dlogp_dt_straight = -self.trace_fn(vt_straight, xt_straight).unsqueeze(
                     -1
@@ -250,16 +236,14 @@ class CFM(nn.Module):
         x0_straight = self.coordinates.fourmomenta_to_x(x0_fourmomenta)
         logdetjac0_cfm_straight = torch.zeros(
             (x0_straight.shape[0], 1),
-            dtype=x0_straight.dtype,
+            dtype=self.input_dtype,
             device=x0_straight.device,
         )
         state0 = (x0_straight, logdetjac0_cfm_straight)
         xt_straight, logdetjact_cfm_straight = odeint(
             net_wrapper,
             state0,
-            torch.tensor(
-                [0.0, 1.0], dtype=x0_straight.dtype, device=x0_straight.device
-            ),
+            torch.tensor([0.0, 1.0], dtype=self.input_dtype, device=x0_straight.device),
             **self.odeint,
         )
         logdetjac_cfm_straight = logdetjact_cfm_straight[-1].detach()

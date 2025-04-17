@@ -16,13 +16,13 @@ class BaseCoordinates:
         self.contains_mass = False
         self.transforms = []
 
-    def init_fit(self, fourmomenta_list):
+    def init_fit(self, fourmomenta):
         # only does something for StandardNormal()
         # requires that StandardNormal() comes last in self.transforms
-        x_list = [fourmomenta.clone() for fourmomenta in fourmomenta_list]
+        x = fourmomenta.clone()
         for transform in self.transforms[:-1]:
-            x_list = [transform.forward(x) for x in x_list]
-        self.transforms[-1].init_fit(x_list)
+            x = transform.forward(x)
+        self.transforms[-1].init_fit(x)
 
     def init_unit(self, particles_list):
         self.transforms[-1].init_unit(particles_list)
