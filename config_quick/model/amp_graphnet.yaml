@@ -2,6 +2,7 @@ _target_: experiments.amplitudes.wrappers.GraphNetWrapper
 particle_type: null
 include_nodes: true
 include_edges: true
+use_float64: null
 
 net:
  _target_: tensorframes.nn.graphnet.TFGraphNet

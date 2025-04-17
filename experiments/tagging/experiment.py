@@ -2,6 +2,7 @@ import numpy as np
 import torch
 from torch_geometric.loader import DataLoader
 import os, time
+from torch_geometric.utils import to_dense_batch
 
 from sklearn.metrics import roc_curve, roc_auc_score, accuracy_score
 
@@ -19,8 +20,15 @@ class TaggingExperiment(BaseExperiment):
     """
 
     def init_physics(self):
+        modelname = self.cfg.model.net._target_.rsplit(".", 1)[-1]
+
         # decide which entries to use for the net
-        self.cfg.model.in_channels = 7
+        if modelname == "LGATr":
+            self.cfg.model.net.in_s_channels = (
+                0 if self.cfg.model.mean_aggregation else 1
+            )
+        else:
+            self.cfg.model.in_channels = 7
 
         # decide which entries to use for the lframesnet
         if "equivectors" in self.cfg.model.lframesnet:
@@ -28,7 +36,7 @@ class TaggingExperiment(BaseExperiment):
                 7 if self.cfg.data.add_tagging_features_lframesnet else 0
             )
 
-        if self.cfg.model.net._target_.rsplit(".", 1)[-1] == "TFGraphNet":
+        if modelname == "TFGraphNet":
             self.cfg.model.net.num_edge_attr = 1 if self.cfg.model.include_edges else 0
 
     def init_data(self):
@@ -69,6 +77,34 @@ class TaggingExperiment(BaseExperiment):
             f"batch_size={self.cfg.training.batchsize} (training), {self.cfg.evaluation.batchsize} (evaluation)"
         )
 
+    def _init_optimizer(self, param_groups=None):
+        if self.cfg.model.net._target_.rsplit(".", 1)[-1] == "ParticleTransformer":
+            # special treatment for ParT, see
+            # https://github.com/hqucms/weaver-core/blob/dev/custom_train_eval/weaver/train.py#L464
+            # have to adapt this for finetuning!!!
+            decay, no_decay = {}, {}
+            for name, param in self.model.net.named_parameters():
+                if not param.requires_grad:
+                    continue
+                if (
+                    len(param.shape) == 1
+                    or name.endswith(".bias")
+                    or (
+                        hasattr(self.model.net, "no_weight_decay")
+                        and name in {"cls_token"}
+                    )
+                ):
+                    no_decay[name] = param
+                else:
+                    decay[name] = param
+            decay_1x, no_decay_1x = list(decay.values()), list(no_decay.values())
+            param_groups = [
+                {"params": no_decay_1x, "weight_decay": 0.0},
+                {"params": decay_1x, "weight_decay": self.cfg.training.weight_decay},
+            ]
+
+        super()._init_optimizer(param_groups=param_groups)
+
     def evaluate(self):
         self.results = {}
         loader_dict = {
@@ -105,13 +141,38 @@ class TaggingExperiment(BaseExperiment):
 
         # predictions
         labels_true, labels_predict = [], []
+        lframes_list = []
         self.model.eval()
         for batch in loader:
-            y_pred, label, _, _ = self._get_ypred_and_label(batch)
+            y_pred, label, _, lframes = self._get_ypred_and_label(batch)
             y_pred = torch.nn.functional.sigmoid(y_pred)
             labels_true.append(label.cpu().float())
             labels_predict.append(y_pred.cpu().float())
+
+            if self.cfg.evaluation.save_lframes:
+                lframes = lframes.matrices.cpu()
+                lframes_dense, _ = to_dense_batch(lframes, batch.batch)  # zero-pad
+                lframes_list.append(lframes_dense)
         labels_true, labels_predict = torch.cat(labels_true), torch.cat(labels_predict)
+
+        # save lframes
+        if self.cfg.evaluation.save_lframes and title == "test":
+            # zero-pad across batches
+            max_particles = max(lframes.shape[1] for lframes in lframes_list)
+            lframes_list_pad = [
+                torch.nn.functional.pad(
+                    lframes, (0, 0, 0, 0, 0, max_particles - lframes.shape[1])
+                )
+                for lframes in lframes_list
+            ]
+            lframes_list = torch.cat(lframes_list_pad, dim=0)
+
+            path = os.path.join(self.cfg.run_dir, f"plots_{self.cfg.run_idx}")
+            os.makedirs(path, exist_ok=True)
+            filename = os.path.join(path, f"lframes_{title}.npy")
+            LOGGER.info(f"Saving lframes to {filename}")
+            np.save(filename, lframes_list.numpy())
+
         if mode == "eval":
             metrics["labels_true"], metrics["labels_predict"] = (
                 labels_true,
@@ -174,7 +235,7 @@ class TaggingExperiment(BaseExperiment):
 
     def plot(self):
         plot_path = os.path.join(self.cfg.run_dir, f"plots_{self.cfg.run_idx}")
-        os.makedirs(plot_path)
+        os.makedirs(plot_path, exist_ok=True)
         title = type(self.model.net).__name__
         LOGGER.info(f"Creating plots in {plot_path}")
 
@@ -231,7 +292,7 @@ class TaggingExperiment(BaseExperiment):
     def _get_ypred_and_label(self, batch):
         batch = batch.to(self.device)
         embedding = embed_tagging_data(
-            batch.x.to(self.dtype),
+            batch.x,
             batch.scalars.to(self.dtype),
             batch.ptr,
             self.cfg.data,
@@ -247,7 +308,10 @@ class TaggingExperiment(BaseExperiment):
 class TopTaggingExperiment(TaggingExperiment):
     def __init__(self, cfg):
         super().__init__(cfg)
-        self.cfg.model.out_channels = 1
+        if self.cfg.model.net._target_.rsplit(".", 1)[-1] == "LGATr":
+            self.cfg.model.net.out_mv_channels = 1
+        else:
+            self.cfg.model.out_channels = 1
 
     def init_data(self):
         data_path = os.path.join(

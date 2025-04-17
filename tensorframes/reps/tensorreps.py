@@ -16,6 +16,9 @@ class TensorRep(Tuple):
         assert parity in [-1, 1]
         return super().__new__(cls, (order, parity))
 
+    def __deepcopy__(self, memo):
+        return self
+
     @property
     def order(self) -> int:
         """
@@ -51,6 +54,9 @@ class _TensorMulRep(Tuple):
         assert isinstance(rep, TensorRep), "rep must be an instance of TensorRep"
 
         return super().__new__(cls, (mul, rep))
+
+    def __deepcopy__(self, memo):
+        return self
 
     @property
     def mul(self):
@@ -116,6 +122,9 @@ class TensorReps(Tuple):
         str: Returns a string representation of the tensor reps.
         """
         return "+".join(f"{mul_ir}" for mul_ir in self)
+
+    def __deepcopy__(self, memo):
+        return self
 
     @property
     def dim(self) -> int:

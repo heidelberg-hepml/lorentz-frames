@@ -26,7 +26,6 @@ class IdentityLFrames(LFramesPredictor):
 
     def forward(self, fourmomenta, scalars=None, ptr=None, return_tracker=False):
         lframes = LFrames(
-            is_global=True,
             is_identity=True,
             device=fourmomenta.device,
             dtype=fourmomenta.dtype,
@@ -81,6 +80,15 @@ class RandomLFrames(LFramesPredictor):
             )
 
     def forward(self, fourmomenta, scalars=None, ptr=None, return_tracker=False):
+        if not self.training:
+            lframes = LFrames(
+                is_identity=True,
+                shape=fourmomenta.shape[:-1],
+                device=fourmomenta.device,
+                dtype=fourmomenta.dtype,
+            )
+            return (lframes, {}) if return_tracker else lframes
+
         shape = (
             fourmomenta.shape[:-2] + (1,) if self.is_global else fourmomenta.shape[:-1]
         )

@@ -1,5 +1,6 @@
 _target_: experiments.amplitudes.wrappers.MLPWrapper
 particle_type: null
+use_float64: null
 
 net:
  _target_: tensorframes.nn.mlp.MLP

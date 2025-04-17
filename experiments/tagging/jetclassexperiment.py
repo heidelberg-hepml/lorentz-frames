@@ -35,8 +35,11 @@ class JetClassTaggingExperiment(TaggingExperiment):
             "WToQQ",
             "ZToQQ",
         ]
-        self.cfg.model.out_channels = len(self.class_names)
-        self.cfg.model.in_channels = 7  # tagging features
+        modelname = self.cfg.model.net._target_.rsplit(".", 1)[-1]
+        if modelname == "LGATr":
+            self.cfg.model.net.out_mv_channels = len(self.class_names)
+        else:
+            self.cfg.model.out_channels = len(self.class_names)
 
         if self.cfg.data.features == "fourmomenta":
             self.cfg.data.data_config = (
@@ -257,10 +260,10 @@ class JetClassTaggingExperiment(TaggingExperiment):
                 0,
                 fourmomenta.shape[2],
                 device=fourmomenta.device,
-                dtype=fourmomenta.dtype,
+                dtype=self.dtype,
             )
         else:
-            scalars = batch[0]["pf_features"].to(self.device)
+            scalars = batch[0]["pf_features"].to(self.device, self.dtype)
         label = batch[1]["_label_"].to(self.device)
         fourmomenta, scalars, ptr = dense_to_sparse_jet(fourmomenta, scalars)
         embedding = embed_tagging_data(fourmomenta, scalars, ptr, self.cfg.data)
