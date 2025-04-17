@@ -627,6 +627,13 @@ class BaseExperiment:
             else float("inf"),
             error_if_nonfinite=True,
         ).detach()
+        # rescale gradients of the lframesnet only
+        if self.cfg.training.clip_grad_norm_lframesnet is not None:
+            torch.nn.utils.clip_grad_norm_(
+                self.model.lframesnet.parameters(),
+                self.cfg.training.clip_grad_norm_lframesnet,
+            )
+
         if step > MIN_STEP_SKIP and self.cfg.training.max_grad_norm is not None:
             if grad_norm > self.cfg.training.max_grad_norm:
                 LOGGER.warning(
@@ -642,7 +649,7 @@ class BaseExperiment:
 
         # collect metrics
 
-        self.train_loss.append(loss.item())
+        self.train_loss.append(loss.detach().item())
         self.train_lr.append(self.optimizer.param_groups[0]["lr"])
         self.grad_norm_train.append(grad_norm)
         self.grad_norm_lframes.append(grad_norm_lframes)
