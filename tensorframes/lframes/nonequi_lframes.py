@@ -7,6 +7,8 @@ from tensorframes.utils.transforms import (
     rand_xyrotation,
     rand_ztransform,
 )
+from tensorframes.utils.lorentz import lorentz_eye
+from tensorframes.utils.restframe import restframe_boost
 
 
 class LFramesPredictor(torch.nn.Module):
@@ -119,3 +121,37 @@ class RandomLFrames(LFramesPredictor):
             string += f", std_eta={self.std_eta}"
         string += ")"
         return string
+
+
+class ReferenceBoostRandomLFrames(RandomLFrames):
+    def forward(self, fourmomenta, scalars=None, ptr=None, return_tracker=False):
+        if not self.training:
+            lframes = LFrames(
+                is_identity=True,
+                shape=fourmomenta.shape[:-1],
+                device=fourmomenta.device,
+                dtype=fourmomenta.dtype,
+            )
+            return (lframes, {}) if return_tracker else lframes
+
+        shape = (
+            fourmomenta.shape[:-2] + (1,) if self.is_global else fourmomenta.shape[:-1]
+        )
+        matrix = self.transform(
+            shape, device=fourmomenta.device, dtype=fourmomenta.dtype
+        )
+
+        # hardcoded for amplitudes
+        reference_vector = fourmomenta[..., :2, :].sum(dim=-2)
+        reference_boost = restframe_boost(reference_vector)[:, None, :4, :4]
+
+        matrix = torch.einsum("...ij,...jk->...ik", matrix, reference_boost)
+        matrix = matrix.expand(*fourmomenta.shape[:-1], 4, 4)
+
+        lframes = LFrames(
+            is_global=self.is_global,
+            matrices=matrix,
+            device=fourmomenta.device,
+            dtype=fourmomenta.dtype,
+        )
+        return (lframes, {}) if return_tracker else lframes
