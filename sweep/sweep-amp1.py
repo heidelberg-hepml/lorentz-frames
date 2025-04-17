@@ -97,12 +97,12 @@ def run_trial(trial: Trial, seed, exp_name, model, cfg_overrides):
 
         # Run experiment
         exp()
-        score = exp.results["val"]["prepd"]["mse"]  # use test MSE as score
+        score = exp.results["val"]["prepd"]["mse"]  # use validation MSE as score
 
         return score
 
 
-@hydra.main(config_path=".", config_name="sweep-amp", version_base=None)
+@hydra.main(config_path=".", config_name="sweep-amp1", version_base=None)
 def sweep(cfg):
     """Entrance point to parameter sweep (wrapped with hydra)"""
 
