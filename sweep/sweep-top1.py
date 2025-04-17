@@ -134,7 +134,7 @@ def sweep(cfg):
         storage=f"sqlite:///{Path(cfg.optuna_db).resolve()}?timeout=60",
         load_if_exists=True,
         study_name=cfg.exp_name,
-        direction="minimize",
+        direction="maximize",
         sampler=optuna.samplers.TPESampler(
             multivariate=True, n_startup_trials=cfg.n_startup_trials
         ),
