@@ -24,6 +24,7 @@ log_every_n_steps: 200
 validate_every_n_steps: 5000
 validate_every_n_epochs_min: null
 
+clip_grad_norm_lframesnet: null
 clip_grad_norm: null
 clip_grad_value: null
 max_grad_norm: null
