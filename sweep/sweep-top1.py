@@ -49,15 +49,13 @@ def run_trial(trial: Trial, seed, exp_name, model, cfg_overrides):
             "top20_exp",
         ],
     )
-    dropout_lframesnet = trial.suggest_categorical(
-        "dropout_lframesnet", [0, 0.01, 0.3, 0.1, 0.2, 0.3]
-    )
+    dropout_lframesnet = trial.suggest_float("dropout_lframesnet", 1e-5, 0.5, log=True)
     # training
     lr_factor_lframesnet = trial.suggest_categorical(
-        "lr_factor_lframesnet", [0.1, 0.3, 1.0, 3.0, 10.0]
+        "lr_factor_lframesnet", [0.01, 0.03, 0.1, 0.3, 1, 3, 10, 30, 100]
     )
-    weight_decay_lframesnet = trial.suggest_categorical(
-        "weight_decay_lframesnet", [0, 1e-4, 1e-3, 1e-2, 3e-2, 1e-1, 0.2]
+    weight_decay_lframesnet = trial.suggest_float(
+        "weight_decay_lframesnet", 1e-5, 1, log=True
     )
 
     # catch runs with invalid hyperparameters
