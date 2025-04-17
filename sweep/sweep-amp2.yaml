@@ -8,5 +8,5 @@ optuna_db: 'runs/${exp_name}/optuna/optuna.db'
 model_name: amp_graphnet
 
 cfg_overrides:
- - num_train_files: 1
- - subsample: 100000
+ - data.num_train_files=1
+ - data.subsample=100000

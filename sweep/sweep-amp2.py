@@ -26,14 +26,14 @@ def run_trial(trial: Trial, seed, exp_name, model, cfg_overrides):
             "softmax",
         ],
     )
-    dropout_lframesnet = trial.suggest_categorial(
+    dropout_lframesnet = trial.suggest_categorical(
         "dropout_lframesnet", [0, 0.01, 0.3, 0.1, 0.2, 0.3]
     )
     # training
-    lr_factor_lframesnet = trial.suggest_categorial(
+    lr_factor_lframesnet = trial.suggest_categorical(
         "lr_factor_lframesnet", [0.1, 0.3, 1.0, 3.0, 10.0]
     )
-    weight_decay_lframesnet = trial.suggest_categorial(
+    weight_decay_lframesnet = trial.suggest_categorical(
         "weight_decay_lframesnet", [0, 1e-4, 1e-3, 1e-2, 3e-2, 1e-1, 0.2]
     )
 
