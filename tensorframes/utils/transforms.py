@@ -322,7 +322,7 @@ def rand_rotation_zboost(
     )
     boost = transform([axis], [angle])
 
-    trafo = torch.einsum("...ij,...jk->...ik", boost, rotation)
+    trafo = torch.einsum("...ij,...jk->...ik", rotation, boost)
     return trafo
 
 
