@@ -1,8 +1,4 @@
 _target_: experiments.eventgen.wrappers.TransformerCFM
-beam_reference: lightlike
-two_beams: true
-add_time_reference: true
-scalar_dims: [0, 3]
 
 net:
  _target_: tensorframes.nn.transformer.TFTransformer

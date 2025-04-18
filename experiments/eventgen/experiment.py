@@ -26,7 +26,9 @@ class EventGenerationExperiment(BaseExperiment):
                 self.cfg.model.net.in_channels = (
                     n_particles + self.cfg.cfm.embed_t_dim + 4
                 )
-                self.cfg.model.net.out_channels = 4 + len(self.cfg.model.scalar_dims)
+                self.cfg.model.net.out_channels = 4 + len(
+                    self.cfg.data.spurions.scalar_dims
+                )
                 self.cfg.model.n_particles = n_particles
             else:
                 raise NotImplementedError
@@ -34,6 +36,13 @@ class EventGenerationExperiment(BaseExperiment):
             # copy model-specific parameters
             self.cfg.model.odeint = self.cfg.odeint
             self.cfg.model.cfm = self.cfg.cfm
+            self.cfg.model.spurions = self.cfg.data.spurions
+
+        # decide which entries to use for the lframesnet
+        if "equivectors" in self.cfg.model.lframesnet:
+            self.cfg.model.lframesnet.equivectors.num_scalars = (
+                n_particles + self.cfg.cfm.embed_t_dim
+            )
 
     def init_data(self):
         LOGGER.info(f"Working with {self.cfg.data.n_jets} extra jets")

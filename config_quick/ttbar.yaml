@@ -13,6 +13,11 @@ data:
  base_type: 2
  use_delta_r_min: true
  use_pt_min: true
+ spurions:
+  beam_reference: timelike
+  two_beams: true
+  add_time_reference: true
+  scalar_dims: [0, 3]
 
 odeint:
  method: rk4

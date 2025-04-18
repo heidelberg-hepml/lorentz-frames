@@ -2,7 +2,8 @@ import torch
 from torch import nn
 
 from experiments.eventgen.cfm import EventCFM
-from tensorframes.lframes.lframes import InverseLFrames
+from experiments.tagging.embedding import get_spurion
+from tensorframes.lframes.lframes import LFrames, InverseLFrames
 from tensorframes.reps.tensorreps import TensorReps
 from tensorframes.reps.tensorreps_transform import TensorRepsTransform
 
@@ -14,10 +15,7 @@ class CFMWrapper(EventCFM):
         cfm,
         odeint,
         n_particles,
-        beam_reference="timelike",
-        two_beams=True,
-        add_time_reference=True,
-        scalar_dims=[0, 3],
+        spurions,
     ):
         super().__init__(
             cfm,
@@ -27,22 +25,43 @@ class CFMWrapper(EventCFM):
         self.trafo_fourmomenta = TensorRepsTransform(TensorReps("1x1n"))
 
         self.register_buffer("particle_type", torch.arange(n_particles))
-        self.scalar_dims = scalar_dims
+        self.scalar_dims = spurions.scalar_dims
 
-        self.beam_reference = beam_reference
-        self.two_beams = two_beams
-        self.add_time_reference = add_time_reference
+        self.spurions = get_spurion(
+            beam_reference=spurions.beam_reference,
+            add_time_reference=spurions.add_time_reference,
+            two_beams=spurions.two_beams,
+            dtype=torch.float64,
+            device="cpu",
+        )
+        self.n_spurions = self.spurions.shape[0]
 
     def preprocess_velocity(self, x, t):
         t_embedding = self.t_embedding(t).expand(x.shape[0], x.shape[1], -1)
         particle_type = self.encode_particle_type(x.shape)
 
-        # TODO: include spurions (as extra particles) for lframesnet input
-
         fm = self.coordinates.x_to_fourmomenta(x)
         scalars = torch.cat([t_embedding, particle_type], dim=-1)
-        lframes, tracker = self.lframesnet(
-            fm, scalars=scalars, ptr=None, return_tracker=True
+
+        spurions = self.spurions.to(x.device).unsqueeze(0).repeat(fm.shape[0], 1, 1)
+        fm_withspurions = torch.cat((spurions, fm), dim=-2)
+        scalars_zeros = torch.zeros(
+            scalars.shape[0],
+            self.n_spurions,
+            scalars.shape[2],
+            device=scalars.device,
+            dtype=scalars.dtype,
+        )
+        scalars_withspurions = torch.cat((scalars_zeros, scalars), dim=-2)
+        lframes_withspurions, tracker = self.lframesnet(
+            fm_withspurions, scalars=scalars_withspurions, ptr=None, return_tracker=True
+        )
+        lframes = LFrames(
+            matrices=lframes_withspurions.matrices[:, self.n_spurions :],
+            det=lframes_withspurions.det[:, self.n_spurions :],
+            inv=lframes_withspurions.inv[:, self.n_spurions :],
+            is_global=lframes_withspurions.is_global,
+            is_identity=lframes_withspurions.is_identity,
         )
 
         # move everything to self.input_dtype
