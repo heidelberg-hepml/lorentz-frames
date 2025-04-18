@@ -4,6 +4,7 @@ import torch
 import os, time
 import zipfile
 import logging
+import resource
 from pathlib import Path
 from omegaconf import OmegaConf, open_dict, errors
 from hydra.utils import instantiate
@@ -87,11 +88,12 @@ class BaseExperiment:
             self.plot()
 
         if self.device == torch.device("cuda"):
-            max_used = torch.cuda.max_memory_allocated()
-            max_total = torch.cuda.mem_get_info()[1]
-            LOGGER.info(
-                f"GPU RAM information: max_used = {max_used/1e9:.3} GB, max_total = {max_total/1e9:.3} GB"
-            )
+            max_gpuram_used = torch.cuda.max_memory_allocated() / 1024**3
+            max_gpuram_total = torch.cuda.mem_get_info()[1] / 1024**3
+            LOGGER.info(f"GPU_RAM_max_used = {max_gpuram_used:.3} GB")
+            LOGGER.info(f"GPU_RAM_max_total = {max_gpuram_total:.3} GB")
+        max_cpuram_used = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024**2
+        LOGGER.info(f"CPU_RAM_max_used = {max_cpuram_used:.3} GB")
         dt = time.time() - t0
         LOGGER.info(
             f"Finished experiment {self.cfg.exp_name}/{self.cfg.run_name} after {dt/60:.2f}min = {dt/60**2:.2f}h"

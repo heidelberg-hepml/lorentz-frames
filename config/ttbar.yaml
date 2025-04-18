@@ -3,12 +3,13 @@ exp_name: ttbar_debug
 
 data:
  n_jets: 0
- data_path_0j: data/ttbar_0j.npy
- data_path_1j: data/ttbar_1j.npy
- data_path_2j: data/ttbar_2j.npy
- data_path_3j: data/ttbar_3j.npy
- data_path_4j: data/ttbar_4j.npy
- subsample: 100000
+ data_path: /remote/gpu06/spinner/lorentz-gatr/data
+ data_path_0j: ${data.data_path}/ttbar_0j.npy
+ data_path_1j: ${data.data_path}/ttbar_1j.npy
+ data_path_2j: ${data.data_path}/ttbar_2j.npy
+ data_path_3j: ${data.data_path}/ttbar_3j.npy
+ data_path_4j: ${data.data_path}/ttbar_4j.npy
+ subsample: null
  train_test_val: [.5, .4, .1]
  base_type: 4
  use_delta_r_min: true
@@ -39,26 +40,26 @@ cfm:
 evaluation:
  sample: true
  save_samples: false
- nsamples: 1000
+ nsamples: 1000000
  batchsize: 4096
- eval_log_prob: [] # expensive
+ eval_log_prob: [val]
  classifier: true
 
 plot: true
 plotting:
  loss: true
- fourmomenta: false
+ fourmomenta: true
  jetmomenta: true
  preprocessed: true
- virtual: false
- delta: false
- deta_dphi: false
+ virtual: true
+ delta: true
+ deta_dphi: true
  log_prob: true
  reweighted: false
  create_mask: false
 
 defaults:
-- training: default
+- training: eg_default
 - model: eg_transformer
 - classifier: classifier
 - default
