@@ -102,4 +102,5 @@ class TransformerCFM(CFMWrapper):
         fts = torch.cat([x_local, particle_type, t_embedding], dim=-1)
         v_local = self.net(fts, lframes)
         v = self.postprocess_velocity(v_local, x, lframes)
-        return v  # and tracker
+        v = v.to(torch.float64)
+        return v, tracker

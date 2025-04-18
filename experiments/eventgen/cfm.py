@@ -128,14 +128,13 @@ class CFM(nn.Module):
         x0 = self.coordinates.fourmomenta_to_x(fm0)
         x1 = self.coordinates.fourmomenta_to_x(fm1)
         xt, vt_x = self.geometry.get_trajectory(x0, x1, t)
-        vp_x = self.get_velocity(vt_x, t)
+        vp_x, tracker = self.get_velocity(vt_x, t)
 
         # evaluate conditional flow matching objective
         distance = self.geometry.get_metric(vp_x, vt_x, xt).mean()
-        distance_particlewise = [
-            ((vp_x - vt_x) ** 2)[..., i].mean() / 2 for i in range(4)
-        ]
-        return distance, distance_particlewise
+        for k in range(4):
+            tracker[f"mse_{k}"] = ((vp_x - vt_x) ** 2)[..., k].mean().detach()
+        return distance, tracker
 
     def sample(self, shape, device, dtype):
         """
@@ -155,23 +154,21 @@ class CFM(nn.Module):
             Generated events
         """
 
-        def velocity(t, xt_straight):
-            xt_straight = self.geometry._handle_periodic(xt_straight)
-            t = t * torch.ones(
-                shape[0], 1, 1, dtype=xt_straight.dtype, device=xt_straight.device
-            )
-            vt_straight = self.get_velocity(xt_straight, t)
-            vt_straight = self.handle_velocity(vt_straight)
-            return vt_straight
+        def velocity(t, xt):
+            xt = self.geometry._handle_periodic(xt)
+            t = t * torch.ones(shape[0], 1, 1, dtype=self.input_dtype, device=xt.device)
+            vt_x = self.get_velocity(xt, t)[0]
+            vt_x = self.handle_velocity(vt_x)
+            return vt_x
 
         # sample fourmomenta from base distribution
-        x1_fourmomenta = self.sample_base(shape, device, dtype=torch.float64)
-        x1_straight = self.coordinates.fourmomenta_to_x(x1_fourmomenta)
+        fm1 = self.sample_base(shape, device, dtype=torch.float64)
+        x1 = self.coordinates.fourmomenta_to_x(fm1)
 
         # solve ODE in straight space
-        x0_straight = odeint(
+        x0 = odeint(
             velocity,
-            x1_straight,
+            x1,
             torch.tensor([1.0, 0.0]),
             **self.odeint,
         )[-1]
@@ -180,20 +177,20 @@ class CFM(nn.Module):
         # (MLP sometimes returns nan for single events,
         # and all components of the event are nan...
         # just sample another event in this case)
-        mask = torch.isfinite(x0_straight).all(dim=[1, 2])
+        mask = torch.isfinite(x0).all(dim=[1, 2])
         if (~mask).any():
-            mask2 = torch.isfinite(x0_straight)
-            x0_straight = x0_straight[mask, ...]
-            x1_fourmomenta = x1_fourmomenta[mask, ...]
+            mask2 = torch.isfinite(x0)
+            x0 = x0[mask, ...]
+            fm1 = fm1[mask, ...]
             LOGGER.warning(
                 f"Found {(~mask2).sum(dim=0).numpy()} nan events while sampling"
             )
 
         # transform generated event back to fourmomenta
-        x0_fourmomenta = self.coordinates.x_to_fourmomenta(x0_straight)
-        return x0_fourmomenta
+        fm0 = self.coordinates.x_to_fourmomenta(x0)
+        return fm0
 
-    def log_prob(self, x0_fourmomenta):
+    def log_prob(self, fm0):
         """
         Evaluate log_prob for existing target samples in a CFM model
         Solve ODE involving the trace of the velocity field, this is more expensive than normal sampling
@@ -204,81 +201,72 @@ class CFM(nn.Module):
 
         Parameters
         ----------
-        x0_fourmomenta : torch.tensor with shape (batchsize, n_particles, 4)
+        fm0 : torch.tensor with shape (batchsize, n_particles, 4)
             Target space particles in fourmomenta space
 
         Returns
         -------
-        log_prob_fourmomenta : torch.tensor with shape (batchsize)
+        log_prob_fm : torch.tensor with shape (batchsize)
             log_prob of each event in x0, evaluated in fourmomenta space
         """
 
         def net_wrapper(t, state):
             with torch.set_grad_enabled(True):
-                xt_straight = state[0]
-                xt_straight = self.geometry._handle_periodic(xt_straight)
-                xt_straight = xt_straight.detach().requires_grad_(True)
+                xt = state[0]
+                xt = self.geometry._handle_periodic(xt)
+                xt = xt.detach().requires_grad_(True)
                 t = t * torch.ones(
-                    xt_straight.shape[0],
+                    xt.shape[0],
                     1,
                     1,
-                    dtype=xt_straight.dtype,
-                    device=xt_straight.device,
+                    dtype=self.input_dtype,
+                    device=xt.device,
                 )
-                vt_straight = self.get_velocity(xt_straight, t)
-                vt_straight = self.handle_velocity(vt_straight)
-                dlogp_dt_straight = -self.trace_fn(vt_straight, xt_straight).unsqueeze(
-                    -1
-                )
-            return vt_straight.detach(), dlogp_dt_straight.detach()
+                vt_x = self.get_velocity(xt, t)[0]
+                vt_x = self.handle_velocity(vt_x)
+                dlogp_dt_x = -self.trace_fn(vt_x, xt).unsqueeze(-1)
+            return vt_x.detach(), dlogp_dt_x.detach()
 
         # solve ODE in coordinates
-        x0_straight = self.coordinates.fourmomenta_to_x(x0_fourmomenta)
-        logdetjac0_cfm_straight = torch.zeros(
-            (x0_straight.shape[0], 1),
+        x0 = self.coordinates.fourmomenta_to_x(fm0)
+        logdetjac0_cfm_x = torch.zeros(
+            (x0.shape[0], 1),
             dtype=self.input_dtype,
-            device=x0_straight.device,
+            device=x0.device,
         )
-        state0 = (x0_straight, logdetjac0_cfm_straight)
-        xt_straight, logdetjact_cfm_straight = odeint(
+        state0 = (x0, logdetjac0_cfm_x)
+        xt, logdetjact_cfm_x = odeint(
             net_wrapper,
             state0,
-            torch.tensor([0.0, 1.0], dtype=self.input_dtype, device=x0_straight.device),
+            torch.tensor([0.0, 1.0], dtype=self.input_dtype, device=x0.device),
             **self.odeint,
         )
-        logdetjac_cfm_straight = logdetjact_cfm_straight[-1].detach()
-        x1_straight = xt_straight[-1].detach()
+        logdetjac_cfm_x = logdetjact_cfm_x[-1].detach()
+        x1 = xt[-1].detach()
 
         # the infamous nan remover
         # (MLP sometimes returns nan for single events,
         # just remove these events from the log_prob computation)
-        mask = torch.isfinite(x1_straight).all(dim=[1, 2])
+        mask = torch.isfinite(x1).all(dim=[1, 2])
         if (~mask).any():
-            mask2 = torch.isfinite(x1_straight)
-            logdetjac_cfm_straight = logdetjac_cfm_straight[mask]
-            x1_straight = x1_straight[mask]
-            x0_fourmomenta = x0_fourmomenta[mask]
+            mask2 = torch.isfinite(x1)
+            logdetjac_cfm_x = logdetjac_cfm_x[mask]
+            x1 = x1[mask]
+            fm0 = fm0[mask]
             LOGGER.warning(
-                f"Found {(~mask2).sum(dim=0).numpy()} nan events while sampling"
+                f"Found {(~mask2).sum(dim=0).numpy()} nan events in log_prob"
             )
 
-        x1_fourmomenta = self.coordinates.x_to_fourmomenta(x1_straight)
-        logdetjac_forward = self.coordinates.logdetjac_fourmomenta_to_x(x0_fourmomenta)[
-            0
-        ]
-        logdetjac_inverse = -self.coordinates.logdetjac_fourmomenta_to_x(
-            x1_fourmomenta
-        )[0]
+        fm1 = self.coordinates.x_to_fourmomenta(x1)
+        logdetjac_forward = self.coordinates.logdetjac_fourmomenta_to_x(fm0)[0]
+        logdetjac_inverse = -self.coordinates.logdetjac_fourmomenta_to_x(fm1)[0]
 
         # collect log_probs
-        log_prob_base_fourmomenta = self.distribution.log_prob(x1_fourmomenta)
-        log_prob_fourmomenta = (
-            log_prob_base_fourmomenta
-            - logdetjac_cfm_straight
-            - logdetjac_forward
-            - logdetjac_inverse
+        log_prob_base_fm = self.distribution.log_prob(fm1)
+        log_prob_fm = (
+            log_prob_base_fm - logdetjac_cfm_x - logdetjac_forward - logdetjac_inverse
         )
-        return log_prob_fourmomenta
+        return log_prob_fm
 
 
 class EventCFM(CFM):

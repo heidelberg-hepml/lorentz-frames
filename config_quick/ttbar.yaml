@@ -36,21 +36,20 @@ evaluation:
  save_samples: false
  nsamples: 1000
  batchsize: 4096
- eval_loss: []
  eval_log_prob: [] # expensive
  classifier: true
 
 plot: true
 plotting:
  loss: true
- fourmomenta: true
+ fourmomenta: false
  jetmomenta: true
  preprocessed: true
- virtual: true
- delta: true
- deta_dphi: true
+ virtual: false
+ delta: false
+ deta_dphi: false
  log_prob: true
- reweighted: true
+ reweighted: false
  create_mask: false
 
 defaults:

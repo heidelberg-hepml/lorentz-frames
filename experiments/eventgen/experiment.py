@@ -137,8 +137,8 @@ class EventGenerationExperiment(BaseExperiment):
     def evaluate(self):
         # EMA-evaluation not implemented
         loaders = {
-            "train": self.train_loader,
-            "test": self.test_loader,
+            "trn": self.train_loader,
+            "tst": self.test_loader,
             "val": self.val_loader,
         }
         if self.cfg.evaluation.sample:
@@ -150,9 +150,6 @@ class EventGenerationExperiment(BaseExperiment):
         if self.cfg.evaluation.classifier:
             self.classifiers = self._evaluate_classifier_metric()
 
-        for key in self.cfg.evaluation.eval_loss:
-            if key in loaders.keys():
-                self._evaluate_loss_single(loaders[key], key)
         for key in self.cfg.evaluation.eval_log_prob:
             if key == "gen":
                 # log_probs of generated events are not interesting
@@ -187,6 +184,7 @@ class EventGenerationExperiment(BaseExperiment):
         cls_params = {"mean": None, "std": None}
         data_true, cls_params = classifier.preprocess(data_true, cls_params)
         data_fake = classifier.preprocess(data_fake, cls_params)[0]
+        data_true, data_fake = data_true.to(self.dtype), data_fake.to(self.dtype)
         data_true = classifier.train_test_val_split(data_true)
         data_fake = classifier.train_test_val_split(data_fake)
         classifier.init_data(data_true, data_fake)
@@ -205,7 +203,7 @@ class EventGenerationExperiment(BaseExperiment):
             filename = os.path.join(
                 self.cfg.run_dir,
                 "samples",
-                f"samples_weighted_{self.cfg.run_idx}_{self.cfg.data.n_jets}j",
+                f"samples_weighted_{self.cfg.run_idx}j",
             )
             np.savez(
                 filename,
@@ -216,51 +214,36 @@ class EventGenerationExperiment(BaseExperiment):
             )
         return classifier
 
-    def _evaluate_loss_single(self, loader, title):
-        self.model.eval()
-        losses = []
-        LOGGER.info(f"Starting to evaluate loss for model on {title} dataset")
-        t0 = time.time()
-        for data in loader:
-            loss = self.model.batch_loss(data)[0]
-            losses.append(loss.cpu().item())
-        dt = time.time() - t0
-        LOGGER.info(
-            f"Finished evaluating loss for {title} dataset after {dt/60:.2f}min"
-        )
-
-        if self.cfg.use_mlflow:
-            log_mlflow(f"eval.{title}.loss", np.mean(losses))
-
     def _evaluate_log_prob_single(self, loader, title):
         self.model.eval()
-        NLLs = []
+        self.NLLs = []
         LOGGER.info(f"Starting to evaluate log_prob for model on {title} dataset")
         t0 = time.time()
         for i, data in enumerate(tqdm(loader)):
-            data = data.to(self.device)
+            data = data[0].to(self.device)
             NLL = -self.model.log_prob(data).squeeze().cpu()
-            NLLs.extend(NLL.squeeze().numpy().tolist())
+            self.NLLs.extend(NLL.squeeze().numpy().tolist())
         dt = time.time() - t0
         LOGGER.info(
             f"Finished evaluating log_prob for {title} dataset after {dt/60:.2f}min"
         )
-        LOGGER.info(f"NLL = {np.mean(NLLs)}")
+        LOGGER.info(f"NLL = {np.mean(self.NLLs)}")
         if self.cfg.use_mlflow:
-            log_mlflow(f"eval.{title}.NLL", np.mean(NLL))
+            log_mlflow(f"eval.{title}.NLL", np.mean(self.NLLs))
 
     def _sample_events(self):
         self.model.eval()
-        n_jets = self.cfg.data.n_jets
 
         sample = []
-        shape = (self.cfg.evaluation.batchsize, self.n_hard_particles + n_jets, 4)
+        shape = (
+            self.cfg.evaluation.batchsize,
+            self.n_hard_particles + self.cfg.data.n_jets,
+            4,
+        )
         n_batches = (
             1 + (self.cfg.evaluation.nsamples - 1) // self.cfg.evaluation.batchsize
         )
-        LOGGER.info(
-            f"Starting to generate {self.cfg.evaluation.nsamples} {n_jets}j events"
-        )
+        LOGGER.info(f"Starting to generate {self.cfg.evaluation.nsamples} events")
         t0 = time.time()
         for i in trange(n_batches, desc="Sampled batches"):
             x_t = self.model.sample(
@@ -271,7 +254,7 @@ class EventGenerationExperiment(BaseExperiment):
             sample.append(x_t)
         t1 = time.time()
         LOGGER.info(
-            f"Finished generating {n_jets}j events after {t1-t0:.2f}s = {(t1-t0)/60:.2f}min"
+            f"Finished generating events after {t1-t0:.2f}s = {(t1-t0)/60:.2f}min"
         )
 
         samples = torch.cat(sample, dim=0)[: self.cfg.evaluation.nsamples, ...].cpu()
@@ -280,17 +263,12 @@ class EventGenerationExperiment(BaseExperiment):
         samples_raw = self.model.undo_preprocess(samples)
         self.data_raw["gen"] = samples_raw
 
-        m2 = samples_raw[..., 0] ** 2 - (samples_raw[..., 1:] ** 2).sum(dim=-1)
-        LOGGER.info(
-            f"Fraction of events with m2<0: {(m2<0).float().mean():.4f} (flip m2->-m2 for these events)"
-        )
-
         if self.cfg.evaluation.save_samples and self.cfg.save:
             os.makedirs(os.path.join(self.cfg.run_dir, "samples"), exist_ok=True)
             filename = os.path.join(
                 self.cfg.run_dir,
                 "samples",
-                f"samples_{self.cfg.run_idx}_{n_jets}j.npy",
+                f"samples_{self.cfg.run_idx}.npy",
             )
             np.save(filename, samples_raw)
 
@@ -305,7 +283,6 @@ class EventGenerationExperiment(BaseExperiment):
         os.makedirs(os.path.join(path), exist_ok=True)
         LOGGER.info(f"Creating plots in {path}")
 
-        self.plot_titles = r"${%s}+{%s}j$" % (self.plot_title, self.cfg.data.n_jets)
         kwargs = {
             "exp": self,
             "model_label": self.modelname,
@@ -393,18 +370,13 @@ class EventGenerationExperiment(BaseExperiment):
         pass
 
     def _batch_loss(self, data):
-        assert len(data) == 1
         data = data[0].to(self.device)
-        loss, component_mse = self.model.batch_loss(data)
+        loss, metrics = self.model.batch_loss(data)
         assert torch.isfinite(loss).all()
-
-        metrics = {"mse": loss}
-        for k in range(4):
-            metrics[f"mse_{k}"] = component_mse[k]
         return loss, metrics
 
     def _init_metrics(self):
-        metrics = {}
+        metrics = {"reg_collinear": [], "reg_coplanar": [], "reg_lightlike": []}
         for k in range(4):
             metrics[f"mse_{k}"] = []
         return metrics
