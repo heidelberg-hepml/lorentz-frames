@@ -133,7 +133,7 @@ class CFM(nn.Module):
         # evaluate conditional flow matching objective
         distance = self.geometry.get_metric(vp_x, vt_x, xt).mean()
         for k in range(4):
-            tracker[f"mse_{k}"] = ((vp_x - vt_x) ** 2)[..., k].mean().detach()
+            tracker[f"mse_{k}"] = ((vp_x - vt_x) ** 2)[..., k].mean().detach().cpu()
         return distance, tracker
 
     def sample(self, shape, device, dtype):
