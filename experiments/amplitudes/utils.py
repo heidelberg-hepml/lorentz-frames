@@ -8,6 +8,7 @@ from tensorframes.utils.lorentz import lorentz_eye
 from tensorframes.utils.transforms import (
     rand_rotation_uniform,
     rand_xyrotation,
+    rand_rotation_zboost,
 )
 from tensorframes.utils.restframe import restframe_boost
 
@@ -97,7 +98,7 @@ def load_file(
         trafo = restframe_boost(-lab_momentum)
     elif cfg_data.prepare == "lorentz":
         # add random rotation to existing z-boost -> general Lorentz trafo
-        trafo = rand_rotation_uniform(
+        trafo = rand_rotation_zboost(
             momentum.shape[:-2], generator=generator, dtype=save_dtype
         )
     elif cfg_data.prepare == "ztransform":
