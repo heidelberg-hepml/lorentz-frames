@@ -147,6 +147,28 @@ class EventGenerationExperiment(BaseExperiment):
             f"batch_size={self.cfg.training.batchsize} (training), {self.cfg.evaluation.batchsize} (evaluation)"
         )
 
+    def _init_optimizer(self, param_groups=None):
+        # handle linear layer in the t_embedding in the same way as the main net
+        # this could be handled in more elegant way
+        param_groups = [
+            {
+                "params": self.model.net.parameters(),
+                "lr": self.cfg.training.lr,
+                "weight_decay": self.cfg.training.weight_decay,
+            },
+            {
+                "params": self.model.lframesnet.parameters(),
+                "lr": self.cfg.training.lr_factor_lframesnet * self.cfg.training.lr,
+                "weight_decay": self.cfg.training.weight_decay_lframesnet,
+            },
+            {
+                "params": self.model.t_embedding.parameters(),
+                "lr": self.cfg.training.lr,
+                "weight_decay": self.cfg.training.weight_decay,
+            },
+        ]
+        super()._init_optimizer(param_groups=param_groups)
+
     @torch.no_grad()
     def evaluate(self):
         # EMA-evaluation not implemented
