@@ -40,33 +40,45 @@ class CFMWrapper(EventCFM):
         t_embedding = self.t_embedding(t).expand(x.shape[0], x.shape[1], -1)
         particle_type = self.encode_particle_type(x.shape)
 
-        fm = self.coordinates.x_to_fourmomenta(x)
-        scalars = torch.cat([t_embedding, particle_type], dim=-1)
+        if self.lframesnet.is_identity:
+            # shortcut
+            # local frame = global frame -> nothing to do
+            lframes, tracker = self.lframesnet(x, return_tracker=True)
+            x_local = x
 
-        spurions = self.spurions.to(x.device).unsqueeze(0).repeat(fm.shape[0], 1, 1)
-        fm_withspurions = torch.cat((spurions, fm), dim=-2)
-        scalars_zeros = torch.zeros(
-            scalars.shape[0],
-            self.n_spurions,
-            scalars.shape[2],
-            device=scalars.device,
-            dtype=scalars.dtype,
-        )
-        scalars_withspurions = torch.cat((scalars_zeros, scalars), dim=-2)
-        lframes_withspurions, tracker = self.lframesnet(
-            fm_withspurions, scalars=scalars_withspurions, ptr=None, return_tracker=True
-        )
-        lframes = LFrames(
-            matrices=lframes_withspurions.matrices[:, self.n_spurions :],
-            det=lframes_withspurions.det[:, self.n_spurions :],
-            inv=lframes_withspurions.inv[:, self.n_spurions :],
-            is_global=lframes_withspurions.is_global,
-            is_identity=lframes_withspurions.is_identity,
-        )
+        else:
+            # long route (also works for identity but is slower)
+            fm = self.coordinates.x_to_fourmomenta(x)
+            scalars = torch.cat([t_embedding, particle_type], dim=-1)
+
+            spurions = self.spurions.to(x.device).unsqueeze(0).repeat(fm.shape[0], 1, 1)
+            fm_withspurions = torch.cat((spurions, fm), dim=-2)
+            scalars_zeros = torch.zeros(
+                scalars.shape[0],
+                self.n_spurions,
+                scalars.shape[2],
+                device=scalars.device,
+                dtype=scalars.dtype,
+            )
+            scalars_withspurions = torch.cat((scalars_zeros, scalars), dim=-2)
+            lframes_withspurions, tracker = self.lframesnet(
+                fm_withspurions,
+                scalars=scalars_withspurions,
+                ptr=None,
+                return_tracker=True,
+            )
+            lframes = LFrames(
+                matrices=lframes_withspurions.matrices[:, self.n_spurions :],
+                det=lframes_withspurions.det[:, self.n_spurions :],
+                inv=lframes_withspurions.inv[:, self.n_spurions :],
+                is_global=lframes_withspurions.is_global,
+                is_identity=lframes_withspurions.is_identity,
+            )
+
+            fm_local = self.trafo_fourmomenta(fm, lframes)
+            x_local = self.coordinates.fourmomenta_to_x(fm_local)
 
         # move everything to self.input_dtype
-        fm_local = self.trafo_fourmomenta(fm, lframes)
-        x_local = self.coordinates.fourmomenta_to_x(fm_local)
         x_local = x_local.to(self.input_dtype)
         lframes.to(self.input_dtype)
 
@@ -81,11 +93,18 @@ class CFMWrapper(EventCFM):
     def postprocess_velocity(self, v_mixed_local, x, lframes):
         v_fm_local, v_s_local = v_mixed_local[..., 0:4], v_mixed_local[..., 4:]
 
-        v_fm = self.trafo_fourmomenta(v_fm_local, InverseLFrames(lframes))
-        fm = self.coordinates.x_to_fourmomenta(x)
+        if self.lframesnet.is_identity:
+            # shortcut
+            # interpret network output as velocity in x-coordinates
+            v_x = v_fm_local
 
-        v_x, _ = self.coordinates.velocity_fourmomenta_to_x(v_fm, fm)
-        v_x[..., self.scalar_dims] = v_s_local
+        else:
+            # long route (also works for identity but is slower)
+            v_fm = self.trafo_fourmomenta(v_fm_local, InverseLFrames(lframes))
+            fm = self.coordinates.x_to_fourmomenta(x)
+
+            v_x, _ = self.coordinates.velocity_fourmomenta_to_x(v_fm, fm)
+            v_x[..., self.scalar_dims] = v_s_local
         return v_x
 
     def encode_particle_type(self, shape):
