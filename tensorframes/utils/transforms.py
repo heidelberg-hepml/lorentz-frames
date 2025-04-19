@@ -87,7 +87,7 @@ def rand_lorentz(
             Allowed number of standard deviations;
             used to sample from a truncated Gaussian
         is_cauchy: bool
-            Sample from a Cauchy distribution instead of Gaussian
+            Sample rapidities from a Cauchy distribution instead of Gaussian
         device: str
         dtype: torch.dtype
         generator: torch.Generator
@@ -137,7 +137,7 @@ def rand_general_lorentz(
             Allowed number of standard deviations;
             used to sample from a truncated Gaussian
         is_cauchy: bool
-            Sample from a Cauchy distribution instead of Gaussian
+            Sample rapdidities from a Cauchy distribution instead of Gaussian
         device: str
         dtype: torch.dtype
         generator: torch.Generator
@@ -259,7 +259,7 @@ def rand_ztransform(
             Allowed number of standard deviations;
             used to sample from a truncated Gaussian
         is_cauchy: bool
-            Sample from a Cauchy distribution instead of Gaussian
+            Sample rapidities from a Cauchy distribution instead of Gaussian
         device: str
         dtype: torch.dtype
         generator: torch.Generator
@@ -361,7 +361,7 @@ def rand_general_boost(
             Allowed number of standard deviations;
             used to sample from a truncated Gaussian
         is_cauchy: bool
-            Sample from a Cauchy distribution instead of Gaussian
+            Sample rapidities from a Cauchy distribution instead of Gaussian
 
         device: str
         dtype: torch.dtype
