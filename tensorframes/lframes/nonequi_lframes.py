@@ -6,6 +6,7 @@ from tensorframes.utils.transforms import (
     rand_rotation_naive,
     rand_xyrotation,
     rand_ztransform,
+    rand_general_lorentz,
 )
 from tensorframes.utils.lorentz import lorentz_eye
 from tensorframes.utils.restframe import restframe_boost
@@ -77,6 +78,15 @@ class RandomLFrames(LFramesPredictor):
             return rand_xyrotation(shape, device=device, dtype=dtype)
         elif self.transform_type == "ztransform":
             return rand_ztransform(
+                shape,
+                std_eta=self.std_eta,
+                n_max_std_eta=self.n_max_std_eta,
+                is_cauchy=self.is_cauchy,
+                device=device,
+                dtype=dtype,
+            )
+        elif self.transform_type == "general_lorentz":
+            return rand_general_lorentz(
                 shape,
                 std_eta=self.std_eta,
                 n_max_std_eta=self.n_max_std_eta,
