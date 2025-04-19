@@ -45,7 +45,7 @@ def run_trial(trial: Trial, seed, exp_name, model, cfg_overrides):
             # optuna-related settings
             f"run_name=trial_{trial.number}",
             f"exp_name={exp_name}",
-            f"seed={seed}",
+            # f"seed={seed}",
             # Fixed parameters
             f"model={model}",
             f"training={model}",
