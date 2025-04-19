@@ -3,7 +3,7 @@ _partial_: true
 
 n_vectors: null
 num_scalars: null
-hidden_channels: 32
+hidden_channels: 128
 hidden_vectors: 1
 num_layers_mlp: 2
 num_blocks: 1
@@ -14,4 +14,4 @@ operation: add
 nonlinearity: exp
 aggr: sum
 layer_norm: true
-fm_norm: false
+fm_norm: true
