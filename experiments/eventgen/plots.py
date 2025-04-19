@@ -92,11 +92,11 @@ def plot_histogram(
 
     if mask_dict is None:
         fig, axs = plt.subplots(
-            3,
+            2,
             1,
             sharex=True,
             figsize=(6, 4),
-            gridspec_kw={"height_ratios": [3, 1, 1], "hspace": 0.00},
+            gridspec_kw={"height_ratios": [3, 1], "hspace": 0.00},
         )
     else:
         fig, ax = plt.subplots(figsize=(6, 4))
@@ -185,23 +185,6 @@ def plot_histogram(
             step="post",
         )
 
-        delta = np.fabs(ratio - 1) * 100
-        delta_err = ratio_err * 100
-
-        markers, caps, bars = axs[2].errorbar(
-            (bins[:-1] + bins[1:]) / 2,
-            delta,
-            yerr=delta_err,
-            ecolor=color,
-            color=color,
-            elinewidth=0.5,
-            linewidth=0,
-            fmt=".",
-            capsize=2,
-        )
-        [cap.set_alpha(0.5) for cap in caps]
-        [bar.set_alpha(0.5) for bar in bars]
-
     axs[0].legend(loc="upper right", frameon=False, fontsize=FONTSIZE_LEGEND)
     axs[0].set_ylabel("Normalized", fontsize=FONTSIZE)
 
@@ -235,39 +218,7 @@ def plot_histogram(
         axs[1].axhline(y=error_ticks[0], c="black", ls="dotted", lw=0.5)
         axs[1].axhline(y=error_ticks[1], c="black", ls="--", lw=0.7)
         axs[1].axhline(y=error_ticks[2], c="black", ls="dotted", lw=0.5)
-
-        axs[2].set_ylim((0.05, 20))
-        axs[2].set_yscale("log")
-        axs[2].set_yticks([0.1, 1.0, 10.0])
-        axs[2].set_yticklabels([r"$0.1$", r"$1.0$", "$10.0$"])
-        axs[2].set_yticks(
-            [
-                0.2,
-                0.3,
-                0.4,
-                0.5,
-                0.6,
-                0.7,
-                0.8,
-                0.9,
-                2.0,
-                3.0,
-                4.0,
-                5.0,
-                6.0,
-                7.0,
-                8.0,
-                9.0,
-            ],
-            minor=True,
-        )
-
-        axs[2].axhline(y=1.0, linewidth=0.5, linestyle="--", color="grey")
-        axs[2].axhspan(0, 1.0, facecolor="#cccccc", alpha=0.3)
-        axs[2].set_ylabel(r"$\delta [\%]$", fontsize=FONTSIZE)
-
         axs[1].tick_params(axis="both", labelsize=TICKLABELSIZE)
-        axs[2].tick_params(axis="both", labelsize=TICKLABELSIZE)
 
     plt.savefig(file, bbox_inches="tight", format="pdf")
     plt.close()
