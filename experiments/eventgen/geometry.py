@@ -2,21 +2,20 @@ from experiments.eventgen.helpers import ensure_angle
 
 
 class BaseGeometry:
-    def get_trajectory(self, x_target, x_base, t):
+    def get_trajectory(self, x0, x1, t):
         raise NotImplementedError
 
-    def get_metric(self, y1, y2, x):
+    def get_metric(self, y1, y2):
         raise NotImplementedError
 
 
 class SimpleGeometry:
-    def get_trajectory(self, x_target, x_base, t):
-        v_t = x_base - x_target
-        x_t = x_target + t * v_t
+    def get_trajectory(self, x0, x1, t):
+        v_t = x1 - x0
+        x_t = x0 + t * v_t
         return x_t, v_t
 
-    def get_metric(self, y1, y2, x):
-        # y1 and y2 are vectors (not necessarily positions), and x is the position
+    def get_metric(self, y1, y2):
         # default: euclidean metric
         se = (y1 - y2) ** 2 / 2
         return se.mean(dim=[-1, -2])
@@ -32,14 +31,14 @@ class SimplePossiblyPeriodicGeometry(SimpleGeometry):
         )
         return x
 
-    def get_trajectory(self, x_target, x_base, t):
-        v_t = x_base - x_target
+    def get_trajectory(self, x0, x1, t):
+        v_t = x1 - x0
         v_t = self._handle_periodic(v_t)
-        x_t = x_target + t * v_t
+        x_t = x0 + t * v_t
         x_t = self._handle_periodic(x_t)
         return x_t, v_t
 
-    def get_metric(self, y1, y2, x):
+    def get_metric(self, y1, y2):
         diff = y1 - y2
         # diff = self._handle_periodic(diff)
         se = diff**2 / 2

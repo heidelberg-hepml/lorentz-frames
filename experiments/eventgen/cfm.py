@@ -104,11 +104,12 @@ class CFM(nn.Module):
 
     def batch_loss(self, fm0):
         """
-        Construct the conditional flow matching objective
+        Construct the conditional flow matching objective.
+        Note: t=0/t=1 are target/base distribution.
 
         Parameters
         ----------
-        x0_fourmomenta : torch.tensor with shape (batchsize, n_particles, 4)
+        fm0 : torch.tensor with shape (batchsize, n_particles, 4)
             Target space particles in fourmomenta space
 
         Returns
@@ -131,7 +132,7 @@ class CFM(nn.Module):
         vp_x, tracker = self.get_velocity(xt, t)
 
         # evaluate conditional flow matching objective
-        distance = self.geometry.get_metric(vp_x, vt_x, xt).mean()
+        distance = self.geometry.get_metric(vp_x, vt_x).mean()
         for k in range(4):
             tracker[f"mse_{k}"] = ((vp_x - vt_x) ** 2)[..., k].mean().detach().cpu()
         return distance, tracker
@@ -150,16 +151,16 @@ class CFM(nn.Module):
 
         Returns
         -------
-        x0_fourmomenta : torch.tensor with shape shape = (batchsize, n_particles, 4)
+        fm0 : torch.tensor with shape shape = (batchsize, n_particles, 4)
             Generated events
         """
 
         def velocity(t, xt):
             xt = self.geometry._handle_periodic(xt)
             t = t * torch.ones(shape[0], 1, 1, dtype=self.input_dtype, device=xt.device)
-            vt_x = self.get_velocity(xt, t)[0]
-            vt_x = self.handle_velocity(vt_x)
-            return vt_x
+            vp_x = self.get_velocity(xt, t)[0]
+            vp_x = self.handle_velocity(vp_x)
+            return vp_x
 
         # sample fourmomenta from base distribution
         fm1 = self.sample_base(shape, device, dtype=torch.float64)
@@ -210,22 +211,22 @@ class CFM(nn.Module):
             log_prob of each event in x0, evaluated in fourmomenta space
         """
 
+        @torch.set_grad_enabled(True)
         def net_wrapper(t, state):
-            with torch.set_grad_enabled(True):
-                xt = state[0]
-                xt = self.geometry._handle_periodic(xt)
-                xt = xt.detach().requires_grad_(True)
-                t = t * torch.ones(
-                    xt.shape[0],
-                    1,
-                    1,
-                    dtype=self.input_dtype,
-                    device=xt.device,
-                )
-                vt_x = self.get_velocity(xt, t)[0]
-                vt_x = self.handle_velocity(vt_x)
-                dlogp_dt_x = -self.trace_fn(vt_x, xt).unsqueeze(-1)
-            return vt_x.detach(), dlogp_dt_x.detach()
+            xt = state[0]
+            xt = self.geometry._handle_periodic(xt)
+            xt = xt.detach().requires_grad_(True)
+            t = t * torch.ones(
+                xt.shape[0],
+                1,
+                1,
+                dtype=self.input_dtype,
+                device=xt.device,
+            )
+            vp_x = self.get_velocity(xt, t)[0]
+            vp_x = self.handle_velocity(vp_x)
+            dlogp_dt_x = -self.trace_fn(vp_x, xt).unsqueeze(-1)
+            return vp_x.detach(), dlogp_dt_x.detach()
 
         # solve ODE in coordinates
         x0 = self.coordinates.fourmomenta_to_x(fm0)
