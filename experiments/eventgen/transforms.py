@@ -212,7 +212,7 @@ class EPPP_to_PtPhiEtaE(BaseTransform):
 
         pt = torch.sqrt(px**2 + py**2)
         phi = torch.arctan2(py, px)
-        p_abs = torch.sqrt(pt**2 + pz**2)
+        p_abs = torch.sqrt(pt**2 + pz**2).clamp(min=EPS2)
         eta = stable_arctanh(pz / p_abs)  # torch.arctanh(pz / p_abs)
         eta = eta.clamp(min=-CUTOFF, max=CUTOFF)
         assert torch.isfinite(eta).all()
