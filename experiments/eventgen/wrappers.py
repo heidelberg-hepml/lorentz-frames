@@ -6,6 +6,7 @@ from experiments.tagging.embedding import get_spurion
 from tensorframes.lframes.lframes import LFrames, InverseLFrames
 from tensorframes.reps.tensorreps import TensorReps
 from tensorframes.reps.tensorreps_transform import TensorRepsTransform
+from tensorframes.utils.utils import build_edge_index_fully_connected
 
 
 class CFMWrapper(EventCFM):
@@ -117,7 +118,7 @@ class CFMWrapper(EventCFM):
 
 class TransformerCFM(CFMWrapper):
     """
-    Baseline Transformer velocity network
+    Transformer velocity network
     """
 
     def __init__(
@@ -139,6 +140,43 @@ class TransformerCFM(CFMWrapper):
 
         fts = torch.cat([x_local, particle_type, t_embedding], dim=-1)
         v_local = self.net(fts, lframes)
+        v = self.postprocess_velocity(v_local, x, lframes)
+        v = v.to(torch.float64)
+        return v, tracker
+
+
+class GraphNetCFM(CFMWrapper):
+    """
+    GraphNet velocity network
+    """
+
+    def __init__(
+        self,
+        net,
+        include_edges,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.net = net
+        self.include_edges = include_edges
+        assert not include_edges
+
+    def get_velocity(self, x, t):
+        (
+            x_local,
+            t_embedding,
+            particle_type,
+            lframes,
+            tracker,
+        ) = super().preprocess_velocity(x, t)
+        edge_index, batch = build_edge_index_fully_connected(x_local)
+        fts = torch.cat([x_local, particle_type, t_embedding], dim=-1)
+
+        fts_flat = fts.flatten(0, 1)
+        lframes = lframes.reshape(-1, *lframes.shape[2:])
+        v_local_flat = self.net(fts_flat, lframes, edge_index=edge_index, batch=batch)
+        v_local = v_local_flat.reshape(*fts.shape[:-1], v_local_flat.shape[-1])
+
         v = self.postprocess_velocity(v_local, x, lframes)
         v = v.to(torch.float64)
         return v, tracker

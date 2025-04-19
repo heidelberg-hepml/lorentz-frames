@@ -22,7 +22,7 @@ class EventGenerationExperiment(BaseExperiment):
         n_particles = self.n_hard_particles + self.cfg.data.n_jets
         with open_dict(self.cfg):
             # dynamically set channel dimensions
-            if self.modelname == "TFTransformer":
+            if self.modelname in ["TFTransformer", "TFGraphNet"]:
                 self.cfg.model.net.in_channels = (
                     n_particles + self.cfg.cfm.embed_t_dim + 4
                 )
@@ -30,6 +30,11 @@ class EventGenerationExperiment(BaseExperiment):
                     self.cfg.data.spurions.scalar_dims
                 )
                 self.cfg.model.n_particles = n_particles
+                if self.modelname == "TFGraphNet":
+                    self.cfg.model.net.num_edge_attr = (
+                        1 if self.cfg.model.include_edges else 0
+                    )
+
             else:
                 raise NotImplementedError
 
