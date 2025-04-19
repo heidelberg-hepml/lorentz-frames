@@ -4,6 +4,7 @@ import torch
 import os, time
 import zipfile
 import logging
+import resource
 from pathlib import Path
 from omegaconf import OmegaConf, open_dict, errors
 from hydra.utils import instantiate
@@ -87,11 +88,12 @@ class BaseExperiment:
             self.plot()
 
         if self.device == torch.device("cuda"):
-            max_used = torch.cuda.max_memory_allocated()
-            max_total = torch.cuda.mem_get_info()[1]
-            LOGGER.info(
-                f"GPU RAM information: max_used = {max_used/1e9:.3} GB, max_total = {max_total/1e9:.3} GB"
-            )
+            max_gpuram_used = torch.cuda.max_memory_allocated() / 1024**3
+            max_gpuram_total = torch.cuda.mem_get_info()[1] / 1024**3
+            LOGGER.info(f"GPU_RAM_max_used = {max_gpuram_used:.3} GB")
+            LOGGER.info(f"GPU_RAM_max_total = {max_gpuram_total:.3} GB")
+        max_cpuram_used = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024**2
+        LOGGER.info(f"CPU_RAM_max_used = {max_cpuram_used:.3} GB")
         dt = time.time() - t0
         LOGGER.info(
             f"Finished experiment {self.cfg.exp_name}/{self.cfg.run_name} after {dt/60:.2f}min = {dt/60**2:.2f}h"
@@ -315,7 +317,16 @@ class BaseExperiment:
     def _init_optimizer(self, param_groups=None):
         if param_groups is None:
             param_groups = [
-                {"params": self.model.parameters(), "lr": self.cfg.training.lr}
+                {
+                    "params": self.model.net.parameters(),
+                    "lr": self.cfg.training.lr,
+                    "weight_decay": self.cfg.training.weight_decay,
+                },
+                {
+                    "params": self.model.lframesnet.parameters(),
+                    "lr": self.cfg.training.lr_factor_lframesnet * self.cfg.training.lr,
+                    "weight_decay": self.cfg.training.weight_decay_lframesnet,
+                },
             ]
 
         if self.cfg.training.optimizer == "Adam":
@@ -323,37 +334,31 @@ class BaseExperiment:
                 param_groups,
                 betas=self.cfg.training.betas,
                 eps=self.cfg.training.eps,
-                weight_decay=self.cfg.training.weight_decay,
             )
         elif self.cfg.training.optimizer == "AdamW":
             self.optimizer = torch.optim.AdamW(
                 param_groups,
                 betas=self.cfg.training.betas,
                 eps=self.cfg.training.eps,
-                weight_decay=self.cfg.training.weight_decay,
             )
         elif self.cfg.training.optimizer == "RAdam":
             self.optimizer = torch.optim.RAdam(
                 param_groups,
                 betas=self.cfg.training.betas,
                 eps=self.cfg.training.eps,
-                weight_decay=self.cfg.training.weight_decay,
             )
         elif self.cfg.training.optimizer == "Lion":
             self.optimizer = pytorch_optimizer.Lion(
                 param_groups,
                 betas=self.cfg.training.betas,
-                weight_decay=self.cfg.training.weight_decay,
             )
         elif self.cfg.training.optimizer == "Ranger":
             # default optimizer used in the weaver package
             # see https://github.com/hqucms/weaver-core/blob/main/weaver/utils/nn/optimizer/ranger.py
             self.optimizer = Ranger(
                 param_groups,
-                lr=self.cfg.training.lr,
                 betas=(0.95, 0.999),
                 eps=1e-5,
-                weight_decay=self.cfg.training.weight_decay,
                 alpha=0.5,
                 k=6,
             )
@@ -624,6 +629,13 @@ class BaseExperiment:
             else float("inf"),
             error_if_nonfinite=True,
         ).detach()
+        # rescale gradients of the lframesnet only
+        if self.cfg.training.clip_grad_norm_lframesnet is not None:
+            torch.nn.utils.clip_grad_norm_(
+                self.model.lframesnet.parameters(),
+                self.cfg.training.clip_grad_norm_lframesnet,
+            )
+
         if step > MIN_STEP_SKIP and self.cfg.training.max_grad_norm is not None:
             if grad_norm > self.cfg.training.max_grad_norm:
                 LOGGER.warning(
@@ -639,7 +651,7 @@ class BaseExperiment:
 
         # collect metrics
 
-        self.train_loss.append(loss.item())
+        self.train_loss.append(loss.detach().item())
         self.train_lr.append(self.optimizer.param_groups[0]["lr"])
         self.grad_norm_train.append(grad_norm)
         self.grad_norm_lframes.append(grad_norm_lframes)

@@ -137,40 +137,25 @@ def get_edge_index_from_ptr(ptr, remove_self_loops=True):
     return edge_index
 
 
-def get_edge_index_from_ptr_slow(ptr, remove_self_loops=True):
-    diffs = torch.diff(ptr)
-    edge_index = torch.cat(
-        [
-            dense_to_sparse(torch.ones(d, d, device=diffs.device))[0] + diffs[:i].sum()
-            for i, d in enumerate(diffs)
-        ],
-        dim=-1,
-    )
-    if remove_self_loops:
-        row, col = edge_index
-        edge_index = edge_index[:, row != col]
-    return edge_index
-
-
 def build_edge_index_fully_connected(features_ref, remove_self_loops=True):
-    batch_size, seq_len, _ = features_ref.shape
+    B, N, _ = features_ref.shape
     device = features_ref.device
 
-    nodes = torch.arange(seq_len, device=device)
-    row, col = torch.meshgrid(nodes, nodes, indexing="ij")
+    nodes = torch.arange(N, device=device)
+    row = nodes.repeat_interleave(N)
+    col = nodes.repeat(N)
 
     if remove_self_loops:
         mask = row != col
         row, col = row[mask], col[mask]
-    edge_index_single = torch.stack([row.flatten(), col.flatten()], dim=0)
 
-    edge_index_global = []
-    for i in range(batch_size):
-        offset = i * seq_len
-        edge_index_global.append(edge_index_single + offset)
-    edge_index_global = torch.cat(edge_index_global, dim=1)
+    edge_base = torch.stack([row, col], dim=0)
 
-    batch = torch.arange(batch_size, device=device).repeat_interleave(seq_len)
+    offsets = torch.arange(B, device=device, dtype=torch.long) * N
+    batched = edge_base.unsqueeze(2) + offsets.view(1, 1, -1)
+    edge_index_global = batched.permute(0, 2, 1).reshape(2, -1)
+
+    batch = torch.arange(B, device=device).repeat_interleave(N)
     return edge_index_global, batch
 
 

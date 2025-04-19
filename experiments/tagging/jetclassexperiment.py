@@ -35,12 +35,12 @@ class JetClassTaggingExperiment(TaggingExperiment):
             "WToQQ",
             "ZToQQ",
         ]
+        self.cfg.model.in_channels = 7
         modelname = self.cfg.model.net._target_.rsplit(".", 1)[-1]
         if modelname == "LGATr":
             self.cfg.model.net.out_mv_channels = len(self.class_names)
         else:
             self.cfg.model.out_channels = len(self.class_names)
-
         if self.cfg.data.features == "fourmomenta":
             self.cfg.data.data_config = (
                 "experiments/tagging/miniweaver/configs_jetclass/fourmomenta.yaml"
