@@ -3,8 +3,8 @@ is_global: false
 random: false
 ortho_kwargs:
  method: gramschmidt
- eps_norm: 1e-10
- eps_reg: 1e-4
+ eps_norm: 1e-15
+ eps_reg: 1e-10
 
 defaults:
  - equivectors: equigraph
