@@ -285,47 +285,6 @@ def rand_rotation_uniform(
     return trafo
 
 
-def rand_rotation_zboost(
-    shape: List[int],
-    std_eta: float = 0.5,
-    n_max_std_eta: float = 2.0,
-    device: str = "cpu",
-    dtype: torch.dtype = torch.float32,
-    generator: torch.Generator = None,
-):
-    """
-    Create N transforamtion matrices which apply a z-boost
-    followed by a rotation.
-
-    Args:
-        shape: List[int]
-            Shape of the transformation matrices
-        device: str
-        dtype: torch.dtype
-        generator: torch.Generator
-
-    Returns:
-        final_trafo: torch.tensor of shape (*shape, 4, 4)
-    """
-    rotation = rand_rotation_uniform(shape, device, dtype, generator=generator)
-
-    # boost along z-axis
-    axis = torch.tensor([0, 3], dtype=torch.long, device=device)
-    axis = axis.view(2, *([1] * len(shape))).repeat(1, *shape)
-    angle = sample_rapidity(
-        shape,
-        std_eta=std_eta,
-        n_max_std_eta=n_max_std_eta,
-        device=device,
-        dtype=dtype,
-        generator=generator,
-    )
-    boost = transform([axis], [angle])
-
-    trafo = torch.einsum("...ij,...jk->...ik", boost, rotation)
-    return trafo
-
-
 def sample_rapidity(
     shape,
     std_eta,
