@@ -173,8 +173,10 @@ class GraphNetCFM(CFMWrapper):
         fts = torch.cat([x_local, particle_type, t_embedding], dim=-1)
 
         fts_flat = fts.flatten(0, 1)
-        lframes = lframes.reshape(-1, *lframes.shape[2:])
-        v_local_flat = self.net(fts_flat, lframes, edge_index=edge_index, batch=batch)
+        lframes_flat = lframes.reshape(-1, *lframes.shape[2:])
+        v_local_flat = self.net(
+            fts_flat, lframes_flat, edge_index=edge_index, batch=batch
+        )
         v_local = v_local_flat.reshape(*fts.shape[:-1], v_local_flat.shape[-1])
 
         v = self.postprocess_velocity(v_local, x, lframes)
