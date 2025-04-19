@@ -10,7 +10,7 @@ data:
  data_path_3j: ${data.data_path}/ttbar_3j.npy
  data_path_4j: ${data.data_path}/ttbar_4j.npy
  subsample: null
- train_test_val: [.5, .4, .1]
+ train_test_val: [.4, .5, .01]
  base_type: 4
  use_delta_r_min: true
  use_pt_min: true
@@ -25,7 +25,7 @@ odeint:
  rtol: 1e-5
  atol: 1e-5
  options:
-  step_size: 0.01
+  step_size: 0.02
 
 cfm:
  embed_t_dim: 8
