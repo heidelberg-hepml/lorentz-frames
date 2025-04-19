@@ -128,7 +128,7 @@ class CFM(nn.Module):
         x0 = self.coordinates.fourmomenta_to_x(fm0)
         x1 = self.coordinates.fourmomenta_to_x(fm1)
         xt, vt_x = self.geometry.get_trajectory(x0, x1, t)
-        vp_x, tracker = self.get_velocity(vt_x, t)
+        vp_x, tracker = self.get_velocity(xt, t)
 
         # evaluate conditional flow matching objective
         distance = self.geometry.get_metric(vp_x, vt_x, xt).mean()
