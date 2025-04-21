@@ -92,6 +92,7 @@ class LFrames:
         assert shape[-2:] == (4, 4)
         return LFrames(
             matrices=self.matrices.reshape(*shape),
+            is_identity=self.is_identity,
             is_global=self.is_global,
             inv=self.inv.reshape(*shape),
             det=self.det.reshape(*shape[:-2]),
@@ -101,6 +102,7 @@ class LFrames:
         assert shape[-2:] == (4, 4)
         return LFrames(
             matrices=self.matrices.expand(*shape),
+            is_identity=self.is_identity,
             is_global=self.is_global,
             inv=self.inv.expand(*shape),
             det=self.det.expand(*shape[:-2]),
@@ -110,6 +112,7 @@ class LFrames:
         assert shape[-2:] == (1, 1)
         return LFrames(
             matrices=self.matrices.repeat(*shape),
+            is_identity=self.is_identity,
             is_global=self.is_global,
             inv=self.inv.repeat(*shape),
             det=self.det.repeat(*shape[:-2]),
