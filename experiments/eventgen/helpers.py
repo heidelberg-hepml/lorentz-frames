@@ -81,7 +81,7 @@ def ensure_angle(phi):
     return (phi + math.pi) % (2 * math.pi) - math.pi
 
 
-def ensure_onshell(fourmomenta, onshell_list, onshell_mass):
+def ensure_onshell(fourmomenta, onshell_list, onshell_mass, mass_reg=1e-1):
     onshell_mass = torch.tensor(
         onshell_mass, device=fourmomenta.device, dtype=fourmomenta.dtype
     )
@@ -91,6 +91,12 @@ def ensure_onshell(fourmomenta, onshell_list, onshell_mass):
     fourmomenta[..., onshell_list, 0] = torch.sqrt(
         onshell_mass**2 + torch.sum(fourmomenta[..., onshell_list, 1:] ** 2, dim=-1)
     )
+
+    # ensure minimal mass
+    mask = get_mass(fourmomenta) < mass_reg
+    fourmomenta[mask][..., 0] = (
+        (fourmomenta[mask][..., 1:] ** 2).sum(dim=-1) + mass_reg**2
+    ).sqrt()
     return fourmomenta
 
 
