@@ -3,11 +3,11 @@ _partial_: true
 
 n_vectors: null
 num_scalars: null
-hidden_channels: 128
+hidden_channels: 16
 hidden_vectors: 1
-num_layers_mlp: 2
+num_layers_mlp: 1
 num_blocks: 1
-dropout_prob: null
+dropout_prob: 0.5
 
 include_edges: true
 operation: add
