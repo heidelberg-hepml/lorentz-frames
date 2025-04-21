@@ -395,7 +395,7 @@ class Pt_to_LogPt(BaseTransform):
         self.pt_min /= units
 
     def get_dpt(self, pt):
-        return pt - self.pt_min[: pt.shape[-1]].to(pt.device)
+        return torch.clamp(pt - self.pt_min[: pt.shape[-1]].to(pt.device), min=0)
 
     def _forward(self, ptx):
         eps = get_eps(ptx)
