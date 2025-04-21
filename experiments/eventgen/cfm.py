@@ -183,9 +183,7 @@ class CFM(nn.Module):
             mask2 = torch.isfinite(x0)
             x0 = x0[mask, ...]
             fm1 = fm1[mask, ...]
-            LOGGER.warning(
-                f"Found {(~mask2).sum(dim=0).numpy()} nan events while sampling"
-            )
+            LOGGER.warning(f"Found {(~mask2).sum(dim=0)} nan events while sampling")
 
         # transform generated event back to fourmomenta
         fm0 = self.coordinates.x_to_fourmomenta(x0)
@@ -254,14 +252,12 @@ class CFM(nn.Module):
             logdetjac_cfm_x = logdetjac_cfm_x[mask]
             x1 = x1[mask]
             fm0 = fm0[mask]
-            LOGGER.warning(
-                f"Found {(~mask2).sum(dim=0).numpy()} nan events in log_prob"
-            )
+            LOGGER.warning(f"Found {(~mask2).sum(dim=0)} nan events in log_prob")
 
         mask = logdetjac_cfm_x.abs() < 100
         if (~mask).any():
             LOGGER.warning(
-                f"Removing {(~mask).sum(dim=0).numpy()} events with large logdetjac_cfm_x {logdetjac_cfm_x[~mask]}"
+                f"Removing {(~mask).sum(dim=0)} events with large logdetjac_cfm_x {logdetjac_cfm_x[~mask]}"
             )
             logdetjac_cfm_x = logdetjac_cfm_x[mask]
             x1 = x1[mask]
@@ -280,7 +276,7 @@ class CFM(nn.Module):
         mask = log_prob_fm.abs() < 100
         if (~mask).any():
             LOGGER.warning(
-                f"Removing {(~mask).sum(dim=0).numpy()} events with large log_prob_fm {log_prob_fm[~mask]}. "
+                f"Removing {(~mask).sum(dim=0)} events with large log_prob_fm {log_prob_fm[~mask]}. "
                 f"fw {logdetjac_forward[~mask]}, inv {logdetjac_inverse[~mask]}"
             )
             log_prob_fm = log_prob_fm[mask]
