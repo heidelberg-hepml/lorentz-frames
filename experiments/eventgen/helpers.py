@@ -5,14 +5,23 @@ import torch
 # in (invertible) preprocessing functions to avoid being close to log(0)
 EPS1 = 1e-5
 
-# generic numerical stability cutoff
-EPS2 = 1e-10
-
 # exp(x) -> exp(x.clamp(max=CUTOFF))
 CUTOFF = 10
 
 # these functions are only used for plotting,
 # with the exception of delta_r_fast
+
+
+def get_eps(ref, eps=None):
+    if eps is None:
+        eps = torch.finfo(ref.dtype).eps
+    return eps
+
+
+def stay_positive(x):
+    # flip sign for entries with x<0 such that always x>0
+    x = torch.where(x > 0, x, -x)
+    return x
 
 
 def unpack_last(x):
@@ -45,12 +54,6 @@ def jetmomenta_to_fourmomenta(jetmomenta):
     return fourmomenta
 
 
-def stay_positive(x):
-    # flip sign for entries with x<0 such that always x>0
-    x = torch.where(x >= 0, x, -x)
-    return x
-
-
 def get_pt(fourmomenta):
     return torch.sqrt(fourmomenta[..., 1] ** 2 + fourmomenta[..., 2] ** 2)
 
@@ -61,19 +64,32 @@ def get_phi(fourmomenta):
 
 def get_eta(fourmomenta):
     p_abs = torch.sqrt(torch.sum(fourmomenta[..., 1:] ** 2, dim=-1))
-    eta = stable_arctanh(fourmomenta[..., 3] / p_abs, eps=EPS2)
+    eta = manual_eta(fourmomenta[..., 3], p_abs)
     return eta
 
 
-def stable_arctanh(x, eps=EPS2):
+def stable_arctanh(x, eps=None):
     # implementation of arctanh that avoids log(0) issues
+    if eps is None:
+        eps = torch.finfo(x.dtype).eps
     return 0.5 * (torch.log((1 + x).clamp(min=eps)) - torch.log((1 - x).clamp(min=eps)))
 
 
-def get_mass(fourmomenta, eps=EPS2):
+def manual_eta(pz, pabs, eps=None):
+    # stable implementation of arctanh(pz/pabs)
+    if eps is None:
+        eps = torch.finfo(pz.dtype).eps
+    x = pz / (pabs + eps)
+    x = x.clamp(-1.0 + eps, 1.0 - eps)
+    out = 0.5 * (torch.log1p(x) - torch.log1p(-x))
+    return out
+
+
+def get_mass(fourmomenta):
+    eps = get_eps(fourmomenta)
     m2 = fourmomenta[..., 0] ** 2 - torch.sum(fourmomenta[..., 1:] ** 2, dim=-1)
     m2 = stay_positive(m2)
-    m = torch.sqrt(m2.clamp(min=EPS2))
+    m = m2.sqrt()
     return m
 
 

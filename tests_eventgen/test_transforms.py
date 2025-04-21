@@ -16,9 +16,9 @@ from tests.constants import TOLERANCES
 
 def test_simple():
     """Some very simple tests"""
-    fourmomentum = torch.tensor([[1, 1, 0, 0], [1, 1, 0, -1]]).float()
+    fourmomentum = torch.tensor([[1, 1, 0, 0], [2, 1, 0, -1]]).float()
     ptphietam2 = torch.tensor(
-        [[1, 0, 0, 0], [1, 0, np.arctanh(-1 / 2**0.5), 1]]
+        [[1, 0, 0, 0], [1, 0, np.arctanh(-1 / 2**0.5), 2]]
     ).float()
     transforms = [tr.EPPP_to_PtPhiEtaE(), tr.PtPhiEtaE_to_PtPhiEtaM2()]
     x = fourmomentum.clone()
