@@ -17,7 +17,6 @@ import torch.nn.functional as F
 
 from tensorframes.reps.tensorreps import TensorReps
 from tensorframes.nn.attention import InvariantParticleAttention
-from tensorframes.lframes.lframes import LFrames
 
 
 @torch.jit.script
@@ -525,7 +524,7 @@ def _none_or_dtype(input: Optional[torch.Tensor]):
 class Attention(torch.nn.Module):
     def __init__(
         self,
-        attn_reps,
+        attention,
         embed_dim,
         num_heads,
         dropout=0.0,
@@ -549,12 +548,7 @@ class Attention(torch.nn.Module):
         self.out_proj = torch.nn.Linear(
             embed_dim, embed_dim, bias=bias, **factory_kwargs
         )
-        """
-        self.use_sdpa = hasattr(torch.nn.functional, "scaled_dot_product_attention")
-        if torch.cuda.is_available() and torch.cuda.get_device_capability()[0] < 7:
-            self.use_sdpa = False
-        """
-        self.attention = InvariantParticleAttention(attn_reps)
+        self.attention = attention
 
     def _load_from_state_dict(
         self,
@@ -588,8 +582,6 @@ class Attention(torch.nn.Module):
         query: torch.Tensor,
         key: torch.Tensor,
         value: torch.Tensor,
-        lframes,
-        lframes_q=None,
         key_padding_mask: Optional[torch.Tensor] = None,
         attn_mask: Optional[torch.Tensor] = None,
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
@@ -660,33 +652,19 @@ class Attention(torch.nn.Module):
 
         dropout_p = self.dropout if self.training else 0.0
 
-        attn_output = self.attention(
-            q,
-            k,
-            v,
-            lframes,
-            lframes_q=lframes_q,
-            attn_mask=attn_mask,
-            dropout_p=dropout_p,
-        )
-        """
-        if self.use_sdpa:
-            # attn_output: (bsz, num_heads, tgt_len, head_dim)
-            attn_output = F.scaled_dot_product_attention(q, k, v, attn_mask, dropout_p)
+        if self.attention is not None:
+            # particle attention
+            attn_output = self.attention(
+                q,
+                k,
+                v,
+                attn_mask=attn_mask,
+                dropout_p=dropout_p,
+            )
         else:
-            q_scaled = q * math.sqrt(
-                1.0 / float(self.head_dim)
-            )  # (bsz, num_heads, tgt_len, head_dim)
-            attn_weight = q_scaled @ k.transpose(
-                -2, -1
-            )  # (bsz, num_heads, tgt_len, src_len)
-            if attn_mask is not None:
-                attn_weight = attn_weight + attn_mask
-            attn_weight = F.softmax(attn_weight, dim=-1)
-            if dropout_p > 0:
-                attn_weight = F.dropout(attn_weight, p=dropout_p)
-            attn_output = attn_weight @ v  # (bsz, num_heads, head_dim)
-        """
+            # class token attention
+            attn_output = F.scaled_dot_product_attention(q, k, v, attn_mask, dropout_p)
+
         attn_output = attn_output.transpose(1, 2).reshape(bsz, tgt_len, self.embed_dim)
         attn_output = self.out_proj(attn_output)
         return attn_output, None
@@ -749,7 +727,7 @@ class DropPath(nn.Module):
 class Block(nn.Module):
     def __init__(
         self,
-        attn_reps,
+        attention,
         embed_dim=128,
         num_heads=8,
         ffn_ratio=4,
@@ -773,7 +751,7 @@ class Block(nn.Module):
         self.ffn_dim = embed_dim * ffn_ratio
 
         self.pre_attn_norm = nn.LayerNorm(embed_dim)
-        self.attn = Attention(attn_reps, embed_dim, num_heads, dropout=attn_dropout)
+        self.attn = Attention(attention, embed_dim, num_heads, dropout=attn_dropout)
         self.post_attn_norm = nn.LayerNorm(embed_dim) if scale_attn else nn.Identity()
         self.dropout = nn.Dropout(dropout)
         self.ls1 = (
@@ -819,7 +797,7 @@ class Block(nn.Module):
             else None
         )
 
-    def forward(self, x, lframes, x_cls=None, padding_mask=None, attn_mask=None):
+    def forward(self, x, x_cls=None, padding_mask=None, attn_mask=None):
         """
         Args:
             x (Tensor): input to the layer of shape `(batch, seq_len, embed_dim)`
@@ -843,32 +821,8 @@ class Block(nn.Module):
             u = torch.cat((x_cls, x), dim=1)  # (batch, 1+seq_len, embed_dim)
             u = self.pre_attn_norm(u)
 
-            # insert identity lframes for cls_token
-            lframes_cls = LFrames(
-                is_identity=True,
-                shape=x_cls.shape[:-1],
-                device=u.device,
-                dtype=u.dtype,
-            )
-            matrices = torch.cat((lframes_cls.matrices, lframes.matrices), dim=1)
-            det = torch.cat((lframes_cls.det, lframes.det), dim=1)
-            inv = torch.cat((lframes_cls.inv, lframes.inv), dim=1)
-            lframes = LFrames(
-                matrices=matrices,
-                det=det,
-                inv=inv,
-                is_global=lframes.is_global,
-                is_identity=True,  # lframes.is_identity,
-            )  # set lframes to identity (should not be necessary)
-
-            x = self.attn(
-                x_cls,
-                u,
-                u,
-                lframes,
-                lframes_q=lframes_cls,
-                key_padding_mask=padding_mask,
-            )[
+            # default attention for convenience (could be more fancy here)
+            x = self.attn(x_cls, u, u, key_padding_mask=padding_mask,)[
                 0
             ]  # (1, batch, embed_dim)
         else:
@@ -876,9 +830,7 @@ class Block(nn.Module):
                 attn_mask = torch.mul(self.c_mask, attn_mask)
             residual = x
             x = self.pre_attn_norm(x)
-            x = self.attn(
-                x, x, x, lframes, key_padding_mask=padding_mask, attn_mask=attn_mask
-            )[
+            x = self.attn(x, x, x, key_padding_mask=padding_mask, attn_mask=attn_mask)[
                 0
             ]  # (batch, seq_len, embed_dim)
 
@@ -953,9 +905,9 @@ class ParticleTransformer(nn.Module):
         embed_dim = embed_dims[-1] if len(embed_dims) > 0 else input_dim
         attn_reps = TensorReps(attn_reps)
         assert attn_reps.dim * num_heads == embed_dim
+        self.attention = InvariantParticleAttention(attn_reps, num_heads)
         default_cfg = dict(
             embed_dim=embed_dim,
-            attn_reps=attn_reps,
             num_heads=num_heads,
             ffn_ratio=4,
             dropout=0.1,
@@ -1010,9 +962,13 @@ class ParticleTransformer(nn.Module):
             if pair_embed_dims is not None and pair_input_dim + pair_extra_dim > 0
             else None
         )
-        self.blocks = nn.ModuleList([Block(**cfg_block) for _ in range(num_layers)])
+        self.blocks = nn.ModuleList(
+            [Block(attention=self.attention, **cfg_block) for _ in range(num_layers)]
+        )
         self.cls_blocks = (
-            nn.ModuleList([Block(**cfg_cls_block) for _ in range(num_cls_layers)])
+            nn.ModuleList(
+                [Block(attention=None, **cfg_cls_block) for _ in range(num_cls_layers)]
+            )
             if num_cls_layers > 0
             else None
         )
@@ -1080,7 +1036,7 @@ class ParticleTransformer(nn.Module):
             "cls_token",
         }
 
-    def _forward_encoder(self, x, lframes, v=None, mask=None, uu=None, uu_idx=None):
+    def _forward_encoder(self, x, v=None, mask=None, uu=None, uu_idx=None):
         with torch.no_grad():
             if not self.for_inference:
                 if uu_idx is not None:
@@ -1103,7 +1059,6 @@ class ParticleTransformer(nn.Module):
             for block in self.blocks:
                 x = block(
                     x,
-                    lframes,
                     x_cls=None,
                     padding_mask=padding_mask,
                     attn_mask=attn_mask,
@@ -1113,7 +1068,7 @@ class ParticleTransformer(nn.Module):
         # padding_mask: (batch, seq_len)
         return x, padding_mask
 
-    def _forward_aggregator(self, x, lframes, padding_mask):
+    def _forward_aggregator(self, x, padding_mask):
         with torch.autocast("cuda", enabled=self.use_amp):
             if self.cls_blocks is not None:
                 # for classification: extract using class token
@@ -1122,7 +1077,7 @@ class ParticleTransformer(nn.Module):
                 )  # (batch, 1, embed_dim)
                 for block in self.cls_blocks:
                     cls_tokens = block(
-                        x, lframes, x_cls=cls_tokens, padding_mask=padding_mask
+                        x, x_cls=cls_tokens, padding_mask=padding_mask
                     )  # (batch, 1, embed_dim)
                 cls_tokens = cls_tokens.squeeze(1)  # (batch, embed_dim)
             else:
@@ -1142,10 +1097,9 @@ class ParticleTransformer(nn.Module):
         # mask: (batch_size, 1, seq_len) -- real particle = 1, padded = 0
         # for pytorch: uu (batch_size, C', num_pairs), uu_idx (batch_size, 2, num_pairs)
         # for onnx: uu (batch_size, C', seq_len, seq_len), uu_idx=None
+        self.attention.prepare_lframes(lframes)
 
-        x, padding_mask = self._forward_encoder(
-            x, lframes, v=v, mask=mask, uu=uu, uu_idx=uu_idx
-        )
+        x, padding_mask = self._forward_encoder(x, v=v, mask=mask, uu=uu, uu_idx=uu_idx)
 
         if self.cls_blocks is None and self.fc is None:
             # x: (batch, seq_len, embed_dim)
@@ -1165,7 +1119,7 @@ class ParticleTransformer(nn.Module):
                 # print('output:\n', output)
                 return output
 
-            x_cls = self._forward_aggregator(x, lframes, padding_mask)
+            x_cls = self._forward_aggregator(x, padding_mask)
             if self.fc is None:
                 return x_cls
 

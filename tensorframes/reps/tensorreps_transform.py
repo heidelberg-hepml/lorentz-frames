@@ -32,6 +32,7 @@ class TensorRepsTransform(torch.nn.Module):
             parity_odd[idx : idx + mul_rep.dim] = True if rep.parity else False
             idx += mul_rep.dim
         self.register_buffer("parity_odd", parity_odd.unsqueeze(0))
+        self.no_parity_odd = self.parity_odd.sum() == 0
 
         if not use_naive:
             # build mapping from order to element in the reps list
@@ -49,7 +50,7 @@ class TensorRepsTransform(torch.nn.Module):
         ----------
         tensor: torch.tensor of shape (*shape, self.reps.dim)
         lframes: LFrames
-            lframes.matrices has shape (*shape, 4, 4)
+            lframes.matrices has shape (prod(*shape), 4, 4)
 
         Returns
         -------
@@ -61,9 +62,10 @@ class TensorRepsTransform(torch.nn.Module):
             return tensor
 
         in_shape = tensor.shape
-        assert in_shape[:-1] == lframes.shape[:-2]
+        if len(lframes.shape) > 3:
+            lframes = lframes.reshape(-1, 4, 4)
         tensor = tensor.reshape(-1, tensor.shape[-1])
-        lframes = lframes.reshape(-1, 4, 4)
+        assert tensor.shape[0] == lframes.shape[0]
 
         tensor_transformed = self.transform(tensor, lframes)
         tensor_transformed = self.transform_parity(tensor_transformed, lframes)
@@ -122,9 +124,12 @@ class TensorRepsTransform(torch.nn.Module):
 
     def transform_parity(self, tensor, lframes):
         """Parity transform: Multiply parity-odd states by sign(det Lambda)"""
-        return torch.where(
-            self.parity_odd, lframes.det.sign().unsqueeze(-1) * tensor, tensor
-        )
+        if self.no_parity_odd:
+            return tensor
+        else:
+            return torch.where(
+                self.parity_odd, lframes.det.sign().unsqueeze(-1) * tensor, tensor
+            )
 
 
 def get_einsum_string(order):

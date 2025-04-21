@@ -18,6 +18,7 @@ class LearnedLFrames(LFramesPredictor):
         n_vectors,
         is_global=False,
         random=False,
+        fix_params=False,
         ortho_kwargs={},
     ):
         """
@@ -32,6 +33,8 @@ class LearnedLFrames(LFramesPredictor):
         random: bool
             If True, re-initialize the equivectors at each forward pass
             This is a fancy way of doing data augmentation
+        fix_params: bool
+            Like random, but without the resampling
         ortho_kwargs: dict
             Keyword arguments for orthogonalization
         """
@@ -40,7 +43,7 @@ class LearnedLFrames(LFramesPredictor):
         self.equivectors = equivectors(n_vectors=n_vectors)
         self.is_global = is_global
         self.random = random
-        if random:
+        if random or fix_params:
             self.equivectors.requires_grad_(False)
 
     def init_weights_or_not(self):

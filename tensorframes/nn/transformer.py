@@ -141,7 +141,7 @@ class BaselineSelfAttention(nn.Module):
         Number of input channels.
     hidden_channels : int
         Number of hidden channels = size of query, key, and value.
-    attn_reps
+    attention
     num_heads : int
         Number of attention heads.
     multi_query : bool
@@ -153,7 +153,7 @@ class BaselineSelfAttention(nn.Module):
         in_channels: int,
         out_channels: int,
         hidden_channels: int,
-        attn_reps,
+        attention,
         num_heads: int = 8,
         multi_query: bool = True,
         dropout_prob=None,
@@ -164,7 +164,7 @@ class BaselineSelfAttention(nn.Module):
         self.num_heads = num_heads
         self.hidden_channels = hidden_channels
 
-        self.attention = InvariantParticleAttention(attn_reps)
+        self.attention = attention
 
         # Linear maps
         qkv_class = MultiQueryQKVLinear if multi_query else MultiHeadQKVLinear
@@ -179,7 +179,6 @@ class BaselineSelfAttention(nn.Module):
     def forward(
         self,
         inputs: torch.Tensor,
-        lframes,
         attention_mask: Optional[torch.Tensor] = None,
         is_causal: bool = False,
     ) -> torch.Tensor:
@@ -206,7 +205,6 @@ class BaselineSelfAttention(nn.Module):
             q.contiguous(),
             k.expand_as(q).contiguous(),
             v.expand_as(q),
-            lframes,
             attn_mask=attention_mask,
             is_causal=is_causal,
         )
@@ -235,7 +233,7 @@ class BaselineTransformerBlock(nn.Module):
     ----------
     channels : int
         Number of input and output channels.
-    attn_reps
+    attention
     num_heads : int
         Number of attention heads.
     increase_hidden_channels : int
@@ -248,7 +246,7 @@ class BaselineTransformerBlock(nn.Module):
     def __init__(
         self,
         channels,
-        attn_reps,
+        attention,
         num_heads: int = 8,
         increase_hidden_channels=1,
         multi_query: bool = True,
@@ -264,7 +262,7 @@ class BaselineTransformerBlock(nn.Module):
             channels,
             channels,
             hidden_channels,
-            attn_reps,
+            attention,
             num_heads=num_heads,
             multi_query=multi_query,
             dropout_prob=dropout_prob,
@@ -279,7 +277,7 @@ class BaselineTransformerBlock(nn.Module):
         )
 
     def forward(
-        self, inputs: torch.Tensor, lframes, attention_mask=None, is_causal=False
+        self, inputs: torch.Tensor, attention_mask=None, is_causal=False
     ) -> torch.Tensor:
         """Forward pass.
 
@@ -287,7 +285,6 @@ class BaselineTransformerBlock(nn.Module):
         ----------
         inputs : Tensor
             Input data
-        lframes
         attention_mask : None or Tensor or xformers.ops.AttentionBias
             Optional attention mask
 
@@ -299,9 +296,7 @@ class BaselineTransformerBlock(nn.Module):
 
         # Residual attention
         h = self.norm(inputs)
-        h = self.attention(
-            h, lframes, attention_mask=attention_mask, is_causal=is_causal
-        )
+        h = self.attention(h, attention_mask=attention_mask, is_causal=is_causal)
         outputs = inputs + h
 
         # Residual MLP
@@ -353,13 +348,14 @@ class TFTransformer(nn.Module):
         attn_reps = TensorReps(attn_reps)
         hidden_channels = attn_reps.dim * num_heads
         self.checkpoint_blocks = checkpoint_blocks
+        self.attention = InvariantParticleAttention(attn_reps, num_heads)
 
         self.linear_in = nn.Linear(in_channels, hidden_channels)
         self.blocks = nn.ModuleList(
             [
                 BaselineTransformerBlock(
                     hidden_channels,
-                    attn_reps,
+                    attention=self.attention,
                     num_heads=num_heads,
                     increase_hidden_channels=increase_hidden_channels,
                     multi_query=multi_query,
@@ -390,16 +386,14 @@ class TFTransformer(nn.Module):
         outputs : Tensor with shape (..., num_items, out_channels)
             Outputs
         """
+        self.attention.prepare_lframes(lframes)
+
         h = self.linear_in(inputs)
         for block in self.blocks:
             if self.checkpoint_blocks:
-                fn = partial(
-                    block, lframes, attention_mask=attention_mask, is_causal=is_causal
-                )
+                fn = partial(block, attention_mask=attention_mask, is_causal=is_causal)
                 h = checkpoint(fn, h)
             else:
-                h = block(
-                    h, lframes, attention_mask=attention_mask, is_causal=is_causal
-                )
+                h = block(h, attention_mask=attention_mask, is_causal=is_causal)
         outputs = self.linear_out(h)
         return outputs
