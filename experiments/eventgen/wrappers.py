@@ -106,6 +106,7 @@ class CFMWrapper(EventCFM):
 
             v_x, _ = self.coordinates.velocity_fourmomenta_to_x(v_fm, fm)
             v_x[..., self.scalar_dims] = v_s_local
+        v_x = v_x.to(torch.float64)
         return v_x
 
     def encode_particle_type(self, shape):
@@ -141,21 +142,11 @@ class TransformerCFM(CFMWrapper):
         fts = torch.cat([x_local, particle_type, t_embedding], dim=-1)
         v_local = self.net(fts, lframes)
         v = self.postprocess_velocity(v_local, x, lframes)
-        v = v.to(torch.float64)
         return v, tracker
 
 
 class GraphNetCFM(CFMWrapper):
-    """
-    GraphNet velocity network
-    """
-
-    def __init__(
-        self,
-        net,
-        include_edges,
-        **kwargs,
-    ):
+    def __init__(self, net, include_edges, **kwargs):
         super().__init__(**kwargs)
         self.net = net
         self.include_edges = include_edges
@@ -180,5 +171,4 @@ class GraphNetCFM(CFMWrapper):
         v_local = v_local_flat.reshape(*fts.shape[:-1], v_local_flat.shape[-1])
 
         v = self.postprocess_velocity(v_local, x, lframes)
-        v = v.to(torch.float64)
         return v, tracker
