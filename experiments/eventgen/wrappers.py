@@ -117,16 +117,36 @@ class CFMWrapper(EventCFM):
         return particle_type
 
 
-class TransformerCFM(CFMWrapper):
-    """
-    Transformer velocity network
-    """
+class MLPCFM(CFMWrapper):
+    def __init__(self, net, **kwargs):
+        super().__init__(**kwargs)
+        self.net = net
 
-    def __init__(
-        self,
-        net,
-        **kwargs,
-    ):
+    def get_velocity(self, x, t):
+        (
+            x_local,
+            t_embedding,
+            _,
+            lframes,
+            tracker,
+        ) = super().preprocess_velocity(x, t)
+
+        x_local = x_local
+        fts = torch.cat(
+            [
+                x_local.reshape(*x_local.shape[:-2], -1),
+                t_embedding[..., 0, :],
+            ],
+            dim=-1,
+        )
+        v_local = self.net(fts)
+        v_local = v_local.reshape(*x_local.shape[:-1], -1)
+        v = self.postprocess_velocity(v_local, x, lframes)
+        return v, tracker
+
+
+class TransformerCFM(CFMWrapper):
+    def __init__(self, net, **kwargs):
         super().__init__(**kwargs)
         self.net = net
 

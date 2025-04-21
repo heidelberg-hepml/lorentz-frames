@@ -34,6 +34,12 @@ class EventGenerationExperiment(BaseExperiment):
                         1 if self.cfg.model.include_edges else 0
                     )
 
+            elif self.modelname == "MLP":
+                self.cfg.model.net.in_shape = self.cfg.cfm.embed_t_dim + 4 * n_particles
+                self.cfg.model.net.out_shape = n_particles * (
+                    4 + len(self.cfg.data.spurions.scalar_dims)
+                )
+
             else:
                 raise NotImplementedError
 

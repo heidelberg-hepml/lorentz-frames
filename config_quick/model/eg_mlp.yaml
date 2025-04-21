@@ -1,0 +1,12 @@
+_target_: experiments.eventgen.wrappers.MLPCFM
+
+net:
+ _target_: tensorframes.nn.mlp.MLP
+
+ in_shape: null
+ out_shape: null
+ hidden_channels: 128
+ hidden_layers: 3
+
+defaults:
+ - lframesnet: identity
