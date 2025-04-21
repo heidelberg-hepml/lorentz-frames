@@ -10,7 +10,7 @@ data:
  data_path_3j: ${data.data_path}/ttbar_3j.npy
  data_path_4j: ${data.data_path}/ttbar_4j.npy
  subsample: null
- train_test_val: [.4, .5, .01]
+ train_test_val: [.5, .4, .01]
  base_type: 4
  use_delta_r_min: true
  use_pt_min: true
