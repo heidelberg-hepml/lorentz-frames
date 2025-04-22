@@ -168,7 +168,6 @@ class EPPP_to_EPhiPtPz(BaseTransform):
         return torch.stack((E, px, py, pz), dim=-1)
 
     def _jac_forward(self, eppp, ephiptpz):
-        eps = get_eps(eppp)
         E, px, py, pz = unpack_last(eppp)
         E, phi, pt, pz = unpack_last(ephiptpz)
 
@@ -176,11 +175,11 @@ class EPPP_to_EPhiPtPz(BaseTransform):
         zero, one = torch.zeros_like(E), torch.ones_like(E)
         jac_E = torch.stack((one, zero, zero, zero), dim=-1)
         jac_px = torch.stack(
-            (zero, -py / (pt**2 + eps), px / (pt + eps), zero),
+            (zero, -torch.sin(phi) / pt, torch.cos(phi), zero),
             dim=-1,
         )
         jac_py = torch.stack(
-            (zero, px / (pt**2 + eps), py / (pt + eps), zero),
+            (zero, torch.cos(phi) / pt, torch.sin(phi), zero),
             dim=-1,
         )
         jac_pz = torch.stack((zero, zero, zero, one), dim=-1)
@@ -194,20 +193,17 @@ class EPPP_to_EPhiPtPz(BaseTransform):
         # jac_ij = dfourmomenta_i / dephiptpz_j
         zero, one = torch.zeros_like(E), torch.ones_like(E)
         jac_E = torch.stack((one, zero, zero, zero), dim=-1)
-        jac_phi = torch.stack(
-            (zero, -pt * torch.sin(phi), pt * torch.cos(phi), zero), dim=-1
-        )
+        jac_phi = torch.stack((zero, -py, px, zero), dim=-1)
         jac_pt = torch.stack((zero, torch.cos(phi), torch.sin(phi), zero), dim=-1)
         jac_pz = torch.stack((zero, zero, zero, one), dim=-1)
 
         return torch.stack((jac_E, jac_phi, jac_pt, jac_pz), dim=-1)
 
     def _detjac_forward(self, eppp, ephiptpz):
-        eps = get_eps(eppp)
         E, phi, pt, pz = unpack_last(ephiptpz)
 
         # det (dephiptpz / dfourmomenta)
-        return 1 / (pt + eps)
+        return 1 / pt
 
 
 class EPPP_to_PtPhiEtaE(BaseTransform):
@@ -234,7 +230,6 @@ class EPPP_to_PtPhiEtaE(BaseTransform):
         return torch.stack((E, px, py, pz), dim=-1)
 
     def _jac_forward(self, eppp, ptphietae):
-        eps = get_eps(eppp)
         E, px, py, pz = unpack_last(eppp)
         pt, phi, eta, E = unpack_last(ptphietae)
 
@@ -243,25 +238,23 @@ class EPPP_to_PtPhiEtaE(BaseTransform):
         jac_E = torch.stack((zero, zero, zero, one), dim=-1)
         jac_px = torch.stack(
             (
-                px / (pt + eps),
-                -py / (pt**2 + eps),
-                -px * pz / (pt**3 * torch.cosh(eta) + eps),
+                torch.cos(phi),
+                -torch.sin(phi) / pt,
+                -torch.cos(phi) * torch.tanh(eta) / pt,
                 zero,
             ),
             dim=-1,
         )
         jac_py = torch.stack(
             (
-                py / (pt + eps),
-                px / (pt**2 + eps),
-                -py * pz / (pt**3 * torch.cosh(eta) + eps),
+                torch.sin(phi),
+                torch.cos(phi) / pt,
+                -torch.sin(phi) * torch.tanh(eta) / pt,
                 zero,
             ),
             dim=-1,
         )
-        jac_pz = torch.stack(
-            (zero, zero, 1 / (pt * torch.cosh(eta) + eps), zero), dim=-1
-        )
+        jac_pz = torch.stack((zero, zero, 1 / (pt * torch.cosh(eta)), zero), dim=-1)
 
         return torch.stack((jac_E, jac_px, jac_py, jac_pz), dim=-1)
 
@@ -274,21 +267,18 @@ class EPPP_to_PtPhiEtaE(BaseTransform):
         jac_pt = torch.stack(
             (zero, torch.cos(phi), torch.sin(phi), torch.sinh(eta)), dim=-1
         )
-        jac_phi = torch.stack(
-            (zero, -pt * torch.sin(phi), pt * torch.cos(phi), zero), dim=-1
-        )
+        jac_phi = torch.stack((zero, -py, px, zero), dim=-1)
         jac_eta = torch.stack((zero, zero, zero, pt * torch.cosh(eta)), dim=-1)
         jac_E = torch.stack((one, zero, zero, zero), dim=-1)
 
         return torch.stack((jac_pt, jac_phi, jac_eta, jac_E), dim=-1)
 
     def _detjac_forward(self, eppp, ptphietae):
-        eps = get_eps(eppp)
         E, px, py, pz = unpack_last(eppp)
         pt, phi, eta, E = unpack_last(ptphietae)
 
         # det (dptphietae / dfourmomenta)
-        return 1 / (pt**2 * torch.cosh(eta) + eps)
+        return 1 / (pt**2 * torch.cosh(eta))
 
 
 class PtPhiEtaE_to_PtPhiEtaM2(BaseTransform):
