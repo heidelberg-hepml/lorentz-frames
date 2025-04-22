@@ -610,6 +610,30 @@ class BaseExperiment:
         self.optimizer.zero_grad()
         loss.backward()
 
+        def re_evaluate():
+            with torch.autograd.detect_anomaly():
+                loss = self._batch_loss(data)[0]
+                self.optimizer.zero_grad()
+                loss.backward()
+
+        if self.device == torch.device("cuda"):
+            try:
+                torch.cuda.synchronize()
+            except RuntimeError as e:
+                if "device-side assert" in str(e):
+                    device = self.device
+                    self.device = torch.device("cpu")
+                    self.model = self.model.to(self.device)
+                    re_evaluate()
+                    self.device = device
+                    self.model = self.model.to(self.device)
+
+        grads = torch.cat(
+            [p.grad.flatten() for p in self.model.parameters() if p.grad is not None]
+        )
+        if not torch.isfinite(grads).all():
+            re_evaluate()
+
         grad_norm_lframes = torch.nn.utils.clip_grad_norm_(
             self.model.lframesnet.parameters(),
             float("inf"),
