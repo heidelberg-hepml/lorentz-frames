@@ -211,5 +211,5 @@ class StandardLogPtPhiEtaLogM2(BaseCoordinates):
             tr.PtPhiEtaE_to_PtPhiEtaM2(),
             tr.Pt_to_LogPt(pt_min, units),
             tr.M2_to_LogM2(),
-            tr.StandardNormal([1], onshell_list),
+            tr.StandardNormal([1, 2], onshell_list),
         ]
