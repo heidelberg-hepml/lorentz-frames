@@ -48,7 +48,9 @@ def to_ptrapphim(x, return_mass=True, eps=1e-8):
     px, py, pz, energy = x.split((1, 1, 1, 1), dim=1)
     pt = torch.sqrt(to_pt2(x, eps=eps))
     # rapidity = 0.5 * torch.log((energy + pz) / (energy - pz))
-    rapidity = 0.5 * torch.log(1 + (2 * pz) / (energy - pz).clamp(min=1e-20))
+    rapidity = 0.5 * torch.log(
+        (1 + (2 * pz) / (energy - pz).clamp(min=1e-20)).clamp(min=1e-20)
+    )
     phi = torch.atan2(py, px)
     if not return_mass:
         return torch.cat((pt, rapidity, phi), dim=1)
