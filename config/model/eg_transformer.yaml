@@ -5,7 +5,7 @@ net:
 
  in_channels: null
  out_channels: null
- attn_reps: "8x0n+2x1n"
+ attn_reps: "5x0n+2x1n"
 
  num_blocks: 6
  num_heads: 8
