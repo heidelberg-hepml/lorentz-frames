@@ -124,6 +124,7 @@ class JetClassTaggingExperiment(TaggingExperiment):
                 in_memory=self.cfg.jc_params.in_memory,
                 name=label,
                 events_per_file=self.cfg.jc_params.events_per_file,
+                async_load=self.cfg.jc_params.async_load,
             )
         self.data_train = datasets["train"]
         self.data_test = datasets["test"]
@@ -257,7 +258,7 @@ class JetClassTaggingExperiment(TaggingExperiment):
         return metrics
 
     def _get_ypred_and_label(self, batch):
-        fourmomenta = batch[0]["pf_vectors"].to(self.device)
+        fourmomenta = batch[0]["pf_vectors"].to(self.device, non_blocking=True)
         if self.cfg.data.features == "fourmomenta":
             scalars = torch.empty(
                 fourmomenta.shape[0],
@@ -267,7 +268,9 @@ class JetClassTaggingExperiment(TaggingExperiment):
                 dtype=self.dtype,
             )
         else:
-            scalars = batch[0]["pf_features"].to(self.device, self.dtype)
+            scalars = batch[0]["pf_features"].to(
+                self.device, self.dtype, non_blocking=True
+            )
         label = batch[1]["_label_"].to(self.device)
         fourmomenta, scalars, ptr = dense_to_sparse_jet(fourmomenta, scalars)
         embedding = embed_tagging_data(fourmomenta, scalars, ptr, self.cfg.data)
