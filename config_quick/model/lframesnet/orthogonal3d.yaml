@@ -4,8 +4,8 @@ random: false
 fix_params: false
 ortho_kwargs:
  method: gramschmidt
- eps_norm: 1e-15
- eps_reg: 1e-10
+ eps_norm: 1e-10
+ eps_reg: 1e-4
 
 defaults:
  - equivectors: equigraph
