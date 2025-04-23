@@ -254,15 +254,6 @@ class CFM(nn.Module):
             fm0 = fm0[mask]
             LOGGER.warning(f"Found {(~mask2).sum(dim=0)} nan events in log_prob")
 
-        mask = logdetjac_cfm_x.squeeze().abs() < 200
-        if (~mask).any():
-            LOGGER.warning(
-                f"Removing {(~mask).sum(dim=0)} events with large logdetjac_cfm_x {logdetjac_cfm_x[~mask]}"
-            )
-            logdetjac_cfm_x = logdetjac_cfm_x[mask]
-            x1 = x1[mask]
-            fm0 = fm0[mask]
-
         fm1 = self.coordinates.x_to_fourmomenta(x1)
         logdetjac_forward = self.coordinates.logdetjac_fourmomenta_to_x(fm0)[0]
         logdetjac_inverse = -self.coordinates.logdetjac_fourmomenta_to_x(fm1)[0]
@@ -273,7 +264,7 @@ class CFM(nn.Module):
             log_prob_base_fm - logdetjac_cfm_x - logdetjac_forward - logdetjac_inverse
         )
 
-        mask = log_prob_fm.squeeze().abs() < 200
+        mask = (log_prob_fm < -10) | (log_prob_fm > 50)  # carefully tuned to ttbar+0j
         if (~mask).any():
             LOGGER.warning(
                 f"Removing {(~mask).sum(dim=0)} events with large log_prob_fm {log_prob_fm[~mask]}. "
