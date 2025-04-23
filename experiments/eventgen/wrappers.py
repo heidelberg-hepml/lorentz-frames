@@ -192,3 +192,25 @@ class GraphNetCFM(CFMWrapper):
 
         v = self.postprocess_velocity(v_local, x, lframes)
         return v, tracker
+
+
+class LGATrCFM(CFMWrapper):
+    def __init__(self, net, **kwargs):
+        super().__init__(**kwargs)
+        self.net = net
+        assert self.lframesnet.is_identity
+
+    def get_velocity(self, x, t):
+        raise NotImplementedError
+        (
+            x_local,
+            t_embedding,
+            particle_type,
+            lframes,
+            tracker,
+        ) = super().preprocess_velocity(x, t)
+
+        fts = torch.cat([x_local, particle_type, t_embedding], dim=-1)
+        v_local = self.net(fts, lframes)
+        v = self.postprocess_velocity(v_local, x, lframes)
+        return v, tracker

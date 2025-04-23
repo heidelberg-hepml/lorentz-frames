@@ -40,6 +40,21 @@ class EventGenerationExperiment(BaseExperiment):
                     4 + len(self.cfg.data.spurions.scalar_dims)
                 )
 
+            elif self.modelname == "LGATr":
+                self.cfg.model.net.in_s_channels = (
+                    n_particles + self.cfg.cfm.embed_t_dim
+                )
+                self.cfg.model.net.in_mv_channels = (
+                    2 if self.cfg.data.spurions.add_time_reference else 1
+                )
+                if self.cfg.data.spurions.beam_reference is not None:
+                    self.cfg.model.net.in_mv_channels += (
+                        2 if self.cfg.data.spurions.two_beams else 1
+                    )
+                self.cfg.model.net.out_s_channels = len(
+                    self.cfg.data.spurions.scalar_dims
+                )
+
             else:
                 raise NotImplementedError
 
