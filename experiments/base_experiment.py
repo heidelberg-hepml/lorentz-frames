@@ -557,7 +557,7 @@ class BaseExperiment:
             # output
             dt = time.time() - self.training_start_time
             if (
-                step in [0, 9, 999]
+                step in [0, 9, 999, 9999, 99999]
                 or (step + 1) % self.cfg.training.validate_every_n_steps == 0
             ):
                 dt_estimate = dt * self.cfg.training.iterations / (step + 1)

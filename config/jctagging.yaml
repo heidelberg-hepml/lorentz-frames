@@ -11,15 +11,16 @@ data:
 
 jc_params:
  num_workers: 4
- fetch_step: 0.01
+ fetch_step: 1
  extra_selection: null
  extra-test-selection: null
- fetch_by_files: False
+ fetch_by_files: True
  in_memory: False
  not_remake_weights: False
  steps_per_epoch: null
  steps_per_epoch_val: null
  events_per_file: 100000
+ async_load: false
 
 evaluation:
  batchsize: 1024
