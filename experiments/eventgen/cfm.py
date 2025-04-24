@@ -264,7 +264,7 @@ class CFM(nn.Module):
             log_prob_base_fm - logdetjac_cfm_x - logdetjac_forward - logdetjac_inverse
         )
 
-        mask = (log_prob_fm < -10) | (log_prob_fm > 50)  # carefully tuned to ttbar+0j
+        mask = (log_prob_fm > -30) | (log_prob_fm < 70)  # carefully tuned to ttbar+0j
         if (~mask).any():
             LOGGER.warning(
                 f"Removing {(~mask).sum(dim=0)} events with large log_prob_fm {log_prob_fm[~mask]}. "
