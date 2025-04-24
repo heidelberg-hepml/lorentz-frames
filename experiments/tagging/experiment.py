@@ -99,8 +99,21 @@ class TaggingExperiment(BaseExperiment):
                     decay[name] = param
             decay_1x, no_decay_1x = list(decay.values()), list(no_decay.values())
             param_groups = [
-                {"params": no_decay_1x, "weight_decay": 0.0},
-                {"params": decay_1x, "weight_decay": self.cfg.training.weight_decay},
+                {
+                    "params": no_decay_1x,
+                    "weight_decay": 0.0,
+                    "lr": self.cfg.training.lr,
+                },
+                {
+                    "params": decay_1x,
+                    "weight_decay": self.cfg.training.weight_decay,
+                    "lr": self.cfg.training.lr,
+                },
+                {
+                    "params": self.model.lframesnet.parameters(),
+                    "weight_decay": self.cfg.training.weight_decay_lframesnet,
+                    "lr": self.cfg.training.lr * self.cfg.training.lr_factor_lframesnet,
+                },
             ]
 
         super()._init_optimizer(param_groups=param_groups)
