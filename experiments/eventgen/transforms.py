@@ -209,11 +209,12 @@ class EPPP_to_EPhiPtPz(BaseTransform):
 
 class EPPP_to_PtPhiEtaE(BaseTransform):
     def _forward(self, eppp):
+        eps = get_eps(eppp)
         E, px, py, pz = unpack_last(eppp)
 
         pt = torch.sqrt(px**2 + py**2)
         phi = torch.arctan2(py, px)
-        p_abs = torch.sqrt(pt**2 + pz**2)
+        p_abs = torch.sqrt(torch.clamp(pt**2 + pz**2, min=eps))
         eta = manual_eta(pz, p_abs)  # torch.arctanh(pz / p_abs)
         eta = eta.clamp(min=-CUTOFF_eta, max=CUTOFF_eta)
         assert torch.isfinite(eta).all()
