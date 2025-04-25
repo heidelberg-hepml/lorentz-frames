@@ -20,6 +20,7 @@ jc_params:
  steps_per_epoch: null
  steps_per_epoch_val: null
  events_per_file: 100000
+ async_load: false
 
 plotting:
  roc: false

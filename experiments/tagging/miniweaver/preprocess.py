@@ -4,8 +4,9 @@ import copy
 import numpy as np
 import awkward as ak
 
-from .tools import _get_variable_names, _eval_expr
+from .eval_utils import _get_variable_names, _eval_expr
 from .fileio import _read_files
+from .config import _strcat
 
 
 def _apply_selection(table, selection, funcs=None):
@@ -82,13 +83,16 @@ class AutoStandardizer(object):
         data_config (DataConfig): object containing data format information.
     """
 
-    def __init__(self, filelist, data_config):
+    def __init__(self, filelist, data_config, extra_selection=None):
         if isinstance(filelist, dict):
             filelist = sum(filelist.values(), [])
         self._filelist = (
             filelist if isinstance(filelist, (list, tuple)) else glob.glob(filelist)
         )
         self._data_config = data_config.copy()
+        self._data_config.selection = _strcat(
+            self._data_config.selection, extra_selection
+        )
         self.load_range = (0, data_config.preprocess.get("data_fraction", 0.1))
 
     def read_file(self, filelist):
@@ -171,13 +175,16 @@ class WeightMaker(object):
         data_config (DataConfig): object containing data format information.
     """
 
-    def __init__(self, filelist, data_config):
+    def __init__(self, filelist, data_config, extra_selection=None):
         if isinstance(filelist, dict):
             filelist = sum(filelist.values(), [])
         self._filelist = (
             filelist if isinstance(filelist, (list, tuple)) else glob.glob(filelist)
         )
         self._data_config = data_config.copy()
+        self._data_config.selection = _strcat(
+            self._data_config.selection, extra_selection
+        )
 
     def read_file(self, filelist):
         keep_branches = set(

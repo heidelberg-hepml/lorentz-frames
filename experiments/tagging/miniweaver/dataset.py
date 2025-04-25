@@ -1,5 +1,7 @@
 import os
 import copy
+import json
+import math
 import numpy as np
 import awkward as ak
 import torch.utils.data
@@ -57,11 +59,11 @@ def _finalize_inputs(table, data_config):
             len(names) == 1
             and data_config.preprocess_params[names[0]]["length"] is None
         ):
-            output["_" + k] = ak.to_numpy(ak.values_astype(table[names[0]], "float64"))
+            output["_" + k] = ak.to_numpy(ak.values_astype(table[names[0]], "float32"))
         else:
             output["_" + k] = ak.to_numpy(
                 np.stack(
-                    [ak.to_numpy(table[n]).astype("float64") for n in names], axis=1
+                    [ak.to_numpy(table[n]).astype("float32") for n in names], axis=1
                 )
             )
     # copy monitor variables (after transformation)
@@ -139,13 +141,40 @@ def _preprocess(table, data_config, options):
         indices = np.arange(len(table[data_config.label_names[0]]))
     # shuffle
     if options["shuffle"]:
-        np.random.shuffle(indices)
+        # sequence bucketing
+        if data_config.bucketing:
+            rng = np.random.default_rng()
+            bucket_indices = []
+            remainder_indices = []
+            counts = ak.to_numpy(table[data_config.bucketing_var][indices])
+            if np.iterable(data_config.bucketing_bins):
+                bins = data_config.bucketing_bins
+            else:
+                bins = np.percentile(
+                    counts, np.linspace(0, 100, data_config.bucketing_bins + 1)
+                )
+            bins[0] = -np.inf
+            bins[-1] = np.inf
+            for lower, upper in zip(bins[:-1], bins[1:]):
+                inds = rng.permutation(indices[(counts >= lower) & (counts < upper)])
+                num_batches, remainder = divmod(len(inds), options["batch_size"])
+                bucket_indices.append(
+                    inds[remainder:].reshape((num_batches, options["batch_size"]))
+                )
+                remainder_indices.append(inds[:remainder])
+            # shuffle the batches (i.e., along axis=0)
+            bucket_indices = rng.permutation(
+                np.concatenate(bucket_indices), axis=0
+            ).reshape(-1)
+            indices = np.concatenate([bucket_indices, *remainder_indices])
+        else:
+            np.random.shuffle(indices)
     # perform input variable standardization, clipping, padding and stacking
     table = _finalize_inputs(table, data_config)
     return table, indices
 
 
-def _load_next(data_config, filelist, load_range, options):
+def _load_next(data_config, filelist, load_ranges, options):
     load_branches = (
         data_config.train_load_branches
         if options["training"]
@@ -154,7 +183,7 @@ def _load_next(data_config, filelist, load_range, options):
     table = _read_files(
         filelist,
         load_branches,
-        load_range,
+        load_ranges,
         treename=data_config.treename,
         branch_magic=data_config.branch_magic,
         file_magic=data_config.file_magic,
@@ -198,26 +227,33 @@ class _SimpleIter(object):
                 new_file_dict[name] = new_files
             file_dict = new_file_dict
         self.worker_file_dict = file_dict
-        self.worker_filelist = sum(file_dict.values(), [])
         self.worker_info = worker_info
-
         self.restart()
 
     def restart(self):
-        print("=== Restarting DataIter %s, seed=%s ===" % (self._name, self._seed))
-        # re-shuffle filelist and load range if for training
-        filelist = copy.deepcopy(self.worker_filelist)
+        # re-shuffle file_dict and load range if for training
+        file_dict = copy.deepcopy(self.worker_file_dict)
+        filelist = [(name, f) for name, files in file_dict.items() for f in files]
         if self._sampler_options["shuffle"]:
             np.random.shuffle(filelist)
         if self._file_fraction < 1:
             num_files = int(len(filelist) * self._file_fraction)
             filelist = filelist[:num_files]
-        self.filelist = filelist
+        self.filelist = [f for _, f in filelist]
+        self.file_dict = {
+            name: [f for k, f in filelist if k == name]
+            for name in set(k for k, _ in filelist)
+        }
 
         if self._init_load_range_and_fraction is None:
             self.load_range = (0, 1)
+            self.split_num = 1
         else:
-            (start_pos, end_pos), load_frac = self._init_load_range_and_fraction
+            (
+                (start_pos, end_pos),
+                load_frac,
+                self.split_num,
+            ) = self._init_load_range_and_fraction
             interval = (end_pos - start_pos) * load_frac
             if self._sampler_options["shuffle"]:
                 offset = np.random.uniform(start_pos, end_pos - interval)
@@ -225,8 +261,76 @@ class _SimpleIter(object):
             else:
                 self.load_range = (start_pos, start_pos + interval)
 
+        # determine the load files and their ranges for each iteration
+        if self._fetch_by_files:
+            self.load_filelist_and_ranges = [
+                (
+                    self.filelist[i : i + self._fetch_step],
+                    [self.load_range] * self._fetch_step,
+                )
+                for i in range(0, len(self.filelist), self._fetch_step)
+            ]
+        else:
+            self.load_filelist_and_ranges = []
+
+            def n_div_d_sep(n, d):
+                # for n files with split_num=d, return the loading status for n files
+                # e.g., n=5, d=3, each time it should load 5/3 files, so the status is:
+                # [[0, 0, 0, 0, 0], [1, 2/3, 0, 0, 0], [1, 1, 1, 1/3, 0], [1, 1, 1, 1, 1]]
+                return np.array(
+                    [
+                        [np.clip(n * di / d - ni, 0, 1) for ni in range(n)]
+                        for di in range(d + 1)
+                    ]
+                )
+
+            for i_load in range(
+                math.ceil((self.load_range[1] - self.load_range[0]) / self._fetch_step)
+            ):
+                # current iteration: load files from start_pos to start_pos + delta
+                start_pos = self.load_range[0] + i_load * self._fetch_step
+                delta = min(self._fetch_step, self.load_range[1] - start_pos)
+
+                _load_filelist_and_ranges = [([], []) for _ in range(self.split_num)]
+                for _, files in self.file_dict.items():
+                    n_files = len(files)
+                    n_div_d_sep_array = n_div_d_sep(n_files, self.split_num)
+                    for d in range(self.split_num):
+                        # the dth split of the ith iteration loading range (start_pos, start_pos + delta)
+                        _files, _ranges = _load_filelist_and_ranges[d]
+                        _files.extend(
+                            [
+                                files[i]
+                                for i in range(n_files)
+                                if n_div_d_sep_array[d + 1, i] - n_div_d_sep_array[d, i]
+                                > 0
+                            ]
+                        )
+                        _ranges.extend(
+                            [
+                                (
+                                    start_pos + delta * n_div_d_sep_array[d, i],
+                                    start_pos + delta * n_div_d_sep_array[d + 1, i],
+                                )
+                                for i in range(n_files)
+                                if n_div_d_sep_array[d + 1, i] - n_div_d_sep_array[d, i]
+                                > 0
+                            ]
+                        )
+                self.load_filelist_and_ranges += _load_filelist_and_ranges
+
+        debug_text = "Load filelist and ranges in each iteration:\n"
+        for i, (filelist, load_ranges) in enumerate(self.load_filelist_and_ranges):
+            debug_text += "Iter %d:\n" % i
+            for f, r in zip(filelist, load_ranges):
+                debug_text += "  - %s with load_range=%s\n" % (
+                    str(f),
+                    str((round(r[0], 6), round(r[1], 6))),
+                )
+
         # reset file fetching cursor
-        self.ipos = 0 if self._fetch_by_files else self.load_range[0]
+        self.ipos = 0
+
         # prefetch the first entry asynchronously
         self._try_get_next(init=True)
 
@@ -268,11 +372,7 @@ class _SimpleIter(object):
         return self.get_data(i)
 
     def _try_get_next(self, init=False):
-        end_of_list = (
-            self.ipos >= len(self.filelist)
-            if self._fetch_by_files
-            else self.ipos >= self.load_range[1]
-        )
+        end_of_list = self.ipos >= len(self.load_filelist_and_ranges)
         if end_of_list:
             if init:
                 raise RuntimeError(
@@ -289,30 +389,23 @@ class _SimpleIter(object):
                 self.prefetch = None
                 return
 
-        if self._fetch_by_files:
-            filelist = self.filelist[int(self.ipos) : int(self.ipos + self._fetch_step)]
-            load_range = self.load_range
-        else:
-            filelist = self.filelist
-            load_range = (
-                self.ipos,
-                min(self.ipos + self._fetch_step, self.load_range[1]),
-            )
+        filelist, load_ranges = self.load_filelist_and_ranges[self.ipos]
 
+        # _logger.info('Start fetching next batch, len(filelist)=%d, load_ranges=%s'%(len(filelist), load_ranges))
         if self._async_load:
             self.prefetch = self.executor.submit(
                 _load_next,
                 self._data_config,
                 filelist,
-                load_range,
+                load_ranges,
                 self._sampler_options,
             )
         else:
             self.prefetch = _load_next(
-                self._data_config, filelist, load_range, self._sampler_options
+                self._data_config, filelist, load_ranges, self._sampler_options
             )
-
-        self.ipos += self._fetch_step
+        # increment cursor
+        self.ipos += 1
 
     def get_data(self, i):
         # inputs
@@ -338,8 +431,9 @@ class SimpleIterDataset(torch.utils.data.IterableDataset):
         for_training (bool): flag indicating whether the dataset is used for training or testing.
             When set to ``True``, will enable shuffling and sampling-based reweighting.
             When set to ``False``, will disable shuffling and reweighting, but will load the observer variables.
-        load_range_and_fraction (tuple of tuples, ``((start_pos, end_pos), load_frac)``): fractional range of events to load from each file.
-            E.g., setting load_range_and_fraction=((0, 0.8), 0.5) will randomly load 50% out of the first 80% events from each file (so load 50%*80% = 40% of the file).
+        load_range_and_fraction (tuple of tuples, ``((start_pos, end_pos), load_frac, split_num)``): fractional range of events to load from each file and the split number.
+            E.g., setting load_range_and_fraction=((0, 0.8), 0.5, 1) will randomly load 50% out of the first 80% events from each file (so load 50%*80% = 40% of the file).
+            If split_num > 1, each dataloader worker will further split the dataset into multiple parts when loading a certain fraction of each file.
         fetch_by_files (bool): flag to control how events are retrieved each time we fetch data from disk.
             When set to ``True``, will read only a small number (set by ``fetch_step``) of files each time, but load all the events in these files.
             When set to ``False``, will read from all input files, but load only a small fraction (set by ``fetch_step``) of events each time.
@@ -356,6 +450,7 @@ class SimpleIterDataset(torch.utils.data.IterableDataset):
         file_dict,
         data_config_file,
         events_per_file,
+        batch_size=None,
         for_training=True,
         load_range_and_fraction=None,
         extra_selection=None,
@@ -366,7 +461,7 @@ class SimpleIterDataset(torch.utils.data.IterableDataset):
         up_sample=True,
         weight_scale=1,
         max_resample=10,
-        async_load=False,
+        async_load=True,
         infinity_mode=False,
         in_memory=False,
         name="",
@@ -389,6 +484,7 @@ class SimpleIterDataset(torch.utils.data.IterableDataset):
             "up_sample": up_sample,
             "weight_scale": weight_scale,
             "max_resample": max_resample,
+            "batch_size": batch_size,
         }
 
         # ==== torch collate_fn map ====
@@ -397,7 +493,7 @@ class SimpleIterDataset(torch.utils.data.IterableDataset):
         default_collate_fn_map.update({ak.Array: _collate_awkward_array_fn})
 
         if for_training:
-            self._sampler_options.update(training=True, shuffle=True, reweight=False)
+            self._sampler_options.update(training=True, shuffle=True, reweight=True)
         else:
             self._sampler_options.update(training=False, shuffle=False, reweight=False)
 
@@ -418,6 +514,7 @@ class SimpleIterDataset(torch.utils.data.IterableDataset):
         if for_training:
             # produce variable standardization info if needed
             if self._data_config._missing_standardization_info:
+                # not using `extra_selection` here to get more stats
                 s = AutoStandardizer(file_dict, self._data_config)
                 self._data_config = s.produce(data_config_autogen_file)
 
@@ -428,7 +525,10 @@ class SimpleIterDataset(torch.utils.data.IterableDataset):
                 and not self._data_config.use_precomputed_weights
             ):
                 if remake_weights or self._data_config.reweight_hists is None:
-                    w = WeightMaker(file_dict, self._data_config)
+                    # use `extra_selection` here as it may change the distributions
+                    w = WeightMaker(
+                        file_dict, self._data_config, extra_selection=extra_selection
+                    )
                     self._data_config = w.produce(data_config_autogen_file)
 
             # reload data_config w/o observers for training
@@ -469,4 +569,4 @@ class SimpleIterDataset(torch.utils.data.IterableDataset):
                 return self._iters[worker_id]
 
     def __len__(self):
-        return len(self._init_file_dict["_"]) * self._events_per_file
+        return len(self._init_file_dict["_"]) + self._events_per_file
