@@ -11,7 +11,7 @@ data:
 
 jc_params:
  num_workers: 4
- fetch_step: 1
+ fetch_step: 0.01
  extra_selection: null
  extra-test-selection: null
  fetch_by_files: false
