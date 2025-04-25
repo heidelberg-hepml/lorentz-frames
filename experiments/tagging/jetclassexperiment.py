@@ -103,7 +103,7 @@ class JetClassTaggingExperiment(TaggingExperiment):
         for label in ["train", "test", "val"]:
             path = os.path.join(self.cfg.data.data_dir, folder[label])
             flist = [
-                f"{path}/{classname}_{str(i).zfill(3)}.root"
+                f"{classname}:{path}/{classname}_{str(i).zfill(3)}.root"
                 for classname in self.class_names
                 for i in range(*files_range[label])
             ]
@@ -116,7 +116,7 @@ class JetClassTaggingExperiment(TaggingExperiment):
                 for_training=for_training[label],
                 extra_selection=self.cfg.jc_params.extra_selection,
                 remake_weights=not self.cfg.jc_params.not_remake_weights,
-                load_range_and_fraction=((0, 1), 1, 1),
+                load_range_and_fraction=((0, 1), 1, self.cfg.jc_params.split_num),
                 file_fraction=1,
                 fetch_by_files=self.cfg.jc_params.fetch_by_files,
                 fetch_step=self.cfg.jc_params.fetch_step,

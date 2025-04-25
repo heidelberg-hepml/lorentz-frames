@@ -14,13 +14,14 @@ jc_params:
  fetch_step: 1
  extra_selection: null
  extra-test-selection: null
- fetch_by_files: True
+ fetch_by_files: false
  in_memory: False
  not_remake_weights: False
  steps_per_epoch: null
  steps_per_epoch_val: null
  events_per_file: 100000
  async_load: false
+ split_num: 1
 
 evaluation:
  batchsize: 1024

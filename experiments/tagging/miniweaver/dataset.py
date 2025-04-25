@@ -569,4 +569,7 @@ class SimpleIterDataset(torch.utils.data.IterableDataset):
                 return self._iters[worker_id]
 
     def __len__(self):
-        return len(self._init_file_dict["_"]) + self._events_per_file
+        num_files = sum(
+            len(self._init_file_dict[k]) for k in self._init_file_dict.keys()
+        )
+        return num_files * self._events_per_file
