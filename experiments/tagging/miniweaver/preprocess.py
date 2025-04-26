@@ -50,7 +50,7 @@ def _build_weights(table, data_config, reweight_hists=None):
                 & (table[y_var] <= max(y_bins))
             )
         # init w/ wgt=0: events not belonging to any class in `reweight_classes` will get a weight of 0 at the end
-        wgt = np.zeros(len(table), dtype="float32")
+        wgt = np.zeros(len(table), dtype="float64")
         sum_evts = 0
         if reweight_hists is None:
             reweight_hists = data_config.reweight_hists
@@ -250,8 +250,8 @@ class WeightMaker(object):
                 hist, _, _ = np.histogram2d(
                     x, y, weights=w, bins=self._data_config.reweight_bins
                 )
-            raw_hists[label] = hist.astype("float32")
-            result[label] = hist.astype("float32")
+            raw_hists[label] = hist.astype("float64")
+            result[label] = hist.astype("float64")
         if sum_evts != len(table):
             time.sleep(10)
 

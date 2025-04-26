@@ -178,7 +178,7 @@ class DataConfig(object):
                 self.reweight_hists = opts["weights"].get("reweight_hists", None)
                 if self.reweight_hists is not None:
                     for k, v in self.reweight_hists.items():
-                        self.reweight_hists[k] = np.array(v, dtype="float32")
+                        self.reweight_hists[k] = np.array(v, dtype="float64")
         # sequence bucketing
         self.bucketing = False
         if opts["bucketing"] is not None:

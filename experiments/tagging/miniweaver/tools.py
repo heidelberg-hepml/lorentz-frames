@@ -27,7 +27,7 @@ def _stack(arrays, axis=1):
         return ak.concatenate([a.__getitem__(s) for a in arrays], axis=axis)
 
 
-def _pad(a, maxlen, value=0, dtype="float32"):
+def _pad(a, maxlen, value=0, dtype="float64"):
     if isinstance(a, np.ndarray) and a.ndim >= 2 and a.shape[1] == maxlen:
         return a
     elif isinstance(a, ak.Array):
@@ -45,7 +45,7 @@ def _pad(a, maxlen, value=0, dtype="float32"):
         return x
 
 
-def _repeat_pad(a, maxlen, shuffle=False, dtype="float32"):
+def _repeat_pad(a, maxlen, shuffle=False, dtype="float64"):
     x = ak.to_numpy(ak.flatten(a))
     x = np.tile(x, int(np.ceil(len(a) * maxlen / len(x))))
     if shuffle:
