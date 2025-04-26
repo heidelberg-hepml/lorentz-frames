@@ -213,7 +213,7 @@ class EPPP_to_PtPhiEtaE(BaseTransform):
         E, px, py, pz = unpack_last(eppp)
 
         pt = torch.sqrt(px**2 + py**2)
-        phi = torch.arctan2(py, px)
+        phi = torch.arctan2(py.clamp(min=eps), px.clamp(min=eps))
         p_abs = torch.sqrt(torch.clamp(pt**2 + pz**2, min=eps))
         eta = manual_eta(pz, p_abs)  # torch.arctanh(pz / p_abs)
         eta = eta.clamp(min=-CUTOFF_eta, max=CUTOFF_eta)

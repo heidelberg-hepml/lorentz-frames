@@ -601,16 +601,21 @@ class BaseExperiment:
                 )
 
     def _step(self, data, step):
-        # actual update step
-        loss, metrics = self._batch_loss(data)
-        self.optimizer.zero_grad()
-        loss.backward()
-
         def re_evaluate():
             with torch.autograd.detect_anomaly():
                 loss = self._batch_loss(data)[0]
                 self.optimizer.zero_grad()
                 loss.backward()
+
+        # actual update step
+        loss, metrics = self._batch_loss(data)
+        self.optimizer.zero_grad()
+
+        try:
+            loss.backward()
+        except RuntimeError as e:
+            LOGGER.warning(f"RuntimeError: {e}")
+            re_evaluate()
 
         if self.device == torch.device("cuda"):
             try:
