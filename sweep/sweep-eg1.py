@@ -2,7 +2,6 @@
 
 import hydra
 import optuna
-import torch
 import numpy as np
 from hydra import compose, initialize
 from optuna import Trial
@@ -40,7 +39,7 @@ def run_trial(trial: Trial, seed, exp_name, model, cfg_overrides):
     )
     # training
     lr_factor_lframesnet = trial.suggest_categorical(
-        "lr_factor_lframesnet", [0.01, 0.03, 0.1, 0.3, 1, 3, 10, 30, 100]
+        "lr_factor_lframesnet", [0.1, 0.3, 1, 3, 10]
     )
     clip_grad_norm = trial.suggest_float("clip_grad_norm", 0.1, 10.0, log=True)
 
@@ -82,26 +81,17 @@ def run_trial(trial: Trial, seed, exp_name, model, cfg_overrides):
         cfg = compose(config_name="ttbar", overrides=overrides)
         try:
             exp = ttbarExperiment(cfg)
-        except torch.cuda.OutOfMemoryError as e:
-            print(e)
-            print("Pruning trial {trial.number} due to torch.cuda.OutOfMemoryError")
-            raise optuna.TrialPruned()
-        except AssertionError as e:
-            print(e)
-            print("Pruning trial {trial.number} due to AssertionError")
-            raise optuna.TrialPruned()
-        except RuntimeError as e:
-            print(e)
-            print("Pruning trial {trial.number} due to RuntimeError")
-            raise optuna.TrialPruned()
+        except Exception as e:
+            # raise exception -> dont count it towards startup steps
+            raise
 
         # Run experiment
         exp()
         score = np.mean(exp.NLLs)  # use validation AUC as score
 
         if score < -33:
-            print("Pruning trial {trial.number} due to low score NLL={score}")
-            raise optuna.TrialPruned()
+            print("Flagging trial {trial.number} due to low score NLL={score}")
+            raise ValueError(f"Not-trustworthy run")
 
         return score
 

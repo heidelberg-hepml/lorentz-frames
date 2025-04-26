@@ -8,7 +8,6 @@ optuna_db: 'runs/${exp_name}/optuna/optuna.db'
 model_name: eg_transformer
 
 cfg_overrides:
- - training.iterations=100000
  - evaluation.classifier=false
  - evaluation.sample=false
  - evaluation.eval_log_prob=[val]
