@@ -157,6 +157,11 @@ class EPPP_to_EPhiPtPz(BaseTransform):
     def _forward(self, eppp):
         E, px, py, pz = unpack_last(eppp)
 
+        # handle px==py==0 smoothly
+        mask = (px == 0) & (py == 0)
+        px = torch.where(mask, px.detach(), px)
+        py = torch.where(mask, py.detach(), py)
+
         pt = torch.sqrt(px**2 + py**2)
         phi = torch.arctan2(py, px)
         return torch.stack((E, phi, pt, pz), dim=-1)
@@ -212,8 +217,13 @@ class EPPP_to_PtPhiEtaE(BaseTransform):
         eps = get_eps(eppp)
         E, px, py, pz = unpack_last(eppp)
 
-        pt = torch.sqrt(torch.clamp(px**2 + py**2, min=eps))
-        phi = torch.arctan2(py.clamp(min=eps), px.clamp(min=eps))
+        # handle px==py==0 smoothly
+        mask = (px == 0) & (py == 0)
+        px = torch.where(mask, px.detach(), px)
+        py = torch.where(mask, py.detach(), py)
+
+        pt = torch.sqrt(px**2 + py**2)
+        phi = torch.arctan2(py, px)
         p_abs = torch.sqrt(torch.clamp(pt**2 + pz**2, min=eps))
         eta = manual_eta(pz, p_abs)  # torch.arctanh(pz / p_abs)
         eta = eta.clamp(min=-CUTOFF_eta, max=CUTOFF_eta)
