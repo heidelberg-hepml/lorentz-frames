@@ -212,7 +212,7 @@ class EPPP_to_PtPhiEtaE(BaseTransform):
         eps = get_eps(eppp)
         E, px, py, pz = unpack_last(eppp)
 
-        pt = torch.sqrt(px**2 + py**2)
+        pt = torch.sqrt(torch.clamp(px**2 + py**2, min=eps))
         phi = torch.arctan2(py.clamp(min=eps), px.clamp(min=eps))
         p_abs = torch.sqrt(torch.clamp(pt**2 + pz**2, min=eps))
         eta = manual_eta(pz, p_abs)  # torch.arctanh(pz / p_abs)
@@ -293,12 +293,13 @@ class PtPhiEtaE_to_PtPhiEtaM2(BaseTransform):
         return torch.stack((pt, phi, eta, m2), dim=-1)
 
     def _inverse(self, ptphietam2):
+        eps = get_eps(ptphietam2)
         pt, phi, eta, m2 = unpack_last(ptphietam2)
 
         m2 = stay_positive(m2)
         eta = eta.clamp(min=-CUTOFF_eta, max=CUTOFF_eta)
         p_abs = pt * torch.cosh(eta)
-        E = torch.sqrt(m2 + p_abs**2)
+        E = torch.sqrt(torch.clamp(m2 + p_abs**2, min=eps))
 
         return torch.stack((pt, phi, eta, E), dim=-1)
 
