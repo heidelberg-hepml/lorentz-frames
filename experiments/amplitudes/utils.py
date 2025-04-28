@@ -9,6 +9,7 @@ from tensorframes.utils.transforms import (
     rand_rotation_uniform,
     rand_xyrotation,
     rand_rotation_zboost,
+    rand_general_lorentz,
 )
 from tensorframes.utils.restframe import restframe_boost
 
@@ -97,10 +98,28 @@ def load_file(
         lab_momentum = momentum[..., :2, :].sum(dim=-2)
         trafo = restframe_boost(-lab_momentum)
     elif cfg_data.prepare == "lorentz":
-        # add random rotation to existing z-boost -> general Lorentz trafo
+        # add random rotation to existing z-boost
+        trafo = rand_rotation_uniform(
+            momentum.shape[:-2], generator=generator, dtype=save_dtype
+        )
+    elif cfg_data.prepare == "rot_boost":
+        # add random rotation and a z-bost to existing z-boost -> mimic rand_lorentz
         trafo = rand_rotation_zboost(
             momentum.shape[:-2], generator=generator, dtype=save_dtype
         )
+    elif cfg_data.prepare == "genlorentz":
+        # general Lorentz trafo as L=R*B
+        trafo = rand_general_lorentz(
+            momentum.shape[:-2], generator=generator, dtype=save_dtype
+        )
+    elif cfg_data.prepare == "com_genlorentz":
+        # general Lorentz trafo, L=R*B, in the ref. frame of incoming particles
+        lab_momentum = momentum[..., :2, :].sum(dim=-2)
+        tocom = restframe_boost(lab_momentum)
+        trafo = rand_general_lorentz(  # rand_rotation_zboost(
+            momentum.shape[:-2], generator=generator, dtype=save_dtype
+        )
+        trafo = torch.einsum("...ij,...jk->...ik", trafo, tocom)
     elif cfg_data.prepare == "ztransform":
         # add random xyrotation to existing z-boost -> general ztransform
         trafo = rand_xyrotation(

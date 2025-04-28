@@ -64,8 +64,8 @@ def transform(
 
 def rand_lorentz(
     shape: List[int],
-    std_eta: float = 0.5,
-    n_max_std_eta: float = 2.0,
+    std_eta: float = 0.1,
+    n_max_std_eta: float = 3.0,
     is_cauchy: bool = False,
     device: str = "cpu",
     dtype: torch.dtype = torch.float32,
@@ -116,8 +116,8 @@ def rand_lorentz(
 
 def rand_general_lorentz(
     shape: List[int],
-    std_eta: float = 0.5,
-    n_max_std_eta: float = 2.0,
+    std_eta: float = 0.1,
+    n_max_std_eta: float = 3.0,
     is_cauchy: bool = False,
     device: str = "cpu",
     dtype: torch.dtype = torch.float32,
@@ -239,8 +239,8 @@ def rand_xyrotation(
 
 def rand_ztransform(
     shape: List[int],
-    std_eta: float = 0.5,
-    n_max_std_eta: float = 2.0,
+    std_eta: float = 0.1,
+    n_max_std_eta: float = 3.0,
     is_cauchy: bool = False,
     device: str = "cpu",
     dtype: torch.dtype = torch.float32,
@@ -341,8 +341,8 @@ def rand_rotation_uniform(
 
 def rand_general_boost(
     shape: List[int],
-    std_eta: float = 0.5,
-    n_max_std_eta: float = 2.0,
+    std_eta: float = 0.1,
+    n_max_std_eta: float = 3.0,
     is_cauchy: bool = False,
     device: str = "cpu",
     dtype: torch.dtype = torch.float32,
@@ -400,15 +400,15 @@ def rand_general_boost(
     ones = torch.ones_like(betax)
     beta = torch.stack([ones, betax, betay, betaz], axis=-1)
 
-    boost = restframe_boost(beta)
+    boost = restframe_boost(beta, is_beta=True)
 
     return boost
 
 
 def rand_rotation_zboost(
     shape: List[int],
-    std_eta: float = 0.5,
-    n_max_std_eta: float = 2.0,
+    std_eta: float = 0.1,
+    n_max_std_eta: float = 3.0,
     device: str = "cpu",
     dtype: torch.dtype = torch.float32,
     generator: torch.Generator = None,

@@ -152,8 +152,8 @@ class ReferenceBoostRandomLFrames(RandomLFrames):
         )
 
         # hardcoded for amplitudes
-        reference_vector = fourmomenta[..., :2, :].sum(dim=-2)
-        reference_boost = restframe_boost(reference_vector)[:, None, :4, :4]
+        reference_vector = fourmomenta[..., :2, :].sum(dim=-2, keepdims=True)
+        reference_boost = restframe_boost(reference_vector)[..., :4, :4]
 
         matrix = torch.einsum("...ij,...jk->...ik", matrix, reference_boost)
         matrix = matrix.expand(*fourmomenta.shape[:-1], 4, 4)
