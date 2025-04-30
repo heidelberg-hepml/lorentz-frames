@@ -127,13 +127,20 @@ class RandomLFrames(LFramesPredictor):
 
     def __repr__(self):
         string = f"RandomLFrames(transform_type={self.transform_type}, is_global={self.is_global}"
-        if self.transform_type in ["lorentz", "ztransform"]:
+        if self.transform_type in ["lorentz", "ztransform, general_lorentz"]:
             string += f", std_eta={self.std_eta}"
+            string += f", n_max_std_eta={self.n_max_std_eta}"
         string += ")"
         return string
 
 
 class ReferenceBoostRandomLFrames(RandomLFrames):
+    """Modifies the forward function of RandomLFrames such that
+    an additional boost is applied to the whole event.
+
+    Only applicable to amplitude regression, the boost changes
+    the reference frame to the center of mass of the incoming particles."""
+
     def forward(self, fourmomenta, scalars=None, ptr=None, return_tracker=False):
         if not self.training:
             lframes = LFrames(
@@ -165,3 +172,11 @@ class ReferenceBoostRandomLFrames(RandomLFrames):
             dtype=fourmomenta.dtype,
         )
         return (lframes, {}) if return_tracker else lframes
+
+    def __repr__(self):
+        string = f"ReferenceBoostRandomLFrames(transform_type={self.transform_type}, is_global={self.is_global}"
+        if self.transform_type in ["lorentz", "ztransform", "general_lorentz"]:
+            string += f", std_eta={self.std_eta}"
+            string += f", n_max_std_eta={self.n_max_std_eta}"
+        string += ")"
+        return string
