@@ -147,6 +147,7 @@ class EventGenerationExperiment(BaseExperiment):
             dataset=train_dataset,
             batch_size=self.cfg.training.batchsize,
             shuffle=True,
+            drop_last=True,
         )
         test_dataset = torch.utils.data.TensorDataset(self.data_prepd["tst"])
         self.test_loader = torch.utils.data.DataLoader(
