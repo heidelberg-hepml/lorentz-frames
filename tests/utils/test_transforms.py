@@ -9,6 +9,7 @@ from tensorframes.utils.transforms import (
     rand_xyrotation,
     rand_ztransform,
     rand_rotation_uniform,
+    rand_general_lorentz,
 )
 
 
@@ -22,6 +23,7 @@ from tensorframes.utils.transforms import (
         rand_xyrotation,
         rand_ztransform,
         rand_rotation_uniform,
+        rand_general_lorentz,
     ],
 )
 def test_rand_lorentz(batch_dims, std_eta, transform_type):
