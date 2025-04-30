@@ -365,10 +365,11 @@ def rand_general_boost(
         dtype=dtype,
         generator=generator,
     )
-    ones = torch.ones((*beta.shape[:-1], 1))
-    beta = torch.cat([ones, beta], axis=-1)
+    beta2 = (beta**2).sum(dim=-1, keepdim=True)
+    gamma = 1 / (1 - beta2).clamp(min=1e-10).sqrt()
+    fourmomenta = torch.cat([gamma, beta], axis=-1)
 
-    boost = restframe_boost(beta, is_beta=True)
+    boost = restframe_boost(fourmomenta)
     return boost
 
 

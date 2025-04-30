@@ -4,7 +4,7 @@ from tensorframes.utils.orthogonalize_o3 import orthogonalize_o3
 from tensorframes.utils.lorentz import lorentz_squarednorm
 
 
-def restframe_boost(fourmomenta, is_beta=False):
+def restframe_boost(fourmomenta):
     """
     Lorentz transformation representing a boost into the rest frame.
     This transformation does not have the lframes transformation properties,
@@ -12,14 +12,13 @@ def restframe_boost(fourmomenta, is_beta=False):
 
     Args:
         fourmomenta: torch.tensor of shape (*dims, 4)
-        is_beta: input vector is [1, beta_x, beta_y, beta_z]
 
     Returns:
         trafo: torch.tensor of shape (*dims, 4, 4)
     """
     assert (
         lorentz_squarednorm(fourmomenta) > 0
-    ).all() or is_beta, "Trying to boost spacelike vectors into their restframe (not possible). Consider changing the nonlinearity in equivectors."
+    ).all(), "Trying to boost spacelike vectors into their restframe (not possible). Consider changing the nonlinearity in equivectors."
 
     beta = fourmomenta[..., 1:] / fourmomenta[..., [0]].clamp(min=1e-10)
     beta2 = (beta**2).sum(dim=-1, keepdim=True)
