@@ -49,8 +49,8 @@ class RandomLFrames(LFramesPredictor):
         self,
         transform_type="lorentz",
         is_global=True,
-        std_eta=0.5,
-        n_max_std_eta=5.0,
+        std_eta=0.1,
+        n_max_std_eta=3.0,
     ):
         super().__init__(is_global=is_global)
         self.is_global = is_global
@@ -129,7 +129,7 @@ class RandomLFrames(LFramesPredictor):
         return string
 
 
-class ReferenceBoostRandomLFrames(RandomLFrames):
+class COMRandomLFrames(RandomLFrames):
     """Modifies the forward function of RandomLFrames such that
     an additional boost is applied to the whole event.
 
@@ -169,7 +169,7 @@ class ReferenceBoostRandomLFrames(RandomLFrames):
         return (lframes, {}) if return_tracker else lframes
 
     def __repr__(self):
-        string = f"ReferenceBoostRandomLFrames(transform_type={self.transform_type}, is_global={self.is_global}"
+        string = f"COMLFrames(transform_type={self.transform_type}, is_global={self.is_global}"
         if self.transform_type in ["lorentz", "ztransform", "general_lorentz"]:
             string += f", std_eta={self.std_eta}"
             string += f", n_max_std_eta={self.n_max_std_eta}"
