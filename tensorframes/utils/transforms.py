@@ -66,7 +66,6 @@ def rand_lorentz(
     shape: List[int],
     std_eta: float = 0.1,
     n_max_std_eta: float = 3.0,
-    is_cauchy: bool = False,
     device: str = "cpu",
     dtype: torch.dtype = torch.float32,
     generator: torch.Generator = None,
@@ -86,8 +85,6 @@ def rand_lorentz(
         n_max_std_eta: float
             Allowed number of standard deviations;
             used to sample from a truncated Gaussian
-        is_cauchy: bool
-            Sample rapidities from a Cauchy distribution instead of Gaussian
         device: str
         dtype: torch.dtype
         generator: torch.Generator
@@ -118,7 +115,6 @@ def rand_general_lorentz(
     shape: List[int],
     std_eta: float = 0.1,
     n_max_std_eta: float = 3.0,
-    is_cauchy: bool = False,
     device: str = "cpu",
     dtype: torch.dtype = torch.float32,
     generator: torch.Generator = None,
@@ -136,8 +132,6 @@ def rand_general_lorentz(
         n_max_std_eta: float
             Allowed number of standard deviations;
             used to sample from a truncated Gaussian
-        is_cauchy: bool
-            Sample rapdidities from a Cauchy distribution instead of Gaussian
         device: str
         dtype: torch.dtype
         generator: torch.Generator
@@ -150,7 +144,6 @@ def rand_general_lorentz(
         shape,
         std_eta,
         n_max_std_eta,
-        is_cauchy,
         device=device,
         dtype=dtype,
         generator=generator,
@@ -241,7 +234,6 @@ def rand_ztransform(
     shape: List[int],
     std_eta: float = 0.1,
     n_max_std_eta: float = 3.0,
-    is_cauchy: bool = False,
     device: str = "cpu",
     dtype: torch.dtype = torch.float32,
     generator: torch.Generator = None,
@@ -258,8 +250,6 @@ def rand_ztransform(
         n_max_std_eta: float
             Allowed number of standard deviations;
             used to sample from a truncated Gaussian
-        is_cauchy: bool
-            Sample rapidities from a Cauchy distribution instead of Gaussian
         device: str
         dtype: torch.dtype
         generator: torch.Generator
@@ -343,7 +333,6 @@ def rand_general_boost(
     shape: List[int],
     std_eta: float = 0.1,
     n_max_std_eta: float = 3.0,
-    is_cauchy: bool = False,
     device: str = "cpu",
     dtype: torch.dtype = torch.float32,
     generator: torch.Generator = None,
@@ -360,9 +349,6 @@ def rand_general_boost(
         n_max_std_eta: float
             Allowed number of standard deviations;
             used to sample from a truncated Gaussian
-        is_cauchy: bool
-            Sample rapidities from a Cauchy distribution instead of Gaussian
-
         device: str
         dtype: torch.dtype
         generator: torch.Generator
@@ -370,58 +356,33 @@ def rand_general_boost(
     Returns:
         final_trafo: torch.tensor of shape (*shape, 4, 4)
     """
-    betax = sample_rapidity(
+    shape = shape + (3,)
+    beta = sample_rapidity(
         shape,
         std_eta,
         n_max_std_eta,
-        is_cauchy,
         device=device,
         dtype=dtype,
         generator=generator,
     )
-    betay = sample_rapidity(
-        shape,
-        std_eta,
-        n_max_std_eta,
-        is_cauchy,
-        device=device,
-        dtype=dtype,
-        generator=generator,
-    )
-    betaz = sample_rapidity(
-        shape,
-        std_eta,
-        n_max_std_eta,
-        is_cauchy,
-        device=device,
-        dtype=dtype,
-        generator=generator,
-    )
-    ones = torch.ones_like(betax)
-    beta = torch.stack([ones, betax, betay, betaz], axis=-1)
+    ones = torch.ones((*beta.shape[:-1], 1))
+    beta = torch.cat([ones, beta], axis=-1)
 
     boost = restframe_boost(beta, is_beta=True)
-
     return boost
 
 
 def sample_rapidity(
     shape,
     std_eta,
-    n_max_std_eta=2.0,
-    is_cauchy=False,
+    n_max_std_eta=3.0,
     device="cpu",
     dtype=torch.float32,
     generator=None,
 ):
-    if is_cauchy:
-        angle = torch.zeros(*shape, device=device, dtype=dtype)
-        angle.cauchy_(median=0, sigma=std_eta, generator=generator)
-    else:
-        angle = (
-            torch.randn(*shape, device=device, dtype=dtype, generator=generator)
-            * std_eta
-        )
+    angle = (
+        torch.randn(*shape, device=device, dtype=dtype, generator=generator) * std_eta
+    )
     truncate_mask = torch.abs(angle) > std_eta * n_max_std_eta
     while truncate_mask.any():
         new_angle = (
