@@ -1,3 +1,4 @@
+# Only applicable to amplitude regression experiment
 _target_: tensorframes.lframes.nonequi_lframes.ReferenceBoostRandomLFrames
 std_eta: 0.1
 n_max_std_eta: 3.0
