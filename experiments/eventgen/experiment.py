@@ -433,7 +433,23 @@ class EventGenerationExperiment(BaseExperiment):
         return loss, metrics
 
     def _init_metrics(self):
-        metrics = {"reg_collinear": [], "reg_coplanar": [], "reg_lightlike": []}
+        metrics = {
+            "reg_collinear": [],
+            "reg_coplanar": [],
+            "reg_lightlike": [],
+            "lframes_absmax": [],
+            "lframes_absmax_max": [],
+            "lframes_norm": [],
+            "lframes_norm_max": [],
+            "lframes_00": [],
+            "lframes_00_max": [],
+            "v_fm_local_absmax": [],
+            "v_fm_local_absmax_max": [],
+            "v_fm_global_absmax": [],
+            "v_fm_global_absmax_max": [],
+            "v_x_absmax": [],
+            "v_x_absmax_max": [],
+        }
         for k in range(4):
             metrics[f"mse_{k}"] = []
         return metrics

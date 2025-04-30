@@ -79,6 +79,38 @@ class CFMWrapper(EventCFM):
             fm_local = self.trafo_fourmomenta(fm, lframes)
             x_local = self.coordinates.fourmomenta_to_x(fm_local)
 
+        tracker["lframes_absmax"] = (
+            lframes.matrices.detach()
+            .abs()
+            .max(-1)[0]
+            .max(-1)[0]
+            .max(-1)[0]
+            .mean()
+            .cpu()
+        )
+        tracker["lframes_00"] = (
+            lframes.matrices[..., 0, 0].detach().max(-1)[0].mean().cpu()
+        )
+        tracker["lframes_norm"] = (
+            torch.linalg.norm(lframes.matrices.detach(), ord=2, dim=[-2, -1])
+            .max(-1)[0]
+            .mean()
+            .cpu()
+        )
+
+        tracker["lframes_absmax_max"] = (
+            lframes.matrices.detach().abs().max(-1)[0].max(-1)[0].max(-1)[0].max().cpu()
+        )
+        tracker["lframes_00_max"] = (
+            lframes.matrices[..., 0, 0].detach().max(-1)[0].max().cpu()
+        )
+        tracker["lframes_norm_max"] = (
+            torch.linalg.norm(lframes.matrices.detach(), ord=2, dim=[-2, -1])
+            .max(-1)[0]
+            .max()
+            .cpu()
+        )
+
         # move everything to self.input_dtype
         x_local = x_local.to(self.input_dtype)
         lframes.to(self.input_dtype)
@@ -91,7 +123,7 @@ class CFMWrapper(EventCFM):
             tracker,
         )
 
-    def postprocess_velocity(self, v_mixed_local, x, lframes):
+    def postprocess_velocity(self, v_mixed_local, x, lframes, tracker):
         v_fm_local, v_s_local = v_mixed_local[..., 0:4], v_mixed_local[..., 4:]
 
         if self.lframesnet.is_identity:
@@ -106,8 +138,29 @@ class CFMWrapper(EventCFM):
 
             v_x, _ = self.coordinates.velocity_fourmomenta_to_x(v_fm, fm)
             v_x[..., self.scalar_dims] = v_s_local
+
+            tracker["v_fm_local_absmax"] = (
+                v_fm_local.detach().abs().max(-1)[0].max(-1)[0].mean().cpu()
+            )
+            tracker["v_fm_global_absmax"] = (
+                v_fm.detach().abs().max(-1)[0].max(-1)[0].mean().cpu()
+            )
+            tracker["v_x_absmax"] = (
+                v_x.detach().abs().max(-1)[0].max(-1)[0].mean().cpu()
+            )
+
+            tracker["v_fm_local_absmax_max"] = (
+                v_fm_local.detach().abs().max(-1)[0].max(-1)[0].max().cpu()
+            )
+            tracker["v_fm_global_absmax_max"] = (
+                v_fm.detach().abs().max(-1)[0].max(-1)[0].max().cpu()
+            )
+            tracker["v_x_absmax_max"] = (
+                v_x.detach().abs().max(-1)[0].max(-1)[0].max().cpu()
+            )
+
         v_x = v_x.to(torch.float64)
-        return v_x
+        return v_x, tracker
 
     def encode_particle_type(self, shape):
         particle_type = torch.nn.functional.one_hot(
@@ -141,7 +194,7 @@ class MLPCFM(CFMWrapper):
         )
         v_local = self.net(fts)
         v_local = v_local.reshape(*x_local.shape[:-1], -1)
-        v = self.postprocess_velocity(v_local, x, lframes)
+        v, tracker = self.postprocess_velocity(v_local, x, lframes, tracker)
         return v, tracker
 
 
@@ -161,7 +214,7 @@ class TransformerCFM(CFMWrapper):
 
         fts = torch.cat([x_local, particle_type, t_embedding], dim=-1)
         v_local = self.net(fts, lframes)
-        v = self.postprocess_velocity(v_local, x, lframes)
+        v, tracker = self.postprocess_velocity(v_local, x, lframes, tracker)
         return v, tracker
 
 
@@ -190,7 +243,7 @@ class GraphNetCFM(CFMWrapper):
         )
         v_local = v_local_flat.reshape(*fts.shape[:-1], v_local_flat.shape[-1])
 
-        v = self.postprocess_velocity(v_local, x, lframes)
+        v, tracker = self.postprocess_velocity(v_local, x, lframes, tracker)
         return v, tracker
 
 

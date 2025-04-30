@@ -68,6 +68,28 @@ def plot_losses(exp, filename, model_label):
             labels=["collinear", "coplanar", "lightlike"],
         )
 
+        for key in [
+            "lframes_absmax",
+            "lframes_absmax_max",
+            "lframes_norm",
+            "lframes_norm_max",
+            "lframes_00",
+            "lframes_00_max",
+            "v_fm_local_absmax",
+            "v_fm_local_absmax_max",
+            "v_fm_global_absmax",
+            "v_fm_global_absmax_max",
+            "v_x_absmax",
+            "v_x_absmax_max",
+        ]:
+            plot_metric(
+                file,
+                [
+                    exp.train_metrics[key],
+                ],
+                key,
+            )
+
         for k in range(4):
             plot_loss(
                 file,
