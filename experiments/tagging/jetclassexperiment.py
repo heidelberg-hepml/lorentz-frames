@@ -97,9 +97,20 @@ class JetClassTaggingExperiment(TaggingExperiment):
             "test": self.cfg.data.test_files_range,
             "val": self.cfg.data.val_files_range,
         }
+        fetch_step = {
+            "train": self.cfg.jc_params.fetch_step,
+            "val": self.cfg.jc_params.fetch_step * 20,
+            "test": self.cfg.jc_params.fetch_step * 5,
+        }
+        fetch_by_files = {
+            "train": self.cfg.jc_params.fetch_by_files,
+            "val": self.cfg.jc_params.fetch_by_files,
+            "test": self.cfg.jc_params.fetch_by_files,
+        }
         self.num_files = {
             label: frange[1] - frange[0] for label, frange in files_range.items()
         }
+        load_frac = {"train": 1, "val": 0.2, "test": 1}
         for label in ["train", "test", "val"]:
             path = os.path.join(self.cfg.data.data_dir, folder[label])
             flist = [
@@ -116,10 +127,14 @@ class JetClassTaggingExperiment(TaggingExperiment):
                 for_training=for_training[label],
                 extra_selection=self.cfg.jc_params.extra_selection,
                 remake_weights=not self.cfg.jc_params.not_remake_weights,
-                load_range_and_fraction=((0, 1), 1, self.cfg.jc_params.split_num),
+                load_range_and_fraction=(
+                    (0, 1),
+                    load_frac[label],
+                    self.cfg.jc_params.split_num,
+                ),
                 file_fraction=1,
-                fetch_by_files=self.cfg.jc_params.fetch_by_files,
-                fetch_step=self.cfg.jc_params.fetch_step,
+                fetch_by_files=fetch_by_files[label],
+                fetch_step=fetch_step[label],
                 infinity_mode=self.cfg.jc_params.steps_per_epoch is not None,
                 in_memory=self.cfg.jc_params.in_memory,
                 name=label,

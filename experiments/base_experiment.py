@@ -520,6 +520,11 @@ class BaseExperiment:
             # training
             self.model.train()
             data = next(iterator)
+            if step == 0:
+                LOGGER.info(
+                    f"Loaded data in {time.time() - self.training_start_time:.2f}s"
+                )
+                self.training_start_time = time.time()
             t0 = time.time()
             try:
                 self._step(data, step)
@@ -533,6 +538,7 @@ class BaseExperiment:
                 t0 = time.time()
                 val_loss = self._validate(step)
                 val_time += time.time() - t0
+                LOGGER.info(f"Validated for {val_time:.2f}s, val_loss={val_loss:.4f}.")
                 if val_loss < smallest_val_loss:
                     smallest_val_loss = val_loss
                     smallest_val_loss_step = step
