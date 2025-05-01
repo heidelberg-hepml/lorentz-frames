@@ -35,6 +35,7 @@ cfm:
   type: simple
   periodic: true
  transforms_float64: true
+ keep_quantile: null
 
 evaluation:
  sample: true

@@ -115,11 +115,34 @@ class CFMWrapper(EventCFM):
         x_local = x_local.to(self.input_dtype)
         lframes.to(self.input_dtype)
 
+        # keep_quantile trick (ugly hack to improve stability)
+        if self.cfm.keep_quantile is not None and self.training:
+            score = lframes.matrices[..., 0, 0].max(dim=-1)[0]
+            k = int(self.cfm.keep_quantile * score.numel())
+            score_crit = score.kthvalue(k).values
+            mask = score <= score_crit
+
+            x = x[mask]
+            x_local = x_local[mask]
+            t_embedding = t_embedding[mask]
+            particle_type = particle_type[mask]
+            lframes = LFrames(
+                matrices=lframes.matrices[mask],
+                det=lframes.det[mask],
+                inv=lframes.inv[mask],
+                is_global=lframes.is_global,
+                is_identity=lframes.is_identity,
+            )
+        else:
+            mask = torch.ones_like(x[:, 0, 0]).bool()
+
         return (
+            x,
             x_local,
             t_embedding,
             particle_type,
             lframes,
+            mask,
             tracker,
         )
 
@@ -177,10 +200,12 @@ class MLPCFM(CFMWrapper):
 
     def get_velocity(self, x, t):
         (
+            x,
             x_local,
             t_embedding,
             _,
             lframes,
+            mask,
             tracker,
         ) = super().preprocess_velocity(x, t)
 
@@ -195,7 +220,7 @@ class MLPCFM(CFMWrapper):
         v_local = self.net(fts)
         v_local = v_local.reshape(*x_local.shape[:-1], -1)
         v, tracker = self.postprocess_velocity(v_local, x, lframes, tracker)
-        return v, tracker
+        return v, mask, tracker
 
 
 class TransformerCFM(CFMWrapper):
@@ -205,17 +230,19 @@ class TransformerCFM(CFMWrapper):
 
     def get_velocity(self, x, t):
         (
+            x,
             x_local,
             t_embedding,
             particle_type,
             lframes,
+            mask,
             tracker,
         ) = super().preprocess_velocity(x, t)
 
         fts = torch.cat([x_local, particle_type, t_embedding], dim=-1)
         v_local = self.net(fts, lframes)
         v, tracker = self.postprocess_velocity(v_local, x, lframes, tracker)
-        return v, tracker
+        return v, mask, tracker
 
 
 class GraphNetCFM(CFMWrapper):
@@ -227,10 +254,12 @@ class GraphNetCFM(CFMWrapper):
 
     def get_velocity(self, x, t):
         (
+            x,
             x_local,
             t_embedding,
             particle_type,
             lframes,
+            mask,
             tracker,
         ) = super().preprocess_velocity(x, t)
         edge_index, batch = build_edge_index_fully_connected(x_local)
@@ -244,7 +273,7 @@ class GraphNetCFM(CFMWrapper):
         v_local = v_local_flat.reshape(*fts.shape[:-1], v_local_flat.shape[-1])
 
         v, tracker = self.postprocess_velocity(v_local, x, lframes, tracker)
-        return v, tracker
+        return v, mask, tracker
 
 
 class LGATrCFM(CFMWrapper):
