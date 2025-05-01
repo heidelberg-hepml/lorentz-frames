@@ -7,11 +7,11 @@ data:
  data_config: null
  train_files_range: [0, 100]
  test_files_range: [100,120]
- val_files_range: [120,125]
+ val_files_range: [120,121]
 
 jc_params:
- num_workers: 4
- fetch_step: 0.01
+ num_workers: 8
+ fetch_step: 0.05
  extra_selection: null
  extra-test-selection: null
  fetch_by_files: false
@@ -20,7 +20,7 @@ jc_params:
  steps_per_epoch: null
  steps_per_epoch_val: null
  events_per_file: 100000
- async_load: false
+ async_load: true
  split_num: 1
 
 evaluation:
