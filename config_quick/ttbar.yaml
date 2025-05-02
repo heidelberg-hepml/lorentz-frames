@@ -36,7 +36,7 @@ cfm:
   periodic: true
  transforms_float64: true
  stability_trick:
-  lframes_max: 5
+  gamma_max: 5
   trick: null
 
 evaluation:

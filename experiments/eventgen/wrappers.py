@@ -100,7 +100,7 @@ class CFMWrapper(EventCFM):
         mask = torch.ones_like(x[:, 0, 0]).bool()
         if self.training and self.cfm.stability_trick.trick is not None:
             score = lframes.matrices[..., 0, 0].max(dim=-1)[0]
-            cutoff = self.cfm.stability_trick.lframes_max
+            cutoff = self.cfm.stability_trick.gamma_max
             mask = score <= cutoff
             tracker["num_tricks"] = (~mask).detach().sum().cpu()
 
