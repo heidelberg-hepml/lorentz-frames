@@ -36,7 +36,9 @@ cfm:
   type: simple
   periodic: true
  transforms_float64: true
- keep_quantile: null
+ stability_trick:
+  lframes_max: 5
+  trick: null
 
 evaluation:
  sample: true

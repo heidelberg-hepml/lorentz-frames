@@ -69,18 +69,12 @@ def plot_losses(exp, filename, model_label):
         )
 
         for key in [
-            "lframes_absmax",
-            "lframes_absmax_max",
-            "lframes_norm",
-            "lframes_norm_max",
-            "lframes_00",
-            "lframes_00_max",
-            "v_fm_local_absmax",
-            "v_fm_local_absmax_max",
-            "v_fm_global_absmax",
-            "v_fm_global_absmax_max",
-            "v_x_absmax",
-            "v_x_absmax_max",
+            "reg_gammamax",
+            "lframesmax_mean_pre",
+            "lframesmax_max_pre",
+            "lframesmax_mean_post",
+            "lframesmax_max_post",
+            "num_tricks",
         ]:
             plot_metric(
                 file,

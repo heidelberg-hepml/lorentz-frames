@@ -7,6 +7,7 @@ from tensorframes.lframes.lframes import LFrames, InverseLFrames
 from tensorframes.reps.tensorreps import TensorReps
 from tensorframes.reps.tensorreps_transform import TensorRepsTransform
 from tensorframes.utils.utils import build_edge_index_fully_connected
+from tensorframes.utils.lorentz import lorentz_eye
 
 
 class CFMWrapper(EventCFM):
@@ -79,7 +80,11 @@ class CFMWrapper(EventCFM):
             fm_local = self.trafo_fourmomenta(fm, lframes)
             x_local = self.coordinates.fourmomenta_to_x(fm_local)
 
-        tracker["lframes_absmax"] = (
+        # move everything to self.input_dtype
+        x_local = x_local.to(self.input_dtype)
+        lframes.to(self.input_dtype)
+
+        tracker["lframesmax_mean_pre"] = (
             lframes.matrices.detach()
             .abs()
             .max(-1)[0]
@@ -88,53 +93,76 @@ class CFMWrapper(EventCFM):
             .mean()
             .cpu()
         )
-        tracker["lframes_00"] = (
-            lframes.matrices[..., 0, 0].detach().max(-1)[0].mean().cpu()
+        tracker["lframesmax_max_pre"] = (
+            lframes.matrices.detach().abs().max(-1)[0].max(-1)[0].max(-1)[0].max().cpu()
         )
-        tracker["lframes_norm"] = (
-            torch.linalg.norm(lframes.matrices.detach(), ord=2, dim=[-2, -1])
+
+        # keep_quantile trick (ugly hack to improve stability)
+        mask = torch.ones_like(x[:, 0, 0]).bool()
+        if self.training and self.cfm.stability_trick.trick is not None:
+            score = lframes.matrices[..., 0, 0].max(dim=-1)[0]
+            cutoff = self.cfm.stability_trick.lframes_max
+            mask = score <= cutoff
+            tracker["num_tricks"] = (~mask).detach().sum().cpu()
+
+            if self.cfm.stability_trick.trick == "remove":
+                x = x[mask]
+                x_local = x_local[mask]
+                t_embedding = t_embedding[mask]
+                particle_type = particle_type[mask]
+                lframes = LFrames(
+                    matrices=lframes.matrices[mask],
+                    det=lframes.det[mask],
+                    inv=lframes.inv[mask],
+                    is_global=lframes.is_global,
+                    is_identity=lframes.is_identity,
+                )
+            elif self.cfm.stability_trick.trick == "clamp":
+                matrices = lframes.matrices.clamp(min=-cutoff, max=cutoff)
+                lframes = LFrames(
+                    matrices=matrices,
+                    is_global=lframes.is_global,
+                    is_identity=lframes.is_identity,
+                )
+                mask = torch.ones_like(x[:, 0, 0]).bool()
+            elif self.cfm.stability_trick.trick == "rescale":
+                scale = (score / cutoff).clamp(min=1.0)
+                matrices = lframes.matrices / scale[:, None, None, None]
+                lframes = LFrames(
+                    matrices=matrices,
+                    is_global=lframes.is_global,
+                    is_identity=lframes.is_identity,
+                )
+                mask = torch.ones_like(x[:, 0, 0]).bool()
+            elif self.cfm.stability_trick.trick == "identity":
+                matrices = lframes.matrices.clone()
+                matrices[~mask] = lorentz_eye(
+                    matrices[~mask].shape[:-2], device=x.device, dtype=lframes.dtype
+                )
+                lframes = LFrames(
+                    matrices=matrices,
+                    is_global=lframes.is_global,
+                    is_identity=lframes.is_identity,
+                )
+                mask = torch.ones_like(x[:, 0, 0]).bool()
+
+            else:
+                raise ValueError(
+                    f"Trick {self.cfm.stability_trick.trick} not implemented"
+                )
+
+        tracker["lframesmax_mean_post"] = (
+            lframes.matrices.detach()
+            .abs()
+            .max(-1)[0]
+            .max(-1)[0]
             .max(-1)[0]
             .mean()
             .cpu()
         )
-
-        tracker["lframes_absmax_max"] = (
+        tracker["lframesmax_max_post"] = (
             lframes.matrices.detach().abs().max(-1)[0].max(-1)[0].max(-1)[0].max().cpu()
         )
-        tracker["lframes_00_max"] = (
-            lframes.matrices[..., 0, 0].detach().max(-1)[0].max().cpu()
-        )
-        tracker["lframes_norm_max"] = (
-            torch.linalg.norm(lframes.matrices.detach(), ord=2, dim=[-2, -1])
-            .max(-1)[0]
-            .max()
-            .cpu()
-        )
-
-        # move everything to self.input_dtype
-        x_local = x_local.to(self.input_dtype)
-        lframes.to(self.input_dtype)
-
-        # keep_quantile trick (ugly hack to improve stability)
-        if self.cfm.keep_quantile is not None and self.training:
-            score = lframes.matrices[..., 0, 0].max(dim=-1)[0]
-            k = int(self.cfm.keep_quantile * score.numel())
-            score_crit = score.kthvalue(k).values
-            mask = score <= score_crit
-
-            x = x[mask]
-            x_local = x_local[mask]
-            t_embedding = t_embedding[mask]
-            particle_type = particle_type[mask]
-            lframes = LFrames(
-                matrices=lframes.matrices[mask],
-                det=lframes.det[mask],
-                inv=lframes.inv[mask],
-                is_global=lframes.is_global,
-                is_identity=lframes.is_identity,
-            )
-        else:
-            mask = torch.ones_like(x[:, 0, 0]).bool()
 
         return (
             x,
@@ -161,26 +189,6 @@ class CFMWrapper(EventCFM):
 
             v_x, _ = self.coordinates.velocity_fourmomenta_to_x(v_fm, fm)
             v_x[..., self.scalar_dims] = v_s_local
-
-            tracker["v_fm_local_absmax"] = (
-                v_fm_local.detach().abs().max(-1)[0].max(-1)[0].mean().cpu()
-            )
-            tracker["v_fm_global_absmax"] = (
-                v_fm.detach().abs().max(-1)[0].max(-1)[0].mean().cpu()
-            )
-            tracker["v_x_absmax"] = (
-                v_x.detach().abs().max(-1)[0].max(-1)[0].mean().cpu()
-            )
-
-            tracker["v_fm_local_absmax_max"] = (
-                v_fm_local.detach().abs().max(-1)[0].max(-1)[0].max().cpu()
-            )
-            tracker["v_fm_global_absmax_max"] = (
-                v_fm.detach().abs().max(-1)[0].max(-1)[0].max().cpu()
-            )
-            tracker["v_x_absmax_max"] = (
-                v_x.detach().abs().max(-1)[0].max(-1)[0].max().cpu()
-            )
 
         v_x = v_x.to(torch.float64)
         return v_x, tracker
