@@ -1,5 +1,4 @@
 import torch
-from torch import nn
 
 from experiments.eventgen.cfm import EventCFM
 from experiments.tagging.embedding import get_spurion
