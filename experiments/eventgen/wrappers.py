@@ -150,18 +150,24 @@ class CFMWrapper(EventCFM):
                     f"Trick {self.cfm.stability_trick.trick} not implemented"
                 )
 
-        tracker["lframesmax_mean_post"] = (
-            lframes.matrices.detach()
-            .abs()
-            .max(-1)[0]
-            .max(-1)[0]
-            .max(-1)[0]
-            .mean()
-            .cpu()
-        )
-        tracker["lframesmax_max_post"] = (
-            lframes.matrices.detach().abs().max(-1)[0].max(-1)[0].max(-1)[0].max().cpu()
-        )
+            tracker["lframesmax_mean_post"] = (
+                lframes.matrices.detach()
+                .abs()
+                .max(-1)[0]
+                .max(-1)[0]
+                .max(-1)[0]
+                .mean()
+                .cpu()
+            )
+            tracker["lframesmax_max_post"] = (
+                lframes.matrices.detach()
+                .abs()
+                .max(-1)[0]
+                .max(-1)[0]
+                .max(-1)[0]
+                .max()
+                .cpu()
+            )
 
         return (
             x,
