@@ -128,7 +128,7 @@ class LearnedPolarDecompositionLFrames(LearnedLFrames):
             mass = lorentz_squarednorm(x).clamp(min=0).sqrt().unsqueeze(-1)
             beta = x[..., 1:] / x[..., [0]].clamp(min=1e-10)
             gamma = x[..., [0]] / mass
-            reg_gammamax = (gamma > self.gamma_max).sum()
+            reg_gammamax = (gamma > self.gamma_max).sum().cpu()
             gamma_reg = gamma.clamp(max=self.gamma_max)
             beta_scaling = (
                 torch.sqrt(1 - 1 / gamma_reg.clamp(min=1e-10).square())
