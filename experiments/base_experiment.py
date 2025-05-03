@@ -20,7 +20,7 @@ from experiments.ranger import Ranger
 
 # set to 'True' to debug autograd issues (slows down code)
 torch.autograd.set_detect_anomaly(False)
-MIN_STEP_SKIP = 1000
+MIN_STEP_SKIP = 10  # 00
 
 
 class BaseExperiment:
@@ -675,6 +675,16 @@ class BaseExperiment:
                     f"Skipping iteration {step}, gradient norm {grad_norm} exceeds maximum {self.cfg.training.max_grad_norm}"
                 )
                 return
+        if step > MIN_STEP_SKIP and self.cfg.training.max_grad_std is not None:
+            recent_grad_norm = self.grad_norm_train[-MIN_STEP_SKIP:]
+            mean, std = np.mean(recent_grad_norm), np.std(recent_grad_norm)
+            print(step, mean, std, grad_norm)
+            if grad_norm > mean + self.cfg.training.max_grad_std * std:
+                LOGGER.warning(
+                    f"Skipping iteration {step}, gradient norm {grad_norm} exceeds {self.cfg.training.max_grad_std}-sigma interval with mean={mean}, std={std}"
+                )
+                return
+
         self.optimizer.step()
         if self.ema is not None:
             self.ema.update()
