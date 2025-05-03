@@ -133,7 +133,9 @@ class LearnedPolarDecompositionLFrames(LearnedLFrames):
             reg_gammamax = (gamma > self.gamma_max).sum().cpu()
             gamma_reg = gamma.clamp(max=self.gamma_max)
             beta_scaling = (
-                torch.sqrt(1 - 1 / gamma_reg.clamp(min=1e-10).square())
+                torch.sqrt(
+                    torch.clamp(1 - 1 / gamma_reg.clamp(min=1e-10).square(), min=1e-10)
+                )
                 / (beta**2).sum(dim=-1, keepdim=True).clamp(min=1e-10).sqrt()
             )
             beta_reg = beta * beta_scaling
