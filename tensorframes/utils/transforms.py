@@ -2,6 +2,7 @@ import torch
 from typing import List
 
 from tensorframes.utils.lorentz import lorentz_eye
+from tensorframes.utils.restframe import restframe_boost
 
 
 def get_trafo_type(axis):
@@ -63,8 +64,8 @@ def transform(
 
 def rand_lorentz(
     shape: List[int],
-    std_eta: float = 0.5,
-    n_max_std_eta: float = 2.0,
+    std_eta: float = 0.1,
+    n_max_std_eta: float = 3.0,
     device: str = "cpu",
     dtype: torch.dtype = torch.float32,
     generator: torch.Generator = None,
@@ -107,6 +108,49 @@ def rand_lorentz(
 
     rotation = rand_rotation_uniform(shape, device, dtype, generator=generator)
     trafo = torch.einsum("...ij,...jk,...kl->...il", boost, rotation, boost)
+    return trafo
+
+
+def rand_general_lorentz(
+    shape: List[int],
+    std_eta: float = 0.1,
+    n_max_std_eta: float = 3.0,
+    device: str = "cpu",
+    dtype: torch.dtype = torch.float32,
+    generator: torch.Generator = None,
+):
+    """
+    Create N general Lorentz transformations as L=R*B,
+    where R is a random uniform rotation in 3D and B
+    is a random general boost transformation.
+
+    Args:
+        shape: List[int]
+            Shape of the transformation matrices
+        std_eta: float
+            Standard deviation of rapidity
+        n_max_std_eta: float
+            Allowed number of standard deviations;
+            used to sample from a truncated Gaussian
+        device: str
+        dtype: torch.dtype
+        generator: torch.Generator
+
+    Returns:
+        final_trafo: torch.tensor of shape (*shape, 4, 4)
+    """
+    assert std_eta > 0
+    boost = rand_general_boost(
+        shape,
+        std_eta,
+        n_max_std_eta,
+        device=device,
+        dtype=dtype,
+        generator=generator,
+    )
+    rotation = rand_rotation_uniform(shape, device, dtype, generator=generator)
+
+    trafo = torch.einsum("...ij,...jk->...ik", rotation, boost)
     return trafo
 
 
@@ -188,8 +232,8 @@ def rand_xyrotation(
 
 def rand_ztransform(
     shape: List[int],
-    std_eta: float = 0.5,
-    n_max_std_eta: float = 2.0,
+    std_eta: float = 0.1,
+    n_max_std_eta: float = 3.0,
     device: str = "cpu",
     dtype: torch.dtype = torch.float32,
     generator: torch.Generator = None,
@@ -285,10 +329,56 @@ def rand_rotation_uniform(
     return trafo
 
 
+def rand_general_boost(
+    shape: List[int],
+    std_eta: float = 0.1,
+    n_max_std_eta: float = 3.0,
+    device: str = "cpu",
+    dtype: torch.dtype = torch.float32,
+    generator: torch.Generator = None,
+):
+    """
+    Create N general Lorentz boosts from
+    a vector of beta factors.
+
+    Args:
+        shape: List[int]
+            Shape of the transformation matrices
+        std_eta: float
+            Standard deviation of rapidity
+        n_max_std_eta: float
+            Allowed number of standard deviations;
+            used to sample from a truncated Gaussian
+        device: str
+        dtype: torch.dtype
+        generator: torch.Generator
+
+    Returns:
+        final_trafo: torch.tensor of shape (*shape, 4, 4)
+    """
+    shape = shape + [
+        3,
+    ]
+    beta = sample_rapidity(
+        shape,
+        std_eta,
+        n_max_std_eta,
+        device=device,
+        dtype=dtype,
+        generator=generator,
+    )
+    beta2 = (beta**2).sum(dim=-1, keepdim=True)
+    gamma = 1 / (1 - beta2).clamp(min=1e-10).sqrt()
+    fourmomenta = torch.cat([gamma, beta], axis=-1)
+
+    boost = restframe_boost(fourmomenta)
+    return boost
+
+
 def sample_rapidity(
     shape,
     std_eta,
-    n_max_std_eta=2.0,
+    n_max_std_eta=3.0,
     device="cpu",
     dtype=torch.float32,
     generator=None,
