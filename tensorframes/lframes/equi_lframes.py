@@ -115,7 +115,9 @@ class LearnedPolarDecompositionLFrames(LearnedLFrames):
             **self.ortho_kwargs,
             return_reg=True,
         )
-        tracker = {"reg_collinear": reg_collinear, "reg_gammamax": reg_gammamax}
+        tracker = {"reg_collinear": reg_collinear}
+        if reg_gammamax is not None:
+            tracker["reg_gammamax"] = reg_gammamax
         lframes = LFrames(trafo, is_global=self.is_global)
         return (lframes, tracker) if return_tracker else lframes
 
