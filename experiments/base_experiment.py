@@ -20,7 +20,7 @@ from experiments.ranger import Ranger
 
 # set to 'True' to debug autograd issues (slows down code)
 torch.autograd.set_detect_anomaly(False)
-MIN_STEP_SKIP = 10  # 00
+MIN_STEP_SKIP = 1000
 
 
 class BaseExperiment:
