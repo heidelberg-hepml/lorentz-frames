@@ -655,13 +655,17 @@ class BaseExperiment:
                 self.cfg.training.clip_grad_value,
             )
         # rescale gradients such that their norm matches a given number
-        grad_norm = torch.nn.utils.clip_grad_norm_(
-            self.model.parameters(),
-            self.cfg.training.clip_grad_norm
-            if self.cfg.training.clip_grad_norm is not None
-            else float("inf"),
-            error_if_nonfinite=True,
-        ).detach()
+        grad_norm = (
+            torch.nn.utils.clip_grad_norm_(
+                self.model.parameters(),
+                self.cfg.training.clip_grad_norm
+                if self.cfg.training.clip_grad_norm is not None
+                else float("inf"),
+                error_if_nonfinite=True,
+            )
+            .detach()
+            .cpu()
+        )
         # rescale gradients of the lframesnet only
         if self.cfg.training.clip_grad_norm_lframesnet is not None:
             torch.nn.utils.clip_grad_norm_(
@@ -678,7 +682,6 @@ class BaseExperiment:
         if step > MIN_STEP_SKIP and self.cfg.training.max_grad_std is not None:
             recent_grad_norm = self.grad_norm_train[-MIN_STEP_SKIP:]
             mean, std = np.mean(recent_grad_norm), np.std(recent_grad_norm)
-            print(step, mean, std, grad_norm)
             if grad_norm > mean + self.cfg.training.max_grad_std * std:
                 LOGGER.warning(
                     f"Skipping iteration {step}, gradient norm {grad_norm} exceeds {self.cfg.training.max_grad_std}-sigma interval with mean={mean}, std={std}"
