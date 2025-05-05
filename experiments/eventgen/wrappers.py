@@ -96,7 +96,7 @@ class CFMWrapper(EventCFM):
     def postprocess_velocity(self, v_mixed_local, x, lframes):
         v_fm_local, v_s_local = v_mixed_local[..., 0:4], v_mixed_local[..., 4:]
 
-        if self.lframesnet.is_identity or not self.fourmomenta_velocity:
+        if self.lframesnet.is_identity and not self.fourmomenta_velocity:
             # shortcut
             # interpret network output as velocity in x-coordinates
             v_x = v_fm_local
