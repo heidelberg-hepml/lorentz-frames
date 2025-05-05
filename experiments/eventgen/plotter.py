@@ -3,7 +3,7 @@ import math
 import torch
 from matplotlib.backends.backend_pdf import PdfPages
 
-from experiments.eventgen.helpers import (
+from experiments.eventgen.utils import (
     delta_eta,
     delta_phi,
     delta_r,

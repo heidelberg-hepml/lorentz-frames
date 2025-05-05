@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 
-from experiments.eventgen.helpers import (
+from experiments.eventgen.utils import (
     unpack_last,
     EPS1,
     CUTOFF,

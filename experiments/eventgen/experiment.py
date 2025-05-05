@@ -7,7 +7,7 @@ from hydra.utils import instantiate
 from tqdm import trange, tqdm
 
 from experiments.base_experiment import BaseExperiment
-from experiments.eventgen.helpers import ensure_onshell
+from experiments.eventgen.utils import ensure_onshell
 import experiments.eventgen.plotter as plotter
 from experiments.logger import LOGGER
 from experiments.mlflow import log_mlflow

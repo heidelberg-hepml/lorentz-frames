@@ -5,7 +5,7 @@ from torch.nn.functional import sigmoid
 
 import os, time
 from experiments.logger import LOGGER
-from experiments.eventgen.helpers import (
+from experiments.eventgen.utils import (
     fourmomenta_to_jetmomenta,
     delta_r_fast,
     get_virtual_particle,
