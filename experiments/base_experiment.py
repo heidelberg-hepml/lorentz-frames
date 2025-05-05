@@ -529,7 +529,6 @@ class BaseExperiment:
                 t0 = time.time()
                 val_loss = self._validate(step)
                 val_time += time.time() - t0
-                LOGGER.info(f"Validated for {val_time:.2f}s, val_loss={val_loss:.4f}.")
                 if val_loss < smallest_val_loss:
                     smallest_val_loss = val_loss
                     smallest_val_loss_step = step
@@ -606,30 +605,6 @@ class BaseExperiment:
         loss, metrics = self._batch_loss(data)
         self.optimizer.zero_grad()
         loss.backward()
-
-        def re_evaluate():
-            with torch.autograd.detect_anomaly():
-                loss = self._batch_loss(data)[0]
-                self.optimizer.zero_grad()
-                loss.backward()
-
-        if self.device == torch.device("cuda"):
-            try:
-                torch.cuda.synchronize()
-            except RuntimeError as e:
-                if "device-side assert" in str(e):
-                    device = self.device
-                    self.device = torch.device("cpu")
-                    self.model = self.model.to(self.device)
-                    re_evaluate()
-                    self.device = device
-                    self.model = self.model.to(self.device)
-
-        grads = torch.cat(
-            [p.grad.flatten() for p in self.model.parameters() if p.grad is not None]
-        )
-        if not torch.isfinite(grads).all():
-            re_evaluate()
 
         grad_norm_lframes = torch.nn.utils.clip_grad_norm_(
             self.model.lframesnet.parameters(),

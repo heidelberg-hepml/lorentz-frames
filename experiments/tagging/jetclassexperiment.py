@@ -67,7 +67,6 @@ class JetClassTaggingExperiment(TaggingExperiment):
 
         if modelname == "ParticleNet":
             self.cfg.model.net.hidden_reps_list[0] = f"{self.cfg.model.in_channels}x0n"
-            print(self.cfg.model.net.hidden_reps_list)
 
     def init_physics(self):
         # decide which entries to use for the lframesnet

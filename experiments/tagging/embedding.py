@@ -92,7 +92,6 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
         fourmomenta[mask, 0] = (
             (fourmomenta[mask, 1:] ** 2).sum(dim=-1).add(mass_reg**2).sqrt()
         )
-    mask = lorentz_squarednorm(fourmomenta) < mass_reg**2
 
     batch = get_batch_from_ptr(ptr)
 
