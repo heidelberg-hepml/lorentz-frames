@@ -35,9 +35,6 @@ cfm:
   type: simple
   periodic: true
  transforms_float64: true
- stability_trick:
-  gamma_max: 5
-  trick: null
 
 evaluation:
  sample: true

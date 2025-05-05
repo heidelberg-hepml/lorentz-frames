@@ -83,99 +83,11 @@ class CFMWrapper(EventCFM):
         x_local = x_local.to(self.input_dtype)
         lframes.to(self.input_dtype)
 
-        tracker["lframesmax_mean_pre"] = (
-            lframes.matrices.detach()
-            .abs()
-            .max(-1)[0]
-            .max(-1)[0]
-            .max(-1)[0]
-            .mean()
-            .cpu()
-        )
-        tracker["lframesmax_max_pre"] = (
-            lframes.matrices.detach().abs().max(-1)[0].max(-1)[0].max(-1)[0].max().cpu()
-        )
-
-        # keep_quantile trick (ugly hack to improve stability)
-        mask = torch.ones_like(x[:, 0, 0]).bool()
-        if self.training and self.cfm.stability_trick.trick is not None:
-            score = lframes.matrices[..., 0, 0].max(dim=-1)[0]
-            cutoff = self.cfm.stability_trick.gamma_max
-            mask = score <= cutoff
-            tracker["num_tricks"] = (~mask).detach().sum().cpu()
-
-            if self.cfm.stability_trick.trick == "remove":
-                x = x[mask]
-                x_local = x_local[mask]
-                t_embedding = t_embedding[mask]
-                particle_type = particle_type[mask]
-                lframes = LFrames(
-                    matrices=lframes.matrices[mask],
-                    det=lframes.det[mask],
-                    inv=lframes.inv[mask],
-                    is_global=lframes.is_global,
-                    is_identity=lframes.is_identity,
-                )
-            elif self.cfm.stability_trick.trick == "clamp":
-                matrices = lframes.matrices.clamp(min=-cutoff, max=cutoff)
-                lframes = LFrames(
-                    matrices=matrices,
-                    is_global=lframes.is_global,
-                    is_identity=lframes.is_identity,
-                )
-                mask = torch.ones_like(x[:, 0, 0]).bool()
-            elif self.cfm.stability_trick.trick == "rescale":
-                scale = (score / cutoff).clamp(min=1.0)
-                matrices = lframes.matrices / scale[:, None, None, None]
-                lframes = LFrames(
-                    matrices=matrices,
-                    is_global=lframes.is_global,
-                    is_identity=lframes.is_identity,
-                )
-                mask = torch.ones_like(x[:, 0, 0]).bool()
-            elif self.cfm.stability_trick.trick == "identity":
-                matrices = lframes.matrices.clone()
-                matrices[~mask] = lorentz_eye(
-                    matrices[~mask].shape[:-2], device=x.device, dtype=lframes.dtype
-                )
-                lframes = LFrames(
-                    matrices=matrices,
-                    is_global=lframes.is_global,
-                    is_identity=lframes.is_identity,
-                )
-                mask = torch.ones_like(x[:, 0, 0]).bool()
-
-            else:
-                raise ValueError(
-                    f"Trick {self.cfm.stability_trick.trick} not implemented"
-                )
-
-            tracker["lframesmax_mean_post"] = (
-                lframes.matrices.detach()
-                .abs()
-                .max(-1)[0]
-                .max(-1)[0]
-                .max(-1)[0]
-                .mean()
-                .cpu()
-            )
-            tracker["lframesmax_max_post"] = (
-                lframes.matrices.detach()
-                .abs()
-                .max(-1)[0]
-                .max(-1)[0]
-                .max(-1)[0]
-                .max()
-                .cpu()
-            )
-
         return (
-            x,
             x_local,
             t_embedding,
             particle_type,
             lframes,
-            mask,
             tracker,
         )
 
@@ -213,12 +125,10 @@ class MLPCFM(CFMWrapper):
 
     def get_velocity(self, x, t):
         (
-            x,
             x_local,
             t_embedding,
             _,
             lframes,
-            mask,
             tracker,
         ) = super().preprocess_velocity(x, t)
 
@@ -233,7 +143,7 @@ class MLPCFM(CFMWrapper):
         v_local = self.net(fts)
         v_local = v_local.reshape(*x_local.shape[:-1], -1)
         v, tracker = self.postprocess_velocity(v_local, x, lframes, tracker)
-        return v, mask, tracker
+        return v, tracker
 
 
 class TransformerCFM(CFMWrapper):
@@ -243,19 +153,17 @@ class TransformerCFM(CFMWrapper):
 
     def get_velocity(self, x, t):
         (
-            x,
             x_local,
             t_embedding,
             particle_type,
             lframes,
-            mask,
             tracker,
         ) = super().preprocess_velocity(x, t)
 
         fts = torch.cat([x_local, particle_type, t_embedding], dim=-1)
         v_local = self.net(fts, lframes)
         v, tracker = self.postprocess_velocity(v_local, x, lframes, tracker)
-        return v, mask, tracker
+        return v, tracker
 
 
 class GraphNetCFM(CFMWrapper):
@@ -267,12 +175,10 @@ class GraphNetCFM(CFMWrapper):
 
     def get_velocity(self, x, t):
         (
-            x,
             x_local,
             t_embedding,
             particle_type,
             lframes,
-            mask,
             tracker,
         ) = super().preprocess_velocity(x, t)
         edge_index, batch = build_edge_index_fully_connected(x_local)
@@ -286,7 +192,7 @@ class GraphNetCFM(CFMWrapper):
         v_local = v_local_flat.reshape(*fts.shape[:-1], v_local_flat.shape[-1])
 
         v, tracker = self.postprocess_velocity(v_local, x, lframes, tracker)
-        return v, mask, tracker
+        return v, tracker
 
 
 class LGATrCFM(CFMWrapper):

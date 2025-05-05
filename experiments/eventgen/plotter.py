@@ -68,14 +68,7 @@ def plot_losses(exp, filename, model_label):
             labels=["collinear", "coplanar", "lightlike"],
         )
 
-        for key in [
-            "reg_gammamax",
-            "lframesmax_mean_pre",
-            "lframesmax_max_pre",
-            "lframesmax_mean_post",
-            "lframesmax_max_post",
-            "num_tricks",
-        ]:
+        for key in ["reg_gammamax"]:
             plot_metric(
                 file,
                 [
