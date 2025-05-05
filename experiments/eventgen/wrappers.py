@@ -8,6 +8,7 @@ from tensorframes.reps.tensorreps_transform import TensorRepsTransform
 from tensorframes.utils.utils import build_edge_index_fully_connected
 from lgatr import embed_vector, extract_vector
 
+
 class CFMWrapper(EventCFM):
     def __init__(
         self,
@@ -104,8 +105,8 @@ class CFMWrapper(EventCFM):
             fm = self.coordinates.x_to_fourmomenta(x)
 
             v_x, _ = self.coordinates.velocity_fourmomenta_to_x(v_fm, fm)
-            v_x[..., self.scalar_dims] = v_s_local
 
+        v_x[..., self.scalar_dims] = v_s_local
         v_x = v_x.to(torch.float64)
         return v_x
 
@@ -212,10 +213,15 @@ class LGATrCFM(CFMWrapper):
         # embed into geometric algebra
         scalars = torch.cat((particle_type, t_embedding), dim=-1)
         fm = self.coordinates.x_to_fourmomenta(x).unsqueeze(-2)
-        spurions = self.spurions.to(x.device).unsqueeze(0).unsqueeze(0).repeat(fm.shape[0], fm.shape[1], 1, 1)
+        spurions = (
+            self.spurions.to(x.device)
+            .unsqueeze(0)
+            .unsqueeze(0)
+            .repeat(fm.shape[0], fm.shape[1], 1, 1)
+        )
         vector = torch.cat((fm, spurions), dim=-2)
         multivectors = embed_vector(vector).to(scalars.dtype)
-        
+
         v_mv, v_s = self.net(multivectors, scalars)
         v_v = extract_vector(v_mv).squeeze(dim=-2)
         v_pre = torch.cat((v_v, v_s), dim=-1)
