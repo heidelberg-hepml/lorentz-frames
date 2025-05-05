@@ -356,9 +356,7 @@ def rand_general_boost(
     Returns:
         final_trafo: torch.tensor of shape (*shape, 4, 4)
     """
-    shape = shape + [
-        3,
-    ]
+    shape = list(shape) + [3]
     beta = sample_rapidity(
         shape,
         std_eta,
