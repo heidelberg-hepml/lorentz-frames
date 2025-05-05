@@ -521,11 +521,7 @@ class BaseExperiment:
             self.model.train()
             data = next(iterator)
             t0 = time.time()
-            try:
-                self._step(data, step)
-            except Exception as e:
-                print(f"Exception in step {step}: {e}")
-                continue
+            self._step(data, step)
             train_time += time.time() - t0
 
             # validation (and early stopping)
@@ -557,7 +553,7 @@ class BaseExperiment:
             # output
             dt = time.time() - self.training_start_time
             if (
-                step in [0, 9, 999, 9999, 99999]
+                step in [0, 9, 999]
                 or (step + 1) % self.cfg.training.validate_every_n_steps == 0
             ):
                 dt_estimate = dt * self.cfg.training.iterations / (step + 1)
@@ -605,39 +601,10 @@ class BaseExperiment:
                 )
 
     def _step(self, data, step):
-        def re_evaluate():
-            with torch.autograd.detect_anomaly():
-                loss = self._batch_loss(data)[0]
-                self.optimizer.zero_grad()
-                loss.backward()
-
         # actual update step
         loss, metrics = self._batch_loss(data)
         self.optimizer.zero_grad()
-
-        try:
-            loss.backward()
-        except RuntimeError as e:
-            LOGGER.warning(f"RuntimeError: {e}")
-            re_evaluate()
-
-        if self.device == torch.device("cuda"):
-            try:
-                torch.cuda.synchronize()
-            except RuntimeError as e:
-                if "device-side assert" in str(e):
-                    device = self.device
-                    self.device = torch.device("cpu")
-                    self.model = self.model.to(self.device)
-                    re_evaluate()
-                    self.device = device
-                    self.model = self.model.to(self.device)
-
-        grads = torch.cat(
-            [p.grad.flatten() for p in self.model.parameters() if p.grad is not None]
-        )
-        if not torch.isfinite(grads).all():
-            re_evaluate()
+        loss.backward()
 
         grad_norm_lframes = torch.nn.utils.clip_grad_norm_(
             self.model.lframesnet.parameters(),
@@ -655,17 +622,13 @@ class BaseExperiment:
                 self.cfg.training.clip_grad_value,
             )
         # rescale gradients such that their norm matches a given number
-        grad_norm = (
-            torch.nn.utils.clip_grad_norm_(
-                self.model.parameters(),
-                self.cfg.training.clip_grad_norm
-                if self.cfg.training.clip_grad_norm is not None
-                else float("inf"),
-                error_if_nonfinite=True,
-            )
-            .detach()
-            .cpu()
-        )
+        grad_norm = torch.nn.utils.clip_grad_norm_(
+            self.model.parameters(),
+            self.cfg.training.clip_grad_norm
+            if self.cfg.training.clip_grad_norm is not None
+            else float("inf"),
+            error_if_nonfinite=True,
+        ).detach()
         # rescale gradients of the lframesnet only
         if self.cfg.training.clip_grad_norm_lframesnet is not None:
             torch.nn.utils.clip_grad_norm_(
@@ -679,15 +642,6 @@ class BaseExperiment:
                     f"Skipping iteration {step}, gradient norm {grad_norm} exceeds maximum {self.cfg.training.max_grad_norm}"
                 )
                 return
-        if step > MIN_STEP_SKIP and self.cfg.training.max_grad_std is not None:
-            recent_grad_norm = self.grad_norm_train[-MIN_STEP_SKIP:]
-            mean, std = np.mean(recent_grad_norm), np.std(recent_grad_norm)
-            if grad_norm > mean + self.cfg.training.max_grad_std * std:
-                LOGGER.warning(
-                    f"Skipping iteration {step}, gradient norm {grad_norm} exceeds {self.cfg.training.max_grad_std}-sigma interval with mean={mean}, std={std}"
-                )
-                return
-
         self.optimizer.step()
         if self.ema is not None:
             self.ema.update()
