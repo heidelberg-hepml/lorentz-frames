@@ -87,14 +87,11 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
 
     # add mass regulator
     if cfg_data.mass_reg is not None:
-        dtpye = fourmomenta.dtype
-        fourmomenta = fourmomenta.to(torch.float64)
         mass_reg = cfg_data.mass_reg
         mask = lorentz_squarednorm(fourmomenta) < mass_reg**2
         fourmomenta[mask, 0] = (
             (fourmomenta[mask, 1:] ** 2).sum(dim=-1).add(mass_reg**2).sqrt()
         )
-        fourmomenta = fourmomenta.to(dtpye)
     mask = lorentz_squarednorm(fourmomenta) < mass_reg**2
 
     batch = get_batch_from_ptr(ptr)
