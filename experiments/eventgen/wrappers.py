@@ -6,8 +6,7 @@ from tensorframes.lframes.lframes import LFrames, InverseLFrames
 from tensorframes.reps.tensorreps import TensorReps
 from tensorframes.reps.tensorreps_transform import TensorRepsTransform
 from tensorframes.utils.utils import build_edge_index_fully_connected
-from tensorframes.utils.lorentz import lorentz_eye
-
+from lgatr import embed_vector, extract_vector
 
 class CFMWrapper(EventCFM):
     def __init__(
@@ -91,7 +90,7 @@ class CFMWrapper(EventCFM):
             tracker,
         )
 
-    def postprocess_velocity(self, v_mixed_local, x, lframes, tracker):
+    def postprocess_velocity(self, v_mixed_local, x, lframes):
         v_fm_local, v_s_local = v_mixed_local[..., 0:4], v_mixed_local[..., 4:]
 
         if self.lframesnet.is_identity:
@@ -108,7 +107,7 @@ class CFMWrapper(EventCFM):
             v_x[..., self.scalar_dims] = v_s_local
 
         v_x = v_x.to(torch.float64)
-        return v_x, tracker
+        return v_x
 
     def encode_particle_type(self, shape):
         particle_type = torch.nn.functional.one_hot(
@@ -142,7 +141,7 @@ class MLPCFM(CFMWrapper):
         )
         v_local = self.net(fts)
         v_local = v_local.reshape(*x_local.shape[:-1], -1)
-        v, tracker = self.postprocess_velocity(v_local, x, lframes, tracker)
+        v = self.postprocess_velocity(v_local, x, lframes)
         return v, tracker
 
 
@@ -162,7 +161,7 @@ class TransformerCFM(CFMWrapper):
 
         fts = torch.cat([x_local, particle_type, t_embedding], dim=-1)
         v_local = self.net(fts, lframes)
-        v, tracker = self.postprocess_velocity(v_local, x, lframes, tracker)
+        v = self.postprocess_velocity(v_local, x, lframes)
         return v, tracker
 
 
@@ -191,7 +190,7 @@ class GraphNetCFM(CFMWrapper):
         )
         v_local = v_local_flat.reshape(*fts.shape[:-1], v_local_flat.shape[-1])
 
-        v, tracker = self.postprocess_velocity(v_local, x, lframes, tracker)
+        v = self.postprocess_velocity(v_local, x, lframes)
         return v, tracker
 
 
@@ -202,16 +201,23 @@ class LGATrCFM(CFMWrapper):
         assert self.lframesnet.is_identity
 
     def get_velocity(self, x, t):
-        raise NotImplementedError
         (
-            x_local,
+            _,
             t_embedding,
             particle_type,
             lframes,
             tracker,
         ) = super().preprocess_velocity(x, t)
 
-        fts = torch.cat([x_local, particle_type, t_embedding], dim=-1)
-        v_local = self.net(fts, lframes)
-        v = self.postprocess_velocity(v_local, x, lframes)
+        # embed into geometric algebra
+        scalars = torch.cat((particle_type, t_embedding), dim=-1)
+        fm = self.coordinates.x_to_fourmomenta(x).unsqueeze(-2)
+        spurions = self.spurions.to(x.device).unsqueeze(0).unsqueeze(0).repeat(fm.shape[0], fm.shape[1], 1, 1)
+        vector = torch.cat((fm, spurions), dim=-2)
+        multivectors = embed_vector(vector).to(scalars.dtype)
+        
+        v_mv, v_s = self.net(multivectors, scalars)
+        v_v = extract_vector(v_mv).squeeze(dim=-2)
+        v_pre = torch.cat((v_v, v_s), dim=-1)
+        v = self.postprocess_velocity(v_pre, x, lframes)
         return v, tracker
