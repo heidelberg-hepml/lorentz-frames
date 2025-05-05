@@ -10,8 +10,8 @@ data:
  val_files_range: [120,121]
 
 jc_params:
- num_workers: 8
- fetch_step: 0.05
+ num_workers: 4
+ fetch_step: 0.1
  extra_selection: null
  extra-test-selection: null
  fetch_by_files: false
@@ -20,11 +20,11 @@ jc_params:
  steps_per_epoch: null
  steps_per_epoch_val: null
  events_per_file: 100000
- async_load: true
+ async_load: false
  split_num: 1
 
 evaluation:
- batchsize: 1024
+ batchsize: 2048
  eval_set: [test]
 
 plotting:

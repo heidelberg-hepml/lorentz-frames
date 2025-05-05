@@ -520,17 +520,8 @@ class BaseExperiment:
             # training
             self.model.train()
             data = next(iterator)
-            if step == 0:
-                LOGGER.info(
-                    f"Loaded data in {time.time() - self.training_start_time:.2f}s"
-                )
-                self.training_start_time = time.time()
             t0 = time.time()
-            try:
-                self._step(data, step)
-            except Exception as e:
-                LOGGER.warning(f"Exception in iteration {step}: {e}")
-                continue
+            self._step(data, step)
             train_time += time.time() - t0
 
             # validation (and early stopping)
