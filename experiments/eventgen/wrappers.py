@@ -17,11 +17,13 @@ class CFMWrapper(EventCFM):
         odeint,
         n_particles,
         spurions,
+        fourmomenta_velocity=False,
     ):
         super().__init__(
             cfm,
             odeint,
         )
+        self.fourmomenta_velocity = fourmomenta_velocity
         self.lframesnet = lframesnet
         self.trafo_fourmomenta = TensorRepsTransform(TensorReps("1x1n"))
 
@@ -94,7 +96,7 @@ class CFMWrapper(EventCFM):
     def postprocess_velocity(self, v_mixed_local, x, lframes):
         v_fm_local, v_s_local = v_mixed_local[..., 0:4], v_mixed_local[..., 4:]
 
-        if self.lframesnet.is_identity:
+        if self.lframesnet.is_identity or not self.fourmomenta_velocity:
             # shortcut
             # interpret network output as velocity in x-coordinates
             v_x = v_fm_local
@@ -105,8 +107,8 @@ class CFMWrapper(EventCFM):
             fm = self.coordinates.x_to_fourmomenta(x)
 
             v_x, _ = self.coordinates.velocity_fourmomenta_to_x(v_fm, fm)
+            v_x[..., self.scalar_dims] = v_s_local
 
-        v_x[..., self.scalar_dims] = v_s_local
         v_x = v_x.to(torch.float64)
         return v_x
 
@@ -197,7 +199,7 @@ class GraphNetCFM(CFMWrapper):
 
 class LGATrCFM(CFMWrapper):
     def __init__(self, net, **kwargs):
-        super().__init__(**kwargs)
+        super().__init__(fourmomenta_velocity=True, **kwargs)
         self.net = net
         assert self.lframesnet.is_identity
 
