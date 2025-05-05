@@ -96,11 +96,6 @@ class JetClassTaggingExperiment(TaggingExperiment):
             "test": self.cfg.data.test_files_range,
             "val": self.cfg.data.val_files_range,
         }
-        fetch_step = {
-            "train": self.cfg.jc_params.fetch_step,
-            "val": self.cfg.jc_params.fetch_step * 20,
-            "test": self.cfg.jc_params.fetch_step * 5,
-        }
         self.num_files = {
             label: frange[1] - frange[0] for label, frange in files_range.items()
         }
@@ -127,7 +122,7 @@ class JetClassTaggingExperiment(TaggingExperiment):
                 ),
                 file_fraction=1,
                 fetch_by_files=self.cfg.jc_params.fetch_by_files,
-                fetch_step=fetch_step[label],
+                fetch_step=self.cfg.jc_params.fetch_step,
                 infinity_mode=self.cfg.jc_params.steps_per_epoch is not None,
                 in_memory=self.cfg.jc_params.in_memory,
                 name=label,
@@ -266,7 +261,7 @@ class JetClassTaggingExperiment(TaggingExperiment):
         return metrics
 
     def _get_ypred_and_label(self, batch):
-        fourmomenta = batch[0]["pf_vectors"].to(self.device, non_blocking=True)
+        fourmomenta = batch[0]["pf_vectors"].to(self.device)
         if self.cfg.data.features == "fourmomenta":
             scalars = torch.empty(
                 fourmomenta.shape[0],
@@ -276,9 +271,7 @@ class JetClassTaggingExperiment(TaggingExperiment):
                 dtype=self.dtype,
             )
         else:
-            scalars = batch[0]["pf_features"].to(
-                self.device, self.dtype, non_blocking=True
-            )
+            scalars = batch[0]["pf_features"].to(self.device, self.dtype)
         label = batch[1]["_label_"].to(self.device)
         fourmomenta, scalars, ptr = dense_to_sparse_jet(fourmomenta, scalars)
         embedding = embed_tagging_data(fourmomenta, scalars, ptr, self.cfg.data)
