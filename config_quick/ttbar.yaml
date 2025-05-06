@@ -10,7 +10,7 @@ data:
  data_path_4j: data/ttbar_4j.npy
  subsample: 100000
  train_test_val: [.5, .4, .1]
- base_type: 4
+ base_type: 2
  use_delta_r_min: true
  use_pt_min: true
  spurions:
