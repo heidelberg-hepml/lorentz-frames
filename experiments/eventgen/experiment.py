@@ -59,6 +59,8 @@ class EventGenerationExperiment(BaseExperiment):
                 raise NotImplementedError
 
             # copy model-specific parameters
+            print(self.dtype)
+            self.cfg.model.use_float64 = True if self.dtype == torch.float64 else False
             self.cfg.model.odeint = self.cfg.odeint
             self.cfg.model.cfm = self.cfg.cfm
             self.cfg.model.spurions = self.cfg.data.spurions
@@ -71,6 +73,7 @@ class EventGenerationExperiment(BaseExperiment):
 
     def init_data(self):
         LOGGER.info(f"Working with {self.cfg.data.n_jets} extra jets")
+        self.data_dtype = torch.float64 if self.cfg.data.data_float64 else torch.float32
 
         # load data
         data_path = eval(f"self.cfg.data.data_path_{self.cfg.data.n_jets}j")
@@ -86,7 +89,7 @@ class EventGenerationExperiment(BaseExperiment):
             )
             data_raw = data_raw[: self.cfg.data.subsample, :]
         data_raw = data_raw.reshape(data_raw.shape[0], data_raw.shape[1] // 4, 4)
-        data_raw = torch.tensor(data_raw, dtype=torch.float64)
+        data_raw = torch.tensor(data_raw, dtype=self.data_dtype)
 
         # collect everything
         self.events_raw = data_raw

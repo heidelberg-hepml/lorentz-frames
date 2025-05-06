@@ -61,17 +61,12 @@ class CFM(nn.Module):
         self.trace_fn = hutchinson_trace if cfm.hutchinson else autograd_trace
         self.odeint = odeint
         self.cfm = cfm
-        self.input_dtype = torch.float64 if use_float64 else torch.float32
+        self.save_dtype = torch.float64 if use_float64 else torch.float32
 
         # initialize to base objects, this will be overwritten later
         self.distribution = BaseDistribution()
         self.coordinates = c.BaseCoordinates()
         self.geometry = BaseGeometry()
-
-        if cfm.transforms_float64:
-            c.DTYPE = torch.float64
-        else:
-            c.DTYPE = torch.float32
 
     def init_distribution(self):
         raise NotImplementedError
@@ -120,7 +115,7 @@ class CFM(nn.Module):
             fm0.shape[0],
             1,
             1,
-            dtype=self.input_dtype,
+            dtype=self.save_dtype,
             device=fm0.device,
         )
         fm1 = self.sample_base(fm0.shape, fm0.device, fm0.dtype)
@@ -157,7 +152,7 @@ class CFM(nn.Module):
 
         def velocity(t, xt):
             xt = self.geometry._handle_periodic(xt)
-            t = t * torch.ones(shape[0], 1, 1, dtype=self.input_dtype, device=xt.device)
+            t = t * torch.ones(shape[0], 1, 1, dtype=self.save_dtype, device=xt.device)
             vp_x = self.get_velocity(xt, t)[0]
             vp_x = self.handle_velocity(vp_x)
             return vp_x
@@ -170,7 +165,7 @@ class CFM(nn.Module):
         x0 = odeint(
             velocity,
             x1,
-            torch.tensor([1.0, 0.0]),
+            torch.tensor([1.0, 0.0], dtype=self.save_dtype, device=x1.device),
             **self.odeint,
         )[-1]
 
@@ -218,7 +213,7 @@ class CFM(nn.Module):
                 xt.shape[0],
                 1,
                 1,
-                dtype=self.input_dtype,
+                dtype=self.save_dtype,
                 device=xt.device,
             )
             vp_x = self.get_velocity(xt, t)[0]
@@ -230,14 +225,14 @@ class CFM(nn.Module):
         x0 = self.coordinates.fourmomenta_to_x(fm0)
         logdetjac0_cfm_x = torch.zeros(
             (x0.shape[0], 1),
-            dtype=self.input_dtype,
+            dtype=self.save_dtype,
             device=x0.device,
         )
         state0 = (x0, logdetjac0_cfm_x)
         xt, logdetjact_cfm_x = odeint(
             net_wrapper,
             state0,
-            torch.tensor([0.0, 1.0], dtype=self.input_dtype, device=x0.device),
+            torch.tensor([0.0, 1.0], dtype=self.save_dtype, device=x0.device),
             **self.odeint,
         )
         logdetjac_cfm_x = logdetjact_cfm_x[-1].detach()

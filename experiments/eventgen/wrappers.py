@@ -18,10 +18,12 @@ class CFMWrapper(EventCFM):
         n_particles,
         spurions,
         fourmomenta_velocity=False,
+        **kwargs
     ):
         super().__init__(
             cfm,
             odeint,
+            **kwargs,
         )
         self.fourmomenta_velocity = fourmomenta_velocity
         self.lframesnet = lframesnet
@@ -81,9 +83,9 @@ class CFMWrapper(EventCFM):
             fm_local = self.trafo_fourmomenta(fm, lframes)
             x_local = self.coordinates.fourmomenta_to_x(fm_local)
 
-        # move everything to self.input_dtype
-        x_local = x_local.to(self.input_dtype)
-        lframes.to(self.input_dtype)
+        # move everything to self.save_dtype
+        x_local = x_local.to(self.save_dtype)
+        lframes.to(self.save_dtype)
 
         return (
             x_local,
@@ -94,15 +96,16 @@ class CFMWrapper(EventCFM):
         )
 
     def postprocess_velocity(self, v_mixed_local, x, lframes):
+        v_mixed_local = v_mixed_local.to(x.dtype)
+        lframes.to(x.dtype)
         v_fm_local, v_s_local = v_mixed_local[..., 0:4], v_mixed_local[..., 4:]
 
         if self.lframesnet.is_identity and not self.fourmomenta_velocity:
-            # shortcut
-            # interpret network output as velocity in x-coordinates
+            # network output is velocity in x-coordinates
             v_x = v_fm_local
 
         else:
-            # long route (also works for identity but is slower)
+            # network output is velocity in fourmomenta-coordinates
             v_fm = self.trafo_fourmomenta(v_fm_local, InverseLFrames(lframes))
             fm = self.coordinates.x_to_fourmomenta(x)
 

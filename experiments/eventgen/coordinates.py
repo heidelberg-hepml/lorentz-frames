@@ -1,8 +1,6 @@
 import torch
 import experiments.eventgen.transforms as tr
 
-DTYPE = torch.float64
-
 
 class BaseCoordinates:
     """
@@ -27,42 +25,37 @@ class BaseCoordinates:
     def init_unit(self, particles_list):
         self.transforms[-1].init_unit(particles_list)
 
-    def fourmomenta_to_x(self, a_in):
-        assert torch.isfinite(a_in).all()
-        a = a_in.to(dtype=DTYPE)
+    def fourmomenta_to_x(self, a):
+        assert torch.isfinite(a).all()
         for transform in self.transforms:
             a = transform.forward(a)
-        return a.to(dtype=a_in.dtype)
+        return a
 
-    def x_to_fourmomenta(self, a_in):
-        assert torch.isfinite(a_in).all()
-        a = a_in.to(dtype=DTYPE)
+    def x_to_fourmomenta(self, a):
+        assert torch.isfinite(a).all()
         for transform in self.transforms[::-1]:
             a = transform.inverse(a)
-        return a.to(dtype=a_in.dtype)
+        return a
 
-    def velocity_fourmomenta_to_x(self, v_in, a_in):
-        assert torch.isfinite(a_in).all() and torch.isfinite(v_in).all()
-        v, a = v_in.to(dtype=DTYPE), a_in.to(dtype=DTYPE)
+    def velocity_fourmomenta_to_x(self, v, a):
+        assert torch.isfinite(a).all() and torch.isfinite(v).all()
         for transform in self.transforms:
             b = transform.forward(a)
             v = transform.velocity_forward(v, a, b)
             a = b
-        return v.to(dtype=v_in.dtype), a.to(dtype=a_in.dtype)
+        return v, a
 
-    def velocity_x_to_fourmomenta(self, v_in, a_in):
-        assert torch.isfinite(a_in).all() and torch.isfinite(v_in).all()
-        v, a = v_in.to(dtype=DTYPE), a_in.to(dtype=DTYPE)
+    def velocity_x_to_fourmomenta(self, v, a):
+        assert torch.isfinite(a).all() and torch.isfinite(v).all()
         for transform in self.transforms[::-1]:
             b = transform.inverse(a)
             v = transform.velocity_inverse(v, a, b)
             a = b
-        return v.to(dtype=v_in.dtype), a.to(dtype=a_in.dtype)
+        return v, a
 
-    def logdetjac_fourmomenta_to_x(self, a_in):
+    def logdetjac_fourmomenta_to_x(self, a):
         # logdetjac = log|da/db| = -log|db/da| with a=fourmomenta, b=x
-        assert torch.isfinite(a_in).all()
-        a = a_in.to(dtype=DTYPE)
+        assert torch.isfinite(a).all()
         b = self.transforms[0].forward(a)
         logdetjac = -self.transforms[0].logdetjac_forward(a, b)
         a = b
@@ -70,12 +63,11 @@ class BaseCoordinates:
             b = transform.forward(a)
             logdetjac -= transform.logdetjac_forward(a, b)
             a = b
-        return logdetjac.to(dtype=a_in.dtype), a.to(dtype=a_in.dtype)
+        return logdetjac, a
 
-    def logdetjac_x_to_fourmomenta(self, a_in):
+    def logdetjac_x_to_fourmomenta(self, a):
         # logdetjac = log|da/db| = -log|db/da| with a=x, b=fourmomenta
-        assert torch.isfinite(a_in).all()
-        a = a_in.to(dtype=DTYPE)
+        assert torch.isfinite(a).all()
         b = self.transforms[-1].inverse(a)
         logdetjac = -self.transforms[-1].logdetjac_inverse(a, b)
         a = b
@@ -83,7 +75,7 @@ class BaseCoordinates:
             b = transform.inverse(a)
             logdetjac -= transform.logdetjac_inverse(a, b)
             a = b
-        return logdetjac.to(dtype=a_in.dtype), a.to(dtype=a_in.dtype)
+        return logdetjac, a
 
 
 class Fourmomenta(BaseCoordinates):
