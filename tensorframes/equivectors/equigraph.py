@@ -52,8 +52,8 @@ class EquiEdgeConv(MessagePassing):
 
         if include_edges:
             self.register_buffer("edge_inited", torch.tensor(False, dtype=torch.bool))
-            self.register_buffer("edge_mean", torch.zeros(0))
-            self.register_buffer("edge_std", torch.ones(1))
+            self.register_buffer("edge_mean", torch.tensor(0.0))
+            self.register_buffer("edge_std", torch.tensor(1.0))
 
     def forward(self, fourmomenta, scalars, edge_index, batch=None):
         # calculate and standardize edge attributes

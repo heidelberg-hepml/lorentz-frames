@@ -65,6 +65,9 @@ class JetClassTaggingExperiment(TaggingExperiment):
                 f"Input feature option {self.cfg.data.features} not implemented"
             )
 
+        if modelname == "ParticleNet":
+            self.cfg.model.net.hidden_reps_list[0] = f"{self.cfg.model.in_channels}x0n"
+
     def init_physics(self):
         # decide which entries to use for the lframesnet
         if "equivectors" in self.cfg.model.lframesnet:
@@ -99,7 +102,7 @@ class JetClassTaggingExperiment(TaggingExperiment):
         for label in ["train", "test", "val"]:
             path = os.path.join(self.cfg.data.data_dir, folder[label])
             flist = [
-                f"{path}/{classname}_{str(i).zfill(3)}.root"
+                f"{classname}:{path}/{classname}_{str(i).zfill(3)}.root"
                 for classname in self.class_names
                 for i in range(*files_range[label])
             ]
@@ -112,7 +115,11 @@ class JetClassTaggingExperiment(TaggingExperiment):
                 for_training=for_training[label],
                 extra_selection=self.cfg.jc_params.extra_selection,
                 remake_weights=not self.cfg.jc_params.not_remake_weights,
-                load_range_and_fraction=((0, 1), 1),
+                load_range_and_fraction=(
+                    (0, 1),
+                    1,
+                    self.cfg.jc_params.split_num,
+                ),
                 file_fraction=1,
                 fetch_by_files=self.cfg.jc_params.fetch_by_files,
                 fetch_step=self.cfg.jc_params.fetch_step,
@@ -120,6 +127,7 @@ class JetClassTaggingExperiment(TaggingExperiment):
                 in_memory=self.cfg.jc_params.in_memory,
                 name=label,
                 events_per_file=self.cfg.jc_params.events_per_file,
+                async_load=self.cfg.jc_params.async_load,
             )
         self.data_train = datasets["train"]
         self.data_test = datasets["test"]
