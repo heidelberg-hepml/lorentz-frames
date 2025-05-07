@@ -250,6 +250,7 @@ class BaselineTransformerBlock(nn.Module):
         num_heads: int = 8,
         increase_hidden_channels=1,
         multi_query: bool = True,
+        mlp_factor: int = 2,
         dropout_prob=None,
     ) -> None:
         super().__init__()
@@ -269,10 +270,10 @@ class BaselineTransformerBlock(nn.Module):
         )
 
         self.mlp = nn.Sequential(
-            nn.Linear(channels, 2 * channels),
+            nn.Linear(channels, mlp_factor * channels),
             nn.Dropout(dropout_prob) if dropout_prob is not None else nn.Identity(),
             nn.GELU(),
-            nn.Linear(2 * channels, channels),
+            nn.Linear(mlp_factor * channels, channels),
             nn.Dropout(dropout_prob) if dropout_prob is not None else nn.Identity(),
         )
 
@@ -341,6 +342,7 @@ class TFTransformer(nn.Module):
         num_heads: int,
         checkpoint_blocks: bool = False,
         increase_hidden_channels=1,
+        mlp_factor: int = 2,
         multi_query: bool = False,
         dropout_prob=None,
     ) -> None:
@@ -358,6 +360,7 @@ class TFTransformer(nn.Module):
                     attention=self.attention,
                     num_heads=num_heads,
                     increase_hidden_channels=increase_hidden_channels,
+                    mlp_factor=mlp_factor,
                     multi_query=multi_query,
                     dropout_prob=dropout_prob,
                 )

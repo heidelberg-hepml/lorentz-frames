@@ -12,6 +12,7 @@ net:
 
  num_blocks: 8
  num_heads: 8
+ mlp_factor: 4
 
 defaults:
  - lframesnet: identity
