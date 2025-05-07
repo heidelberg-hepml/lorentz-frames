@@ -1,6 +1,5 @@
 import torch
 import pytest
-from torch_geometric.utils import dense_to_sparse
 from torch.nn import Linear
 from tests.constants import TOLERANCES, LOGM2_MEAN_STD, REPS, LFRAMES_PREDICTOR
 from tests.helpers import sample_particle, equivectors_builder
@@ -35,7 +34,7 @@ def test_invariance_equivariance(
     in_reps = TensorReps("1x1n")
     hidden_reps = TensorReps(hidden_reps)
     trafo = TensorRepsTransform(TensorReps(in_reps))
-    attention = InvariantParticleAttention(hidden_reps).to(dtype=dtype)
+    attention = InvariantParticleAttention(hidden_reps, 1).to(dtype=dtype)
     linear_in = Linear(in_reps.dim, 3 * hidden_reps.dim).to(dtype=dtype)
     linear_out = Linear(hidden_reps.dim, in_reps.dim).to(dtype=dtype)
 
@@ -48,10 +47,11 @@ def test_invariance_equivariance(
 
     # path 1: LFrames transform + random transform
     lframes = call_predictor(fm)
+    attention.prepare_lframes(lframes)
     fm_local = trafo(fm, lframes)
     x_local = linear_in(fm_local).unsqueeze(0)
     q_local, k_local, v_local = x_local.chunk(3, dim=-1)
-    x_local2 = attention(q_local, k_local, v_local, lframes).squeeze(0)
+    x_local2 = attention(q_local, k_local, v_local).squeeze(0)
     fm_local = linear_out(x_local2)
     fm_global = trafo(fm_local, InverseLFrames(lframes))
     fm_global_prime = torch.einsum("...ij,...j->...i", random, fm_global)
@@ -59,12 +59,11 @@ def test_invariance_equivariance(
     # path 2: random transform + LFrames transform
     fm_prime = torch.einsum("...ij,...j->...i", random, fm)
     lframes_prime = call_predictor(fm_prime)
+    attention.prepare_lframes(lframes_prime)
     fm_prime_local = trafo(fm_prime, lframes_prime)
     x_prime_local = linear_in(fm_prime_local).unsqueeze(0)
     q_prime_local, k_prime_local, v_prime_local = x_prime_local.chunk(3, dim=-1)
-    x_prime_local2 = attention(
-        q_prime_local, k_prime_local, v_prime_local, lframes_prime
-    ).squeeze(0)
+    x_prime_local2 = attention(q_prime_local, k_prime_local, v_prime_local).squeeze(0)
     fm_prime_local = linear_out(x_prime_local2)
     fm_prime_global = trafo(fm_prime_local, InverseLFrames(lframes_prime))
 

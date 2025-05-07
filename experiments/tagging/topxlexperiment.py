@@ -86,7 +86,7 @@ class TopXLTaggingExperiment(TaggingExperiment):
                 for_training=for_training[label],
                 extra_selection=self.cfg.jc_params.extra_selection,
                 remake_weights=not self.cfg.jc_params.not_remake_weights,
-                load_range_and_fraction=((0, 1), 1),
+                load_range_and_fraction=((0, 1), 1, 1),
                 file_fraction=1,
                 fetch_by_files=self.cfg.jc_params.fetch_by_files,
                 fetch_step=self.cfg.jc_params.fetch_step,

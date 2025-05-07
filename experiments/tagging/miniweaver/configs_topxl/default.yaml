@@ -56,4 +56,4 @@ labels:
    # value: 
    #    truth_label: label.argmax(1)
 
-weights: None
+weights: 

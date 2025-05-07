@@ -1,5 +1,6 @@
 from typing import Optional, Union
 
+from math import prod
 import torch
 from torch import Tensor
 from torch.nn.functional import scaled_dot_product_attention as torch_sdpa
@@ -17,13 +18,34 @@ _MASKED_OUT = float("-inf")
 
 
 class InvariantParticleAttention(torch.nn.Module):
-    def __init__(self, attn_reps):
+    def __init__(self, attn_reps, num_heads):
         super().__init__()
         self.transform = TensorRepsTransform(TensorReps(attn_reps))
+        self.num_heads = num_heads
 
-    def forward(
-        self, q_local, k_local, v_local, lframes, lframes_q=None, **attn_kwargs
-    ):
+        self.lframes = None
+        self.inv_lframes = None
+        self.lower_inv_lframes = None
+
+    def prepare_lframes(self, lframes):
+        self.lframes = lframes
+        if not self.lframes.is_global:
+            # insert lframes head dimension
+            self.lframes = self.lframes.reshape(
+                *lframes.shape[:-3], 1, lframes.shape[-3], 4, 4
+            )
+            self.lframes = self.lframes.repeat(
+                *((1,) * len(lframes.shape[:-3])), self.num_heads, 1, 1, 1
+            )
+
+            # flatten lframes (preparation for tensorreps_transform)
+            self.lframes = self.lframes.reshape(-1, 4, 4)
+
+            # create inv_lframes and lower_inv_lframes
+            self.inv_lframes = InverseLFrames(self.lframes)
+            self.lower_inv_lframes = LowerIndices(self.inv_lframes)
+
+    def forward(self, q_local, k_local, v_local, **attn_kwargs):
         """
         Strategy
         1) Transform q, k, v into global frame
@@ -32,48 +54,38 @@ class InvariantParticleAttention(torch.nn.Module):
 
         Comments
         - dimensions: *dims (optional), H (head), N (particles), C (channels)
-        - supports cross-attention with lframes_q (different lframes for q and k/v)
+        - extension to cross-attention is trivial but we don't have this right now for convenience
+          strategy: lframes_q for queries (in contrast to lframes=lframes_kv)
 
         Parameters
         ----------
-        q_local: torch.tensor of shape (*dims, H, Nq, C)
-        k_local: torch.tensor of shape (*dims, H, Nkv, C)
-        v_local: torch.tensor of shape (*dims, H, Nkv, C)
-        lframes: (*dims, Nkv, 4, 4)
-        lframes_q: (*dims, Nq, 4, 4)
+        q_local: torch.tensor of shape (*dims, H, N, C)
+        k_local: torch.tensor of shape (*dims, H, N, C)
+        v_local: torch.tensor of shape (*dims, H, N, C)
+        lframes: (*dims, N, 4, 4)
         attn_kwargs: dict
             Optional arguments that are passed on to attention
 
         Returns
         -------
-        out_local: torch.tensor of shape (*dims, H, Nq, C)
+        out_local: torch.tensor of shape (*dims, H, N, C)
         """
+        if self.lframes.is_global:
+            # shortcut if global_frame = local_frame
+            return scaled_dot_product_attention(
+                q_local,
+                k_local,
+                v_local,
+                **attn_kwargs,
+            )
+
         # check input shapes
-        if lframes_q is None:
-            assert k_local.shape == q_local.shape
-            lframes_q = lframes
-        assert k_local.shape == v_local.shape  # has to match perfectly
-        assert (
-            q_local[..., 0, :].shape == k_local[..., 0, :].shape
-        )  # Nq and Nkv can be different
-        assert q_local.shape[:-3] == lframes_q.shape[:-3]  # *dims match
-        assert q_local.shape[-2] == lframes_q.shape[-3]  # Nq matches
-        assert k_local.shape[:-3] == lframes.shape[:-3]  # *dims match
-        assert k_local.shape[-2] == lframes.shape[-3]  # Nkv matches
+        assert k_local.shape == v_local.shape == q_local.shape  # has to match perfectly
+        assert prod(k_local.shape[:-1]) == self.lframes.shape[-3]
 
-        # insert lframes head dimension
-        lframes_q = lframes_q.reshape(*q_local.shape[:-3], 1, lframes_q.shape[-3], 4, 4)
-        lframes_q = lframes_q.expand(*q_local.shape[:-1], 4, 4)
-        lframes = lframes.reshape(*k_local.shape[:-3], 1, lframes.shape[-3], 4, 4)
-        lframes = lframes.expand(*k_local.shape[:-1], 4, 4)
-
-        inv_lframes = InverseLFrames(lframes)
-        inv_lframes_q = InverseLFrames(lframes_q)
-        lower_inv_lframes = LowerIndices(inv_lframes)
-
-        q_global = self.transform(q_local, inv_lframes_q)
-        k_global = self.transform(k_local, lower_inv_lframes)
-        v_global = self.transform(v_local, inv_lframes)
+        q_global = self.transform(q_local, self.inv_lframes)
+        k_global = self.transform(k_local, self.lower_inv_lframes)
+        v_global = self.transform(v_local, self.inv_lframes)
 
         # (B, H, N, C) format required for scaled_dot_product_attention
         shape_q, shape_k = q_global.shape, k_global.shape
@@ -92,7 +104,7 @@ class InvariantParticleAttention(torch.nn.Module):
         out_global = out_global.view(*shape_q)  # (*dims, H, N, C)
 
         # transform out back into local frame
-        out_local = self.transform(out_global, lframes_q)
+        out_local = self.transform(out_global, self.lframes)
         return out_local
 
 
