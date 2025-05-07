@@ -1,5 +1,6 @@
 import pytest
 import hydra
+import torch
 from torch.utils.flop_counter import FlopCounterMode
 
 import experiments.logger
@@ -20,8 +21,8 @@ from tests_exp.utils import fix_seeds
         ["model=tag_gatr"],
     ],
 )
-@pytest.mark.parametrize("iterations", [1])
-def test_tagging(lframesnet, model_list, iterations):
+@pytest.mark.parametrize("jet_size", [64])
+def test_tagging(lframesnet, model_list, jet_size):
     experiments.logger.LOGGER.disabled = True  # turn off logging
     fix_seeds(0)
     # create experiment environment
@@ -46,17 +47,25 @@ def test_tagging(lframesnet, model_list, iterations):
     exp._init_dataloader()
     exp._init_loss()
 
-    for i, data in enumerate(exp.train_loader):
-        data = data.to(device=exp.device)
-        if i == iterations:
-            break
+    data = next(iter(exp.train_loader))
 
-        with FlopCounterMode(display=False) as flop_counter:
-            exp._get_ypred_and_label(data)
-            flops = flop_counter.get_total_flops()
+    # fill batch with dummy data of fixed length
+    data.x = torch.ones(jet_size, 4, dtype=data.x.dtype)
+    data.scalars = torch.ones(jet_size, data.scalars.shape[1], dtype=data.scalars.dtype)
+    data.batch = torch.zeros(jet_size, dtype=data.batch.dtype)
+    data.ptr[-1] = jet_size
+
+    with FlopCounterMode(display=False) as flop_counter:
+        exp._get_ypred_and_label(data)
+    flops = flop_counter.get_total_flops()
 
     print(
-        f"flops (batchsize=1): {flops:.2e}",
+        f"flops (batchsize=1, jet_size={jet_size}): {flops:.2e}",
         model_list,
         lframesnet,
     )
+    num_parameters = sum(p.numel() for p in exp.model.parameters())
+    print(
+        f"parameters: {num_parameters}",
+    )
+    print(flop_counter.get_table(depth=2))
