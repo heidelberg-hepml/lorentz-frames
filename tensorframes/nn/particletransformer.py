@@ -18,13 +18,15 @@ import torch.nn.functional as F
 from tensorframes.reps.tensorreps import TensorReps
 from tensorframes.nn.attention import InvariantParticleAttention
 
-
-@torch.jit.script
+# this is turned of, since it regularely failed and had to fall back on the fallback function, which did not speed up the training
+# @torch.jit.script
 def delta_phi(a, b):
-    return (a - b + math.pi) % (2 * math.pi) - math.pi
+    delta = a - b + torch.pi
+    delta = torch.remainder(delta, 2 * torch.pi)
+    return delta - torch.pi
 
 
-@torch.jit.script
+# @torch.jit.script
 def delta_r2(eta1, phi1, eta2, phi2):
     return (eta1 - eta2) ** 2 + delta_phi(phi1, phi2) ** 2
 

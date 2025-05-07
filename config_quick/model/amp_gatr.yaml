@@ -15,6 +15,7 @@ net:
  num_blocks: 2
  attention:
   num_heads: 2
+  multi_query: false
  mlp:
   activation: gelu
 
