@@ -11,7 +11,7 @@ dropout_prob: null
 
 include_edges: true
 operation: add
-nonlinearity: exp
+nonlinearity: softmax
 aggr: sum
 layer_norm: true
 fm_norm: true
