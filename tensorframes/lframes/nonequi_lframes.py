@@ -8,7 +8,6 @@ from tensorframes.utils.transforms import (
     rand_ztransform,
     rand_general_lorentz,
 )
-from tensorframes.utils.lorentz import lorentz_eye
 from tensorframes.utils.restframe import restframe_boost
 
 
