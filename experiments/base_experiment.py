@@ -639,7 +639,7 @@ class BaseExperiment:
         if step > MIN_STEP_SKIP and self.cfg.training.max_grad_norm is not None:
             if grad_norm > self.cfg.training.max_grad_norm:
                 LOGGER.warning(
-                    f"Skipping update, gradient norm {grad_norm} exceeds maximum {self.cfg.training.max_grad_norm}"
+                    f"Skipping iteration {step}, gradient norm {grad_norm} exceeds maximum {self.cfg.training.max_grad_norm}"
                 )
                 return
         self.optimizer.step()

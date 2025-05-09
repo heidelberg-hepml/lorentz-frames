@@ -1,10 +1,11 @@
+import torch
 from torch_geometric.utils import scatter
 
 from tensorframes.utils.utils import get_batch_from_ptr
 from tensorframes.lframes.lframes import LFrames
 from tensorframes.lframes.nonequi_lframes import LFramesPredictor
 from tensorframes.utils.restframe import restframe_equivariant
-from tensorframes.utils.lorentz import lorentz_eye
+from tensorframes.utils.lorentz import lorentz_eye, lorentz_squarednorm
 from tensorframes.utils.orthogonalize import orthogonal_trafo
 
 
@@ -94,9 +95,11 @@ class LearnedPolarDecompositionLFrames(LearnedLFrames):
     def __init__(
         self,
         *args,
+        gamma_max=None,
         **kwargs,
     ):
         super().__init__(*args, n_vectors=3, **kwargs)
+        self.gamma_max = gamma_max
 
     def forward(self, fourmomenta, scalars=None, ptr=None, return_tracker=False):
         self.init_weights_or_not()
@@ -104,6 +107,7 @@ class LearnedPolarDecompositionLFrames(LearnedLFrames):
         vecs = self.globalize_vecs_or_not(vecs, ptr)
         fourmomenta = vecs[..., 0, :]
         references = [vecs[..., i, :] for i in range(1, vecs.shape[-2])]
+        fourmomenta, reg_gammamax = self._clamp_boost(fourmomenta)
 
         trafo, reg_collinear = restframe_equivariant(
             fourmomenta,
@@ -112,8 +116,31 @@ class LearnedPolarDecompositionLFrames(LearnedLFrames):
             return_reg=True,
         )
         tracker = {"reg_collinear": reg_collinear}
+        if reg_gammamax is not None:
+            tracker["reg_gammamax"] = reg_gammamax
         lframes = LFrames(trafo, is_global=self.is_global)
         return (lframes, tracker) if return_tracker else lframes
+
+    def _clamp_boost(self, x):
+        if self.gamma_max is None:
+            return x, None
+
+        else:
+            # carefully clamp gamma to keep boosts under control
+            mass = lorentz_squarednorm(x).clamp(min=0).sqrt().unsqueeze(-1)
+            beta = x[..., 1:] / x[..., [0]].clamp(min=1e-10)
+            gamma = x[..., [0]] / mass
+            reg_gammamax = (gamma > self.gamma_max).sum().cpu()
+            gamma_reg = gamma.clamp(max=self.gamma_max)
+            beta_scaling = (
+                torch.sqrt(
+                    torch.clamp(1 - 1 / gamma_reg.clamp(min=1e-10).square(), min=1e-10)
+                )
+                / (beta**2).sum(dim=-1, keepdim=True).clamp(min=1e-10).sqrt()
+            )
+            beta_reg = beta * beta_scaling
+            x_reg = mass * torch.cat((gamma_reg, gamma_reg * beta_reg), dim=-1)
+            return x_reg, reg_gammamax
 
 
 class LearnedRestLFrames(LearnedLFrames):
