@@ -21,7 +21,7 @@ from tests_exp.utils import fix_seeds
         ["model=tag_gatr"],
     ],
 )
-@pytest.mark.parametrize("jet_size", [128])
+@pytest.mark.parametrize("jet_size", [50])
 def test_tagging(lframesnet, model_list, jet_size):
     experiments.logger.LOGGER.disabled = True  # turn off logging
     fix_seeds(0)
