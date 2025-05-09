@@ -1,5 +1,4 @@
 import torch
-from torch_geometric.utils import dense_to_sparse
 from xformers.ops.fmha import BlockDiagonalMask
 
 from tensorframes.utils.lorentz import lorentz_squarednorm

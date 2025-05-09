@@ -8,14 +8,14 @@ from tensorframes.utils.transforms import (
     rand_ztransform,
     rand_general_lorentz,
 )
-from tensorframes.utils.lorentz import lorentz_eye
 from tensorframes.utils.restframe import restframe_boost
 
 
 class LFramesPredictor(torch.nn.Module):
-    def __init__(self, is_global=False):
+    def __init__(self, is_global=False, is_identity=False):
         super().__init__()
         self.is_global = is_global
+        self.is_identity = is_identity
 
     def forward(self, fourmomenta, scalars=None, ptr=None, return_tracker=False):
         raise NotImplementedError
@@ -25,7 +25,7 @@ class IdentityLFrames(LFramesPredictor):
     """Identity local frames, corresponding to non-equivariant networks"""
 
     def __init__(self):
-        super().__init__(is_global=True)
+        super().__init__(is_global=True, is_identity=True)
 
     def forward(self, fourmomenta, scalars=None, ptr=None, return_tracker=False):
         lframes = LFrames(

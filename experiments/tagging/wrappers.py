@@ -18,7 +18,7 @@ from tensorframes.reps.tensorreps import TensorReps
 from tensorframes.reps.tensorreps_transform import TensorRepsTransform
 from tensorframes.lframes.nonequi_lframes import IdentityLFrames
 from experiments.tagging.embedding import get_tagging_features
-from lgatr import embed_vector, embed_scalar, extract_scalar
+from lgatr import embed_vector, extract_scalar
 
 
 class TaggerWrapper(nn.Module):
