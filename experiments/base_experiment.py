@@ -435,31 +435,6 @@ class BaseExperiment:
                 milestones=milestones,
                 gamma=gamma,
             )
-        elif self.cfg.training.scheduler == "particlenet-scheduler":
-            # original ParticleNet scheduler described in
-            # Section III of https://arxiv.org/abs/1902.08570
-            lr_init = self.cfg.training.lr
-            lr_peak = lr_init * 10
-            lr_final = (
-                lr_init * 5e-7 / 3e-4
-            )  # particlenet-lite lr has small deviation from paper to simplify things
-            start_factors = [lr_init / lr_peak, 1.0, lr_init / lr_peak]
-            end_factors = [1.0, lr_init / lr_peak, lr_final / lr_peak]
-            iters = [8, 8, 4]
-            schedulers = [
-                torch.optim.lr_scheduler.LinearLR(
-                    self.optimizer,
-                    start_factor=start_factor,
-                    end_factor=end_factor,
-                    total_iters=iter,
-                )
-                for start_factor, end_factor, iter in zip(
-                    start_factors, end_factors, iters
-                )
-            ]
-            self.scheduler = torch.optim.lr_scheduler.SequentialLR(
-                self.optimizer, schedulers=schedulers, milestones=[8, 16]
-            )
         else:
             raise ValueError(
                 f"Learning rate scheduler {self.cfg.training.scheduler} not implemented"
