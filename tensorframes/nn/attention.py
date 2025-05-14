@@ -108,7 +108,7 @@ class InvariantParticleAttention(torch.nn.Module):
 
         qkv_local = torch.stack([q_local, k_local, v_local], dim=0)
         qkv_global = self.transform(qkv_local, self.lframes_qkv)
-        q_global, k_global, v_global = torch.chunk(qkv_global, 3, dim=0)
+        q_global, k_global, v_global = torch.unbind(qkv_global, dim=0)
 
         # (B, H, N, C) format required for scaled_dot_product_attention
         shape_q, shape_k = q_global.shape, k_global.shape
