@@ -12,6 +12,8 @@ from tensorframes.utils.utils import (
     build_edge_index_fully_connected,
     get_edge_index_from_ptr,
     get_edge_attr,
+    get_ptr_from_batch,
+    get_ptr_from_batch2,
 )
 
 
@@ -31,7 +33,7 @@ class EquiEdgeConv(MessagePassing):
         aggr="sum",
         layer_norm=False,
     ):
-        super().__init__(aggr=aggr)
+        super().__init__(aggr=aggr, flow='target_to_source')
         assert num_scalars > 0 or include_edges
         self.include_edges = include_edges
         self.layer_norm = layer_norm
@@ -97,7 +99,8 @@ class EquiEdgeConv(MessagePassing):
         if edge_attr is not None:
             prefactor = torch.cat([prefactor, edge_attr], dim=-1)
         prefactor = self.mlp(prefactor)
-        prefactor = self.nonlinearity(prefactor, batch=edge_index[1])
+        ptr = get_ptr_from_batch2(edge_index[0])
+        prefactor = self.nonlinearity(prefactor, batch=edge_index[0], ptr=ptr)
 
         fm_rel = (fm_rel / fm_rel_norm)[:, None, :4]
         prefactor = prefactor.unsqueeze(-1)
@@ -120,15 +123,15 @@ class EquiEdgeConv(MessagePassing):
 
     def get_nonlinearity(self, nonlinearity):
         if nonlinearity == None:
-            return lambda x, batch: x
+            return lambda x, batch, ptr: x
         elif nonlinearity == "exp":
-            return lambda x, batch: torch.clamp(x, min=-10, max=10).exp()
+            return lambda x, batch, ptr: torch.clamp(x, min=-10, max=10).exp()
         elif nonlinearity == "softplus":
-            return lambda x, batch: torch.nn.functional.softplus(x)
+            return lambda x, batch, ptr: torch.nn.functional.softplus(x)
         elif nonlinearity == "softmax":
-            return lambda x, batch: softmax(x, batch)
+            return lambda x, batch, ptr: softmax(x, batch, ptr=ptr)
         elif nonlinearity == "relu":
-            return lambda x, batch: torch.nn.functional.relu(x)
+            return lambda x, batch, ptr: torch.nn.functional.relu(x)
         elif nonlinearity == "relu_shifted":
             meanaggr = MeanAggregation()
 
