@@ -13,7 +13,6 @@ from tensorframes.utils.utils import (
     get_edge_index_from_ptr,
     get_edge_attr,
     get_ptr_from_batch,
-    get_ptr_from_batch2,
 )
 
 
@@ -99,8 +98,7 @@ class EquiEdgeConv(MessagePassing):
         if edge_attr is not None:
             prefactor = torch.cat([prefactor, edge_attr], dim=-1)
         prefactor = self.mlp(prefactor)
-        ptr = get_ptr_from_batch2(edge_index[0])
-        prefactor = self.nonlinearity(prefactor, batch=edge_index[0], ptr=ptr)
+        prefactor = self.nonlinearity(prefactor, batch=edge_index[0])
 
         fm_rel = (fm_rel / fm_rel_norm)[:, None, :4]
         prefactor = prefactor.unsqueeze(-1)
@@ -123,15 +121,18 @@ class EquiEdgeConv(MessagePassing):
 
     def get_nonlinearity(self, nonlinearity):
         if nonlinearity == None:
-            return lambda x, batch, ptr: x
+            return lambda x, batch: x
         elif nonlinearity == "exp":
-            return lambda x, batch, ptr: torch.clamp(x, min=-10, max=10).exp()
+            return lambda x, batch: torch.clamp(x, min=-10, max=10).exp()
         elif nonlinearity == "softplus":
-            return lambda x, batch, ptr: torch.nn.functional.softplus(x)
+            return lambda x, batch: torch.nn.functional.softplus(x)
         elif nonlinearity == "softmax":
-            return lambda x, batch, ptr: softmax(x, batch, ptr=ptr)
+            def func(x, batch):
+                ptr = get_ptr_from_batch(batch)
+                return softmax(x, ptr=ptr)
+            return func
         elif nonlinearity == "relu":
-            return lambda x, batch, ptr: torch.nn.functional.relu(x)
+            return lambda x, batch: torch.nn.functional.relu(x)
         elif nonlinearity == "relu_shifted":
             meanaggr = MeanAggregation()
 
