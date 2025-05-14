@@ -29,7 +29,7 @@ class TensorRepsTransform(torch.nn.Module):
         idx = 0
         for mul_rep in self.reps:
             _, rep = mul_rep
-            parity_odd[idx : idx + mul_rep.dim] = True if rep.parity else False
+            parity_odd[idx : idx + mul_rep.dim] = True if rep.parity == -1 else False
             idx += mul_rep.dim
         self.register_buffer("parity_odd", parity_odd.unsqueeze(0))
         self.no_parity_odd = self.parity_odd.sum() == 0
