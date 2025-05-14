@@ -44,6 +44,10 @@ class TensorRepsTransform(torch.nn.Module):
                     self.map_rep[i] = idx_rep
                     idx_rep += 1
 
+        if self.reps.max_rep.rep.order <= 1:
+            # super efficient shortcut if only scalar and vector reps are present
+            self.transform = self._transform_superefficient_SV
+
     def forward(self, tensor: torch.Tensor, lframes: LFrames):
         """
         Parameters
@@ -120,6 +124,25 @@ class TensorRepsTransform(torch.nn.Module):
                 output = torch.einsum("ijk,ilk...->ilj...", lframes.matrices, output)
                 output = output.flatten(start_dim=1, end_dim=2)
 
+        return output
+
+    def _transform_superefficient_SV(self, tensor, lframes):
+        """
+        Super efficient transform:
+        Assumes that we only have scalars and vectors. Then just the vectors are modified.
+        """
+        output = tensor.clone()
+        vector_idx_start, vector_idx_end = self.start_end_idx[-1]
+        vectors = tensor[:, vector_idx_start:vector_idx_end]
+        vectors = vectors.reshape(tensor.shape[0], -1, 4)
+        vectors_transformed = torch.einsum(
+            "ijk,ilk->ilj",
+            lframes.matrices,
+            vectors,
+        )
+        output[:, vector_idx_start:vector_idx_end] = vectors_transformed.reshape(
+            tensor.shape[0], -1
+        )
         return output
 
     def transform_parity(self, tensor, lframes):
