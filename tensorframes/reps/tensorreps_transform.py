@@ -46,7 +46,7 @@ class TensorRepsTransform(torch.nn.Module):
 
         if self.reps.max_rep.rep.order <= 1:
             # super efficient shortcut if only scalar and vector reps are present
-            self.transform = self._transform_superefficient_SV
+            self.transform = self._transform_only_scalars_and_vectors
 
     def forward(self, tensor: torch.Tensor, lframes: LFrames):
         """
@@ -126,10 +126,11 @@ class TensorRepsTransform(torch.nn.Module):
 
         return output
 
-    def _transform_superefficient_SV(self, tensor, lframes):
+    def _transform_only_scalars_and_vectors(self, tensor, lframes):
         """
-        Super efficient transform:
-        Assumes that we only have scalars and vectors. Then just the vectors are modified.
+        Super efficient transform that assumes that only scalars and vectors are present.
+        Follows the same recipe as _transform_efficient, but avoids small overheads from
+        torch.cat and torch.reshape.
         """
         output = tensor.clone()
         vector_idx_start, vector_idx_end = self.start_end_idx[-1]
