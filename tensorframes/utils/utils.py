@@ -70,10 +70,12 @@ def consistent_length_check(list_of_iterables: list) -> int:
         ), f"lengths must be the same but {i} has length {len(iterable)} and 0 has length {length}"
     return length
 
+
 def get_batch_from_ptr(ptr):
     return torch.arange(len(ptr) - 1, device=ptr.device).repeat_interleave(
         ptr[1:] - ptr[:-1],
     )
+
 
 def get_ptr_from_batch2(batch):
     _, counts = torch.unique_consecutive(batch, return_counts=True)

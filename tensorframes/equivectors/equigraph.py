@@ -32,7 +32,7 @@ class EquiEdgeConv(MessagePassing):
         aggr="sum",
         layer_norm=False,
     ):
-        super().__init__(aggr=aggr, flow='target_to_source')
+        super().__init__(aggr=aggr, flow="target_to_source")
         assert num_scalars > 0 or include_edges
         self.include_edges = include_edges
         self.layer_norm = layer_norm
@@ -127,9 +127,11 @@ class EquiEdgeConv(MessagePassing):
         elif nonlinearity == "softplus":
             return lambda x, batch: torch.nn.functional.softplus(x)
         elif nonlinearity == "softmax":
+
             def func(x, batch):
                 ptr = get_ptr_from_batch(batch)
                 return softmax(x, ptr=ptr)
+
             return func
         elif nonlinearity == "relu":
             return lambda x, batch: torch.nn.functional.relu(x)
