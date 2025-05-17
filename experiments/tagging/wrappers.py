@@ -584,3 +584,33 @@ class ParTWrapper(TaggerWrapper):
             mask=mask,
         )
         return score, tracker, lframes
+
+
+class LorentzNetWrapper(nn.Module):
+    def __init__(
+        self,
+        net,
+        lframesnet,
+        out_channels,
+    ):
+        super().__init__()
+        self.net = net(n_class=out_channels)
+
+        self.lframesnet = lframesnet  # not actually used
+        assert isinstance(lframesnet, IdentityLFrames)
+
+    def forward(self, embedding):
+        # extract embedding (includes spurions)
+        fourmomenta = embedding["fourmomenta"]
+        scalars = embedding["scalars"]
+        batch = embedding["batch"]
+        ptr = embedding["ptr"]
+        is_spurion = embedding["is_spurion"]
+
+        # rescale fourmomenta (but not the spurions)
+        fourmomenta[~is_spurion] = fourmomenta[~is_spurion] / 20
+
+        edge_index = get_edge_index_from_ptr(ptr)
+        fourmomenta = fourmomenta.to(scalars.dtype)
+        output = self.net(scalars, fourmomenta, edges=edge_index, batch=batch)
+        return output, {}, None

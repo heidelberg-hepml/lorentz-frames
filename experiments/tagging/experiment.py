@@ -33,6 +33,8 @@ class TaggingExperiment(BaseExperiment):
             if not self.cfg.model.mean_aggregation:
                 # need global token toggle
                 self.cfg.model.net.in_s_channels += 1
+        elif modelname == "LorentzNet":
+            self.cfg.model.net.n_scalar = self.num_extra_scalars
         else:
             self.cfg.model.in_channels = 7 + self.num_extra_scalars
 
