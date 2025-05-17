@@ -19,25 +19,37 @@ class TaggingExperiment(BaseExperiment):
     Base class for jet tagging experiments, focusing on binary classification
     """
 
-    def init_physics(self):
-        modelname = self.cfg.model.net._target_.rsplit(".", 1)[-1]
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # two keys that depend on the experiment type
+        self.num_extra_scalars = 0
+        self.cfg.model.out_channels
 
+    def init_physics(self):
         # decide which entries to use for the net
+        modelname = self.cfg.model.net._target_.rsplit(".", 1)[-1]
         if modelname == "LGATr":
-            self.cfg.model.net.in_s_channels = (
-                0 if self.cfg.model.mean_aggregation else 1
-            )
+            self.cfg.model.net.in_s_channels = self.num_extra_scalars
+            if not self.cfg.model.mean_aggregation:
+                # need global token toggle
+                self.cfg.model.net.in_s_channels += 1
         else:
-            self.cfg.model.in_channels = 7
+            self.cfg.model.in_channels = 7 + self.num_extra_scalars
+
+        # graphnet edge attributes
+        if modelname == "TFGraphNet":
+            self.cfg.model.net.num_edge_attr = 1 if self.cfg.model.include_edges else 0
+
+        # ParticleNet hidden reps list
+        if modelname == "ParticleNet":
+            self.cfg.model.net.hidden_reps_list[0] = f"{self.cfg.model.in_channels}x0n"
 
         # decide which entries to use for the lframesnet
         if "equivectors" in self.cfg.model.lframesnet:
-            self.cfg.model.lframesnet.equivectors.num_scalars = (
+            self.cfg.model.lframesnet.equivectors.num_scalars = self.num_extra_scalars
+            self.cfg.model.lframesnet.equivectors.num_scalars += (
                 7 if self.cfg.data.add_tagging_features_lframesnet else 0
             )
-
-        if modelname == "TFGraphNet":
-            self.cfg.model.net.num_edge_attr = 1 if self.cfg.model.include_edges else 0
 
     def init_data(self):
         raise NotImplementedError
@@ -321,10 +333,7 @@ class TaggingExperiment(BaseExperiment):
 class TopTaggingExperiment(TaggingExperiment):
     def __init__(self, cfg):
         super().__init__(cfg)
-        if self.cfg.model.net._target_.rsplit(".", 1)[-1] == "LGATr":
-            self.cfg.model.net.out_mv_channels = 1
-        else:
-            self.cfg.model.out_channels = 1
+        self.cfg.model.out_channels = 1
 
     def init_data(self):
         data_path = os.path.join(

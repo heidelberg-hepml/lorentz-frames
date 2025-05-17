@@ -435,7 +435,6 @@ class BaseExperiment:
                 milestones=milestones,
                 gamma=gamma,
             )
-            )
         else:
             raise ValueError(
                 f"Learning rate scheduler {self.cfg.training.scheduler} not implemented"
