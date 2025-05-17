@@ -547,7 +547,6 @@ class BaseExperiment:
 
             if self.cfg.training.scheduler in [
                 "flat+decay",
-                "particlenet-scheduler",
             ]:
                 # schedulers that step after each epoch
                 if (
