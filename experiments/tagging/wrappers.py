@@ -614,3 +614,29 @@ class LorentzNetWrapper(nn.Module):
         fourmomenta = fourmomenta.to(scalars.dtype)
         output = self.net(scalars, fourmomenta, edges=edge_index, batch=batch)
         return output, {}, None
+
+
+class PELICANWrapper(nn.Module):
+    def __init__(self, net, lframesnet, out_channels):
+        super().__init__()
+        self.net = net(out_channels=out_channels)
+        self.lframesnet = lframesnet
+        assert isinstance(lframesnet, IdentityLFrames)
+
+    def forward(self, embedding):
+        # extract embedding (includes spurions)
+        fourmomenta = embedding["fourmomenta"]
+        scalars = embedding["scalars"]
+        batch = embedding["batch"]
+        ptr = embedding["ptr"]
+        is_spurion = embedding["is_spurion"]
+
+        # rescale fourmomenta (but not the spurions)
+        fourmomenta[~is_spurion] = fourmomenta[~is_spurion] / 20
+        fourmomenta = fourmomenta.to(scalars.dtype)
+        fourmomenta, mask = to_dense_batch(fourmomenta, batch)
+        scalars, _ = to_dense_batch(scalars, batch)
+        mask = mask.unsqueeze(-1)
+
+        output = self.net(scalars, fourmomenta, mask=mask)
+        return output, {}, None
