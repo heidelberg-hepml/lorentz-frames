@@ -114,8 +114,8 @@ class AggregatedTaggerWrapper(TaggerWrapper):
         super().__init__(*args, **kwargs)
         self.aggregator = MeanAggregation()
 
-    def extract_score(self, features, batch):
-        score = self.aggregator(features, index=batch)
+    def extract_score(self, features, ptr):
+        score = self.aggregator(features, ptr=ptr)
         return score
 
 
@@ -137,7 +137,7 @@ class BaselineTransformerWrapper(AggregatedTaggerWrapper):
             features_local,
             _,
             lframes,
-            _,
+            ptr,
             batch,
             tracker,
         ) = super().forward(embedding)
@@ -155,7 +155,7 @@ class BaselineTransformerWrapper(AggregatedTaggerWrapper):
         )
 
         # aggregation
-        score = self.extract_score(outputs, batch)
+        score = self.extract_score(outputs, ptr)
         return score, tracker, lframes
 
 
@@ -187,7 +187,7 @@ class BaselineGraphNetWrapper(AggregatedTaggerWrapper):
         outputs = self.net(x=features_local, edge_index=edge_index)
 
         # aggregation
-        score = self.extract_score(outputs, batch)
+        score = self.extract_score(outputs, ptr)
         return score, tracker, lframes
 
 
@@ -313,7 +313,7 @@ class GraphNetWrapper(AggregatedTaggerWrapper):
         )
 
         # aggregation
-        score = self.extract_score(outputs, batch)
+        score = self.extract_score(outputs, ptr)
         return score, tracker, lframes
 
     def get_edge_attr(self, fourmomenta, edge_index):
@@ -341,7 +341,7 @@ class TransformerWrapper(AggregatedTaggerWrapper):
             features_local,
             _,
             lframes,
-            _,
+            ptr,
             batch,
             tracker,
         ) = super().forward(embedding)
@@ -361,7 +361,7 @@ class TransformerWrapper(AggregatedTaggerWrapper):
         outputs = outputs[0, ...]
 
         # aggregation
-        score = self.extract_score(outputs, batch)
+        score = self.extract_score(outputs, ptr)
         return score, tracker, lframes
 
 

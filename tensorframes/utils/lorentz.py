@@ -4,7 +4,7 @@ import torch
 def lorentz_inner(v1, v2):
     """Lorentz inner product, i.e v1*g*v2"""
     prod = v1 * v2
-    prod *= torch.tensor([1, -1, -1, -1], device=v1.device, dtype=v1.dtype)
+    prod[..., 1:] *= -1
     return prod.sum(dim=-1)
 
 

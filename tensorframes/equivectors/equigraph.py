@@ -12,6 +12,7 @@ from tensorframes.utils.utils import (
     build_edge_index_fully_connected,
     get_edge_index_from_ptr,
     get_edge_attr,
+    get_ptr_from_batch,
 )
 
 
@@ -31,7 +32,7 @@ class EquiEdgeConv(MessagePassing):
         aggr="sum",
         layer_norm=False,
     ):
-        super().__init__(aggr=aggr)
+        super().__init__(aggr=aggr, flow="target_to_source")
         assert num_scalars > 0 or include_edges
         self.include_edges = include_edges
         self.layer_norm = layer_norm
@@ -97,7 +98,7 @@ class EquiEdgeConv(MessagePassing):
         if edge_attr is not None:
             prefactor = torch.cat([prefactor, edge_attr], dim=-1)
         prefactor = self.mlp(prefactor)
-        prefactor = self.nonlinearity(prefactor, batch=edge_index[1])
+        prefactor = self.nonlinearity(prefactor, batch=edge_index[0])
 
         fm_rel = (fm_rel / fm_rel_norm)[:, None, :4]
         prefactor = prefactor.unsqueeze(-1)
@@ -126,7 +127,12 @@ class EquiEdgeConv(MessagePassing):
         elif nonlinearity == "softplus":
             return lambda x, batch: torch.nn.functional.softplus(x)
         elif nonlinearity == "softmax":
-            return lambda x, batch: softmax(x, batch)
+
+            def func(x, batch):
+                ptr = get_ptr_from_batch(batch)
+                return softmax(x, ptr=ptr)
+
+            return func
         elif nonlinearity == "relu":
             return lambda x, batch: torch.nn.functional.relu(x)
         elif nonlinearity == "relu_shifted":

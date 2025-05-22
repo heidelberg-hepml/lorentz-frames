@@ -71,39 +71,22 @@ def consistent_length_check(list_of_iterables: list) -> int:
     return length
 
 
-def batch_to_ptr(batch: torch.Tensor):
-    """Converts torch tensor batch to slicing.
-
-    Args:
-        batch (torch.Tensor): The input tensor batch.
-
-    Returns:
-        torch.Tensor: The converted slicing tensor.
-
-    Raises:
-        AssertionError: If the input batch is not sorted.
-    """
-    # check that batch is sorted:
-    assert torch.all(batch[:-1] <= batch[1:]), "batch must be sorted"
-
-    diff_mask = batch - torch.roll(batch, 1) != 0
-    diff_mask[0] = True  # first element is always different
-    ptr = torch.zeros(batch.max() + 2, dtype=torch.long, device=batch.device)
-    ptr[:-1] = torch.arange(len(batch), device=batch.device)[diff_mask]
-    ptr[-1] = len(batch)
-    return ptr
-
-
 def get_batch_from_ptr(ptr):
     return torch.arange(len(ptr) - 1, device=ptr.device).repeat_interleave(
         ptr[1:] - ptr[:-1],
     )
 
 
+def get_ptr_from_batch2(batch):
+    _, counts = torch.unique_consecutive(batch, return_counts=True)
+    ptr = counts.cumsum(0)
+    return torch.cat([ptr.new_zeros(1), ptr])
+
+
 def get_ptr_from_batch(batch):
     return torch.cat(
         [
-            torch.tensor([0], device=batch.device),
+            torch.zeros(1, dtype=torch.int, device=batch.device),
             torch.where(batch[1:] - batch[:-1] != 0)[0] + 1,
             torch.tensor([batch.shape[0]], device=batch.device),
         ],
