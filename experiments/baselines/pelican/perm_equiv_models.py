@@ -657,7 +657,7 @@ class Eq2to2(nn.Module):
         output = torch.einsum("dsb,ndbij->nijs", coefs, ops)
 
         diag_eye = (
-            torch.eye(inputs.shape[1], device=self.device, dtype=self.dtype)
+            torch.eye(inputs.shape[1], device=ops.device, dtype=self.dtype)
             .unsqueeze(0)
             .unsqueeze(-1)
         )
