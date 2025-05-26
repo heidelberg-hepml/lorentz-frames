@@ -72,8 +72,8 @@ class EquiEdgeConv(MessagePassing):
         else:
             edge_attr = None
 
+        fourmomenta = fourmomenta[:, 0, :]
         # message-passing
-        fourmomenta = fourmomenta.reshape(fourmomenta.shape[0], -1)
         vecs = self.propagate(
             edge_index, s=scalars, fm=fourmomenta, edge_attr=edge_attr, batch=batch
         )
@@ -98,10 +98,8 @@ class EquiEdgeConv(MessagePassing):
             prefactor = torch.cat([prefactor, edge_attr], dim=-1)
         prefactor = self.mlp(prefactor)
         prefactor = self.nonlinearity(prefactor, batch=edge_index[1])
-
-        fm_rel = (fm_rel / fm_rel_norm)[:, None, :4]
+        fm_rel = (fm_rel / fm_rel_norm).unsqueeze(-2)
         prefactor = prefactor.unsqueeze(-1)
-
         out = prefactor * fm_rel
         out = out.reshape(out.shape[0], -1)
         return out
