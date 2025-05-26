@@ -4,6 +4,7 @@ random: false
 fix_params: false
 gamma_max: null
 gamma_hardness: null
+deterministic_boost: null
 ortho_kwargs:
  method: gramschmidt
  eps_norm: 1e-15

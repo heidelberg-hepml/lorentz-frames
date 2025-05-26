@@ -97,11 +97,13 @@ class LearnedPolarDecompositionLFrames(LearnedLFrames):
         *args,
         gamma_max=None,
         gamma_hardness=None,
+        deterministic_boost=None,
         **kwargs,
     ):
         super().__init__(*args, n_vectors=3, **kwargs)
         self.gamma_max = gamma_max
         self.gamma_hardness = gamma_hardness
+        self.deterministic_boost = deterministic_boost
 
     def forward(self, fourmomenta, scalars=None, ptr=None, return_tracker=False):
         self.init_weights_or_not()
@@ -109,6 +111,7 @@ class LearnedPolarDecompositionLFrames(LearnedLFrames):
         vecs = self.globalize_vecs_or_not(vecs, ptr)
         boost = vecs[..., 0, :]
         rotation_references = [vecs[..., i, :] for i in range(1, vecs.shape[-2])]
+        boost = self._deterministic_boost(boost, ptr)
         boost, reg_gammamax = self._clamp_boost(boost)
 
         trafo, reg_collinear = restframe_equivariant(
@@ -145,6 +148,28 @@ class LearnedPolarDecompositionLFrames(LearnedLFrames):
             beta_reg = beta * beta_scaling
             x_reg = mass * torch.cat((gamma_reg, gamma_reg * beta_reg), dim=-1)
             return x_reg, reg_gammamax
+
+    def _deterministic_boost(self, boost, ptr):
+        if self.deterministic_boost is None:
+            pass
+        elif self.deterministic_boost == "global":
+            # average boost vector over the event
+            boost = average_event(boost, ptr)
+        elif self.deterministic_boost == "local":
+            # average boost over all other particles in the event
+            boost_averaged = average_event(boost, ptr)
+            if ptr is None:
+                nparticles = boost.shape[1]
+            else:
+                diff = ptr[1:] - ptr[:-1]
+                nparticles = (diff).repeat_interleave(diff).unsqueeze(-1)
+            boost = boost_averaged - boost / nparticles
+        else:
+            raise ValueError(
+                f"Option deterministic_boost={self.deterministic_boost} not implemented"
+            )
+
+        return boost
 
 
 class LearnedRestLFrames(LearnedLFrames):
