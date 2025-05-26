@@ -215,7 +215,7 @@ class LearnedOrthogonal3DLFrames(LearnedLFrames):
 
 def average_event(vecs, ptr=None):
     if ptr is None:
-        vecs = vecs.mean(dim=-3, keepdim=True).expand_as(vecs)
+        vecs = vecs.mean(dim=1, keepdim=True).expand_as(vecs)
     else:
         batch = get_batch_from_ptr(ptr)
         vecs = scatter(vecs, batch, dim=0, reduce="mean").index_select(0, batch)
