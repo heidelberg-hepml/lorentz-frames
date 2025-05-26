@@ -96,10 +96,12 @@ class LearnedPolarDecompositionLFrames(LearnedLFrames):
         self,
         *args,
         gamma_max=None,
+        gamma_hardness=None,
         **kwargs,
     ):
         super().__init__(*args, n_vectors=3, **kwargs)
         self.gamma_max = gamma_max
+        self.gamma_hardness = gamma_hardness
 
     def forward(self, fourmomenta, scalars=None, ptr=None, return_tracker=False):
         self.init_weights_or_not()
@@ -131,7 +133,9 @@ class LearnedPolarDecompositionLFrames(LearnedLFrames):
             beta = x[..., 1:] / x[..., [0]].clamp(min=1e-10)
             gamma = x[..., [0]] / mass
             reg_gammamax = (gamma > self.gamma_max).sum().cpu()
-            gamma_reg = gamma.clamp(max=self.gamma_max)
+            gamma_reg = soft_clamp_max(
+                gamma, max=self.gamma_max, hardness=self.gamma_hardness
+            )
             beta_scaling = (
                 torch.sqrt(
                     torch.clamp(1 - 1 / gamma_reg.clamp(min=1e-10).square(), min=1e-10)
@@ -221,3 +225,12 @@ def average_event(vecs, ptr=None):
 def init_weights(module):
     if hasattr(module, "reset_parameters"):
         module.reset_parameters()
+
+
+def soft_clamp_max(x, max, hardness=None):
+    if hardness is None:
+        # hard clamp
+        return x.clamp(max=max)
+    else:
+        # soft clamp (better gradients)
+        return max - torch.nn.functional.softplus(max - x, beta=hardness)
