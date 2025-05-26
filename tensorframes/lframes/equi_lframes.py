@@ -107,13 +107,13 @@ class LearnedPolarDecompositionLFrames(LearnedLFrames):
         self.init_weights_or_not()
         vecs = self.equivectors(fourmomenta, scalars=scalars, ptr=ptr)
         vecs = self.globalize_vecs_or_not(vecs, ptr)
-        fourmomenta = vecs[..., 0, :]
-        references = [vecs[..., i, :] for i in range(1, vecs.shape[-2])]
-        fourmomenta, reg_gammamax = self._clamp_boost(fourmomenta)
+        boost = vecs[..., 0, :]
+        rotation_references = [vecs[..., i, :] for i in range(1, vecs.shape[-2])]
+        boost, reg_gammamax = self._clamp_boost(boost)
 
         trafo, reg_collinear = restframe_equivariant(
-            fourmomenta,
-            references,
+            boost,
+            rotation_references,
             **self.ortho_kwargs,
             return_reg=True,
         )
