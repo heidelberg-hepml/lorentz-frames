@@ -1,6 +1,5 @@
 import os
 import copy
-import json
 import math
 import numpy as np
 import awkward as ak
