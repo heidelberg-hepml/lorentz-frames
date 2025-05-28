@@ -2,8 +2,6 @@ import torch
 from torch import nn
 import math
 from torch_geometric.nn import MessagePassing
-from torch_geometric.utils import softmax, to_dense_batch
-from torch_geometric.nn.aggr import MeanAggregation
 
 from .base import EquiVectors
 from ..nn.mlp import MLP
@@ -25,13 +23,34 @@ class EquiEdgeConv(MessagePassing):
         hidden_channels,
         num_layers_mlp,
         include_edges=True,
-        operation="single",
+        operation="add",
         nonlinearity="exp",
         fm_norm=False,
         dropout_prob=None,
         aggr="sum",
         layer_norm=False,
     ):
+        """Equivariant edge convolution, implemented using PyTorch Geometric's MessagePassing class.
+
+        Parameters
+        ----------
+        in_vectors : int
+            Number of input vectors.
+        out_vectors : int
+            Number of output vectors.
+        num_scalars : int
+            Number of scalar features per particle.
+        hidden_channels : int
+            Number of hidden channels in the MLP.
+        num_layers_mlp : int
+            Number of hidden layers in the MLP.
+        include_edges : bool, optional
+            Whether to include edge attributes in the message passing. If True, edge attributes will be calculated from fourmomenta and standardized. Default is True.
+        operation : str, optional
+            Operation to perform on the fourmomenta. Options are "add", "diff", or "single". Default is "add".
+        nonlinearity : str, optional
+            Nonlinearity to apply to the output of the MLP. Options are None, "exp", "softplus" and "softmax".
+        """
         super().__init__(aggr=aggr, flow="target_to_source")
         assert num_scalars > 0 or include_edges
         self.include_edges = include_edges
@@ -57,6 +76,23 @@ class EquiEdgeConv(MessagePassing):
             self.register_buffer("edge_std", torch.tensor(1.0))
 
     def forward(self, fourmomenta, scalars, edge_index, batch=None):
+        """
+        Parameters
+        ----------
+        fourmomenta : torch.Tensor
+            Tensor of shape (num_particles, in_vectors*4) containing the fourmomenta of the particles.
+        scalars : torch.Tensor
+            Tensor of shape (num_particles, num_scalars) containing scalar features for each particle.
+        edge_index : torch.Tensor
+            Edge index tensor containing the indices of the source and target nodes, shape (2, num_edges).
+        batch : torch.Tensor, optional
+            Batch tensor indicating the batch each particle belongs to. If None, all particles are assumed to belong to the same batch.
+
+        Returns
+        -------
+        torch.Tensor
+            Tensor of shape (num_particles, out_vectors*4) containing the predicted vectors for each edge.
+        """
         # calculate and standardize edge attributes
         fourmomenta = fourmomenta.reshape(scalars.shape[0], -1, 4)
         if self.include_edges:
@@ -86,6 +122,27 @@ class EquiEdgeConv(MessagePassing):
         return vecs
 
     def message(self, edge_index, s_i, s_j, fm_i, fm_j, edge_attr=None):
+        """
+        Parameters
+        ----------
+        edge_index : torch.Tensor
+            Edge index tensor containing the indices of the source and target nodes, shape (2, num_edges).
+        s_i : torch.Tensor
+            Scalar features of the source nodes, shape (num_edges, num_scalars).
+        s_j : torch.Tensor
+            Scalar features of the target nodes, shape (num_edges, num_scalars).
+        fm_i : torch.Tensor
+            Fourmomentum of the source nodes, shape (num_edges, in_vectors*4).
+        fm_j : torch.Tensor
+            Fourmomentum of the target nodes, shape (num_edges, in_vectors*4).
+        edge_attr : torch.Tensor, optional
+            Edge attributes tensor. If None, no edge attributes will be used, shape (num_edges, num_edge_attributes).
+
+        Returns
+        -------
+        torch.Tensor
+            Tensor of shape (num_edges, out_vectors*4) containing the predicted vectors for each edge.
+        """
         fm_rel = self.operation(fm_i, fm_j)
         # should not be used with operation "single"
         if self.fm_norm:
@@ -106,6 +163,17 @@ class EquiEdgeConv(MessagePassing):
         return out
 
     def get_operation(self, operation):
+        """
+        Parameters
+        ----------
+        operation : str
+            Operation to perform on the fourmomenta. Options are "add", "diff", or "single".
+
+        Returns
+        -------
+        callable
+            A function that performs the specified operation on two fourmomenta tensors.
+        """
         if operation == "diff":
             return torch.sub
         elif operation == "add":
@@ -118,6 +186,17 @@ class EquiEdgeConv(MessagePassing):
             )
 
     def get_nonlinearity(self, nonlinearity):
+        """
+        Parameters
+        ----------
+        nonlinearity : str or None
+            Nonlinearity to apply to the output of the MLP. Options are None, "exp", "softplus", "softmax".
+
+        Returns
+        -------
+        callable
+            A function that applies the specified nonlinearity to the input tensor.
+        """
         if nonlinearity == None:
             return lambda x, batch: x
         elif nonlinearity == "exp":
@@ -131,50 +210,9 @@ class EquiEdgeConv(MessagePassing):
                 return softmax(x, ptr=ptr)
 
             return func
-        elif nonlinearity == "relu":
-            return lambda x, batch: torch.nn.functional.relu(x)
-        elif nonlinearity == "relu_shifted":
-            meanaggr = MeanAggregation()
-
-            def func(x, batch):
-                mean = meanaggr(x, batch, dim=-2)
-                mean = mean[batch]
-                return (x - mean).relu()
-
-            return func
-        elif nonlinearity[:3] == "top":
-            k, nonlinearity = nonlinearity[3:].split("_")
-            if nonlinearity == "exp":
-                nonlinearity = lambda x: x.exp()
-            elif nonlinearity == "relu":
-                nonlinearity = lambda x: x.relu()
-            elif nonlinearity == "softplus":
-                nonlinearity = lambda x: torch.nn.functional.softplus(x)
-            else:
-                raise ValueError(
-                    f"Invalid nonlinearity {nonlinearity}. Options are (exp, relu, softplus)"
-                )
-
-            def func(x, batch):
-                x = nonlinearity(x)
-
-                # sort manually because to_dense_batch assumes that 'batch' is sorted
-                batch_sorted, perm = batch.sort()
-                inv_perm = perm.argsort()
-                x_dense, mask = to_dense_batch(x[perm], batch_sorted, fill_value=0)
-
-                k_local = min(int(k), x_dense.shape[-2])
-                top_vals, top_idx = x_dense.topk(k_local, dim=-2)
-                out_dense = torch.zeros_like(x_dense)
-                out_dense.scatter_(dim=-2, index=top_idx, src=top_vals)
-                out_sorted = out_dense[mask]
-                out = out_sorted[inv_perm]
-                return out
-
-            return func
         else:
             raise ValueError(
-                f"Invalid nonlinearity {nonlinearity}. Options are (None, exp, softplus, softmax, relu, relu_shifted and topk_nonlinearity (flexible))."
+                f"Invalid nonlinearity {nonlinearity}. Options are (None, exp, softplus, softmax)."
             )
 
 
@@ -187,6 +225,18 @@ class EquiGraphNet(EquiVectors):
         hidden_vectors=1,
         **kwargs,
     ):
+        """
+        Parameters
+        ----------
+        n_vectors : int
+            Number of output vectors per particle.
+        num_blocks : int
+            Number of EquiEdgeConv blocks to use in the network.
+        hidden_vectors : int, optional
+            Number of hidden vectors in each EquiEdgeConv block. Default is 1.
+        *args
+        **kwargs
+        """
         super().__init__()
 
         assert num_blocks >= 1
@@ -205,6 +255,21 @@ class EquiGraphNet(EquiVectors):
         )
 
     def forward(self, fourmomenta, scalars=None, ptr=None):
+        """
+        Parameters
+        ----------
+        fourmomenta : torch.Tensor
+            Tensor of shape (..., 4) containing the fourmomenta of the particles.
+        scalars : torch.Tensor, optional
+            Tensor of shape (..., num_scalars) containing scalar features for each particle. If None, a tensor of zeros will be created.
+        ptr : torch.Tensor, optional
+            Pointer tensor indicating the start and end of each batch for sparse tensors.
+
+        Returns
+        -------
+        torch.Tensor
+            Tensor of shape (..., n_vectors, 4) containing the predicted vectors for each particle.
+        """
         # get edge_index and batch from ptr
         in_shape = fourmomenta.shape[:-1]
         if scalars is None:
@@ -221,6 +286,7 @@ class EquiGraphNet(EquiVectors):
             edge_index = get_edge_index_from_ptr(ptr)
             batch = None
 
+        # pass through blocks
         for block in self.blocks:
             fourmomenta = block(
                 fourmomenta, scalars=scalars, edge_index=edge_index, batch=batch

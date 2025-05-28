@@ -146,7 +146,7 @@ class LearnedPolarDecompositionLFrames(LearnedLFrames):
 class LearnedRestLFrames(LearnedLFrames):
     """Rest frame transformation with learnable equivariant rotation.
     This is a special case of LearnedPolarDecompositionLFrames
-    where the boost vector is the particle momentum."""
+    where the boost vector is chosen to be the particle momentum."""
 
     def __init__(
         self,
@@ -173,7 +173,9 @@ class LearnedRestLFrames(LearnedLFrames):
 
 
 class LearnedOrthogonal3DLFrames(LearnedLFrames):
-    """O(3) special case of LearnedOrthogonalLFrames"""
+    """Local frames under rotations for SO(3)-equivariant architectures.
+    This is a special case of LearnedOrthogonalLFrames
+    where the first vector is trivial (1,0,0,0)."""
 
     def __init__(
         self,

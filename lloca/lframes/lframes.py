@@ -22,29 +22,28 @@ class LFrames:
         device: str = None,
         dtype: torch.dtype = None,
     ):
-        """
-        There are 2 ways to initialize an LFrames object:
+        """There are 2 ways to initialize an LFrames object:
         - From matrices: Set matrices and optionally is_global, det, inv
         - As identity: Set is_identity=True, shape, device, dtype
 
         Parameters
         ----------
-            matrices: torch.tensor of shape (*dims, 4, 4)
-                Transformation matrices
-            is_global: bool
-                Whether lframes are the same for all particles in the point cloud
-            inv: torch.Tensor of shape (*dims, 4, 4)
-                Optional cached inverse
-            det: torch.Tensor of shape (*dims)
-                Optional cached determinant
-            is_identity: bool
-                Sets matrices to diagonal
-            shape: List[int]
-                Specifies matrices.shape[:-2] if is_identity
-            device: str
-                Specifies device if is_identity
-            dtype: torch.dtype
-                Specifies dtype if is_identity
+        matrices: torch.tensor of shape (*dims, 4, 4)
+            Transformation matrices
+        is_global: bool
+            Whether lframes are the same for all particles in the point cloud
+        inv: torch.Tensor of shape (*dims, 4, 4)
+            Optional cached inverse. If not given, takes a bit of extra time to compute.
+        det: torch.Tensor of shape (*dims)
+            Optional cached determinant. If not given, takes a bit of extra time to compute.
+        is_identity: bool
+            Sets matrices to diagonal.
+        shape: List[int]
+            Specifies matrices.shape[:-2] if is_identity. Otherwise inferred from matrices.
+        device: str
+            Specifies device if is_identity. Otherwise inferred from matrices.
+        dtype: torch.dtype
+            Specifies dtype if is_identity. Otherwise inferred from matrices.
         """
         # straight-forward initialization
         self.is_identity = is_identity
@@ -89,6 +88,17 @@ class LFrames:
         return repr(self.matrices)
 
     def reshape(self, *shape):
+        """Reshape the matrices to a new shape.
+
+        Parameters
+        ----------
+        shape: int
+            New shape for the matrices. The last two dimensions must be (4, 4).
+
+        Returns
+        -------
+        LFrames
+        """
         assert shape[-2:] == (4, 4)
         return LFrames(
             matrices=self.matrices.reshape(*shape),
@@ -99,6 +109,17 @@ class LFrames:
         )
 
     def expand(self, *shape):
+        """Expand the matrices to a new shape.
+
+        Parameters
+        ----------
+        shape: int
+            New shape for the matrices. The last two dimensions must be (4, 4).
+
+        Returns
+        -------
+        LFrames
+        """
         assert shape[-2:] == (4, 4)
         return LFrames(
             matrices=self.matrices.expand(*shape),
@@ -109,6 +130,17 @@ class LFrames:
         )
 
     def repeat(self, *shape):
+        """Repeat the matrices to a new shape.
+
+        Parameters
+        ----------
+        shape: int
+            New shape for the matrices. The last two dimensions must be (4, 4).
+
+        Returns
+        -------
+        LFrames
+        """
         assert shape[-2:] == (1, 1)
         return LFrames(
             matrices=self.matrices.repeat(*shape),
@@ -139,7 +171,7 @@ class LFrames:
 class InverseLFrames(LFrames):
     """Inverse of a collection of transformations."""
 
-    def __init__(self, lframes: LFrames) -> None:
+    def __init__(self, lframes: LFrames):
         super().__init__(
             matrices=lframes.inv,
             is_global=lframes.is_global,
@@ -178,7 +210,7 @@ class ChangeOfLFrames(LFrames):
     It is used in TFMessagePassing where this mixing is performed using the edge_index
     """
 
-    def __init__(self, lframes_start: LFrames, lframes_end: LFrames) -> None:
+    def __init__(self, lframes_start: LFrames, lframes_end: LFrames):
         assert lframes_start.shape == lframes_end.shape
         if lframes_start.is_global:
             super().__init__(

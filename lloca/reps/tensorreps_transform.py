@@ -10,6 +10,17 @@ class TensorRepsTransform(torch.nn.Module):
         reps: TensorReps,
         use_naive=False,
     ):
+        """Initialize tensor representation transformation module.
+
+        Parameters
+        ----------
+        reps: TensorReps
+            Tensor representations to transform.
+        use_naive: bool
+            Whether to use the naive transformation method.
+            If False, uses an efficient transformation method.
+            Default is False.
+        """
         super().__init__()
         self.reps = reps
         self.transform = (
@@ -49,16 +60,19 @@ class TensorRepsTransform(torch.nn.Module):
             self.transform = self._transform_only_scalars_and_vectors
 
     def forward(self, tensor: torch.Tensor, lframes: LFrames):
-        """
+        """Apply a transformation to a tensor of a given representation.
+
         Parameters
         ----------
-        tensor: torch.tensor of shape (*shape, self.reps.dim)
+        tensor: torch.Tensor
+            The tensor to transform, shape (..., self.reps.dim).
         lframes: LFrames
-            lframes.matrices has shape (prod(*shape), 4, 4)
+            The local frames to apply the transformation with, shape (..., 4, 4).
 
         Returns
         -------
-        tensor_transformed: torch.tensor of shape (*shape, self.reps.dim)
+        torch.Tensor
+            The transformed tensor, shape (..., self.reps.dim).
         """
         assert self.reps.dim == tensor.shape[-1]
 
@@ -78,7 +92,20 @@ class TensorRepsTransform(torch.nn.Module):
         return tensor_transformed
 
     def _transform_naive(self, tensor, lframes):
-        """Naive transform: Apply n transformations to a tensor of n'th order"""
+        """Naive transform: Apply n transformations to a tensor of n'th order.
+
+        Parameters
+        ----------
+        tensor: torch.Tensor
+            The tensor to transform, shape (N, self.reps.dim).
+        lframes: LFrames
+            The local frames to apply the transformation with, shape (N, 4, 4).
+
+        Returns
+        -------
+        torch.Tensor
+            The transformed tensor, shape (N, self.reps.dim).
+        """
         output = tensor.clone()
         for mul_rep, [idx_start, idx_end] in zip(self.reps, self.start_end_idx):
             mul, rep = mul_rep
@@ -96,14 +123,25 @@ class TensorRepsTransform(torch.nn.Module):
         return output
 
     def _transform_efficient(self, tensor, lframes):
-        """
-        Efficient transform:
+        """Efficient transform:
         Starting with the highest-order tensor contribution,
         add the next contribution, apply lframes transformation
         and flatten first dimension before continueing with next order.
 
         This is more efficient, because we use the
         maximum amount of parallelization possible.
+
+        Parameters
+        ----------
+        tensor: torch.Tensor
+            The tensor to transform, shape (N, self.reps.dim).
+        lframes: LFrames
+            The local frames to apply the transformation with, shape (N, 4, 4).
+
+        Returns
+        -------
+        torch.Tensor
+            The transformed tensor, shape (N, self.reps.dim).
         """
         output = None
         for order in reversed(range(self.reps.max_rep.rep.order + 1)):
@@ -127,10 +165,21 @@ class TensorRepsTransform(torch.nn.Module):
         return output
 
     def _transform_only_scalars_and_vectors(self, tensor, lframes):
-        """
-        Super efficient transform that assumes that only scalars and vectors are present.
+        """Super efficient transform that assumes that only scalars and vectors are present.
         Follows the same recipe as _transform_efficient, but avoids small overheads from
         torch.cat and torch.reshape.
+
+        Parameters
+        ----------
+        tensor: torch.Tensor
+            The tensor to transform, shape (N, self.reps.dim).
+        lframes: LFrames
+            The local frames to apply the transformation with, shape (N, 4, 4).
+
+        Returns
+        -------
+        torch.Tensor
+            The transformed tensor, shape (N, self.reps.dim).
         """
         output = tensor.clone()
         vector_idx_start, vector_idx_end = self.start_end_idx[-1]
@@ -147,7 +196,20 @@ class TensorRepsTransform(torch.nn.Module):
         return output
 
     def transform_parity(self, tensor, lframes):
-        """Parity transform: Multiply parity-odd states by sign(det Lambda)"""
+        """Parity transform: Multiply parity-odd states by sign(det Lambda).
+
+        Parameters
+        ----------
+        tensor: torch.Tensor
+            The tensor to transform, shape (N, self.reps.dim).
+        lframes: LFrames
+            The local frames to apply the transformation with, shape (N, 4, 4).
+
+        Returns
+        -------
+        torch.Tensor
+            The transformed tensor, shape (N, self.reps.dim).
+        """
         if self.no_parity_odd:
             return tensor
         else:
@@ -157,7 +219,18 @@ class TensorRepsTransform(torch.nn.Module):
 
 
 def get_einsum_string(order):
-    """Create einsum string for transformation of order-n tensor in _transform_naive"""
+    """Create einsum string for transformation of order-n tensor in _transform_naive.
+
+    Parameters
+    ----------
+    order: int
+        The order of the tensor representation.
+
+    Returns
+    -------
+    str
+        The einsum string for the transformation.
+    """
     if order > 12:
         raise NotImplementedError("Running out of letters for order>12")
 

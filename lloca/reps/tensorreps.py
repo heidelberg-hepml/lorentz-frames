@@ -5,12 +5,14 @@ class TensorRep(Tuple):
     """Individual tensor representation"""
 
     def __new__(cls, order, parity):
-        """
-        Create a tensor representation based on its order and parity
+        """Create a tensor representation based on its order and parity.
 
-        Parameters:
-            order (int): The order of the tensor representation.
-            parity (int): The parity of the tensor representation. Can be -1 or 1
+        Parameters
+        ----------
+        order: int
+            The order of the tensor representation.
+        parity: int
+            The parity of the tensor representation. Can be -1 or 1
         """
         assert isinstance(order, int) and order >= 0, order
         assert parity in [-1, 1]
@@ -21,22 +23,16 @@ class TensorRep(Tuple):
 
     @property
     def order(self) -> int:
-        """
-        int: The order of the tensor.
-        """
+        """The order of the tensor."""
         return self[0]
 
     @property
     def parity(self):
-        """
-        int: The parity of the tensor.
-        """
+        """The parity of the tensor."""
         return self[1]
 
     def __repr__(self):
-        """
-        str: Returns a string representation of the tensor.
-        """
+        """Returns a string representation of the tensor."""
         return f"{self.order}{'n' if self.parity == 1 else 'p'}"
 
 
@@ -44,10 +40,15 @@ class _TensorMulRep(Tuple):
     """Direct product of similar tensor representations"""
 
     def __new__(cls, mul, rep):
-        """
-        Args:
-            mul (int): The multiplier for the tensor representation.
-            rep (TensorRep): The tensor representation.
+        """Create a tensor multiplication representation.
+        This represents a direct product of a tensor representation with a multiplier.
+
+        Parameters
+        ----------
+        mul: int
+            The multiplier for the tensor representation.
+        rep: TensorRep
+            The tensor representation.
         """
 
         assert isinstance(mul, int), "mul must be an integer"
@@ -60,32 +61,24 @@ class _TensorMulRep(Tuple):
 
     @property
     def mul(self):
-        """
-        int: The multiplier for the tensor representation.
-        """
+        """The multiplier for the tensor representation."""
         return self[0]
 
     @property
     def rep(self):
-        """
-        TensorRep: The tensor representation.
-        """
+        """The tensor representation."""
         return self[1]
 
     @property
     def dim(self):
-        """
-        int: The dimension of the tensor multiplication.
-        """
+        """The dimension of the tensor multiplication."""
         if self.rep.order == 0:
             return 1 * self.mul
         else:
             return (4**self.rep.order) * self.mul
 
     def __repr__(self):
-        """
-        str: Returns a string representation of the tensor multiplication.
-        """
+        """Returns a string representation of the tensor multiplication."""
         return f"{self.mul}x{self.rep}"
 
 
@@ -93,11 +86,17 @@ class TensorReps(Tuple):
     """Direct product of potentially different tensor representations"""
 
     def __new__(cls, input, simplify=True):
-        """
-        Args:
-            input (Union[TensorReps, str]): The tensor reps to initialize the object with.
-                If `tensor_reps` is an instance of `TensorReps`, a copy of `tensor_reps` is created.
-                If `tensor_reps` is a string, it is parsed to extract the reps.
+        """Create a tensor representation based on the input.
+        This can be a string representation or a list of _TensorMulRep instances.
+
+        Parameters
+        ----------
+        input: Union[TensorReps, str, List[_TensorMulRep]]
+            The input to initialize the tensor reps.
+            If `input` is a string, it is parsed to extract the tensor representations.
+            If `input` is a list, it should contain instances of `_TensorMulRep`.
+        simplify: bool
+            Whether to simplify the tensor reps after initialization. Default is True.
         """
         if isinstance(input, TensorReps):
             tensor_reps = input
@@ -117,10 +116,8 @@ class TensorReps(Tuple):
             return ret.simplify()
         return ret
 
-    def __repr__(self):
-        """
-        str: Returns a string representation of the tensor reps.
-        """
+    def __repr__(self) -> str:
+        """Returns a string representation of the tensor reps."""
         return "+".join(f"{mul_ir}" for mul_ir in self)
 
     def __deepcopy__(self, memo):
@@ -128,49 +125,37 @@ class TensorReps(Tuple):
 
     @property
     def dim(self) -> int:
-        """
-        int: The total dimension of the tensor reps.
-        """
+        """The total dimension of the tensor reps."""
         return sum(mul_ir.dim for mul_ir in self)
 
     @property
     def max_rep(self) -> TensorRep:
-        """
-        TensorRep: The tensor irrep with the highest order.
-        """
+        """The tensor irrep with the highest order."""
         return max(self, key=lambda x: x.rep.order)
 
     @property
     def mul_without_scalars(self) -> int:
-        """
-        int: The total multiplier of the tensor reps without the scalars.
-        """
+        """The total multiplier of the tensor reps without the scalars."""
         return sum(mul_ir.mul for mul_ir in self if mul_ir.rep.order != 0)
 
     @property
     def mul_scalars(self) -> int:
-        """
-        int: The total multiplier of the tensor reps scalars.
-        """
+        """The total multiplier of the tensor reps scalars."""
         return sum(mul_ir.mul for mul_ir in self if mul_ir.rep.order == 0)
 
     @property
     def mul(self) -> int:
-        """
-        int: The total multiplier of the tensor reps.
-        """
+        """The total multiplier of the tensor reps."""
         return sum(mul_ir.mul for mul_ir in self)
 
     @property
     def reps(self) -> set:
-        """Set[TensorRep]: The set of tensor reps."""
+        """The set of tensor reps."""
         return {rep for _, rep in self}
 
     @property
     def is_sorted(self) -> bool:
-        """
-        bool: Whether the tensor reps are sorted by the order of the reps.
-        """
+        """Whether the tensor reps are sorted by the order of the reps."""
         if len(self) <= 1:
             return True
         else:
@@ -180,33 +165,16 @@ class TensorReps(Tuple):
             )
 
     def __add__(self, tensor_reps, simplify=True) -> "TensorReps":
-        """Adds tensor reps to the current tensor reps.
-
-        Args:
-            tensor_reps (TensorReps): The tensor reps to add.
-
-        Returns:
-            TensorReps: The sum of the tensor reps.
-        """
-
+        """Adds tensor reps to the current tensor reps."""
         tensor_reps = TensorReps(tensor_reps)
         return TensorReps(super().__add__(tensor_reps), simplify=simplify)
 
     def sort(self):
-        """Sorts the tensor reps by the order of the reps.
-
-        Returns:
-            TensorReps: The sorted tensor reps.
-        """
+        """Sorts the tensor reps by the order of the reps."""
         return TensorReps(sorted(self, key=lambda x: x.rep.order))
 
     def simplify(self) -> "TensorReps":
-        """
-        Simplifies the tensor reps by combining the same reps.
-
-        Returns:
-            TensorReps: The simplified tensor reps.
-        """
+        """Simplifies the tensor reps by combining the same reps."""
         if not self.is_sorted:
             self = self.sort()
 
@@ -223,9 +191,7 @@ class TensorReps(Tuple):
         return TensorReps(out, simplify=False)
 
     def is_simplified(self):
-        """
-        Check if the TensorReps is simlified
-        """
+        """Check if the TensorReps is simlified."""
         if not self.is_sorted:
             return False
 
@@ -235,6 +201,18 @@ class TensorReps(Tuple):
 
 
 def parse_tensorreps_string(input):
+    """Parse a string representation of tensor representations into a list of _TensorMulRep instances.
+
+    Parameters
+    ----------
+    input: str
+        The string representation of tensor representations, e.g. "2x2n+3x1p+1x0n".
+
+    Returns
+    -------
+    List[_TensorMulRep]
+        A list of _TensorMulRep instances representing the tensor representations.
+    """
     out = []
     input = input.replace(" ", "")  # remove whitespace
     input_list = input.split("+")  # split into single _TensorMulRep
