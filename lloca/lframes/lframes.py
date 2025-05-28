@@ -1,3 +1,4 @@
+# Bookkeeping class for convenient access to local frames
 import torch
 
 from ..utils.lorentz import lorentz_eye, lorentz_metric
@@ -231,7 +232,7 @@ class ChangeOfLFrames(LFrames):
 class LowerIndices(LFrames):
     """
     LFrames with lower indices
-    Used in InvariantParticleAttention to lower the key indices
+    Used in LLoCaAttention to lower the key indices
     """
 
     def __init__(self, lframes):

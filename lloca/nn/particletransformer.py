@@ -2,6 +2,17 @@
 
 Paper: "Particle Transformer for Jet Tagging" - https://arxiv.org/abs/2202.03772
 
+We have to do three things to build a LLoCa-ParT
+- Construct a LLoCaAttention module for the whole transformer that preprocesses the lframes 
+  and is passed to each attention block during initialization.
+- When evaluating attention, use the LLoCaAttention module.
+
+More comments:
+- We also added an extra clamp in to_ptrapphim to avoid numerical issues from log(0). This case
+  might not happen in the original ParT, but it can happen with LLoCa for highly boosted lframes.
+- We use LLoCaAttention only for the self-attention blocks, and use default attention (corresponds
+  to scalar messages only) for the class attention blocks.
+
 Use git diff --no-index experiments/baselines/particletransformer.py lloca/nn/particletransformer.py
 to see the changes required to include frame-to-frame transformations
 """
@@ -16,17 +27,15 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from ..reps.tensorreps import TensorReps
-from .attention import InvariantParticleAttention
+from .attention import LLoCaAttention
 
-# this is turned of, since it regularely failed and had to fall back on the fallback function, which did not speed up the training
-# @torch.jit.script
+
+@torch.jit.script
 def delta_phi(a, b):
-    delta = a - b + torch.pi
-    delta = torch.remainder(delta, 2 * torch.pi)
-    return delta - torch.pi
+    return (a - b + math.pi) % (2 * math.pi) - math.pi
 
 
-# @torch.jit.script
+@torch.jit.script
 def delta_r2(eta1, phi1, eta2, phi2):
     return (eta1 - eta2) ** 2 + delta_phi(phi1, phi2) ** 2
 
@@ -909,7 +918,7 @@ class ParticleTransformer(nn.Module):
         embed_dim = embed_dims[-1] if len(embed_dims) > 0 else input_dim
         attn_reps = TensorReps(attn_reps)
         assert attn_reps.dim * num_heads == embed_dim
-        self.attention = InvariantParticleAttention(attn_reps, num_heads)
+        self.attention = LLoCaAttention(attn_reps, num_heads)
         default_cfg = dict(
             embed_dim=embed_dim,
             num_heads=num_heads,
@@ -1061,12 +1070,7 @@ class ParticleTransformer(nn.Module):
 
             # transform
             for block in self.blocks:
-                x = block(
-                    x,
-                    x_cls=None,
-                    padding_mask=padding_mask,
-                    attn_mask=attn_mask,
-                )
+                x = block(x, x_cls=None, padding_mask=padding_mask, attn_mask=attn_mask)
 
         # x: (batch, seq_len, embed_dim)
         # padding_mask: (batch, seq_len)

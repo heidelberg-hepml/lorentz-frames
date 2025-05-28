@@ -6,7 +6,7 @@ from torch import nn
 
 
 class MLP(nn.Module):
-    """A simple baseline MLP.
+    """A simple MLP.
 
     Flattens all dimensions except batch and uses GELU nonlinearities.
     """
@@ -36,5 +36,5 @@ class MLP(nn.Module):
         self.mlp = nn.Sequential(*layers)
 
     def forward(self, inputs: torch.Tensor):
-        """Forward pass of baseline MLP."""
+        """Forward pass of MLP."""
         return self.mlp(inputs)

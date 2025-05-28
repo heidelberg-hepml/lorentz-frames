@@ -1,3 +1,4 @@
+# Equivariant local frames, constructed in various ways
 import torch
 from torch_geometric.utils import scatter
 
@@ -75,6 +76,25 @@ class LearnedOrthogonalLFrames(LearnedLFrames):
         super().__init__(*args, n_vectors=3, **kwargs)
 
     def forward(self, fourmomenta, scalars=None, ptr=None, return_tracker=False):
+        """
+        Parameters
+        ----------
+        fourmomenta: torch.Tensor
+            Tensor of shape (..., 4) containing the four-momenta
+        scalars: torch.Tensor or None
+            Optional tensor of shape (..., n_scalars) containing additional scalar features
+        ptr: torch.Tensor or None
+            Pointer for sparse tensors, or None for dense tensors
+        return_tracker: bool
+            If True, return a tracker dictionary with regularization information
+
+        Returns
+        -------
+        LFrames
+            Local frames constructed from the polar decomposition of the four-momenta
+        tracker: dict (optional)
+            Dictionary containing regularization information, if return_tracker is True
+        """
         self.init_weights_or_not()
         vecs = self.equivectors(fourmomenta, scalars=scalars, ptr=ptr)
         vecs = self.globalize_vecs_or_not(vecs, ptr)
@@ -102,6 +122,25 @@ class LearnedPolarDecompositionLFrames(LearnedLFrames):
         self.gamma_max = gamma_max
 
     def forward(self, fourmomenta, scalars=None, ptr=None, return_tracker=False):
+        """
+        Parameters
+        ----------
+        fourmomenta: torch.Tensor
+            Tensor of shape (..., 4) containing the four-momenta
+        scalars: torch.Tensor or None
+            Optional tensor of shape (..., n_scalars) containing additional scalar features
+        ptr: torch.Tensor or None
+            Pointer for sparse tensors, or None for dense tensors
+        return_tracker: bool
+            If True, return a tracker dictionary with regularization information
+
+        Returns
+        -------
+        LFrames
+            Local frames constructed from the polar decomposition of the four-momenta
+        tracker: dict (optional)
+            Dictionary containing regularization information, if return_tracker is True
+        """
         self.init_weights_or_not()
         vecs = self.equivectors(fourmomenta, scalars=scalars, ptr=ptr)
         vecs = self.globalize_vecs_or_not(vecs, ptr)
@@ -156,6 +195,25 @@ class LearnedRestLFrames(LearnedLFrames):
         super().__init__(*args, n_vectors=2, **kwargs)
 
     def forward(self, fourmomenta, scalars=None, ptr=None, return_tracker=False):
+        """
+        Parameters
+        ----------
+        fourmomenta: torch.Tensor
+            Tensor of shape (..., 4) containing the four-momenta
+        scalars: torch.Tensor or None
+            Optional tensor of shape (..., n_scalars) containing additional scalar features
+        ptr: torch.Tensor or None
+            Pointer for sparse tensors, or None for dense tensors
+        return_tracker: bool
+            If True, return a tracker dictionary with regularization information
+
+        Returns
+        -------
+        LFrames
+            Local frames constructed from the polar decomposition of the four-momenta
+        tracker: dict (optional)
+            Dictionary containing regularization information, if return_tracker is True
+        """
         self.init_weights_or_not()
         references = self.equivectors(fourmomenta, scalars=scalars, ptr=ptr)
         references = self.globalize_vecs_or_not(references, ptr)
@@ -190,6 +248,25 @@ class LearnedOrthogonal3DLFrames(LearnedLFrames):
         )
 
     def forward(self, fourmomenta, scalars=None, ptr=None, return_tracker=False):
+        """
+        Parameters
+        ----------
+        fourmomenta: torch.Tensor
+            Tensor of shape (..., 4) containing the four-momenta
+        scalars: torch.Tensor or None
+            Optional tensor of shape (..., n_scalars) containing additional scalar features
+        ptr: torch.Tensor or None
+            Pointer for sparse tensors, or None for dense tensors
+        return_tracker: bool
+            If True, return a tracker dictionary with regularization information
+
+        Returns
+        -------
+        LFrames
+            Local frames constructed from the polar decomposition of the four-momenta
+        tracker: dict (optional)
+            Dictionary containing regularization information, if return_tracker is True
+        """
         self.init_weights_or_not()
         references = self.equivectors(fourmomenta, scalars=scalars, ptr=ptr)
         references = self.globalize_vecs_or_not(references, ptr)
@@ -212,6 +289,21 @@ class LearnedOrthogonal3DLFrames(LearnedLFrames):
 
 
 def average_event(vecs, ptr=None):
+    """Average vectors across events and expand again.
+
+    Parameters
+    ----------
+    vecs: torch.Tensor
+        Tensor of shape (..., n_vectors, 4)
+        where the last dimension contains the vectors
+    ptr: torch.Tensor or None
+        Pointer to the batch of events, or None for global averaging
+
+    Returns
+    -------
+    torch.Tensor
+        Averaged vectors of shape (..., n_vectors, 4).
+    """
     if ptr is None:
         vecs = vecs.mean(dim=-3, keepdim=True).expand_as(vecs)
     else:

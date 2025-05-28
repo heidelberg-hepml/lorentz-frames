@@ -29,6 +29,16 @@ class LLoCaAttention(torch.nn.Module):
         self.lower_inv_lframes = None
 
     def prepare_lframes(self, lframes):
+        """Prepare local frames for processing with LLoCa attention.
+        For a single forward pass through the network, this method is
+        called only once for efficiency.
+
+        Parameters
+        ----------
+        lframes: torch.tensor of shape (..., N, 4, 4)
+            Local frames of reference for each particle
+            where N is the number of particles.
+        """
         self.lframes = lframes
         if not self.lframes.is_global:
             # insert lframes head dimension
@@ -69,7 +79,8 @@ class LLoCaAttention(torch.nn.Module):
             self.lframes_qkv = self.lframes_qkv.reshape(-1, 4, 4)
 
     def forward(self, q_local, k_local, v_local, **attn_kwargs):
-        """
+        """Execute LLoCa attention.
+
         Strategy
         1) Transform q, k, v into global frame
         2) Apply attention in global frame

@@ -1,3 +1,4 @@
+# Non-equivariant local frames, i.e. non-equivariant networks and data augmentation
 import torch
 
 from .lframes import LFrames
@@ -132,7 +133,8 @@ class COMRandomLFrames(RandomLFrames):
     an additional boost is applied to the whole event.
 
     Only applicable to amplitude regression, the boost changes
-    the reference frame to the center of mass of the incoming particles."""
+    the reference frame to the center of mass of the incoming particles.
+    """
 
     def forward(self, fourmomenta, scalars=None, ptr=None, return_tracker=False):
         if not self.training:

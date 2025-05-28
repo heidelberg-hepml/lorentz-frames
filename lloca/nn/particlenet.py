@@ -3,6 +3,12 @@
 Paper: "ParticleNet: Jet Tagging via Particle Clouds" - https://arxiv.org/abs/1902.08570
 Code: https://github.com/hqucms/weaver-core/blob/main/weaver/nn/model/ParticleNet.py
 
+We have to do three things to build a LLoCa-ParticleNet
+- Specify the hidden_reps_list for hidden representations in each message-passing layer
+- Pass the lframes through the network
+- During the edge convolution, transform the features from the local to the global frames
+  using tools from the lloca code (TensorRepsTransform, IndexSelectLFrames, ChangeOfLFrames)
+
 Use 'git diff --no-index experiments/baselines/particlenet.py lloca/nn/particlenet.py'
 to see the changes required to include frame-to-frame transformations.
 """
@@ -15,21 +21,31 @@ from ..reps.tensorreps_transform import TensorRepsTransform
 from ..lframes.lframes import IndexSelectLFrames, ChangeOfLFrames
 
 
-def change_local_frame(x_j_in, idx, lframes, trafo):
-    """
-    transform x_j from frame 'j' to frame 'i'
-    notation: x_j = x[idx_j] = 'fts', x_i = x[idx_i] = 'x'
+def change_local_frame(x_j_framej, idx, lframes, trafo):
+    """Transform features x_j from frame 'j' ('x_j_framej') to frame 'i' ('x_j_framei').
 
-    create trafo : we use batch_size*num_points with repeats of k for idx_i e.g. for 2 points with 3 batch and k=2,
-    this idx_i becomes (0,1,2,3,4,5) -> (0,0,1,1,2,2,3,3,4,4,5,5)
-    the idx_j should have the form of the nearest neighbors with the position in the batch, e.g. idx+idx_base =
-    (((0,1)(1,0))((0,1)(1,0))((0,1)(1,0)))+(0,2,4) = (0,1,1,0,2,3,3,2,4,5,5,4)
-    This gives the connections (0,0,1,1,2,2,3,3,4,4,5,5)->(0,1,1,0,2,3,3,2,4,5,5,4)
+    Parameters
+    ----------
+    x_j_framej : torch.Tensor
+        Input features in local frame 'j' of shape (batch_size, num_dims, num_points, k).
+    idx : torch.Tensor
+        Indices of the nearest neighbors in the batch of shape (batch_size*num_points*k).
+    lframes : LFrames
+        Local frames of reference for the particles, shape (num_points, 4, 4).
+    trafo : TensorRepsTransform
+        Transformation function to apply to the features.
+
+    Returns
+    -------
+    torch.Tensor
     """
+    print(x_j_framej.shape, idx.shape, lframes.shape)
+    # we use batch_size*num_points with repeats of k for idx_i, e.g. for 2 points with 3 batch and k=2,
+    # idx_i becomes (0,1,2,3,4,5) -> (0,0,1,1,2,2,3,3,4,4,5,5).
     idx_i = torch.arange(
-        x_j_in.shape[-2] * x_j_in.shape[0], device=x_j_in.device
+        x_j_framej.shape[2] * x_j_framej.shape[0], device=x_j_framej.device
     ).repeat_interleave(
-        x_j_in.shape[-1]
+        x_j_framej.shape[-1]
     )  # identity (batch, num_points*k)
     idx_j = idx  # indices from knn (batch, num_points*k)
 
@@ -40,13 +56,17 @@ def change_local_frame(x_j_in, idx, lframes, trafo):
     )  # convention: (lframes_start, lframes_end)
 
     # reshape and apply trafo
-    x_j_in2 = x_j_in.permute(0, 2, 3, 1)  # (batch_size, num_points, k, num_dims)
-    x_j = x_j_in2.reshape(-1, x_j_in2.shape[-1])  # (batch_size*num_points*k, num_dims)
-    x_j = trafo(x_j, trafo_j_to_i)
-    x_j = x_j.view(x_j_in2.shape).permute(
+    x_j_framej_2 = x_j_framej.permute(
+        0, 2, 3, 1
+    )  # (batch_size, num_points, k, num_dims)
+    pre = x_j_framej_2.reshape(
+        -1, x_j_framej_2.shape[-1]
+    )  # (batch_size*num_points*k, num_dims)
+    x_j_framei = trafo(pre, trafo_j_to_i)
+    x_j_framei = x_j_framei.view(x_j_framej_2.shape).permute(
         0, 3, 1, 2
     )  # (batch_size, num_dims, num_points, k)
-    return x_j
+    return x_j_framei
 
 
 def knn(x, k):

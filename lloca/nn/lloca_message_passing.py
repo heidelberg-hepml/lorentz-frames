@@ -12,18 +12,14 @@ class LLoCaMessagePassing(MessagePassing):
     def __init__(self, params_dict: Dict[str, Dict[str, Any]], aggr="add") -> None:
         """Initializes a new instance of the LLoCaMessagePassing class.
 
-        Args:
-            params_dict (Dict[str, Dict[str, Any]]): A dictionary containing the parameters for the message passing algorithm and the corresponding representations. Params which are not listed here are not transformed E.g.:
-            {
-                "feat_0": {
-                    "type": "local"
-                    "rep": TensorReps("1x0n")
-                },
-                "feat_1": {
-                    "type": "local"
-                    "rep": TensorReps("1x0n")
-                },
-            }
+        Parameters
+        ----------
+        params_dict: Dict[str, Dict[str, Any]]
+            A dictionary containing the parameters for the message passing algorithm and the corresponding representations.
+            Each key in the dictionary represents a feature, and the value is another dictionary with keys "type" and "rep".
+            The "type" can be either "local" or "global", and "rep" is an instance of TensorRepsTransform that defines how to transform the features.
+        aggr: str, optional
+            The aggregation method to use for combining messages. Defaults to "add".
         """
         super().__init__(aggr=aggr)
 
@@ -44,13 +40,6 @@ class LLoCaMessagePassing(MessagePassing):
     def pre_propagate_hook(self, module: Any, inputs: tuple) -> tuple:
         """A hook method called before propagating messages in the message passing algorithm. We
         save the lframes in the class variable and remove it from the inputs dictionary.
-
-        Args:
-            module (Any): The module object.
-            inputs (tuple): The inputs dictionary.
-
-        Returns:
-            tuple: The modified inputs dictionary.
         """
         assert (
             inputs[-1].get("lframes") is not None
@@ -64,13 +53,6 @@ class LLoCaMessagePassing(MessagePassing):
     def pre_message_hook(self, module: Any, inputs: tuple) -> tuple:
         """Pre-message hook method that is called before passing messages in the message passing
         algorithm. We transform the features according to the representations in the params_dict.
-
-        Args:
-            module (Any): The module object.
-            inputs (tuple): The inputs dictionary.
-
-        Returns:
-            tuple: The modified inputs dictionary.
         """
 
         # calculate lframes_i, lframes_j and the U matrix
