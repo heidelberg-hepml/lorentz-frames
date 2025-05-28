@@ -5,6 +5,7 @@ import torch
 from torch import Tensor
 from torch.nn.functional import scaled_dot_product_attention as torch_sdpa
 from xformers.ops import AttentionBias, memory_efficient_attention
+from xformers.ops.fmha import BlockDiagonalMask
 
 from ..lframes.lframes import (
     InverseLFrames,
@@ -163,3 +164,33 @@ def scaled_dot_product_attention(
     return torch_sdpa(
         query, key, value, attn_mask=attn_mask, is_causal=is_causal, dropout_p=dropout_p
     )
+
+
+def get_xformers_attention_mask(batch, materialize=False, dtype=torch.float32):
+    """
+    Construct attention mask that makes sure that objects only attend to each other
+    within the same batch element, and not across batch elements
+
+    Parameters
+    ----------
+    batch: torch.tensor
+        batch object in the torch_geometric.data naming convention
+        contains batch index for each event in a sparse tensor
+    materialize: bool
+        Decides whether a xformers or ('materialized') torch.tensor mask should be returned
+        The xformers mask allows to use the optimized xformers attention kernel, but only runs on gpu
+
+    Returns
+    -------
+    mask: xformers.ops.fmha.attn_bias.BlockDiagonalMask or torch.tensor
+        attention mask, to be used in xformers.ops.memory_efficient_attention
+        or torch.nn.functional.scaled_dot_product_attention
+    """
+    bincounts = torch.bincount(batch).tolist()
+    mask = BlockDiagonalMask.from_seqlens(bincounts)
+    if materialize:
+        # materialize mask to torch.tensor (only for testing purposes)
+        mask = mask.materialize(shape=(len(batch), len(batch))).to(
+            batch.device, dtype=dtype
+        )
+    return mask

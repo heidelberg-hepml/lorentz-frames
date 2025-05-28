@@ -10,9 +10,9 @@ from tensorframes.utils.utils import (
     get_ptr_from_batch,
     get_batch_from_ptr,
     get_edge_index_from_ptr,
-    get_xformers_attention_mask,
     get_edge_attr,
 )
+from tensorframes.nn.attention import get_xformers_attention_mask
 from tensorframes.utils.lorentz import lorentz_eye
 from tensorframes.reps.tensorreps import TensorReps
 from tensorframes.reps.tensorreps_transform import TensorRepsTransform
