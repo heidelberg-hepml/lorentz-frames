@@ -10,7 +10,7 @@ from experiments.eventgen.distributions import (
 )
 from experiments.eventgen.processes import ttbarExperiment
 from experiments.eventgen.transforms import EPPP_to_PPPM2
-from tests.constants import MILD_TOLERANCES as TOLERANCES
+from tests.constants import TOLERANCES
 
 
 @pytest.mark.parametrize(
