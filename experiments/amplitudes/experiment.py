@@ -45,10 +45,8 @@ class AmplitudeExperiment(BaseExperiment):
         elif modelname == "MLP":
             self.cfg.model.net.in_shape = 4 * len(particle_type)
         elif modelname == "LGATr":
-            assert not learnable_lframesnet, "LGATr is no tensorframes model"
             self.cfg.model.net.in_s_channels = num_particle_types
         elif modelname == "DSI":
-            assert not learnable_lframesnet, "DSI is no tensorframes model"
             self.cfg.model.net.type_token_list = particle_type
         else:
             raise ValueError(f"Model {modelname} not implemented")

@@ -2,23 +2,22 @@ import torch
 from torch import nn
 from torch_geometric.nn.aggr import MeanAggregation
 from torch_geometric.utils import scatter
-
 from torch_geometric.utils import to_dense_batch
+from lgatr import embed_vector, extract_scalar
 
-from tensorframes.lframes.lframes import LFrames
-from tensorframes.utils.utils import (
+from experiments.tagging.embedding import get_tagging_features
+from lloca.lframes.lframes import LFrames
+from lloca.utils.utils import (
     get_ptr_from_batch,
     get_batch_from_ptr,
     get_edge_index_from_ptr,
     get_edge_attr,
 )
-from tensorframes.nn.attention import get_xformers_attention_mask
-from tensorframes.utils.lorentz import lorentz_eye
-from tensorframes.reps.tensorreps import TensorReps
-from tensorframes.reps.tensorreps_transform import TensorRepsTransform
-from tensorframes.lframes.nonequi_lframes import IdentityLFrames
-from experiments.tagging.embedding import get_tagging_features
-from lgatr import embed_vector, extract_scalar
+from lloca.nn.attention import get_xformers_attention_mask
+from lloca.utils.lorentz import lorentz_eye
+from lloca.reps.tensorreps import TensorReps
+from lloca.reps.tensorreps_transform import TensorRepsTransform
+from lloca.lframes.nonequi_lframes import IdentityLFrames
 
 
 class TaggerWrapper(nn.Module):

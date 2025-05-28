@@ -3,12 +3,12 @@ from torch import nn
 from torch.utils.checkpoint import checkpoint
 
 
-from .tfmessage_passing import TFMessagePassing
+from .lloca_message_passing import LLoCaMessagePassing
 from .mlp import MLP
 from ..reps.tensorreps import TensorReps
 
 
-class EdgeConv(TFMessagePassing):
+class EdgeConv(LLoCaMessagePassing):
     def __init__(
         self,
         reps,

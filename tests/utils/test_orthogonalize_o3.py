@@ -2,7 +2,7 @@ import torch
 import pytest
 from tests.constants import TOLERANCES, BATCH_DIMS
 
-from tensorframes.utils.orthogonalize_o3 import orthogonalize_o3
+from lloca.utils.orthogonalize_o3 import orthogonalize_o3
 
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)

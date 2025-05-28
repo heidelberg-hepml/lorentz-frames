@@ -257,7 +257,7 @@ class BaseExperiment:
             zip_name = os.path.join(self.cfg.run_dir, "source.zip")
             LOGGER.debug(f"Saving source to {zip_name}")
             zipf = zipfile.ZipFile(zip_name, "w", zipfile.ZIP_DEFLATED)
-            path_code = os.path.join(self.cfg.base_dir, "tensorframes")
+            path_code = os.path.join(self.cfg.base_dir, "lloca")
             path_experiment = os.path.join(self.cfg.base_dir, "experiments")
             for path in [path_code, path_experiment]:
                 for root, dirs, files in os.walk(path):

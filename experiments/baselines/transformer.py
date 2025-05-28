@@ -5,7 +5,7 @@ import torch
 from einops import rearrange
 from torch import nn
 from torch.utils.checkpoint import checkpoint
-from tensorframes.nn.attention import scaled_dot_product_attention
+from lloca.nn.attention import scaled_dot_product_attention
 
 
 def to_nd(tensor, d):

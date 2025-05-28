@@ -3,7 +3,7 @@ in_channels: null
 out_channels: null
 
 net:
- _target_: tensorframes.nn.particlenet.ParticleNet
+ _target_: lloca.nn.particlenet.ParticleNet
  _partial_: true
  num_classes: null
  conv_params: [[16, [64, 64, 64]], [16, [128, 128, 128]], [16, [256, 256, 256]]]

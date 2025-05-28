@@ -4,13 +4,13 @@ import torch
 
 from experiments.amplitudes.constants import get_mass
 
-from tensorframes.utils.lorentz import lorentz_eye
-from tensorframes.utils.transforms import (
+from lloca.utils.lorentz import lorentz_eye
+from lloca.utils.transforms import (
     rand_rotation,
     rand_xyrotation,
     rand_general_lorentz,
 )
-from tensorframes.utils.restframe import restframe_boost
+from lloca.utils.restframe import restframe_boost
 
 
 def standardize_momentum(momentum, mean=None, std=None):

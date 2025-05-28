@@ -2,11 +2,8 @@ import torch
 import pytest
 from tests.constants import TOLERANCES, BATCH_DIMS
 
-from tensorframes.utils.lorentz import (
-    lorentz_inner,
-    lorentz_squarednorm,
-)
-from tensorframes.utils.orthogonalize import orthogonalize
+from lloca.utils.lorentz import lorentz_inner, lorentz_squarednorm
+from lloca.utils.orthogonalize import orthogonalize
 
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)

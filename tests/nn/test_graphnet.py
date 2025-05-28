@@ -4,11 +4,11 @@ from tests.constants import TOLERANCES, LOGM2_MEAN_STD, REPS, LFRAMES_PREDICTOR
 from tests.helpers import sample_particle, equivectors_builder
 from torch_geometric.utils import dense_to_sparse
 
-from tensorframes.nn.graphnet import EdgeConv, TFGraphNet
-from tensorframes.reps.tensorreps import TensorReps
-from tensorframes.reps.tensorreps_transform import TensorRepsTransform
-from tensorframes.utils.transforms import rand_lorentz
-from tensorframes.lframes.lframes import InverseLFrames
+from lloca.nn.graphnet import EdgeConv, TFGraphNet
+from lloca.reps.tensorreps import TensorReps
+from lloca.reps.tensorreps_transform import TensorRepsTransform
+from lloca.utils.transforms import rand_lorentz
+from lloca.lframes.lframes import InverseLFrames
 
 
 @pytest.mark.parametrize("LFramesPredictor", LFRAMES_PREDICTOR)

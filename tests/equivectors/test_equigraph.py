@@ -3,8 +3,8 @@ import pytest
 from tests.constants import TOLERANCES, LOGM2_MEAN_STD
 from tests.helpers import sample_particle
 
-from tensorframes.equivectors.equigraph import EquiGraphNet
-from tensorframes.utils.transforms import rand_lorentz
+from lloca.equivectors.equigraph import EquiGraphNet
+from lloca.utils.transforms import rand_lorentz
 
 
 @pytest.mark.parametrize("batch_dims", [[100]])

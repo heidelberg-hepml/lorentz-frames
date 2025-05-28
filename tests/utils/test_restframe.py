@@ -3,12 +3,12 @@ import pytest
 from tests.constants import TOLERANCES, BATCH_DIMS, LOGM2_MEAN_STD
 from tests.helpers import sample_particle, lorentz_test
 
-from tensorframes.utils.restframe import (
+from lloca.utils.restframe import (
     restframe_boost,
     restframe_equivariant,
 )
-from tensorframes.utils.lorentz import lorentz_squarednorm
-from tensorframes.utils.transforms import (
+from lloca.utils.lorentz import lorentz_squarednorm
+from lloca.utils.transforms import (
     rand_lorentz,
     rand_rotation,
 )

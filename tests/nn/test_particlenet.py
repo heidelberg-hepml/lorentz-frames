@@ -8,18 +8,17 @@ from tests.constants import (
     LFRAMES_PREDICTOR,
 )
 from tests.helpers import sample_particle, equivectors_builder
+from experiments.tagging.embedding import get_tagging_features
 
-from tensorframes.nn.particlenet import EdgeConvBlock, ParticleNet
-from tensorframes.reps.tensorreps import TensorReps
-from tensorframes.reps.tensorreps_transform import TensorRepsTransform
-from tensorframes.utils.transforms import rand_lorentz
-from tensorframes.lframes.lframes import InverseLFrames
-from tensorframes.lframes.equi_lframes import (
+from lloca.nn.particlenet import EdgeConvBlock, ParticleNet
+from lloca.reps.tensorreps import TensorReps
+from lloca.reps.tensorreps_transform import TensorRepsTransform
+from lloca.utils.transforms import rand_lorentz
+from lloca.lframes.lframes import InverseLFrames
+from lloca.lframes.equi_lframes import (
     LearnedOrthogonalLFrames,
     LearnedPolarDecompositionLFrames,
 )
-
-from experiments.tagging.embedding import get_tagging_features
 
 
 @pytest.mark.parametrize("LFramesPredictor", LFRAMES_PREDICTOR)

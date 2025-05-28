@@ -6,14 +6,11 @@ from ..lframes.lframes import ChangeOfLFrames, LFrames, IndexSelectLFrames
 from ..reps.tensorreps_transform import TensorRepsTransform
 
 
-class TFMessagePassing(MessagePassing):
-    """TFMessagePassing class represents a message passing algorithm in the tensorframes formalism.
-
-    https://arxiv.org/abs/2405.15389v1
-    """
+class LLoCaMessagePassing(MessagePassing):
+    """Adaptation of the torch_geometric MessagePassing class using the LLoCa formalism."""
 
     def __init__(self, params_dict: Dict[str, Dict[str, Any]], aggr="add") -> None:
-        """Initializes a new instance of the TFMessagePassing class.
+        """Initializes a new instance of the LLoCaMessagePassing class.
 
         Args:
             params_dict (Dict[str, Dict[str, Any]]): A dictionary containing the parameters for the message passing algorithm and the corresponding representations. Params which are not listed here are not transformed E.g.:

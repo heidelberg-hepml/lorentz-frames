@@ -2,7 +2,7 @@
 
 Paper: "Particle Transformer for Jet Tagging" - https://arxiv.org/abs/2202.03772
 
-Use git diff --no-index experiments/baselines/particletransformer.py tensorframes/nn/particletransformer.py
+Use git diff --no-index experiments/baselines/particletransformer.py lloca/nn/particletransformer.py
 to see the changes required to include frame-to-frame transformations
 """
 import math
