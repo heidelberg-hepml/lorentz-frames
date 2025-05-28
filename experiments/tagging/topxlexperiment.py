@@ -43,18 +43,6 @@ class TopXLTaggingExperiment(TaggingExperiment):
                 f"Input feature option {self.cfg.data.features} not implemented"
             )
 
-    def init_physics(self):
-        # decide which entries to use for the lframesnet
-        if "equivectors" in self.cfg.model.lframesnet:
-            self.cfg.model.lframesnet.equivectors.num_scalars = (
-                self.cfg.model.in_channels
-                if self.cfg.data.add_tagging_features_lframesnet
-                else self.cfg.model.in_channels - 7
-            )
-
-        if self.cfg.model.net._target_.rsplit(".", 1)[-1] == "GraphNet":
-            self.cfg.model.net.num_edge_attr = 1 if self.cfg.model.include_edges else 0
-
     def init_data(self):
         LOGGER.info("Creating SimpleIterDataset")
         t0 = time.time()
