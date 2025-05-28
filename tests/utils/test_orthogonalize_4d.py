@@ -3,7 +3,7 @@ import pytest
 from tests.constants import TOLERANCES, BATCH_DIMS
 
 from lloca.utils.lorentz import lorentz_inner, lorentz_squarednorm
-from lloca.utils.orthogonalize import orthogonalize
+from lloca.utils.orthogonalize_4d import orthogonalize_4d
 
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
@@ -46,9 +46,12 @@ def test_orthogonalize(batch_dims, method, vector_type, eps):
         vecs = torch.cat([v0, v3s], dim=-1)
         v1, v2, v3 = vecs
 
-    orthogonal_vecs = orthogonalize([v1, v2, v3], method=method)
+    orthogonal_vecs = orthogonalize_4d([v1, v2, v3], method=method)
 
     # test orthogonality
+    n = orthogonal_vecs.ndim
+    perm = [n - 2] + list(range(0, n - 2)) + [n - 1]
+    orthogonal_vecs = orthogonal_vecs.permute(*perm)
     for i1, v1 in enumerate(orthogonal_vecs):
         for i2, v2 in enumerate(orthogonal_vecs):
             inner = lorentz_inner(v1, v2)

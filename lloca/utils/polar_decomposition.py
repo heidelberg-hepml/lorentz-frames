@@ -1,20 +1,24 @@
 import torch
 
-from .orthogonalize_o3 import orthogonalize_o3
+from .orthogonalize_3d import orthogonalize_3d
 from .lorentz import lorentz_squarednorm
 
 
 def restframe_boost(fourmomenta):
-    """
-    Lorentz transformation representing a boost into the rest frame.
-    This transformation does not have the lframes transformation properties,
-    because there is no rotation aspect - it is simply a boost.
+    """Construct a Lorentz transformation that boosts the given four-momenta
+    into their rest frame. This transformation alone does not have the
+    lframes transformation properties, because it does not include a rotation.
 
-    Args:
-        fourmomenta: torch.tensor of shape (*dims, 4)
+    Parameters
+    ----------
+    fourmomenta : torch.Tensor
+        Tensor of shape (..., 4) representing the four-momenta.
 
-    Returns:
-        trafo: torch.tensor of shape (*dims, 4, 4)
+    Returns
+    -------
+    trafo : torch.Tensor
+        Tensor of shape (..., 4, 4) representing the Lorentz transformation
+        that boosts the four-momenta into their rest frame.
     """
     assert (
         lorentz_squarednorm(fourmomenta) > 0
@@ -53,27 +57,31 @@ def restframe_boost(fourmomenta):
     return trafo
 
 
-def restframe_equivariant(
+def polar_decomposition(
     fourmomenta, references, use_float64=True, return_reg=False, **kwargs
 ):
-    """
-    Lorentz transformation representing a boost into the rest frame and a
-    properly constructed rotation that fixes the little group degree of freedom
-    The resulting transformation has the lframes transformation behaviour
+    """Construct a Lorentz transformation as a polar decomposition of a
+    boost and a rotation.
 
-    Args:
-        fourmomenta: torch.tensor of shape (*dims, 4)
-            Four-momentum that defines the rest frames
-        references: List with two torch.tensor of shape (*dims, 4)
-            Two reference four-momenta to construct the rotation
-        use_float64: bool
-            Use float64 for calculations?
-        return_reg: bool
-            Return dict with regularization information?
-        **kwargs: Additional arguments for orthogonalize_o3
+    Parameters
+    ----------
+    fourmomenta : torch.Tensor
+        Tensor of shape (..., 4) representing the four-momenta that define the rest frames.
+    references : List[torch.Tensor]
+        List of two tensors of shape (..., 4) representing the reference four-momenta
+        to construct the rotation.
+    use_float64 : bool
+        If True, use float64 for calculations to avoid numerical issues.
+    return_reg : bool
+        If True, return a tuple with the Lorentz transformation and regularization information.
+    kwargs : dict
 
-    Returns:
-        trafo: torch.tensor of shape (*dims, 4, 4)
+    Returns
+    -------
+    trafo : torch.Tensor
+        Tensor of shape (..., 4, 4) representing the Lorentz transformation.
+    reg_collinear : torch.Tensor, optional
+        Tensor indicating if the references were collinear (only returned if `return_reg` is True).
     """
     assert len(references) == 2
     assert all(r.shape == fourmomenta.shape for r in references)
@@ -91,7 +99,7 @@ def restframe_equivariant(
 
     # construct rotation
     ref3_rest = [r[..., 1:] for r in ref_rest]
-    out = orthogonalize_o3(ref3_rest, return_reg=return_reg, **kwargs)
+    out = orthogonalize_3d(ref3_rest, return_reg=return_reg, **kwargs)
     if return_reg:
         orthogonal_vec3, reg_collinear = out
     else:

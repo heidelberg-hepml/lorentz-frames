@@ -8,7 +8,7 @@ from ..utils.transforms import (
     rand_ztransform,
     rand_general_lorentz,
 )
-from ..utils.restframe import restframe_boost
+from ..utils.polar_decomposition import restframe_boost
 
 
 class LFramesPredictor(torch.nn.Module):

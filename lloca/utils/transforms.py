@@ -2,7 +2,7 @@ import torch
 from typing import List
 
 from .lorentz import lorentz_eye
-from .restframe import restframe_boost
+from .polar_decomposition import restframe_boost
 
 
 def get_trafo_type(axis):
@@ -85,7 +85,7 @@ def rand_lorentz(
     generator: torch.Generator = None,
 ):
     """
-    Create N general Lorentz transformations as boost * rotation * boost.
+    Create general Lorentz transformations as boost * rotation * boost.
 
     Parameters
     ----------
@@ -133,7 +133,7 @@ def rand_general_lorentz(
     generator: torch.Generator = None,
 ):
     """
-    Create N general Lorentz transformations as boost * rotation * boost.
+    Create general Lorentz transformations as boost * rotation * boost.
 
     Parameters
     ----------
@@ -175,18 +175,21 @@ def rand_xyrotation(
     generator: torch.Generator = None,
 ):
     """
-    Create N xy-plane rotation matrices embedded in the Lorentz group
-    This function is a special case of rand_rotation
+    Create xy-plane rotation matrices embedded in the Lorentz group.
+    This function is a special case of rand_rotation.
 
-    Args:
-        shape: List[int]
-            Shape of the transformation matrices
-        device: str
-        dtype: torch.dtype
-        generator: torch.Generator
+    Parameters
+    ----------
+    shape: List[int]
+        Shape of the transformation matrices
+    device: str
+    dtype: torch.dtype
+    generator: torch.Generator
 
-    Returns:
-        final_trafo: torch.tensor of shape (*shape, 4, 4)
+    Returns
+    -------
+    final_trafo: torch.tensor of shape (*shape, 4, 4)
+        The resulting Lorentz transformation matrices.
     """
     axis = torch.tensor([1, 2], dtype=torch.long, device=device)
     axis = axis.view(2, *([1] * len(shape))).repeat(1, *shape)
@@ -207,23 +210,27 @@ def rand_ztransform(
     generator: torch.Generator = None,
 ):
     """
-    Create N combinations of rotations around and boosts along the z-axis.
+    Create Lorentz transformations consisting of a boost along
+    the z-axis and a rotation around the z-axis.
     This transformation is common in LHC physics.
 
-    Args:
-        shape: List[int]
-            Shape of the transformation matrices
-        std_eta: float
-            Standard deviation of rapidity
-        n_max_std_eta: float
-            Allowed number of standard deviations;
-            used to sample from a truncated Gaussian
-        device: str
-        dtype: torch.dtype
-        generator: torch.Generator
+    Parameters
+    ----------
+    shape: List[int]
+        Shape of the transformation matrices
+    std_eta: float
+        Standard deviation of rapidity
+    n_max_std_eta: float
+        Allowed number of standard deviations;
+        used to sample from a truncated Gaussian
+    device: str
+    dtype: torch.dtype
+    generator: torch.Generator
 
-    Returns:
-        final_trafo: torch.tensor of shape (*shape, 4, 4)
+    Returns
+    -------
+    final_trafo: torch.tensor of shape (*shape, 4, 4)
+        The resulting Lorentz transformation matrices.
     """
     # rotation around z-axis
     axis1 = torch.tensor([1, 2], dtype=torch.long, device=device)
@@ -256,17 +263,21 @@ def rand_rotation(
     generator: torch.Generator = None,
 ):
     """
-    Create N rotation matrices embedded in the Lorentz group using quaternions.
+    Create rotation matrices embedded in Lorentz transformations.
+    The rotations are sampled uniformly using quaternions.
 
-    Args:
-        shape: List[int]
-            Shape of the transformation matrices
-        device: str
-        dtype: torch.dtype
-        generator: torch.Generator
+    Parameters
+    ----------
+    shape: List[int]
+        Shape of the transformation matrices
+    device: str
+    dtype: torch.dtype
+    generator: torch.Generator
 
-    Returns:
-        final_trafo: torch.tensor of shape (*shape, 4, 4)
+    Returns
+    -------
+    final_trafo: torch.tensor of shape (*shape, 4, 4)
+        The resulting Lorentz transformation matrices.
     """
     # generate random quaternions
     u = torch.rand(*shape, 3, device=device, dtype=dtype, generator=generator)
@@ -276,6 +287,7 @@ def rand_rotation(
     q0 = torch.sqrt(u[..., 0]) * torch.cos(2 * torch.pi * u[..., 2])
 
     # create rotation matrix from quaternions
+    # see https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation
     R1 = torch.stack(
         [1 - 2 * (q2**2 + q3**2), 2 * (q1 * q2 - q0 * q3), 2 * (q1 * q3 + q0 * q2)],
         dim=-1,
@@ -304,23 +316,25 @@ def rand_general_boost(
     generator: torch.Generator = None,
 ):
     """
-    Create N general Lorentz boosts from
-    a vector of beta factors.
+    Create a pure boost (symmetric Lorentz transformation).
 
-    Args:
-        shape: List[int]
-            Shape of the transformation matrices
-        std_eta: float
-            Standard deviation of rapidity
-        n_max_std_eta: float
-            Allowed number of standard deviations;
-            used to sample from a truncated Gaussian
-        device: str
-        dtype: torch.dtype
-        generator: torch.Generator
+    Parameters
+    ----------
+    shape: List[int]
+        Shape of the transformation matrices
+    std_eta: float
+        Standard deviation of rapidity
+    n_max_std_eta: float
+        Allowed number of standard deviations;
+        used to sample from a truncated Gaussian
+    device: str
+    dtype: torch.dtype
+    generator: torch.Generator
 
-    Returns:
-        final_trafo: torch.tensor of shape (*shape, 4, 4)
+    Returns
+    -------
+    final_trafo: torch.tensor of shape (*shape, 4, 4)
+        The resulting Lorentz transformation matrices.
     """
     shape = list(shape) + [3]
     beta = sample_rapidity(
@@ -345,8 +359,22 @@ def sample_rapidity(
     n_max_std_eta=3.0,
     device="cpu",
     dtype=torch.float32,
-    generator=None,
+    generator: torch.Generator = None,
 ):
+    """Sample rapidity from a gaussian distribution.
+
+    Parameters
+    ----------
+    shape: List[int]
+        Shape of the output tensor
+    std_eta: float
+        Standard deviation of the rapidity
+    n_max_std_eta: float
+        Maximum number of standard deviations for truncation
+    device: str
+    dtype: torch.dtype
+    generator: torch.Generator
+    """
     angle = (
         torch.randn(*shape, device=device, dtype=dtype, generator=generator) * std_eta
     )

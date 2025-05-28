@@ -4,9 +4,9 @@ from torch_geometric.utils import scatter
 from .lframes import LFrames
 from .nonequi_lframes import LFramesPredictor
 from ..utils.utils import get_batch_from_ptr
-from ..utils.restframe import restframe_equivariant
+from ..utils.polar_decomposition import polar_decomposition
 from ..utils.lorentz import lorentz_eye, lorentz_squarednorm
-from ..utils.orthogonalize import orthogonal_trafo
+from ..utils.orthogonalize_4d import orthogonalize_4d
 
 
 class LearnedLFrames(LFramesPredictor):
@@ -80,7 +80,7 @@ class LearnedOrthogonalLFrames(LearnedLFrames):
         vecs = self.globalize_vecs_or_not(vecs, ptr)
         vecs = [vecs[..., i, :] for i in range(vecs.shape[-2])]
 
-        trafo, reg_lightlike, reg_coplanar = orthogonal_trafo(
+        trafo, reg_lightlike, reg_coplanar = orthogonalize_4d(
             vecs, **self.ortho_kwargs, return_reg=True
         )
 
@@ -109,7 +109,7 @@ class LearnedPolarDecompositionLFrames(LearnedLFrames):
         references = [vecs[..., i, :] for i in range(1, vecs.shape[-2])]
         fourmomenta, reg_gammamax = self._clamp_boost(fourmomenta)
 
-        trafo, reg_collinear = restframe_equivariant(
+        trafo, reg_collinear = polar_decomposition(
             fourmomenta,
             references,
             **self.ortho_kwargs,
@@ -161,7 +161,7 @@ class LearnedRestLFrames(LearnedLFrames):
         references = self.globalize_vecs_or_not(references, ptr)
         references = [references[..., i, :] for i in range(references.shape[-2])]
 
-        trafo, reg_collinear = restframe_equivariant(
+        trafo, reg_collinear = polar_decomposition(
             fourmomenta,
             references,
             **self.ortho_kwargs,
@@ -198,7 +198,7 @@ class LearnedOrthogonal3DLFrames(LearnedLFrames):
         ]  # only difference compared to LearnedRestLFrames
         references = [references[..., i, :] for i in range(self.n_vectors)]
 
-        trafo, reg_collinear = restframe_equivariant(
+        trafo, reg_collinear = polar_decomposition(
             fourmomenta,
             references,
             **self.ortho_kwargs,

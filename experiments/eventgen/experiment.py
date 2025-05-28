@@ -59,7 +59,6 @@ class EventGenerationExperiment(BaseExperiment):
                 raise NotImplementedError
 
             # copy model-specific parameters
-            print(self.dtype)
             self.cfg.model.use_float64 = True if self.dtype == torch.float64 else False
             self.cfg.model.odeint = self.cfg.odeint
             self.cfg.model.cfm = self.cfg.cfm

@@ -25,7 +25,6 @@ def test_transformer_invariance_equivariance(
     logm2_mean,
     attn_reps,
 ):
-    print(logm2_std, logm2_mean)
     dtype = torch.float64
 
     assert len(batch_dims) == 1

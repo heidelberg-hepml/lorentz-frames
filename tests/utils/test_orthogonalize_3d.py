@@ -2,7 +2,7 @@ import torch
 import pytest
 from tests.constants import TOLERANCES, BATCH_DIMS
 
-from lloca.utils.orthogonalize_o3 import orthogonalize_o3
+from lloca.utils.orthogonalize_3d import orthogonalize_3d
 
 
 @pytest.mark.parametrize("batch_dims", BATCH_DIMS)
@@ -22,7 +22,7 @@ def test_orthogonalize_o3(batch_dims, method, vector_type, eps):
     else:
         raise ValueError(f"vector_type {vector_type} not implemented")
 
-    orthogonal_vecs = orthogonalize_o3([v1, v2], method=method)
+    orthogonal_vecs = orthogonalize_3d([v1, v2], method=method)
 
     # test orthonormality
     for i1, v1 in enumerate(orthogonal_vecs):
