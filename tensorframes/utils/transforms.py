@@ -6,6 +6,18 @@ from .restframe import restframe_boost
 
 
 def get_trafo_type(axis):
+    """Determine whether the transformation is a boost or a rotation.
+
+    Parameters
+    ----------
+    axis : torch.Tensor
+        Axis of the transformation, should be of shape (2, *dims)
+
+    Returns
+    -------
+    trafo_type : torch.Tensor
+        A boolean tensor indicating whether the transformation is a boost (1) or a rotation (0).
+    """
     return torch.any(axis == 0, dim=0)
 
 
@@ -14,21 +26,23 @@ def transform(
     angles: List[torch.Tensor],
     use_float64=True,
 ):
-    """
-    Recursively build transformation matrices based on given lists of axes and angles
+    """Recursively build transformation matrices based on given lists of axes and angles
 
-    Args:
-        axes: List[torch.Tensor] with elements of shape (2,*dims)
-            Axes along which the transformations are performed
-            Note that this object contains the trafo_types information,
-            because 'trafo_type = 1 if 0 in angle else 0'
-        angles: List[torch.tensor] with elements of shape (*dims,)
-            Angles used for the transformations,
-            can be either rotation angles or rapidities
-        use_float64: bool
+    Parameters
+    ----------
+    axes : List[torch.Tensor]
+        List of axes along which the transformations are performed.
+        Each element should be a tensor of shape (2, *dims).
+    angles : List[torch.Tensor]
+        List of angles used for the transformations.
+        Each element should be a tensor of shape (*dims,).
+    use_float64 : bool, optional
+        Whether to use float64 for calculations, by default True
 
-    Returns:
-        final_trafo: torch.Tensor of shape (*dims, 4, 4)
+    Returns
+    -------
+    final_trafo : torch.Tensor
+        Final transformation matrix of shape (*dims, 4, 4).
     """
     assert len(axes) == len(angles)
     dims = angles[0].shape
@@ -71,26 +85,25 @@ def rand_lorentz(
     generator: torch.Generator = None,
 ):
     """
-    Create N transformation matrices
+    Create N general Lorentz transformations as boost * rotation * boost.
 
-    We create them as boost * rotation * boost
-    The last boost is necessary to get a general transformation,
-    same story as for the rotations.
+    Parameters
+    ----------
+    shape: List[int]
+        Shape of the transformation matrices
+    std_eta: float
+        Standard deviation of rapidity
+    n_max_std_eta: float
+        Allowed number of standard deviations;
+        used to sample from a truncated Gaussian
+    device: str
+    dtype: torch.dtype
+    generator: torch.Generator
 
-    Args:
-        shape: List[int]
-            Shape of the transformation matrices
-        std_eta: float
-            Standard deviation of rapidity
-        n_max_std_eta: float
-            Allowed number of standard deviations;
-            used to sample from a truncated Gaussian
-        device: str
-        dtype: torch.dtype
-        generator: torch.Generator
-
-    Returns:
-        final_trafo: torch.tensor of shape (*shape, 4, 4)
+    Returns
+    -------
+    final_trafo: torch.tensor of shape (*shape, 4, 4)
+        The resulting Lorentz transformation matrices.
     """
     assert std_eta > 0
     ones = torch.ones(shape, device=device, dtype=torch.long)
@@ -120,24 +133,25 @@ def rand_general_lorentz(
     generator: torch.Generator = None,
 ):
     """
-    Create N general Lorentz transformations as L=R*B,
-    where R is a random uniform rotation in 3D and B
-    is a random general boost transformation.
+    Create N general Lorentz transformations as boost * rotation * boost.
 
-    Args:
-        shape: List[int]
-            Shape of the transformation matrices
-        std_eta: float
-            Standard deviation of rapidity
-        n_max_std_eta: float
-            Allowed number of standard deviations;
-            used to sample from a truncated Gaussian
-        device: str
-        dtype: torch.dtype
-        generator: torch.Generator
+    Parameters
+    ----------
+    shape: List[int]
+        Shape of the transformation matrices
+    std_eta: float
+        Standard deviation of rapidity
+    n_max_std_eta: float
+        Allowed number of standard deviations;
+        used to sample from a truncated Gaussian
+    device: str
+    dtype: torch.dtype
+    generator: torch.Generator
 
-    Returns:
-        final_trafo: torch.tensor of shape (*shape, 4, 4)
+    Returns
+    -------
+    final_trafo: torch.tensor of shape (*shape, 4, 4)
+        The resulting Lorentz transformation matrices.
     """
     assert std_eta > 0
     boost = rand_general_boost(

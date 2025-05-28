@@ -21,36 +21,37 @@ def to_nd(tensor, d):
     )
 
 
-def batch_to_ptr(batch: torch.Tensor):
-    """Converts torch tensor batch to slicing.
-
-    Args:
-        batch (torch.Tensor): The input tensor batch.
-
-    Returns:
-        torch.Tensor: The converted slicing tensor.
-
-    Raises:
-        AssertionError: If the input batch is not sorted.
-    """
-    # check that batch is sorted:
-    assert torch.all(batch[:-1] <= batch[1:]), "batch must be sorted"
-
-    diff_mask = batch - torch.roll(batch, 1) != 0
-    diff_mask[0] = True  # first element is always different
-    ptr = torch.zeros(batch.max() + 2, dtype=torch.long, device=batch.device)
-    ptr[:-1] = torch.arange(len(batch), device=batch.device)[diff_mask]
-    ptr[-1] = len(batch)
-    return ptr
-
-
 def get_batch_from_ptr(ptr):
+    """Reconstruct batch indices (batch) from pointer (ptr).
+
+    Parameters
+    ----------
+    ptr : torch.Tensor
+        Pointer tensor indicating the start of each batch.
+
+    Returns
+    -------
+    torch.Tensor
+        A tensor where each element indicates the batch index for each item.
+    """
     return torch.arange(len(ptr) - 1, device=ptr.device).repeat_interleave(
         ptr[1:] - ptr[:-1],
     )
 
 
 def get_ptr_from_batch(batch):
+    """Reconstruct pointer (ptr) from batch indices (batch).
+
+    Parameters
+    ----------
+    batch : torch.Tensor
+        A tensor where each element indicates the batch index for each item.
+
+    Returns
+    -------
+    torch.Tensor
+        A pointer tensor indicating the start of each batch.
+    """
     return torch.cat(
         [
             torch.tensor([0], device=batch.device),
@@ -62,6 +63,20 @@ def get_ptr_from_batch(batch):
 
 
 def get_edge_index_from_ptr(ptr, remove_self_loops=True):
+    """Construct edge index of fully connected graph from pointer (ptr).
+
+    Parameters
+    ----------
+    ptr : torch.Tensor
+        Pointer tensor indicating the start of each batch.
+    remove_self_loops : bool, optional
+        Whether to remove self-loops from the edge index, by default True.
+
+    Returns
+    -------
+    torch.Tensor
+        A tensor of shape (2, E) where E is the number of edges, representing the edge index.
+    """
     row = torch.arange(ptr.max(), device=ptr.device)
     diff = ptr[1:] - ptr[:-1]
     repeats = (diff).repeat_interleave(diff)
@@ -87,6 +102,21 @@ def get_edge_index_from_ptr(ptr, remove_self_loops=True):
 
 
 def build_edge_index_fully_connected(features_ref, remove_self_loops=True):
+    """Construct edge index of fully connected graph from reference object.
+    Only shape and device of the reference object are used.
+
+    Parameters
+    ----------
+    features_ref : torch.Tensor
+        Reference tensor from which the shape and device are derived.
+    remove_self_loops : bool, optional
+        Whether to remove self-loops from the edge index, by default True.
+
+    Returns
+    -------
+    torch.Tensor
+        A tensor of shape (2, E) where E is the number of edges, representing the edge index.
+    """
     B, N, _ = features_ref.shape
     device = features_ref.device
 
@@ -109,6 +139,24 @@ def build_edge_index_fully_connected(features_ref, remove_self_loops=True):
 
 
 def get_edge_attr(fourmomenta, edge_index, eps=1e-10, use_float64=True):
+    """Calculate edge attributes based on the squared Lorentz norm of the sum of four-momenta.
+
+    Parameters
+    ----------
+    fourmomenta : torch.Tensor
+        A tensor of shape (B, N, 4) representing the four-momenta of particles.
+    edge_index : torch.Tensor
+        A tensor of shape (2, E) representing the edge index of the graph.
+    eps : float, optional
+        A small value to avoid log(0) issues, by default 1e-10.
+    use_float64 : bool, optional
+        Whether to use float64 precision for calculations, by default True.
+
+    Returns
+    -------
+    torch.Tensor
+        A tensor of shape (E,) representing the edge attributes, which are the logarithm of the squared Lorentz norm.
+    """
     if use_float64:
         in_dtype = fourmomenta.dtype
         fourmomenta = fourmomenta.to(torch.float64)

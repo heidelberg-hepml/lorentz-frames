@@ -2,20 +2,56 @@ import torch
 
 
 def lorentz_inner(v1, v2):
-    """Lorentz inner product, i.e v1*g*v2"""
+    """Lorentz inner product, i.e v1*g*v2
+
+    Parameters
+    ----------
+    v1, v2 : torch.Tensor
+        Tensors of shape (*dims, 4)
+
+    Returns
+    -------
+    torch.Tensor
+        Lorentz inner product of shape (*dims, )
+    """
     prod = v1 * v2
     prod *= torch.tensor([1, -1, -1, -1], device=v1.device, dtype=v1.dtype)
     return prod.sum(dim=-1)
 
 
 def lorentz_squarednorm(v):
-    """Lorentz norm, i.e. v*g*v"""
+    """Lorentz norm, i.e. v*g*v
+
+    Parameters
+    ----------
+    v : torch.Tensor
+        Tensor of shape (*dims, 4)
+
+    Returns
+    -------
+    torch.Tensor
+        Lorentz norm of shape (*dims, )
+    """
     return lorentz_inner(v, v)
 
 
 def lorentz_eye(dims, device=torch.device("cpu"), dtype=torch.float32):
     """
-    Create a identity matrix of shape (*dims, 4, 4)
+    Create a identity matrix of given shape
+
+    Parameters
+    ----------
+    dims : tuple
+        Dimensions of the output tensor, e.g. (2, 3) for a 2x3 matrix
+    device : torch.device, optional
+        Device to create the tensor on, by default torch.device("cpu")
+    dtype : torch.dtype, optional
+        Data type of the tensor, by default torch.float32
+
+    Returns
+    -------
+    torch.Tensor
+        Identity matrix of shape (*dims, 4, 4)
     """
     eye = torch.eye(4, dtype=dtype, device=device)
     eye = eye.view((1,) * len(dims) + eye.shape).repeat(*dims, 1, 1)
@@ -24,7 +60,21 @@ def lorentz_eye(dims, device=torch.device("cpu"), dtype=torch.float32):
 
 def lorentz_metric(dims, device=torch.device("cpu"), dtype=torch.float32):
     """
-    Create a metric tensor of shape (*dims, 4, 4)
+    Create a metric tensor of given shape
+
+    Parameters
+    ----------
+    dims : tuple
+        Dimensions of the output tensor, e.g. (2, 3) for a 2x3 matrix
+    device : torch.device, optional
+        Device to create the tensor on, by default torch.device("cpu")
+    dtype : torch.dtype, optional
+        Data type of the tensor, by default torch.float32
+
+    Returns
+    -------
+    torch.Tensor
+        Metric tensor of shape (*dims, 4, 4)
     """
     eye = torch.eye(4, device=device, dtype=dtype)
     eye[1:, 1:] *= -1
@@ -36,11 +86,15 @@ def lorentz_cross(v1, v2, v3):
     """
     Compute the cross product in Minkowski space.
 
-    Args:
-        v1, v2, v3: Tensors of shape (*dims, 4)
+    Parameters
+    ----------
+    v1, v2, v3 : torch.Tensor
+        Tensors of shape (*dims, 4) representing vectors in Minkowski space.
 
-    Returns:
-        v4: Tensor of shape (*dims, )
+    Returns
+    -------
+    torch.Tensor
+        The cross product of the three vectors, shape (*dims, 4).
     """
     assert v1.shape[-1] == 4
     assert v1.shape == v2.shape and v1.shape == v3.shape
