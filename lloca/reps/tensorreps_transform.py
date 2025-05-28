@@ -29,7 +29,7 @@ class TensorRepsTransform(torch.nn.Module):
         idx = 0
         for mul_rep in self.reps:
             _, rep = mul_rep
-            parity_odd[idx : idx + mul_rep.dim] = True if rep.parity else False
+            parity_odd[idx : idx + mul_rep.dim] = True if rep.parity == -1 else False
             idx += mul_rep.dim
         self.register_buffer("parity_odd", parity_odd.unsqueeze(0))
         self.no_parity_odd = self.parity_odd.sum() == 0
@@ -43,6 +43,10 @@ class TensorRepsTransform(torch.nn.Module):
                 if reps[idx_rep].rep.order == i:
                     self.map_rep[i] = idx_rep
                     idx_rep += 1
+
+        if self.reps.max_rep.rep.order <= 1:
+            # super efficient shortcut if only scalar and vector reps are present
+            self.transform = self._transform_only_scalars_and_vectors
 
     def forward(self, tensor: torch.Tensor, lframes: LFrames):
         """
@@ -120,6 +124,26 @@ class TensorRepsTransform(torch.nn.Module):
                 output = torch.einsum("ijk,ilk...->ilj...", lframes.matrices, output)
                 output = output.flatten(start_dim=1, end_dim=2)
 
+        return output
+
+    def _transform_only_scalars_and_vectors(self, tensor, lframes):
+        """
+        Super efficient transform that assumes that only scalars and vectors are present.
+        Follows the same recipe as _transform_efficient, but avoids small overheads from
+        torch.cat and torch.reshape.
+        """
+        output = tensor.clone()
+        vector_idx_start, vector_idx_end = self.start_end_idx[-1]
+        vectors = tensor[:, vector_idx_start:vector_idx_end]
+        vectors = vectors.reshape(tensor.shape[0], -1, 4)
+        vectors_transformed = torch.einsum(
+            "ijk,ilk->ilj",
+            lframes.matrices,
+            vectors,
+        )
+        output[:, vector_idx_start:vector_idx_end] = vectors_transformed.reshape(
+            tensor.shape[0], -1
+        )
         return output
 
     def transform_parity(self, tensor, lframes):

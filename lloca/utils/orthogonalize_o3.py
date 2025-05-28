@@ -80,10 +80,13 @@ def regularize_collinear(vecs, eps_reg=1e-4):
     Regularize collinear vectors:
     If two vectors are very similar (i.e. their difference is very small),
     then we add a small amount of noise to the second vector.
+
+    Args:
+        vecs: list with 2 vectors of shape (batch, 3)
+        eps_reg: regularization epsilon
     """
     assert len(vecs) == 2
-    diff_norm = torch.linalg.norm(vecs[0] - vecs[1], dim=-1)
-    mask = diff_norm < eps_reg**2
+    mask = torch.linalg.norm(torch.cross(vecs[0], vecs[1], dim=-1), dim=-1) < eps_reg
     vecs[1][mask] += eps_reg * torch.randn_like(vecs[1][mask])
 
     reg_collinear = mask.sum().item()
