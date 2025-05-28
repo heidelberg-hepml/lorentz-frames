@@ -16,7 +16,9 @@ from ..reps.tensorreps import TensorReps
 from ..reps.tensorreps_transform import TensorRepsTransform
 
 
-class InvariantParticleAttention(torch.nn.Module):
+class LLoCaAttention(torch.nn.Module):
+    """"""
+
     def __init__(self, attn_reps, num_heads):
         super().__init__()
         self.transform = TensorRepsTransform(TensorReps(attn_reps))

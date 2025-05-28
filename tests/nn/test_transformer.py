@@ -3,7 +3,7 @@ import pytest
 from tests.constants import TOLERANCES, LOGM2_MEAN_STD, REPS, LFRAMES_PREDICTOR
 from tests.helpers import sample_particle, equivectors_builder
 
-from lloca.nn.transformer import TFTransformer
+from lloca.nn.transformer import Transformer
 from lloca.reps.tensorreps import TensorReps
 from lloca.reps.tensorreps_transform import TensorRepsTransform
 from lloca.utils.transforms import rand_lorentz
@@ -35,7 +35,7 @@ def test_transformer_invariance_equivariance(
     # define edgeconv
     in_reps = TensorReps("1x1n")
     trafo = TensorRepsTransform(TensorReps(in_reps))
-    net = TFTransformer(
+    net = Transformer(
         in_channels=in_reps.dim,
         attn_reps=attn_reps,
         out_channels=in_reps.dim,

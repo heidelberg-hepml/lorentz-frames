@@ -3,7 +3,7 @@ in_channels: null
 out_channels: null
 
 net:
- _target_: lloca.nn.transformer.TFTransformer
+ _target_: lloca.nn.transformer.Transformer
  _partial_: true
 
  in_channels: null

@@ -60,7 +60,7 @@ class EdgeConv(LLoCaMessagePassing):
         return x
 
 
-class TFGraphNet(nn.Module):
+class GraphNet(nn.Module):
     """Baseline graphnet.
 
     Combines num_blocks EdgeConv blocks.

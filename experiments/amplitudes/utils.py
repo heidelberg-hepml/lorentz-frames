@@ -10,7 +10,7 @@ from lloca.utils.transforms import (
     rand_xyrotation,
     rand_general_lorentz,
 )
-from lloca.utils.restframe import restframe_boost
+from lloca.utils.polar_decomposition import restframe_boost
 
 
 def standardize_momentum(momentum, mean=None, std=None):

@@ -6,7 +6,7 @@ from einops import rearrange
 from torch import nn
 from torch.utils.checkpoint import checkpoint
 
-from .attention import InvariantParticleAttention
+from .attention import LLoCaAttention
 from ..reps.tensorreps import TensorReps
 
 
@@ -299,7 +299,7 @@ class BaselineTransformerBlock(nn.Module):
         return outputs
 
 
-class TFTransformer(nn.Module):
+class Transformer(nn.Module):
     """Baseline transformer.
 
     Combines num_blocks transformer blocks, each consisting of multi-head self-attention layers, an
@@ -341,7 +341,7 @@ class TFTransformer(nn.Module):
         attn_reps = TensorReps(attn_reps)
         hidden_channels = attn_reps.dim * num_heads
         self.checkpoint_blocks = checkpoint_blocks
-        self.attention = InvariantParticleAttention(attn_reps, num_heads)
+        self.attention = LLoCaAttention(attn_reps, num_heads)
 
         self.linear_in = nn.Linear(in_channels, hidden_channels)
         self.blocks = nn.ModuleList(

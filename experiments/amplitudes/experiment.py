@@ -13,9 +13,9 @@ from experiments.logger import LOGGER
 from experiments.mlflow import log_mlflow
 
 MODEL_TITLE = {
-    "TFTransformer": "Tr",
+    "Transformer": "Tr",
     "MLP": "MLP",
-    "TFGraphNet": "GN",
+    "GraphNet": "GN",
     "LGATr": "LGATr",
     "DSI": "DSI",
 }
@@ -34,9 +34,9 @@ class AmplitudeExperiment(BaseExperiment):
         learnable_lframesnet = "equivectors" in self.cfg.model.lframesnet
         self.cfg.model.particle_type = particle_type
 
-        if modelname == "TFTransformer":
+        if modelname == "Transformer":
             self.cfg.model.net.in_channels = num_particle_types + 4
-        elif modelname == "TFGraphNet":
+        elif modelname == "GraphNet":
             assert self.cfg.model.include_nodes or self.cfg.model.include_edges
             self.cfg.model.net.num_edge_attr = 1 if self.cfg.model.include_edges else 0
             self.cfg.model.net.in_channels = num_particle_types

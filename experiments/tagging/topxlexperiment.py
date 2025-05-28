@@ -52,7 +52,7 @@ class TopXLTaggingExperiment(TaggingExperiment):
                 else self.cfg.model.in_channels - 7
             )
 
-        if self.cfg.model.net._target_.rsplit(".", 1)[-1] == "TFGraphNet":
+        if self.cfg.model.net._target_.rsplit(".", 1)[-1] == "GraphNet":
             self.cfg.model.net.num_edge_attr = 1 if self.cfg.model.include_edges else 0
 
     def init_data(self):

@@ -1,7 +1,7 @@
 _target_: experiments.eventgen.wrappers.TransformerCFM
 
 net:
- _target_: lloca.nn.transformer.TFTransformer
+ _target_: lloca.nn.transformer.Transformer
 
  in_channels: null
  out_channels: null

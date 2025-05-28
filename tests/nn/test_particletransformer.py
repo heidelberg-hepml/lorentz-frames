@@ -19,7 +19,7 @@ from lloca.lframes.equi_lframes import (
     LearnedOrthogonalLFrames,
     LearnedPolarDecompositionLFrames,
 )
-from lloca.nn.attention import InvariantParticleAttention
+from lloca.nn.attention import LLoCaAttention
 
 
 @pytest.mark.parametrize("LFramesPredictor", LFRAMES_PREDICTOR)
@@ -48,7 +48,7 @@ def test_block_invariance_equivariance(
     trafo = TensorRepsTransform(TensorReps(in_reps))
     linear_in = torch.nn.Linear(in_reps.dim, attn_reps.dim * num_heads).to(dtype=dtype)
     linear_out = torch.nn.Linear(attn_reps.dim * num_heads, in_reps.dim).to(dtype=dtype)
-    attention = InvariantParticleAttention(attn_reps, num_heads)
+    attention = LLoCaAttention(attn_reps, num_heads)
     ParT_block = Block(attention=attention, embed_dim=attn_reps.dim * num_heads).to(
         dtype
     )
