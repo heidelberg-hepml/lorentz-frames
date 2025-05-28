@@ -8,7 +8,7 @@ def restframe_boost(fourmomenta):
     """
     Lorentz transformation representing a boost into the rest frame.
     This transformation does not have the lframes transformation properties,
-    because there is no rotation aspect - its simply a boost.
+    because there is no rotation aspect - it is simply a boost.
 
     Args:
         fourmomenta: torch.tensor of shape (*dims, 4)
