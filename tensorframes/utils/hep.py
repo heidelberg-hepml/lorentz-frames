@@ -1,6 +1,6 @@
 import torch
 
-from tensorframes.utils.utils import stable_arctanh, unpack_last
+from .utils import stable_arctanh, unpack_last
 
 EPS = 1e-10
 CUTOFF = 10

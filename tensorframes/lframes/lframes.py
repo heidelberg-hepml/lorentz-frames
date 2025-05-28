@@ -1,6 +1,6 @@
 import torch
 
-from tensorframes.utils.lorentz import lorentz_eye, lorentz_metric
+from ..utils.lorentz import lorentz_eye, lorentz_metric
 
 
 class LFrames:

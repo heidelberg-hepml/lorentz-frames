@@ -1,12 +1,12 @@
 import torch
 from torch_geometric.utils import scatter
 
-from tensorframes.utils.utils import get_batch_from_ptr
-from tensorframes.lframes.lframes import LFrames
-from tensorframes.lframes.nonequi_lframes import LFramesPredictor
-from tensorframes.utils.restframe import restframe_equivariant
-from tensorframes.utils.lorentz import lorentz_eye, lorentz_squarednorm
-from tensorframes.utils.orthogonalize import orthogonal_trafo
+from .lframes import LFrames
+from .nonequi_lframes import LFramesPredictor
+from ..utils.utils import get_batch_from_ptr
+from ..utils.restframe import restframe_equivariant
+from ..utils.lorentz import lorentz_eye, lorentz_squarednorm
+from ..utils.orthogonalize import orthogonal_trafo
 
 
 class LearnedLFrames(LFramesPredictor):

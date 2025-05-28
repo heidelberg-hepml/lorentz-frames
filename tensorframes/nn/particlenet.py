@@ -10,9 +10,9 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from tensorframes.reps.tensorreps import TensorReps
-from tensorframes.reps.tensorreps_transform import TensorRepsTransform
-from tensorframes.lframes.lframes import IndexSelectLFrames, ChangeOfLFrames
+from ..reps.tensorreps import TensorReps
+from ..reps.tensorreps_transform import TensorRepsTransform
+from ..lframes.lframes import IndexSelectLFrames, ChangeOfLFrames
 
 
 def change_local_frame(x_j_in, idx, lframes, trafo):

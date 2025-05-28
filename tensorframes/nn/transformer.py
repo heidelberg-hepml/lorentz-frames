@@ -6,17 +6,8 @@ from einops import rearrange
 from torch import nn
 from torch.utils.checkpoint import checkpoint
 
-from tensorframes.nn.attention import InvariantParticleAttention
-from tensorframes.reps.tensorreps import TensorReps
-
-"""
-Comment: This is a standard pre-layernorm transformer, copied from
-experiments/baselines/transformer.py
-with a few adaptations:
-- pass 'lframes' argument through forward functions
-- pass 'attn_reps' through __init__'s
-- use custom attention class
-"""
+from .attention import InvariantParticleAttention
+from ..reps.tensorreps import TensorReps
 
 
 class BaselineLayerNorm(nn.Module):

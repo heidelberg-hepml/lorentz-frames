@@ -3,9 +3,9 @@ from torch import nn
 from torch.utils.checkpoint import checkpoint
 
 
-from tensorframes.nn.tfmessage_passing import TFMessagePassing
-from tensorframes.nn.mlp import MLP
-from tensorframes.reps.tensorreps import TensorReps
+from .tfmessage_passing import TFMessagePassing
+from .mlp import MLP
+from ..reps.tensorreps import TensorReps
 
 
 class EdgeConv(TFMessagePassing):

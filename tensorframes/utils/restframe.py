@@ -1,7 +1,7 @@
 import torch
 
-from tensorframes.utils.orthogonalize_o3 import orthogonalize_o3
-from tensorframes.utils.lorentz import lorentz_squarednorm
+from .orthogonalize_o3 import orthogonalize_o3
+from .lorentz import lorentz_squarednorm
 
 
 def restframe_boost(fourmomenta):

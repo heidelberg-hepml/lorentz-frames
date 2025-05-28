@@ -15,8 +15,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from tensorframes.reps.tensorreps import TensorReps
-from tensorframes.nn.attention import InvariantParticleAttention
+from ..reps.tensorreps import TensorReps
+from .attention import InvariantParticleAttention
 
 # this is turned of, since it regularely failed and had to fall back on the fallback function, which did not speed up the training
 # @torch.jit.script

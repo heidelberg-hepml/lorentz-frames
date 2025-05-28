@@ -1,6 +1,7 @@
 import torch
-from tensorframes.lframes.lframes import LFrames
-from tensorframes.utils.transforms import (
+
+from .lframes import LFrames
+from ..utils.transforms import (
     rand_lorentz,
     rand_rotation_uniform,
     rand_rotation_naive,
@@ -8,7 +9,7 @@ from tensorframes.utils.transforms import (
     rand_ztransform,
     rand_general_lorentz,
 )
-from tensorframes.utils.restframe import restframe_boost
+from ..utils.restframe import restframe_boost
 
 
 class LFramesPredictor(torch.nn.Module):

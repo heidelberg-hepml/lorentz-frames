@@ -1,7 +1,7 @@
 import torch
 
-from tensorframes.lframes.lframes import LFrames
-from tensorframes.reps.tensorreps import TensorReps
+from ..lframes.lframes import LFrames
+from .tensorreps import TensorReps
 
 
 class TensorRepsTransform(torch.nn.Module):

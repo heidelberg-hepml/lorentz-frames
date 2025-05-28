@@ -1,7 +1,7 @@
 import torch
 from xformers.ops.fmha import BlockDiagonalMask
 
-from tensorframes.utils.lorentz import lorentz_squarednorm
+from .lorentz import lorentz_squarednorm
 
 
 def unpack_last(x):

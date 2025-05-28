@@ -1,6 +1,6 @@
 import torch
 
-from tensorframes.utils.lorentz import (
+from .lorentz import (
     lorentz_inner,
     lorentz_squarednorm,
     lorentz_metric,

@@ -2,8 +2,8 @@ from typing import Any, Dict
 import torch
 from torch_geometric.nn import MessagePassing
 
-from tensorframes.lframes.lframes import ChangeOfLFrames, LFrames, IndexSelectLFrames
-from tensorframes.reps.tensorreps_transform import TensorRepsTransform
+from ..lframes.lframes import ChangeOfLFrames, LFrames, IndexSelectLFrames
+from ..reps.tensorreps_transform import TensorRepsTransform
 
 
 class TFMessagePassing(MessagePassing):

@@ -1,8 +1,8 @@
 import torch
 from typing import List
 
-from tensorframes.utils.lorentz import lorentz_eye
-from tensorframes.utils.restframe import restframe_boost
+from .lorentz import lorentz_eye
+from .restframe import restframe_boost
 
 
 def get_trafo_type(axis):

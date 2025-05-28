@@ -2,7 +2,7 @@ from typing import Union
 
 import torch
 
-from tensorframes.reps.tensorreps import TensorRep, TensorReps
+from .tensorreps import TensorRep, TensorReps
 
 
 def extract_even_scalar_mask_from_reps(reps: TensorReps) -> torch.Tensor:

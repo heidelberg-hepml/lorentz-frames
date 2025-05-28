@@ -3,7 +3,7 @@ import pytest
 from tests.constants import TOLERANCES, LOGM2_MEAN_STD
 from tests.helpers import sample_particle
 
-from tensorframes.reps import TensorReps
+from tensorframes.reps.tensorreps import TensorReps
 from tensorframes.reps.tensorreps_transform import TensorRepsTransform
 from tensorframes.lframes.nonequi_lframes import (
     IdentityLFrames,
