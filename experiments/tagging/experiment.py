@@ -37,6 +37,9 @@ class TaggingExperiment(BaseExperiment):
             self.cfg.model.net.n_scalar = self.num_extra_scalars
         elif modelname == "PELICAN":
             self.cfg.model.net.num_scalars = self.num_extra_scalars
+        elif modelname == "CGENN":
+            # CGENN cant handle zero scalar inputs -> give 1 input with zeros
+            self.cfg.model.net.in_features_h = 1 + self.num_extra_scalars
         else:
             self.cfg.model.in_channels = 7 + self.num_extra_scalars
 
