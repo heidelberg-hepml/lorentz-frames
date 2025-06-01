@@ -16,6 +16,7 @@ class PELICAN(nn.Module):
         num_channels_2,
         mlp_out=True,
     ):
+        # use the typical model setup in the pelican repo
         num_channels_m = [[num_channels_1]] * 5
         num_channels_2to2 = [num_channels_2] * 5
         num_channels_m_out = [num_channels_1, num_channels_2]
@@ -48,10 +49,13 @@ class PELICAN(nn.Module):
         self.net2to2 = Net2to2(
             num_channels_2to2 + [num_channels_m_out[0]],
             num_channels_m,
+            factorize=True,
         )
         self.msg_2to0 = MessageNet(num_channels_m_out)
         self.agg_2to0 = Eq2to0(
-            num_channels_m_out[-1], num_channels_out[0] if mlp_out else out_channels
+            num_channels_m_out[-1],
+            num_channels_out[0] if mlp_out else out_channels,
+            factorize=True,
         )
 
         if mlp_out:
