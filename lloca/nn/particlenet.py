@@ -39,7 +39,6 @@ def change_local_frame(x_j_framej, idx, lframes, trafo):
     -------
     torch.Tensor
     """
-    print(x_j_framej.shape, idx.shape, lframes.shape)
     # we use batch_size*num_points with repeats of k for idx_i, e.g. for 2 points with 3 batch and k=2,
     # idx_i becomes (0,1,2,3,4,5) -> (0,0,1,1,2,2,3,3,4,4,5,5).
     idx_i = torch.arange(
