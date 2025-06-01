@@ -2,6 +2,7 @@ import torch
 from torch import nn
 import math
 from torch_geometric.nn import MessagePassing
+from torch_geometric.utils import softmax
 
 from .base import EquiVectors
 from ..nn.mlp import MLP

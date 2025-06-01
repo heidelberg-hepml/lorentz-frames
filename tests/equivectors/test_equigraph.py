@@ -19,7 +19,7 @@ from lloca.utils.transforms import rand_lorentz
     "operation, fm_norm",
     [("diff", True), ("diff", False), ("add", True), ("add", False), ("single", False)],
 )
-@pytest.mark.parametrize("nonlinearity", ["softplus", "exp", None])
+@pytest.mark.parametrize("nonlinearity", ["softplus", "exp", "softmax", None])
 def test_equivariance(
     batch_dims,
     jet_size,
