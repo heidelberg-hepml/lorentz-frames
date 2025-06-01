@@ -26,6 +26,9 @@ class PELICAN(nn.Module):
             0
         ]  # set this based on num_channels_m or num_channels_net2to2?
 
+        # stabilizer='so13' means that no spurions are added
+        # formally we should use stabilizer'so2' here (default in pelican tagger)
+        # but we already add spurions before so we can use 'so13' here
         self.ginvariants = GInvariants(stabilizer="so13", irc_safe=False)
         rank1_dim = self.ginvariants.rank1_dim
         rank2_dim = self.ginvariants.rank2_dim
