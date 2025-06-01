@@ -10,12 +10,16 @@ from .generic_layers import InputEncoder, GInvariants, MyLinear, MessageNet, Bas
 class PELICAN(nn.Module):
     def __init__(
         self,
-        num_scalars,  # TODO: implement this
+        num_scalars,
         out_channels,
         num_channels_1,
         num_channels_2,
         mlp_out=True,
     ):
+        assert (
+            num_scalars == 0
+        ), "Scalar inputs for PELICAN not supported yet (non-trivial)"
+
         # use the typical model setup in the pelican repo
         num_channels_m = [[num_channels_1]] * 5
         num_channels_2to2 = [num_channels_2] * 5
