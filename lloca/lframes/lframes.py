@@ -29,14 +29,16 @@ class LFrames:
 
         Parameters
         ----------
-        matrices: torch.tensor of shape (*dims, 4, 4)
-            Transformation matrices
+        matrices: torch.tensor
+            Transformation matrices of shape (*dims, 4, 4)
         is_global: bool
             Whether lframes are the same for all particles in the point cloud
-        inv: torch.Tensor of shape (*dims, 4, 4)
-            Optional cached inverse. If not given, takes a bit of extra time to compute.
-        det: torch.Tensor of shape (*dims)
-            Optional cached determinant. If not given, takes a bit of extra time to compute.
+        inv: torch.Tensor
+            Optional cached inverse of shape (*dims, 4, 4).
+            If not given, takes a bit of extra time to compute.
+        det: torch.Tensor
+            Optional cached determinant of shape (*dims).
+            If not given, takes a bit of extra time to compute.
         is_identity: bool
             Sets matrices to diagonal.
         shape: List[int]

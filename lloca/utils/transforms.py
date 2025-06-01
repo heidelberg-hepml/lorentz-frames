@@ -102,8 +102,8 @@ def rand_lorentz(
 
     Returns
     -------
-    final_trafo: torch.tensor of shape (*shape, 4, 4)
-        The resulting Lorentz transformation matrices.
+    final_trafo: torch.tensor
+        The resulting Lorentz transformation matrices of shape (*shape, 4, 4).
     """
     assert std_eta > 0
     ones = torch.ones(shape, device=device, dtype=torch.long)
@@ -150,8 +150,8 @@ def rand_general_lorentz(
 
     Returns
     -------
-    final_trafo: torch.tensor of shape (*shape, 4, 4)
-        The resulting Lorentz transformation matrices.
+    final_trafo: torch.tensor
+        The resulting Lorentz transformation matrices of shape (*shape, 4, 4).
     """
     assert std_eta > 0
     boost = rand_general_boost(
@@ -188,8 +188,8 @@ def rand_xyrotation(
 
     Returns
     -------
-    final_trafo: torch.tensor of shape (*shape, 4, 4)
-        The resulting Lorentz transformation matrices.
+    final_trafo: torch.tensor
+        The resulting Lorentz transformation matrices of shape (*shape, 4, 4).
     """
     axis = torch.tensor([1, 2], dtype=torch.long, device=device)
     axis = axis.view(2, *([1] * len(shape))).repeat(1, *shape)
@@ -229,8 +229,8 @@ def rand_ztransform(
 
     Returns
     -------
-    final_trafo: torch.tensor of shape (*shape, 4, 4)
-        The resulting Lorentz transformation matrices.
+    final_trafo: torch.tensor
+        The resulting Lorentz transformation matrices of shape (*shape, 4, 4).
     """
     # rotation around z-axis
     axis1 = torch.tensor([1, 2], dtype=torch.long, device=device)
@@ -276,8 +276,8 @@ def rand_rotation(
 
     Returns
     -------
-    final_trafo: torch.tensor of shape (*shape, 4, 4)
-        The resulting Lorentz transformation matrices.
+    final_trafo: torch.tensor
+        The resulting Lorentz transformation matrices of shape (*shape, 4, 4).
     """
     # generate random quaternions
     u = torch.rand(*shape, 3, device=device, dtype=dtype, generator=generator)
@@ -333,8 +333,8 @@ def rand_general_boost(
 
     Returns
     -------
-    final_trafo: torch.tensor of shape (*shape, 4, 4)
-        The resulting Lorentz transformation matrices.
+    final_trafo: torch.tensor
+        The resulting Lorentz transformation matrices of shape (*shape, 4, 4).
     """
     shape = list(shape) + [3]
     beta = sample_rapidity(

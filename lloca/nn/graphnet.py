@@ -109,18 +109,22 @@ class GraphNet(nn.Module):
 
         Parameters
         ----------
-        inputs : Tensor with shape (..., num_items, in_channels)
-            Input data
+        inputs : Tensor
+            Input data with shape (num_items, in_channels)
         lframes : LFrames
             Local frames used for message passing
-        edge_index : Tensor with shape (2, num_edges)
-        batch : Tensor with shape (num_items,)
-        edge_attr : Tensor with shape (..., num_items, num_edge_attr)
+        edge_index : Tensor
+            Edge index tensor with shape (2, num_edges)
+        batch : Tensor
+            Batch tensorwith shape (num_items,)
+            If None, assumes fully connected graph along the num_items direction.
+        edge_attr : Tensor
+            Edge attribute tensor with shape (num_items, num_edge_attr)
 
         Returns
         -------
-        outputs : Tensor with shape (..., num_items, out_channels)
-            Outputs
+        outputs : Tensor
+            Outputs with shape (num_items, out_channels)
         """
         x = self.linear_in(inputs)
         for block in self.blocks:

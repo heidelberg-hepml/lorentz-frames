@@ -367,8 +367,8 @@ class Transformer(nn.Module):
 
         Parameters
         ----------
-        inputs : Tensor with shape (..., num_items, in_channels)
-            Input data
+        inputs : Tensor
+            Input data with shape (..., num_items, in_channels)
         lframes : LFrames
             Local frames used for invariant particle attention
         attention_mask : None or Tensor or xformers.ops.AttentionBias
@@ -377,8 +377,8 @@ class Transformer(nn.Module):
 
         Returns
         -------
-        outputs : Tensor with shape (..., num_items, out_channels)
-            Outputs
+        outputs : Tensor
+            Outputs with shape (..., num_items, out_channels)
         """
         self.attention.prepare_lframes(lframes)
 

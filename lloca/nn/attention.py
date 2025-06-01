@@ -35,8 +35,8 @@ class LLoCaAttention(torch.nn.Module):
 
         Parameters
         ----------
-        lframes: torch.tensor of shape (..., N, 4, 4)
-            Local frames of reference for each particle
+        lframes: torch.tensor
+            Local frames of reference for each particle of shape (..., N, 4, 4)
             where N is the number of particles.
         """
         self.lframes = lframes
@@ -93,16 +93,19 @@ class LLoCaAttention(torch.nn.Module):
 
         Parameters
         ----------
-        q_local: torch.tensor of shape (*dims, H, N, C)
-        k_local: torch.tensor of shape (*dims, H, N, C)
-        v_local: torch.tensor of shape (*dims, H, N, C)
-        lframes: (*dims, N, 4, 4)
+        q_local: torch.tensor
+            Local queries of shape (*dims, H, N, C)
+        k_local: torch.tensor
+            Local keys of shape (*dims, H, N, C)
+        v_local: torch.tensor
+            Local values of shape (*dims, H, N, C)
         attn_kwargs: dict
             Optional arguments that are passed on to attention
 
         Returns
         -------
-        out_local: torch.tensor of shape (*dims, H, N, C)
+        out_local: torch.tensor
+            Attention output in local frame of shape (*dims, H, N, C)
         """
         if self.lframes.is_global:
             # shortcut if global_frame = local_frame
