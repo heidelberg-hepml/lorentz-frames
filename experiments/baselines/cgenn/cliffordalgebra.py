@@ -126,15 +126,15 @@ class CliffordAlgebra(nn.Module):
             assert len(blades) == 2
             beta_blades = blades[0]
             blades = (
-                blades[0],
-                torch.tensor([0]),
-                blades[1],
+                blades[0].to(x.device, dtype=torch.long),
+                torch.tensor([0], device=x.device, dtype=torch.long),
+                blades[1].to(x.device, dtype=torch.long),
             )
         else:
-            blades = torch.tensor(range(self.n_blades))
+            blades = torch.tensor(range(self.n_blades), device=x.device, dtype=torch.long)
             blades = (
                 blades,
-                torch.tensor([0]),
+                torch.tensor([0], device=x.device, dtype=torch.long),
                 blades,
             )
             beta_blades = None

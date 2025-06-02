@@ -270,6 +270,8 @@ class MessageNet(nn.Module):
             x = activation(lin(x))
 
         # If mask is included, mask the output
+        if self.zero.dtype != x.dtype or self.zero.device != x.device:
+            self.zero = self.zero.to(x.device, x.dtype)
         if mask is not None:
             x = torch.where(mask, x, self.zero)
 
