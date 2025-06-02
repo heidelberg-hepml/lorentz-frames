@@ -8,5 +8,8 @@ data:
  num_train_files: 5
  num_prefetch: 2
 
+evaluation:
+ eval_set: [test, val]
+ 
 defaults:
  - amplitudes

@@ -2,10 +2,10 @@ import torch
 
 from experiments.eventgen.cfm import EventCFM
 from experiments.tagging.embedding import get_spurion
-from tensorframes.lframes.lframes import LFrames, InverseLFrames
-from tensorframes.reps.tensorreps import TensorReps
-from tensorframes.reps.tensorreps_transform import TensorRepsTransform
-from tensorframes.utils.utils import build_edge_index_fully_connected
+from lloca.lframes.lframes import LFrames, InverseLFrames
+from lloca.reps.tensorreps import TensorReps
+from lloca.reps.tensorreps_transform import TensorRepsTransform
+from lloca.utils.utils import build_edge_index_fully_connected
 from lgatr import embed_vector, extract_vector
 
 

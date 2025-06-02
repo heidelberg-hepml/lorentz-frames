@@ -2,8 +2,6 @@
 
 Paper: "ParticleNet: Jet Tagging via Particle Clouds" - https://arxiv.org/abs/1902.08570
 Code: https://github.com/hqucms/weaver-core/blob/main/weaver/nn/model/ParticleNet.py
-
-Adapted from the DGCNN implementation in https://github.com/WangYueFt/dgcnn/blob/master/pytorch/model.py.
 """
 import numpy as np
 import torch

@@ -35,28 +35,25 @@ class JetClassTaggingExperiment(TaggingExperiment):
             "WToQQ",
             "ZToQQ",
         ]
-        self.cfg.model.in_channels = 7
-        modelname = self.cfg.model.net._target_.rsplit(".", 1)[-1]
-        if modelname == "LGATr":
-            self.cfg.model.net.out_mv_channels = len(self.class_names)
-        else:
-            self.cfg.model.out_channels = len(self.class_names)
+        self.num_outputs = len(self.class_names)
+
         if self.cfg.data.features == "fourmomenta":
+            self.extra_scalars = 0
             self.cfg.data.data_config = (
                 "experiments/tagging/miniweaver/configs_jetclass/fourmomenta.yaml"
             )
         elif self.cfg.data.features == "pid":
-            self.cfg.model.in_channels += 6
+            self.extra_scalars = 6
             self.cfg.data.data_config = (
                 "experiments/tagging/miniweaver/configs_jetclass/pid.yaml"
             )
         elif self.cfg.data.features == "displacements":
-            self.cfg.model.in_channels += 4
+            self.extra_scalars = 4
             self.cfg.data.data_config = (
                 "experiments/tagging/miniweaver/configs_jetclass/displacements.yaml"
             )
         elif self.cfg.data.features == "default":
-            self.cfg.model.in_channels += 10
+            self.extra_scalars = 10
             self.cfg.data.data_config = (
                 "experiments/tagging/miniweaver/configs_jetclass/default.yaml"
             )
@@ -64,21 +61,6 @@ class JetClassTaggingExperiment(TaggingExperiment):
             raise ValueError(
                 f"Input feature option {self.cfg.data.features} not implemented"
             )
-
-        if modelname == "ParticleNet":
-            self.cfg.model.net.hidden_reps_list[0] = f"{self.cfg.model.in_channels}x0n"
-
-    def init_physics(self):
-        # decide which entries to use for the lframesnet
-        if "equivectors" in self.cfg.model.lframesnet:
-            self.cfg.model.lframesnet.equivectors.num_scalars = (
-                self.cfg.model.in_channels
-                if self.cfg.data.add_tagging_features_lframesnet
-                else self.cfg.model.in_channels - 7
-            )
-
-        if self.cfg.model.net._target_.rsplit(".", 1)[-1] == "TFGraphNet":
-            self.cfg.model.net.num_edge_attr = 1 if self.cfg.model.include_edges else 0
 
     def _init_loss(self):
         self.loss = torch.nn.CrossEntropyLoss()
