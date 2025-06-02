@@ -836,12 +836,7 @@ class Block(nn.Module):
             u = self.pre_attn_norm(u)
 
             # default attention for convenience (could be more fancy here)
-            x = self.attn(
-                x_cls,
-                u,
-                u,
-                key_padding_mask=padding_mask,
-            )[
+            x = self.attn(x_cls, u, u, key_padding_mask=padding_mask,)[
                 0
             ]  # (1, batch, embed_dim)
         else:
