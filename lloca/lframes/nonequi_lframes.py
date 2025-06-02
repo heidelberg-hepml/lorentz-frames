@@ -79,14 +79,6 @@ class RandomLFrames(LFramesPredictor):
                 device=device,
                 dtype=dtype,
             )
-        elif self.transform_type == "lorentz":
-            return rand_lorentz(
-                shape,
-                std_eta=self.std_eta,
-                n_max_std_eta=self.n_max_std_eta,
-                device=device,
-                dtype=dtype,
-            )
         else:
             raise ValueError(
                 f"Transformation type {self.transform_type} not implemented"
