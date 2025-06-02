@@ -131,7 +131,9 @@ class CliffordAlgebra(nn.Module):
                 blades[1].to(x.device, dtype=torch.long),
             )
         else:
-            blades = torch.tensor(range(self.n_blades), device=x.device, dtype=torch.long)
+            blades = torch.tensor(
+                range(self.n_blades), device=x.device, dtype=torch.long
+            )
             blades = (
                 blades,
                 torch.tensor([0], device=x.device, dtype=torch.long),
