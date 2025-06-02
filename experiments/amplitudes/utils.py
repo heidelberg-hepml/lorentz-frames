@@ -5,9 +5,7 @@ import torch
 from experiments.amplitudes.constants import get_mass
 
 from lloca.utils.lorentz import lorentz_eye
-from lloca.utils.transforms import (
-    rand_lorentz,
-)
+from lloca.utils.transforms import rand_lorentz
 from lloca.utils.polar_decomposition import restframe_boost
 
 
@@ -90,7 +88,7 @@ def load_file(
         momentum[..., 0] = torch.sqrt((momentum[..., 1:] ** 2).sum(dim=-1) + mass**2)
 
     # prepare momenta
-    if cfg_data.prepare == "com_lorentz":
+    if cfg_data.prepare == "lorentz":
         # boost to the center-of-mass ref. frame of incoming particles
         # then apply general Lorentz trafo L=R*B
         lab_momentum = momentum[..., :2, :].sum(dim=-2)
