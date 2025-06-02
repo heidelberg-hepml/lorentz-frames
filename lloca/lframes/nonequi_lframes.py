@@ -7,7 +7,6 @@ from ..utils.transforms import (
     rand_rotation,
     rand_xyrotation,
     rand_ztransform,
-    rand_general_lorentz,
 )
 from ..utils.polar_decomposition import restframe_boost
 
@@ -80,8 +79,8 @@ class RandomLFrames(LFramesPredictor):
                 device=device,
                 dtype=dtype,
             )
-        elif self.transform_type == "general_lorentz":
-            return rand_general_lorentz(
+        elif self.transform_type == "lorentz":
+            return rand_lorentz(
                 shape,
                 std_eta=self.std_eta,
                 n_max_std_eta=self.n_max_std_eta,

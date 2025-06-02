@@ -8,7 +8,7 @@ from lloca.utils.transforms import (
     rand_rotation,
     rand_xyrotation,
     rand_ztransform,
-    rand_general_lorentz,
+    rand_boost,
 )
 
 
@@ -21,7 +21,7 @@ from lloca.utils.transforms import (
         rand_rotation,
         rand_xyrotation,
         rand_ztransform,
-        rand_general_lorentz,
+        rand_boost,
     ],
 )
 def test_rand_lorentz(batch_dims, std_eta, transform_type):

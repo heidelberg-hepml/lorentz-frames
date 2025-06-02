@@ -85,7 +85,7 @@ def rand_lorentz(
     generator: torch.Generator = None,
 ):
     """
-    Create general Lorentz transformations as boost * rotation * boost.
+    Create general Lorentz transformations as rotation * boost.
 
     Parameters
     ----------
@@ -106,55 +106,7 @@ def rand_lorentz(
         The resulting Lorentz transformation matrices of shape (*shape, 4, 4).
     """
     assert std_eta > 0
-    ones = torch.ones(shape, device=device, dtype=torch.long)
-    axis = torch.stack([0 * ones, 1 * ones], dim=0)
-    angle = sample_rapidity(
-        shape,
-        std_eta=std_eta,
-        n_max_std_eta=n_max_std_eta,
-        device=device,
-        dtype=dtype,
-        generator=generator,
-    )
-
-    boost = transform([axis], [angle])
-
-    rotation = rand_rotation(shape, device, dtype, generator=generator)
-    trafo = torch.einsum("...ij,...jk,...kl->...il", boost, rotation, boost)
-    return trafo
-
-
-def rand_general_lorentz(
-    shape: List[int],
-    std_eta: float = 0.1,
-    n_max_std_eta: float = 3.0,
-    device: str = "cpu",
-    dtype: torch.dtype = torch.float32,
-    generator: torch.Generator = None,
-):
-    """
-    Create general Lorentz transformations as boost * rotation * boost.
-
-    Parameters
-    ----------
-    shape: List[int]
-        Shape of the transformation matrices
-    std_eta: float
-        Standard deviation of rapidity
-    n_max_std_eta: float
-        Allowed number of standard deviations;
-        used to sample from a truncated Gaussian
-    device: str
-    dtype: torch.dtype
-    generator: torch.Generator
-
-    Returns
-    -------
-    final_trafo: torch.tensor
-        The resulting Lorentz transformation matrices of shape (*shape, 4, 4).
-    """
-    assert std_eta > 0
-    boost = rand_general_boost(
+    boost = rand_boost(
         shape,
         std_eta,
         n_max_std_eta,
@@ -307,7 +259,7 @@ def rand_rotation(
     return trafo
 
 
-def rand_general_boost(
+def rand_boost(
     shape: List[int],
     std_eta: float = 0.1,
     n_max_std_eta: float = 3.0,
@@ -316,7 +268,7 @@ def rand_general_boost(
     generator: torch.Generator = None,
 ):
     """
-    Create a pure boost (symmetric Lorentz transformation).
+    Create a general pure boost (symmetric Lorentz transformation).
 
     Parameters
     ----------

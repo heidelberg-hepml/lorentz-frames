@@ -1,9 +1,9 @@
-""" Particle Transformer (ParT)
+"""Particle Transformer (ParT)
 
 Paper: "Particle Transformer for Jet Tagging" - https://arxiv.org/abs/2202.03772
 
 We have to do three things to build a LLoCa-ParT
-- Construct a LLoCaAttention module for the whole transformer that preprocesses the lframes 
+- Construct a LLoCaAttention module for the whole transformer that preprocesses the lframes
   and is passed to each attention block during initialization.
 - When evaluating attention, use the LLoCaAttention module.
 
@@ -16,6 +16,7 @@ More comments:
 Use git diff --no-index experiments/baselines/particletransformer.py lloca/nn/particletransformer.py
 to see the changes required to include frame-to-frame transformations
 """
+
 import math
 import random
 import copy
@@ -835,7 +836,12 @@ class Block(nn.Module):
             u = self.pre_attn_norm(u)
 
             # default attention for convenience (could be more fancy here)
-            x = self.attn(x_cls, u, u, key_padding_mask=padding_mask,)[
+            x = self.attn(
+                x_cls,
+                u,
+                u,
+                key_padding_mask=padding_mask,
+            )[
                 0
             ]  # (1, batch, embed_dim)
         else:

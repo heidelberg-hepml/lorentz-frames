@@ -1,4 +1,4 @@
-""" ParticleNet
+"""ParticleNet
 
 Paper: "ParticleNet: Jet Tagging via Particle Clouds" - https://arxiv.org/abs/1902.08570
 Code: https://github.com/hqucms/weaver-core/blob/main/weaver/nn/model/ParticleNet.py
@@ -12,6 +12,7 @@ We have to do three things to build a LLoCa-ParticleNet
 Use 'git diff --no-index experiments/baselines/particlenet.py lloca/nn/particlenet.py'
 to see the changes required to include frame-to-frame transformations.
 """
+
 import numpy as np
 import torch
 import torch.nn as nn
