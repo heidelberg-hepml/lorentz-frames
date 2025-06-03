@@ -2,7 +2,7 @@ import numpy as np
 import yaml
 import copy
 
-from .tools import _get_variable_names
+from .eval_utils import _get_variable_names
 
 
 def _as_list(x):
@@ -25,6 +25,11 @@ def _md5(fname):
     return hash_md5.hexdigest()
 
 
+def _strcat(*args, sep=" & ", func=lambda s: f"({s})", fallback=None):
+    pieces = [func(s) for s in args if s]
+    return sep.join(pieces) if len(pieces) else fallback
+
+
 class DataConfig(object):
     r"""Data loading configuration."""
 
@@ -43,6 +48,7 @@ class DataConfig(object):
             "observers": [],
             "monitor_variables": [],
             "weights": None,
+            "bucketing": None,
         }
         for k, v in kwargs.items():
             if v is not None:
@@ -172,7 +178,14 @@ class DataConfig(object):
                 self.reweight_hists = opts["weights"].get("reweight_hists", None)
                 if self.reweight_hists is not None:
                     for k, v in self.reweight_hists.items():
-                        self.reweight_hists[k] = np.array(v, dtype="float32")
+                        self.reweight_hists[k] = np.array(v, dtype="float64")
+        # sequence bucketing
+        self.bucketing = False
+        if opts["bucketing"] is not None:
+            self.bucketing = True
+            self.bucketing_var = opts["bucketing"]["var"]
+            self.register(self.bucketing_var, to="train")
+            self.bucketing_bins = opts["bucketing"]["bins"]
         # observers
         self.observer_names = tuple(opts["observers"])
         # monitor variables
@@ -189,9 +202,9 @@ class DataConfig(object):
         )
 
         # remove self mapping from var_funcs
-        for k, v in self.var_funcs.items():
-            if k == v:
-                del self.var_funcs[k]
+        var_funcs_self_mapping = [k for k, v in self.var_funcs.items() if k == v]
+        for k in var_funcs_self_mapping:
+            del self.var_funcs[k]
 
         # selection
         if self.selection:
@@ -249,8 +262,8 @@ class DataConfig(object):
     def load(
         cls,
         fp,
-        load_observers=False,
-        load_reweight_info=False,
+        load_observers=True,
+        load_reweight_info=True,
         extra_selection=None,
         extra_test_selection=None,
     ):
@@ -262,20 +275,18 @@ class DataConfig(object):
         if not load_reweight_info:
             options["weights"] = None
         if extra_selection:
-            options["selection"] = "(%s) & (%s)" % (_opts["selection"], extra_selection)
+            options["selection"] = _strcat(_opts["selection"], extra_selection)
         if extra_test_selection:
             if (
                 "test_time_selection" not in options
                 or options["test_time_selection"] is None
             ):
-                options["test_time_selection"] = "(%s) & (%s)" % (
-                    _opts["selection"],
-                    extra_test_selection,
+                options["test_time_selection"] = _strcat(
+                    _opts["selection"], extra_test_selection
                 )
             else:
-                options["test_time_selection"] = "(%s) & (%s)" % (
-                    _opts["test_time_selection"],
-                    extra_test_selection,
+                options["test_time_selection"] = _strcat(
+                    _opts["test_time_selection"], extra_test_selection
                 )
         return cls(**options)
 

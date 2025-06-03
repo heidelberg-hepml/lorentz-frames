@@ -8,18 +8,18 @@ from tests.constants import (
     LFRAMES_PREDICTOR,
 )
 from tests.helpers import sample_particle, equivectors_builder
+from experiments.tagging.embedding import get_tagging_features
 
-from tensorframes.nn.particletransformer import ParticleTransformer, Block
-from tensorframes.reps.tensorreps import TensorReps
-from tensorframes.reps.tensorreps_transform import TensorRepsTransform
-from tensorframes.utils.transforms import rand_lorentz
-from tensorframes.lframes.lframes import InverseLFrames
-from tensorframes.lframes.equi_lframes import (
+from lloca.nn.particletransformer import ParticleTransformer, Block
+from lloca.reps.tensorreps import TensorReps
+from lloca.reps.tensorreps_transform import TensorRepsTransform
+from lloca.utils.transforms import rand_lorentz
+from lloca.lframes.lframes import InverseLFrames
+from lloca.lframes.equi_lframes import (
     LearnedOrthogonalLFrames,
     LearnedPolarDecompositionLFrames,
 )
-
-from experiments.tagging.embedding import get_tagging_features
+from lloca.nn.attention import LLoCaAttention
 
 
 @pytest.mark.parametrize("LFramesPredictor", LFRAMES_PREDICTOR)
@@ -42,13 +42,14 @@ def test_block_invariance_equivariance(
     predictor = LFramesPredictor(equivectors=equivectors).to(dtype=dtype)
     call_predictor = lambda fm: predictor(fm)
 
-    # define edgeconv
+    # define block
     in_reps = TensorReps("1x1n")
     attn_reps = TensorReps(attn_reps)
     trafo = TensorRepsTransform(TensorReps(in_reps))
     linear_in = torch.nn.Linear(in_reps.dim, attn_reps.dim * num_heads).to(dtype=dtype)
     linear_out = torch.nn.Linear(attn_reps.dim * num_heads, in_reps.dim).to(dtype=dtype)
-    ParT_block = Block(attn_reps=attn_reps, embed_dim=attn_reps.dim * num_heads).to(
+    attention = LLoCaAttention(attn_reps, num_heads)
+    ParT_block = Block(attention=attention, embed_dim=attn_reps.dim * num_heads).to(
         dtype
     )
     ParT_block.eval()  # turn off dropout
@@ -57,7 +58,8 @@ def test_block_invariance_equivariance(
         x = x.unsqueeze(0)
         mask = torch.ones_like(x[..., 0])
         lframes = lframes.reshape(1, *lframes.shape)
-        x = ParT_block(x=x, lframes=lframes, padding_mask=mask)
+        attention.prepare_lframes(lframes)
+        x = ParT_block(x=x, padding_mask=mask)
         x = x.squeeze(0)
         return x
 
@@ -70,7 +72,7 @@ def test_block_invariance_equivariance(
     lframes = call_predictor(fm)
     fm_local = trafo(fm, lframes)
 
-    # edgeconv - global
+    # block - global
     x_local = linear_in(fm_local)
     x_prime_local = block_wrapper(x_local, lframes)
     fm_prime_local = linear_out(x_prime_local)
@@ -78,7 +80,7 @@ def test_block_invariance_equivariance(
     fm_prime_global = trafo(fm_prime_local, InverseLFrames(lframes))
     fm_prime_tr_global = torch.einsum("...ij,...j->...i", random, fm_prime_global)
 
-    # global - edgeconv
+    # global - block
     fm_transformed = torch.einsum("...ij,...j->...i", random, fm)
     lframes_transformed = call_predictor(fm_transformed)
     fm_tr_local = trafo(fm_transformed, lframes_transformed)

@@ -11,7 +11,7 @@ REPS = ["4x0n", "4x1n", "10x0n+5x1n+2x2n"]
 
 LOGM2_MEAN_STD = ((0, 1), (0, 0.1), (-3, 1))
 
-from tensorframes.lframes.equi_lframes import (
+from lloca.lframes.equi_lframes import (
     LearnedOrthogonalLFrames,
     LearnedRestLFrames,
     LearnedPolarDecompositionLFrames,

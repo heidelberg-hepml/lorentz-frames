@@ -1,0 +1,17 @@
+_target_: experiments.eventgen.wrappers.GraphNetCFM
+include_edges: false
+
+net:
+ _target_: lloca.nn.graphnet.GraphNet
+
+ in_channels: null
+ out_channels: null
+ hidden_reps: "16x0n+4x1n"
+ num_edge_attr: null
+ 
+ num_blocks: 2
+ num_layers_mlp1: 2
+ num_layers_mlp2: 0
+
+defaults:
+ - lframesnet: identity

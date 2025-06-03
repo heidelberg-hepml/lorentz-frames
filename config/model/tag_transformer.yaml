@@ -3,15 +3,16 @@ in_channels: null
 out_channels: null
 
 net:
- _target_: tensorframes.nn.transformer.TFTransformer
+ _target_: lloca.nn.transformer.Transformer
  _partial_: true
 
  in_channels: null
  attn_reps: "8x0n+2x1n" # reps can be varied, but number of channels should stay fixed
  out_channels: null
 
- num_blocks: 8
+ num_blocks: 10
  num_heads: 8
+ mlp_factor: 4
 
 defaults:
  - lframesnet: identity

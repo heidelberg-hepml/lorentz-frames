@@ -3,8 +3,8 @@ import pytest
 from tests.constants import TOLERANCES, LOGM2_MEAN_STD
 from tests.helpers import sample_particle
 
-from tensorframes.equivectors.equigraph import EquiGraphNet
-from tensorframes.utils.transforms import rand_lorentz
+from lloca.equivectors.equigraph import EquiGraphNet
+from lloca.utils.transforms import rand_lorentz
 
 
 @pytest.mark.parametrize("batch_dims", [[100]])
@@ -15,8 +15,11 @@ from tensorframes.utils.transforms import rand_lorentz
 @pytest.mark.parametrize("num_blocks,hidden_vectors", [(1, None), (2, 1), (2, 2)])
 @pytest.mark.parametrize("logm2_mean,logm2_std", LOGM2_MEAN_STD)
 @pytest.mark.parametrize("num_scalars,include_edges", [(0, True), (1, False)])
-@pytest.mark.parametrize("operation", ["diff", "add", "single"])
-@pytest.mark.parametrize("nonlinearity", ["softplus", "exp", None])
+@pytest.mark.parametrize(
+    "operation, fm_norm",
+    [("diff", True), ("diff", False), ("add", True), ("add", False), ("single", False)],
+)
+@pytest.mark.parametrize("nonlinearity", ["softplus", "exp", "softmax", None])
 def test_equivariance(
     batch_dims,
     jet_size,
@@ -31,6 +34,7 @@ def test_equivariance(
     num_scalars,
     operation,
     nonlinearity,
+    fm_norm,
 ):
     assert len(batch_dims) == 1
     dtype = torch.float64
@@ -50,6 +54,7 @@ def test_equivariance(
         include_edges=include_edges,
         operation=operation,
         nonlinearity=nonlinearity,
+        fm_norm=fm_norm,
     ).to(dtype=dtype)
 
     fm = sample_particle(

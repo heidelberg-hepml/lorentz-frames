@@ -9,12 +9,13 @@ net:
  in_s_channels: null
  out_mv_channels: 1
  out_s_channels: null
- hidden_mv_channels: 32
+ hidden_mv_channels: 20
  hidden_s_channels: 32
  
  num_blocks: 8
  attention:
   num_heads: 8
+  multi_query: false
  mlp:
   activation: gelu
 

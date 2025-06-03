@@ -2,13 +2,12 @@ import torch
 import pytest
 from tests.constants import TOLERANCES, LOGM2_MEAN_STD, REPS, LFRAMES_PREDICTOR
 from tests.helpers import sample_particle, equivectors_builder
-from torch_geometric.utils import dense_to_sparse
 
-from tensorframes.nn.transformer import TFTransformer
-from tensorframes.reps.tensorreps import TensorReps
-from tensorframes.reps.tensorreps_transform import TensorRepsTransform
-from tensorframes.utils.transforms import rand_lorentz
-from tensorframes.lframes.lframes import InverseLFrames
+from lloca.nn.transformer import Transformer
+from lloca.reps.tensorreps import TensorReps
+from lloca.reps.tensorreps_transform import TensorRepsTransform
+from lloca.utils.transforms import rand_lorentz
+from lloca.lframes.lframes import InverseLFrames
 
 
 @pytest.mark.parametrize("LFramesPredictor", LFRAMES_PREDICTOR)
@@ -26,7 +25,6 @@ def test_transformer_invariance_equivariance(
     logm2_mean,
     attn_reps,
 ):
-    print(logm2_std, logm2_mean)
     dtype = torch.float64
 
     assert len(batch_dims) == 1
@@ -37,7 +35,7 @@ def test_transformer_invariance_equivariance(
     # define edgeconv
     in_reps = TensorReps("1x1n")
     trafo = TensorRepsTransform(TensorReps(in_reps))
-    net = TFTransformer(
+    net = Transformer(
         in_channels=in_reps.dim,
         attn_reps=attn_reps,
         out_channels=in_reps.dim,

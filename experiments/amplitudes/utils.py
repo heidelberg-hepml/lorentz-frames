@@ -4,12 +4,9 @@ import torch
 
 from experiments.amplitudes.constants import get_mass
 
-from tensorframes.utils.lorentz import lorentz_eye
-from tensorframes.utils.transforms import (
-    rand_rotation_uniform,
-    rand_xyrotation,
-)
-from tensorframes.utils.restframe import restframe_boost
+from lloca.utils.lorentz import lorentz_eye
+from lloca.utils.transforms import rand_lorentz
+from lloca.utils.polar_decomposition import restframe_boost
 
 
 def standardize_momentum(momentum, mean=None, std=None):
@@ -91,21 +88,15 @@ def load_file(
         momentum[..., 0] = torch.sqrt((momentum[..., 1:] ** 2).sum(dim=-1) + mass**2)
 
     # prepare momenta
-    if cfg_data.prepare == "centerofmass":
-        # rotation in z-direction to go to center-of-mass frame
+    if cfg_data.prepare == "lorentz":
+        # boost to the center-of-mass ref. frame of incoming particles
+        # then apply general Lorentz trafo L=R*B
         lab_momentum = momentum[..., :2, :].sum(dim=-2)
-        trafo = restframe_boost(-lab_momentum)
-    elif cfg_data.prepare == "lorentz":
-        # add random rotation to existing z-boost -> general Lorentz trafo
-        trafo = rand_rotation_uniform(
-            momentum.shape[:-2], generator=generator, dtype=save_dtype
-        )
-    elif cfg_data.prepare == "ztransform":
-        # add random xyrotation to existing z-boost -> general ztransform
-        trafo = rand_xyrotation(
-            momentum.shape[:-2], generator=generator, dtype=save_dtype
-        )
+        to_com = restframe_boost(lab_momentum)
+        trafo = rand_lorentz(momentum.shape[:-2], generator=generator, dtype=save_dtype)
+        trafo = torch.einsum("...ij,...jk->...ik", trafo, to_com)
     elif cfg_data.prepare == "identity":
+        # keep the data unchanged
         trafo = lorentz_eye(
             momentum.shape[:-2], device=momentum.device, dtype=save_dtype
         )

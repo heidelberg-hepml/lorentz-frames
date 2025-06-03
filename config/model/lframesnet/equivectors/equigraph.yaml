@@ -1,4 +1,4 @@
-_target_: tensorframes.equivectors.equigraph.EquiGraphNet
+_target_: lloca.equivectors.equigraph.EquiGraphNet
 _partial_: true
 
 n_vectors: null
@@ -11,7 +11,7 @@ dropout_prob: null
 
 include_edges: true
 operation: add
-nonlinearity: exp
+nonlinearity: softmax
 aggr: sum
 layer_norm: true
 fm_norm: true
