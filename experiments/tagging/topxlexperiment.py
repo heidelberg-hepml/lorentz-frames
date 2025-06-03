@@ -20,21 +20,22 @@ class TopXLTaggingExperiment(TaggingExperiment):
         super().__init__(*args, **kwargs)
 
         if self.cfg.data.features == "fourmomenta":
+            self.extra_scalars = 0
             self.cfg.data.data_config = (
                 "experiments/tagging/miniweaver/configs_topxl/fourmomenta.yaml"
             )
         elif self.cfg.data.features == "pid":
-            self.cfg.model.in_channels += 6
+            self.extra_scalars = 6
             self.cfg.data.data_config = (
                 "experiments/tagging/miniweaver/configs_topxl/pid.yaml"
             )
         elif self.cfg.data.features == "displacements":
-            self.cfg.model.in_channels += 4
+            self.extra_scalars = 4
             self.cfg.data.data_config = (
                 "experiments/tagging/miniweaver/configs_topxl/displacements.yaml"
             )
         elif self.cfg.data.features == "default":
-            self.cfg.model.in_channels += 10
+            self.extra_scalars = 10
             self.cfg.data.data_config = (
                 "experiments/tagging/miniweaver/configs_topxl/default.yaml"
             )
@@ -42,18 +43,6 @@ class TopXLTaggingExperiment(TaggingExperiment):
             raise ValueError(
                 f"Input feature option {self.cfg.data.features} not implemented"
             )
-
-    def init_physics(self):
-        # decide which entries to use for the lframesnet
-        if "equivectors" in self.cfg.model.lframesnet:
-            self.cfg.model.lframesnet.equivectors.num_scalars = (
-                self.cfg.model.in_channels
-                if self.cfg.data.add_tagging_features_lframesnet
-                else self.cfg.model.in_channels - 7
-            )
-
-        if self.cfg.model.net._target_.rsplit(".", 1)[-1] == "TFGraphNet":
-            self.cfg.model.net.num_edge_attr = 1 if self.cfg.model.include_edges else 0
 
     def init_data(self):
         LOGGER.info("Creating SimpleIterDataset")

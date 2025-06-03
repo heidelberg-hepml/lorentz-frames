@@ -1,7 +1,6 @@
 import math
 import awkward as ak
 import tqdm
-import traceback
 from .tools import _concat
 
 

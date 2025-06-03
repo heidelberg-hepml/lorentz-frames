@@ -1,4 +1,4 @@
-_target_: tensorframes.equivectors.equigraph.EquiGraphNet
+_target_: lloca.equivectors.equigraph.EquiGraphNet
 _partial_: true
 
 n_vectors: null

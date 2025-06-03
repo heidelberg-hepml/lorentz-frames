@@ -20,4 +20,4 @@ plotting:
 defaults:
  - default
  - training: tag_default
- - model: tag_graphnet
+ - model: tag_transformer
