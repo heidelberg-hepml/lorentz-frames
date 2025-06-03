@@ -1,10 +1,10 @@
 import torch
 from torch_geometric.utils import scatter
 
-from tensorframes.utils.hep import get_eta, get_phi, get_pt
-from tensorframes.utils.utils import get_batch_from_ptr
-from tensorframes.utils.lorentz import lorentz_squarednorm
+from experiments.hep import get_eta, get_phi, get_pt
 from experiments.tagging.dataset import EPS
+from lloca.utils.utils import get_batch_from_ptr
+from lloca.utils.lorentz import lorentz_squarednorm
 
 # weaver defaults for tagging features standardization (mean, std)
 TAGGING_FEATURES_PREPROCESSING = [

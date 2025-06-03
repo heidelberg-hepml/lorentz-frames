@@ -4,11 +4,11 @@ from torch.nn import Linear
 from tests.constants import TOLERANCES, LOGM2_MEAN_STD, REPS, LFRAMES_PREDICTOR
 from tests.helpers import sample_particle, equivectors_builder
 
-from tensorframes.reps.tensorreps import TensorReps
-from tensorframes.reps.tensorreps_transform import TensorRepsTransform
-from tensorframes.nn.attention import InvariantParticleAttention
-from tensorframes.lframes.lframes import InverseLFrames
-from tensorframes.utils.transforms import rand_lorentz
+from lloca.reps.tensorreps import TensorReps
+from lloca.reps.tensorreps_transform import TensorRepsTransform
+from lloca.nn.attention import LLoCaAttention
+from lloca.lframes.lframes import InverseLFrames
+from lloca.utils.transforms import rand_lorentz
 
 
 @pytest.mark.parametrize("LFramesPredictor", LFRAMES_PREDICTOR)
@@ -34,7 +34,7 @@ def test_invariance_equivariance(
     in_reps = TensorReps("1x1n")
     hidden_reps = TensorReps(hidden_reps)
     trafo = TensorRepsTransform(TensorReps(in_reps))
-    attention = InvariantParticleAttention(hidden_reps, 1).to(dtype=dtype)
+    attention = LLoCaAttention(hidden_reps, 1).to(dtype=dtype)
     linear_in = Linear(in_reps.dim, 3 * hidden_reps.dim).to(dtype=dtype)
     linear_out = Linear(hidden_reps.dim, in_reps.dim).to(dtype=dtype)
 

@@ -1,4 +1,4 @@
-_target_: tensorframes.lframes.equi_lframes.LearnedOrthogonalLFrames
+_target_: lloca.lframes.equi_lframes.LearnedOrthogonalLFrames
 is_global: false
 random: false
 fix_params: false

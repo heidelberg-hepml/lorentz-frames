@@ -5,9 +5,9 @@ from torch_geometric.nn.aggr import MeanAggregation
 from experiments.amplitudes.utils import standardize_momentum
 from lgatr import embed_vector, extract_scalar
 
-from tensorframes.reps.tensorreps import TensorReps
-from tensorframes.reps.tensorreps_transform import TensorRepsTransform
-from tensorframes.utils.utils import build_edge_index_fully_connected, get_edge_attr
+from lloca.reps.tensorreps import TensorReps
+from lloca.reps.tensorreps_transform import TensorRepsTransform
+from lloca.utils.utils import build_edge_index_fully_connected, get_edge_attr
 
 
 class AmplitudeWrapper(nn.Module):

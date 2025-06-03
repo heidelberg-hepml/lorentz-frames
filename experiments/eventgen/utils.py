@@ -82,13 +82,6 @@ def get_eta(fourmomenta):
     return eta
 
 
-def stable_arctanh(x, eps=None):
-    # implementation of arctanh that avoids log(0) issues
-    if eps is None:
-        eps = torch.finfo(x.dtype).eps
-    return 0.5 * (torch.log((1 + x).clamp(min=eps)) - torch.log((1 - x).clamp(min=eps)))
-
-
 def manual_eta(pz, pabs, eps=None):
     # stable implementation of arctanh(pz/pabs)
     if eps is None:
