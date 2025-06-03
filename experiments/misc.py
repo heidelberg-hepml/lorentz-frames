@@ -2,10 +2,6 @@ from collections.abc import Mapping
 import torch
 
 
-class NaNError(BaseException):
-    """Exception to be raise when the training encounters a NaN in loss or model weights."""
-
-
 def get_device() -> torch.device:
     """Gets CUDA if available, CPU else."""
     return torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
@@ -21,30 +17,3 @@ def flatten_dict(d, parent_key="", sep="."):
         else:
             items.append((new_key, v))
     return dict(items)
-
-
-def frequency_check(step, every_n_steps, skip_initial=False):
-    """Checks whether an action should be performed at a given step and frequency.
-
-    Parameters
-    ----------
-    step : int
-        Step number (one-indexed)
-    every_n_steps : None or int
-        Desired action frequency. None or 0 correspond to never executing the action.
-    skip_initial : bool
-        If True, frequency_check returns False at step 0.
-
-    Returns
-    -------
-    decision : bool
-        Whether the action should be executed.
-    """
-
-    if every_n_steps is None or every_n_steps == 0:
-        return False
-
-    if skip_initial and step == 0:
-        return False
-
-    return step % every_n_steps == 0

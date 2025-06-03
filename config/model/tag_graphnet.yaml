@@ -4,7 +4,7 @@ out_channels: null
 include_edges: false
 
 net:
- _target_: tensorframes.nn.graphnet.TFGraphNet
+ _target_: lloca.nn.graphnet.GraphNet
  _partial_: true
 
  in_channels: null

@@ -2,10 +2,10 @@ import pytest
 import torch
 from tests.constants import TOLERANCES, BATCH_DIMS
 
-from tensorframes.utils.transforms import rand_lorentz
-from tensorframes.lframes.lframes import LFrames
-from tensorframes.reps.tensorreps import TensorReps
-from tensorframes.reps.tensorreps_transform import TensorRepsTransform
+from lloca.utils.transforms import rand_lorentz
+from lloca.lframes.lframes import LFrames
+from lloca.reps.tensorreps import TensorReps
+from lloca.reps.tensorreps_transform import TensorRepsTransform
 
 
 @pytest.mark.parametrize("use_naive", [True, False])

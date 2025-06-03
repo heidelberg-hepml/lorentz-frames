@@ -35,24 +35,25 @@ class JetClassTaggingExperiment(TaggingExperiment):
             "WToQQ",
             "ZToQQ",
         ]
-        self.cfg.model.out_channels = len(self.class_names)
+        self.num_outputs = len(self.class_names)
 
         if self.cfg.data.features == "fourmomenta":
+            self.extra_scalars = 0
             self.cfg.data.data_config = (
                 "experiments/tagging/miniweaver/configs_jetclass/fourmomenta.yaml"
             )
         elif self.cfg.data.features == "pid":
-            self.num_extra_scalars += 6
+            self.extra_scalars = 6
             self.cfg.data.data_config = (
                 "experiments/tagging/miniweaver/configs_jetclass/pid.yaml"
             )
         elif self.cfg.data.features == "displacements":
-            self.num_extra_scalars += 4
+            self.extra_scalars = 4
             self.cfg.data.data_config = (
                 "experiments/tagging/miniweaver/configs_jetclass/displacements.yaml"
             )
         elif self.cfg.data.features == "default":
-            self.num_extra_scalars += 10
+            self.extra_scalars = 10
             self.cfg.data.data_config = (
                 "experiments/tagging/miniweaver/configs_jetclass/default.yaml"
             )

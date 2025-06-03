@@ -3,7 +3,7 @@ in_channels: null
 out_channels: null
 
 net:
- _target_: tensorframes.nn.particletransformer.ParticleTransformer
+ _target_: lloca.nn.particletransformer.ParticleTransformer
  _partial_: true
  input_dim: null
  num_classes: null
