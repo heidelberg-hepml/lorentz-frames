@@ -23,21 +23,25 @@ class TaggingExperiment(BaseExperiment):
         modelname = self.cfg.model.net._target_.rsplit(".", 1)[-1]
 
         # decide which entries to use for the net
+        modelname = self.cfg.model.net._target_.rsplit(".", 1)[-1]
+        self.cfg.model.out_channels = self.num_outputs
         if modelname == "LGATr":
-            self.cfg.model.net.out_mv_channels = self.num_outputs
             self.cfg.model.net.in_s_channels = (
                 0 if self.cfg.model.mean_aggregation else 1
             )
             self.cfg.model.net.in_s_channels += self.extra_scalars
         else:
-            self.cfg.model.out_channels = self.num_outputs
+            # LLoCa models
             self.cfg.model.in_channels = 7 + self.extra_scalars
 
-        if modelname == "GraphNet":
-            self.cfg.model.net.num_edge_attr = 1 if self.cfg.model.include_edges else 0
-
-        if modelname == "ParticleNet":
-            self.cfg.model.net.hidden_reps_list[0] = f"{self.cfg.model.in_channels}x0n"
+            if modelname == "GraphNet":
+                self.cfg.model.net.num_edge_attr = (
+                    1 if self.cfg.model.include_edges else 0
+                )
+            elif modelname == "ParticleNet":
+                self.cfg.model.net.hidden_reps_list[
+                    0
+                ] = f"{self.cfg.model.in_channels}x0n"
 
         # decide which entries to use for the lframesnet
         if "equivectors" in self.cfg.model.lframesnet:

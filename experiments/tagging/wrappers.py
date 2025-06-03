@@ -421,10 +421,11 @@ class LGATrWrapper(nn.Module):
         self,
         net,
         lframesnet,
+        out_channels,
         mean_aggregation=False,
     ):
         super().__init__()
-        self.net = net
+        self.net = net(out_mv_channels=out_channels)
         self.aggregator = MeanAggregation() if mean_aggregation else None
 
         self.lframesnet = lframesnet  # not actually used
