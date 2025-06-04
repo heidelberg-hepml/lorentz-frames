@@ -2,7 +2,7 @@ import pytest
 import hydra
 
 import experiments.logger
-from experiments.amplitudes.experiment import AmplitudeExperiment
+from experiments.eventgen.processes import ttbarExperiment
 from tests.experiments.utils import track_clamps
 
 
@@ -19,17 +19,13 @@ from tests.experiments.utils import track_clamps
 @pytest.mark.parametrize(
     "model_list",
     [
-        ["model=amp_mlp"],
-        ["model=amp_transformer"],
-        ["model=amp_graphnet"],
-        ["model=amp_graphnet", "model.include_edges=false"],
-        ["model=amp_graphnet", "model.include_nodes=false"],
-        ["model=amp_gatr"],
-        ["model=amp_dsi"],
+        ["model=eg_mlp"],
+        ["model=eg_transformer"],
+        ["model=eg_graphnet"],
+        ["model=eg_gatr"],
     ],
 )
-@pytest.mark.parametrize("iterations", [1])
-def test_amplitudes(lframesnet, model_list, iterations):
+def test_amplitudes(lframesnet, model_list, iterations=1):
     experiments.logger.LOGGER.disabled = True  # turn off logging
 
     # create experiment environment
@@ -39,8 +35,8 @@ def test_amplitudes(lframesnet, model_list, iterations):
             f"model/lframesnet={lframesnet}",
             "save=false",
         ]
-        cfg = hydra.compose(config_name="amplitudes", overrides=overrides)
-        exp = AmplitudeExperiment(cfg)
+        cfg = hydra.compose(config_name="ttbar", overrides=overrides)
+        exp = ttbarExperiment(cfg)
     exp._init()
     exp.init_physics()
     try:
@@ -51,14 +47,13 @@ def test_amplitudes(lframesnet, model_list, iterations):
     exp._init_dataloader()
     exp._init_loss()
 
-    for i, data in enumerate(exp.train_loader):
-        mom = data[1]
+    for i, (mom,) in enumerate(exp.train_loader):
         if i == iterations:
             break
 
         # original data
         with track_clamps() as tracking:
-            exp.model(mom)[0]
+            exp._batch_loss(mom)[0]
 
         sorted_calls = sorted(
             tracking,
