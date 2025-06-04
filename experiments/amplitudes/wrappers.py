@@ -8,6 +8,7 @@ from lgatr import embed_vector, extract_scalar
 from lloca.reps.tensorreps import TensorReps
 from lloca.reps.tensorreps_transform import TensorRepsTransform
 from lloca.utils.utils import build_edge_index_fully_connected, get_edge_attr
+from lloca.lframes.nonequi_lframes import IdentityLFrames
 
 
 class AmplitudeWrapper(nn.Module):
@@ -156,9 +157,10 @@ class GraphNetWrapper(AmplitudeWrapper):
 
 
 class LGATrWrapper(AmplitudeWrapper):
-    def __init__(self, net, *args, **kwargs):
+    def __init__(self, net, lframesnet, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.net = net
+        assert isinstance(lframesnet, IdentityLFrames)
 
     def forward(self, fourmomenta_global):
         (
@@ -185,9 +187,10 @@ class LGATrWrapper(AmplitudeWrapper):
 
 
 class DSIWrapper(AmplitudeWrapper):
-    def __init__(self, net, *args, **kwargs):
+    def __init__(self, net, lframesnet, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.net = net
+        assert isinstance(lframesnet, IdentityLFrames)
 
     def forward(self, fourmomenta_global):
         (
