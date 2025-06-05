@@ -24,7 +24,7 @@ torch-cluster>=1.6.3
 einops
 opt_einsum
 torchdiffeq
-lgatr @ git+https://github.com/heidelberg-hepml/lgatr.git@xformers
+lgatr[xformers_attention]>=1.2.0
 
 #weaver packages
 tqdm>=4.41.0

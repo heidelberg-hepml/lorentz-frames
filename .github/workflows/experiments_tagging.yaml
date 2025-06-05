@@ -44,11 +44,11 @@ jobs:
 
     - name: GraphNet + LearnedPolarDecompositionLFrames
       run: |
-        python run.py model/lframesnet=polardec save=false evaluate=false training.iterations=3
+        python run.py model=tag_graphnet model/lframesnet=polardec save=false evaluate=false training.iterations=3
 
     - name: GraphNet + LearnedPolarDecompositionLFrames with edge attributes
       run: |
-        python run.py model/lframesnet=polardec save=false evaluate=false training.iterations=3 model.include_edges=true
+        python run.py model=tag_graphnet model/lframesnet=polardec save=false evaluate=false training.iterations=3 model.include_edges=true
 
     - name: ParticleNet + Identity
       run: |
@@ -68,4 +68,4 @@ jobs:
 
     - name: GATr
       run: |
-        python run.py model=tag_gatr save=false evaluate=false training.iterations=3 model.net.pair_input_dim=0
+        python run.py model=tag_gatr save=false evaluate=false training.iterations=3

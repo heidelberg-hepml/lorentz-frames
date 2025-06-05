@@ -157,10 +157,10 @@ class GraphNetWrapper(AmplitudeWrapper):
 
 
 class LGATrWrapper(AmplitudeWrapper):
-    def __init__(self, net, lframesnet, *args, **kwargs):
+    def __init__(self, net, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.net = net
-        assert isinstance(lframesnet, IdentityLFrames)
+        assert isinstance(self.lframesnet, IdentityLFrames)
 
     def forward(self, fourmomenta_global):
         (
@@ -187,10 +187,10 @@ class LGATrWrapper(AmplitudeWrapper):
 
 
 class DSIWrapper(AmplitudeWrapper):
-    def __init__(self, net, lframesnet, *args, **kwargs):
+    def __init__(self, net, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.net = net
-        assert isinstance(lframesnet, IdentityLFrames)
+        assert isinstance(self.lframesnet, IdentityLFrames)
 
     def forward(self, fourmomenta_global):
         (
