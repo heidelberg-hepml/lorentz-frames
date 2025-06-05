@@ -2,7 +2,7 @@ exp_type: amplitudes
 exp_name: amp_debug
 
 data:
- dataset : zgg_mini
+ dataset : zgggg_mini
  data_path : data/
  subsample : 10000
  permutation_symmetry: true
