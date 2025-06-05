@@ -26,64 +26,46 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
-    - name: TFGraphNet + IdentityLFrames
+    - name: Transformer + IdentityLFrames
+      run: |
+        python run.py model=tag_transformer save=false evaluate=false training.iterations=3
+
+    - name: Transformer + LearnedPolarDecompositionLFrames
+      run: |
+        python run.py model=tag_transformer model/lframesnet=polardec save=false evaluate=false training.iterations=3
+
+    - name: Transformer + LearnedPolarDecompositionLFrames no symmetry breaking
+      run: |
+        python run.py model=tag_transformer model/lframesnet=polardec save=false evaluate=false training.iterations=3 data.add_tagging_features_lframesnet=False data.add_time_reference=false data.beam_reference=null
+
+    - name: GraphNet + IdentityLFrames
       run: |
         python run.py save=false evaluate=false training.iterations=3
 
-    - name: TFGraphNet + LearnedOrthogonalLFrames
-      run: |
-        python run.py model/lframesnet=orthogonal save=false evaluate=false training.iterations=3
-
-    - name: TFGraphNet + OrthogonalLearnedLFrames with edge attributes
-      run: |
-        python run.py model/lframesnet=orthogonal save=false evaluate=false training.iterations=3 model.include_edges=true
-
-    - name: TFGraphNet + LearnedPolarDecompositionLFrames
+    - name: GraphNet + LearnedPolarDecompositionLFrames
       run: |
         python run.py model/lframesnet=polardec save=false evaluate=false training.iterations=3
 
-    - name: TFGraphNet + RandomLFrames
+    - name: GraphNet + LearnedPolarDecompositionLFrames with edge attributes
       run: |
-        python run.py model/lframesnet=randomxyrotation save=false evaluate=false training.iterations=3
+        python run.py model/lframesnet=polardec save=false evaluate=false training.iterations=3 model.include_edges=true
 
-    - name: TFTransformer + LearnedOrthogonalLFrames
-      run: |
-        python run.py model=tag_transformer model/lframesnet=orthogonal save=false evaluate=false training.iterations=3
-
-    - name: Run BaseParticleNet + IdentityLFrames
-      run: |
-        python run.py model=tag_baseparticlenet-lite save=false evaluate=false training.iterations=3
-
-    - name: Run TFGraphNet + OrthogonalLearnedLFrames symmetry breaking without scalar
-      run: |
-        python run.py model/lframesnet=orthogonal save=false evaluate=false training.iterations=3 data.add_tagging_features_lframesnet=False
-
-    - name: Run TFGraphNet + OrthogonalLearnedLFrames symmetry breaking without time reference
-      run: |
-        python run.py model/lframesnet=orthogonal save=false evaluate=false training.iterations=3 data.add_time_reference=False
-
-    - name: Run TFGraphNet + OrthogonalLearnedLFrames symmetry breaking with timelike reference
-      run: |
-        python run.py model/lframesnet=orthogonal save=false evaluate=false training.iterations=3 data.beam_reference=timelike
-
-    - name: Run Particlenet + Identity
+    - name: ParticleNet + Identity
       run: |
         python run.py model=tag_particlenet-lite save=false evaluate=false training.iterations=3
     
-    - name: Run Particlenet + OrthogonalLearnedLFrames
+    - name: ParticleNet + LearnedPolarDecompositionLFrames
       run: |
-        python run.py model=tag_particlenet-lite model/lframesnet=orthogonal save=false evaluate=false training.iterations=3
+        python run.py model=tag_particlenet-lite model/lframesnet=polardec save=false evaluate=false training.iterations=3
 
-    - name: Baseline ParT
+    - name: ParT + LearnedPolarDecompositionLFrames
       run: |
-        python run.py model=tag_baseParT save=false evaluate=false training.iterations=3
-    - name: Baseline ParT without pairwise features
-      run: |
-        python run.py model=tag_baseParT save=false evaluate=false training.iterations=3 model.net.pair_input_dim=0
+        python run.py model=tag_ParT model/lframesnet=polardec save=false evaluate=false training.iterations=3
 
-    - name: Tensorframes ParT
+    - name: ParT without pairwise features + LearnedPolarDecompositionLFrames
       run: |
-        python run.py model=tag_ParT save=false evaluate=false training.iterations=3
-    - name: Tensorframes ParT without pairwise features
+        python run.py model=tag_ParT model/lframesnet=polardec save=false evaluate=false training.iterations=3 model.net.pair_input_dim=0
+
+    - name: GATr
       run: |
-        python run.py model=tag_ParT save=false evaluate=false training.iterations=3 model.net.pair_input_dim=0
+        python run.py model=tag_gatr save=false evaluate=false training.iterations=3 model.net.pair_input_dim=0
