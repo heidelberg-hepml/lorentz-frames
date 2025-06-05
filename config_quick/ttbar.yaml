@@ -3,12 +3,8 @@ exp_name: ttbar_debug
 
 data:
  n_jets: 0
- data_path_0j: data/ttbar_0j.npy
- data_path_1j: data/ttbar_1j.npy
- data_path_2j: data/ttbar_2j.npy
- data_path_3j: data/ttbar_3j.npy
- data_path_4j: data/ttbar_4j.npy
- subsample: 100000
+ data_path_0j: data/ttbar_0j_mini.npy
+ subsample: null
  train_test_val: [.5, .4, .1]
  base_type: 2
  use_delta_r_min: true
