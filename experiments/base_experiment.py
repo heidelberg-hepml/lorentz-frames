@@ -627,7 +627,7 @@ class BaseExperiment:
             self.cfg.training.clip_grad_norm
             if self.cfg.training.clip_grad_norm is not None
             else float("inf"),
-            error_if_nonfinite=False,
+            error_if_nonfinite=True,
         ).detach()
         # rescale gradients of the lframesnet only
         if self.cfg.training.clip_grad_norm_lframesnet is not None:
