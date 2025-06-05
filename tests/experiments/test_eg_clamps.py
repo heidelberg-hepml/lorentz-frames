@@ -46,8 +46,13 @@ def test_amplitudes(lframesnet, model_list, iterations=1):
     exp.init_data()
     exp._init_dataloader()
     exp._init_loss()
+    exp.device = "cpu"
+    exp.model.to("cpu")
 
-    for i, (mom,) in enumerate(exp.train_loader):
+    for (
+        i,
+        mom,
+    ) in enumerate(exp.train_loader):
         if i == iterations:
             break
 

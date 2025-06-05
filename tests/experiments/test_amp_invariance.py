@@ -45,6 +45,7 @@ def test_amplitudes(
     exp._init_dataloader()
     exp._init_loss()
     exp.model.eval()
+    exp.model.to("cpu")
 
     def cycle(iterable):
         while True:
