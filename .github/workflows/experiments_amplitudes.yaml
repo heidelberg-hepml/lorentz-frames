@@ -30,45 +30,25 @@ jobs:
       run: |
         python run.py -cn amplitudes model=amp_mlp save=false evaluate=false training.iterations=3
 
-    - name: TFTransformer + IdentityLFrames
+    - name: Transformer + IdentityLFrames
       run: |
         python run.py -cn amplitudes model=amp_transformer save=false evaluate=false training.iterations=3
 
-    - name: TFTransformer + LearnedOrthogonalLFrames
+    - name: Transformer + LearnedPolarDecompositionLFames
       run: |
-        python run.py -cn amplitudes model=amp_transformer model/lframesnet=orthogonal save=false evaluate=false training.iterations=3
+        python run.py -cn amplitudes model=amp_transformer model/lframesnet=polardec save=false evaluate=false training.iterations=3
 
-    - name: TFTransformer + RandomLFrames
+    - name: Transformer + RandomLFrames
       run: |
         python run.py -cn amplitudes model=amp_transformer model/lframesnet=randomlorentz save=false evaluate=false training.iterations=3
 
-    - name: TFTransformer + local RandomLFrames
+    - name: GraphNet (nodes+edges) + LearnedPolarDecompositionLFames
       run: |
-        python run.py -cn amplitudes model=amp_transformer model/lframesnet=randomlorentz model.lframesnet.is_global=false save=false evaluate=false training.iterations=3
+        python run.py -cn amplitudes model=amp_graphnet model/lframesnet=polardec save=false evaluate=false training.iterations=3
 
-    - name: TFTransformer + RandomLFrames (rotation)
+    - name: GraphNet (nodes only) + LearnedPolarDecompositionLFames
       run: |
-        python run.py -cn amplitudes model=amp_transformer model/lframesnet=randomrotation save=false evaluate=false training.iterations=3
-
-    - name: TFTransformer + RandomLFrames (xyrotation)
-      run: |
-        python run.py -cn amplitudes model=amp_transformer model/lframesnet=randomxyrotation save=false evaluate=false training.iterations=3
-
-    - name: TFTransformer + RandomLFrames (ztransform)
-      run: |
-        python run.py -cn amplitudes model=amp_transformer model/lframesnet=randomztransform save=false evaluate=false training.iterations=3
-
-    - name: TFGraphNet (nodes+edges) + IdentityLFrames
-      run: |
-        python run.py -cn amplitudes model=amp_graphnet save=false evaluate=false training.iterations=3
-
-    - name: TFGraphNet (nodes only) + IdentityLFrames
-      run: |
-        python run.py -cn amplitudes model=amp_graphnet save=false evaluate=false training.iterations=3 model.include_edges=false
-
-    - name: TFGraphNet (edges only) + IdentityLFrames
-      run: |
-        python run.py -cn amplitudes model=amp_graphnet save=false evaluate=false training.iterations=3 model.include_nodes=false
+        python run.py -cn amplitudes model=amp_graphnet model/lframesnet=polardec save=false evaluate=false training.iterations=3 model.include_nodes=false
 
     - name: GATr + IdentityLFrames
       run: |

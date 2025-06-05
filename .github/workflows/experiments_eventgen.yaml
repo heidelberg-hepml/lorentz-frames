@@ -1,0 +1,55 @@
+name: Amplitudes trial experiments
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:  # Allows manual triggering
+
+jobs:
+  test:
+    if: github.event.label.name == 'ready for review'
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: MLP + IdentityLFrames
+      run: |
+        python run.py -cn ttbar model=eg_mlp save=false evaluate=false training.iterations=3
+
+    - name: MLP + LearnedPolarDecompositionLFrames
+      run: |
+        python run.py -cn ttbar model=eg_mlp model/lframesnet=polardec save=false evaluate=false training.iterations=3
+
+    - name: Transformer + IdentityLFrames
+      run: |
+        python run.py -cn ttbar model=eg_transformer save=false evaluate=false training.iterations=3
+
+    - name: Transformer + LearnedPolarDecompositionLFrames
+      run: |
+        python run.py -cn ttbar model=eg_transformer model/lframesnet=polardec save=false evaluate=false training.iterations=3
+
+    - name: GraphNet + IdentityLFrames
+      run: |
+        python run.py -cn ttbar model=eg_graphnet save=false evaluate=false training.iterations=3
+
+    - name: GraphNet + LearnedPolarDecompositionLFrames
+      run: |
+        python run.py -cn ttbar model=eg_graphnet model/lframesnet=polardec save=false evaluate=false training.iterations=3
+
+    - name: GATr
+      run: |
+        python run.py -cn ttbar model=eg_gatr save=false evaluate=false training.iterations=3

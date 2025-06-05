@@ -3,7 +3,7 @@ exp_name: ttbar_debug
 
 data:
  n_jets: 0
- data_path: /remote/gpu06/spinner/lorentz-gatr/data
+ data_path: data
  data_path_0j: ${data.data_path}/ttbar_0j.npy
  data_path_1j: ${data.data_path}/ttbar_1j.npy
  data_path_2j: ${data.data_path}/ttbar_2j.npy
