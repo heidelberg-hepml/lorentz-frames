@@ -13,15 +13,14 @@ from experiments.tagging.experiment import TopTaggingExperiment
     [
         ["model=tag_ParT"],
         ["model=tag_particlenet"],
-        # ["model=tag_particlenet-lite"],
+        ["model=tag_particlenet-lite"],
         ["model=tag_transformer"],
         ["model=tag_graphnet"],
-        # ["model=tag_graphnet", "model.include_edges=true"],
+        ["model=tag_graphnet", "model.include_edges=true"],
         ["model=tag_gatr"],
     ],
 )
-@pytest.mark.parametrize("jet_size", [50])
-def test_tagging(lframesnet, model_list, jet_size):
+def test_tagging(lframesnet, model_list, jet_size=50):
     experiments.logger.LOGGER.disabled = True  # turn off logging
 
     # create experiment environment

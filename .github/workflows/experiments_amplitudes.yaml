@@ -42,13 +42,13 @@ jobs:
       run: |
         python run.py -cn amplitudes model=amp_transformer model/lframesnet=randomlorentz save=false evaluate=false training.iterations=3
 
-    - name: GraphNet (nodes+edges) + IdentityLFrames
+    - name: GraphNet (nodes+edges) + LearnedPolarDecompositionLFames
       run: |
-        python run.py -cn amplitudes model=amp_graphnet save=false evaluate=false training.iterations=3
+        python run.py -cn amplitudes model=amp_graphnet model/lframesnet=polardec save=false evaluate=false training.iterations=3
 
-    - name: GraphNet (nodes only) + IdentityLFrames
+    - name: GraphNet (nodes only) + LearnedPolarDecompositionLFames
       run: |
-        python run.py -cn amplitudes model=amp_graphnet save=false evaluate=false training.iterations=3 model.include_nodes=false
+        python run.py -cn amplitudes model=amp_graphnet model/lframesnet=polardec save=false evaluate=false training.iterations=3 model.include_nodes=false
 
     - name: GATr + IdentityLFrames
       run: |

@@ -27,8 +27,9 @@ from tests.experiments.utils import track_clamps
         ["model=tag_gatr"],
     ],
 )
-@pytest.mark.parametrize("iterations", [1])
-def test_tagging(lframesnet, model_list, iterations):
+def test_tagging(lframesnet, model_list, iterations=1):
+    # Note: ParticleTransformer clamps log(kT) very often,
+    # this happens already in non-equivariant models
     experiments.logger.LOGGER.disabled = True  # turn off logging
 
     # create experiment environment

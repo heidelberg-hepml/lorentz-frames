@@ -10,11 +10,11 @@ from experiments.amplitudes.experiment import AmplitudeExperiment
 @pytest.mark.parametrize(
     "model_list",
     [
-        # ["model=amp_mlp"],
+        ["model=amp_mlp"],
         ["model=amp_transformer"],
         ["model=amp_graphnet"],
-        # ["model=amp_graphnet", "model.include_edges=false"],
-        # ["model=amp_graphnet", "model.include_nodes=false"],
+        ["model=amp_graphnet", "model.include_edges=false"],
+        ["model=amp_graphnet", "model.include_nodes=false"],
         ["model=amp_gatr"],
         ["model=amp_dsi"],
     ],
@@ -29,6 +29,7 @@ def test_amplitudes(lframesnet, model_list):
             f"model/lframesnet={lframesnet}",
             "save=false",
             "training.batchsize=1",
+            "data.dataset=zgggg_mini",
         ]
         cfg = hydra.compose(config_name="amplitudes", overrides=overrides)
         exp = AmplitudeExperiment(cfg)

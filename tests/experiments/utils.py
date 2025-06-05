@@ -16,8 +16,6 @@ def track_clamps():
         for frame in stack[2:]:
             if "torch" not in frame.filename:
                 diff = (before != after).sum().item()
-                # if diff==0:
-                #    return None
                 return {
                     "filename": frame.filename,
                     "line": frame.lineno,

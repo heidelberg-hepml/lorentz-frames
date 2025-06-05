@@ -32,6 +32,7 @@ def test_amplitudes(lframesnet, model_list, iterations=1):
             f"model/lframesnet={lframesnet}",
             "save=false",
             "training.batchsize=1",
+            "data.data_path_0j=data/ttbar_0j_mini.npy",
         ]
         cfg = hydra.compose(config_name="ttbar", overrides=overrides)
         exp = ttbarExperiment(cfg)

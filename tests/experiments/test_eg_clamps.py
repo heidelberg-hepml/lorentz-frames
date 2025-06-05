@@ -26,6 +26,8 @@ from tests.experiments.utils import track_clamps
     ],
 )
 def test_amplitudes(lframesnet, model_list, iterations=1):
+    # Note: Clamps happen for non-identity models, because there
+    # the transformed events do not satisfy the pT cut (which leads to clamps).
     experiments.logger.LOGGER.disabled = True  # turn off logging
 
     # create experiment environment
@@ -49,7 +51,7 @@ def test_amplitudes(lframesnet, model_list, iterations=1):
     exp.device = "cpu"
     exp.model.to("cpu")
 
-    for i, mom, in enumerate(exp.train_loader):
+    for i, mom in enumerate(exp.train_loader):
         if i == iterations:
             break
 
