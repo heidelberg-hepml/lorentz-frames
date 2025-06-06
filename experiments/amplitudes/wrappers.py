@@ -16,11 +16,11 @@ class AmplitudeWrapper(nn.Module):
         self,
         particle_type,
         lframesnet,
-        use_float64=False,
+        network_float64=False,
     ):
         super().__init__()
         self.lframesnet = lframesnet
-        self.input_dtype = torch.float64 if use_float64 else torch.float32
+        self.network_dtype = torch.float64 if network_float64 else torch.float32
 
         self.register_buffer("particle_type", torch.tensor(particle_type))
         self.register_buffer("mom_mean", torch.tensor(0.0))
@@ -33,7 +33,7 @@ class AmplitudeWrapper(nn.Module):
 
     def forward(self, fourmomenta):
         particle_type = self.encode_particle_type(fourmomenta.shape[0]).to(
-            dtype=self.input_dtype, device=fourmomenta.device
+            dtype=self.network_dtype, device=fourmomenta.device
         )
         lframes, tracker = self.lframesnet(
             fourmomenta, scalars=particle_type, ptr=None, return_tracker=True
@@ -45,8 +45,8 @@ class AmplitudeWrapper(nn.Module):
         )
 
         # move everything to less safe dtype
-        features_local = features_local.to(self.input_dtype)
-        lframes.to(self.input_dtype)
+        features_local = features_local.to(self.network_dtype)
+        lframes.to(self.network_dtype)
         return (
             features_local,
             fourmomenta_local,
@@ -136,7 +136,9 @@ class GraphNetWrapper(AmplitudeWrapper):
         lframes = lframes.reshape(-1, 4, 4)
         if self.include_edges:
             fourmomenta = fourmomenta_local.reshape(-1, 4)
-            edge_attr = self.get_edge_attr(fourmomenta, edge_index).to(self.input_dtype)
+            edge_attr = self.get_edge_attr(fourmomenta, edge_index).to(
+                self.network_dtype
+            )
         else:
             edge_attr = None
 
@@ -173,7 +175,7 @@ class LGATrWrapper(AmplitudeWrapper):
 
         # prepare multivectors and scalars
         multivectors = embed_vector(
-            fourmomenta_local.unsqueeze(-2).to(self.input_dtype)
+            fourmomenta_local.unsqueeze(-2).to(self.network_dtype)
         )
         scalars = particle_type
 
@@ -201,5 +203,5 @@ class DSIWrapper(AmplitudeWrapper):
             tracker,
         ) = super().forward(fourmomenta_global)
 
-        amp = self.net(fourmomenta_local.to(self.input_dtype))
+        amp = self.net(fourmomenta_local.to(self.network_dtype))
         return amp, tracker, lframes

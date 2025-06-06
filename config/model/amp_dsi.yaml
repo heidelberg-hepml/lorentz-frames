@@ -1,6 +1,6 @@
 _target_: experiments.amplitudes.wrappers.DSIWrapper
 particle_type: null
-use_float64: null
+network_float64: null
 
 net:
  _target_: experiments.baselines.dsi.DSI

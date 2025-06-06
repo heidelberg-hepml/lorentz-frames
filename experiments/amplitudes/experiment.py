@@ -28,7 +28,7 @@ class AmplitudeExperiment(BaseExperiment):
         if not self.cfg.data.permutation_symmetry:
             particle_type = list(range(len(particle_type)))
         num_particle_types = max(particle_type) + 1
-        self.cfg.model.use_float64 = self.cfg.use_float64
+        self.cfg.model.network_float64 = self.cfg.use_float64
 
         modelname = self.cfg.model.net._target_.rsplit(".", 1)[-1]
         learnable_lframesnet = "equivectors" in self.cfg.model.lframesnet
@@ -71,7 +71,8 @@ class AmplitudeExperiment(BaseExperiment):
             data_path,
             self.cfg.data,
             self.dataset,
-            input_dtype=self.dtype,
+            network_float64=self.cfg.use_float64,
+            momentum_float64=self.cfg.data.momentum_float64,
         )
         LOGGER.info(f"Loaded events of shape {self.momentum.shape} from {data_path}")
 
