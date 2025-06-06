@@ -261,7 +261,7 @@ class LearnedRestLFrames(LearnedLFrames):
 
 class LearnedOrthogonal3DLFrames(LearnedLFrames):
     """Local frames under rotations for SO(3)-equivariant architectures.
-    This is a special case of LearnedOrthogonalLFrames
+    This is a special case of LearnedPolarDecompositionLFrames
     where the first vector is trivial (1,0,0,0)."""
 
     def __init__(
@@ -303,7 +303,7 @@ class LearnedOrthogonal3DLFrames(LearnedLFrames):
             fourmomenta.shape[:-1], device=fourmomenta.device, dtype=fourmomenta.dtype
         )[
             ..., 0
-        ]  # only difference compared to LearnedRestLFrames
+        ]  # only difference compared to LearnedPolarDecompositionLFrames
         references = [references[..., i, :] for i in range(self.n_vectors)]
 
         trafo, reg_collinear = polar_decomposition(
@@ -312,6 +312,80 @@ class LearnedOrthogonal3DLFrames(LearnedLFrames):
             **self.ortho_kwargs,
             return_reg=True,
         )
+        tracker = {"reg_collinear": reg_collinear}
+        lframes = LFrames(trafo, is_global=self.is_global)
+        return (lframes, tracker) if return_tracker else lframes
+
+
+class LearnedOrthogonal2DLFrames(LearnedLFrames):
+    """Local frames for SO(2)-equivariant architectures
+    (equivariant under rotations around the beam axis).
+    This is a special case of LearnedPolarDecompositionLFrames
+    where the firsts two vectors are trivial (1,0,0,0) and (0,0,0,1)."""
+
+    def __init__(
+        self,
+        *args,
+        **kwargs,
+    ):
+        self.n_vectors = 1
+        super().__init__(
+            *args,
+            n_vectors=self.n_vectors,
+            **kwargs,
+        )
+
+    def forward(self, fourmomenta, scalars=None, ptr=None, return_tracker=False):
+        """
+        Parameters
+        ----------
+        fourmomenta: torch.Tensor
+            Tensor of shape (..., 4) containing the four-momenta
+        scalars: torch.Tensor or None
+            Optional tensor of shape (..., n_scalars) containing additional scalar features
+        ptr: torch.Tensor or None
+            Pointer for sparse tensors, or None for dense tensors
+        return_tracker: bool
+            If True, return a tracker dictionary with regularization information
+
+        Returns
+        -------
+        LFrames
+            Local frames constructed from the polar decomposition of the four-momenta
+        tracker: dict (optional)
+            Dictionary containing regularization information, if return_tracker is True
+        """
+        self.init_weights_or_not()
+        references = self.equivectors(fourmomenta, scalars=scalars, ptr=ptr)
+        extra_references = self.globalize_vecs_or_not(references, ptr)
+        fourmomenta = lorentz_eye(
+            fourmomenta.shape[:-1], device=fourmomenta.device, dtype=fourmomenta.dtype
+        )[
+            ..., 0
+        ]  # difference 1 compared LearnedPolarDecompositionLFrames
+        references = [
+            lorentz_eye(
+                fourmomenta.shape[:-1],
+                device=fourmomenta.device,
+                dtype=fourmomenta.dtype,
+            )[..., 3]
+        ]  # difference 2 compared LearnedPolarDecompositionLFrames
+        references.append(extra_references[..., 0, :])
+
+        trafo, reg_collinear = polar_decomposition(
+            fourmomenta,
+            references,
+            **self.ortho_kwargs,
+            return_reg=True,
+        )
+
+        # permute trafo components such that it becomes almost-unit-matrix
+        # not sure if this is necessary; we should discuss this
+        old_trafo = trafo.clone()
+        trafo[..., 3, :] = old_trafo[..., 1, :]
+        trafo[..., 1, :] = old_trafo[..., 2, :]
+        trafo[..., 2, :] = old_trafo[..., 3, :]
+
         tracker = {"reg_collinear": reg_collinear}
         lframes = LFrames(trafo, is_global=self.is_global)
         return (lframes, tracker) if return_tracker else lframes
