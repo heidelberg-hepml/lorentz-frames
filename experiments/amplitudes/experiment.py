@@ -260,4 +260,9 @@ class AmplitudeExperiment(BaseExperiment):
         return amplitude_model, amplitude, tracker, lframes
 
     def _init_metrics(self):
-        return {"reg_collinear": [], "reg_coplanar": [], "reg_lightlike": []}
+        return {
+            "reg_collinear": [],
+            "reg_coplanar": [],
+            "reg_lightlike": [],
+            "reg_gammamax": [],
+        }

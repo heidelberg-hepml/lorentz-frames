@@ -68,6 +68,15 @@ def plot_mixer(cfg, plot_path, title, plot_dict):
                 labels=["collinear", "coplanar", "lightlike"],
             )
 
+            for key in ["reg_gammamax"]:
+                plot_metric(
+                    out,
+                    [
+                        plot_dict[key],
+                    ],
+                    key,
+                )
+
     if cfg.plotting.histograms and cfg.evaluate:
         out = f"{plot_path}/histograms.pdf"
         with PdfPages(out) as file:
