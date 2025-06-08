@@ -38,12 +38,6 @@ def stay_positive(x):
     return x
 
 
-def unpack_last(x):
-    # unpack along the last dimension
-    n = len(x.shape)
-    return torch.permute(x, (n - 1, *list(range(n - 1))))
-
-
 def fourmomenta_to_jetmomenta(fourmomenta):
     pt = get_pt(fourmomenta)
     phi = get_phi(fourmomenta)
@@ -56,7 +50,7 @@ def fourmomenta_to_jetmomenta(fourmomenta):
 
 
 def jetmomenta_to_fourmomenta(jetmomenta):
-    pt, phi, eta, mass = unpack_last(jetmomenta)
+    pt, phi, eta, mass = torch.unbind(jetmomenta, dim=-1)
 
     px = pt * torch.cos(phi)
     py = pt * torch.sin(phi)
