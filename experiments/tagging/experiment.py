@@ -19,12 +19,6 @@ class TaggingExperiment(BaseExperiment):
     Base class for jet tagging experiments, focusing on binary classification
     """
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # two keys that depend on the experiment type
-        self.num_extra_scalars = 0
-        self.cfg.model.out_channels
-
     def init_physics(self):
         # decide which entries to use for the net
         modelname = self.cfg.model.net._target_.rsplit(".", 1)[-1]
@@ -40,7 +34,7 @@ class TaggingExperiment(BaseExperiment):
             self.cfg.model.net.num_scalars = self.extra_scalars
         elif modelname == "CGENN":
             # CGENN cant handle zero scalar inputs -> give 1 input with zeros
-            self.cfg.model.net.in_features_h = 1 + self.num_extra_scalars
+            self.cfg.model.net.in_features_h = 1 + self.extra_scalars
         else:
             # LLoCa models
             self.cfg.model.in_channels = 7 + self.extra_scalars
@@ -56,7 +50,7 @@ class TaggingExperiment(BaseExperiment):
 
         # decide which entries to use for the lframesnet
         if "equivectors" in self.cfg.model.lframesnet:
-            self.cfg.model.lframesnet.equivectors.num_scalars = self.num_extra_scalars
+            self.cfg.model.lframesnet.equivectors.num_scalars = self.extra_scalars
             self.cfg.model.lframesnet.equivectors.num_scalars += (
                 7 if self.cfg.data.add_tagging_features_lframesnet else 0
             )
