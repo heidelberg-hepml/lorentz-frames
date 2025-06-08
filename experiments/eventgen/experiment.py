@@ -117,10 +117,8 @@ class EventGenerationExperiment(BaseExperiment):
         # initialize cfm (might require data)
         self.model.init_distribution()
         self.model.init_coordinates()
-        fit_data = self.events_raw / self.units
-        self.model.coordinates.init_fit(fit_data)
-        if hasattr(self.model, "distribution"):
-            self.model.distribution.coordinates.init_fit(fit_data)
+        self.model.coordinates.init_fit(self.events_prepd)
+        self.model.distribution.coordinates.init_fit(self.events_prepd)
         self.model.init_geometry()
 
     def _init_dataloader(self):
