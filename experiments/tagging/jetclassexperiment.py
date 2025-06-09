@@ -210,7 +210,7 @@ class JetClassTaggingExperiment(TaggingExperiment):
 
             predict_score = labels_predict_class[:, 1] / (
                 labels_predict_class[:, 0] + labels_predict_class[:, 1]
-            )
+            ).clamp(min=1e-10)
 
             fpr, tpr, _ = roc_curve(labels_true_class == i, predict_score)
 
