@@ -379,13 +379,6 @@ class LearnedOrthogonal2DLFrames(LearnedLFrames):
             return_reg=True,
         )
 
-        # permute trafo components such that it becomes almost-unit-matrix
-        # not sure if this is necessary; we should discuss this
-        old_trafo = trafo.clone()
-        trafo[..., 3, :] = old_trafo[..., 1, :]
-        trafo[..., 1, :] = old_trafo[..., 2, :]
-        trafo[..., 2, :] = old_trafo[..., 3, :]
-
         tracker = {"reg_collinear": reg_collinear}
         lframes = LFrames(trafo, is_global=self.is_global)
         return (lframes, tracker) if return_tracker else lframes
