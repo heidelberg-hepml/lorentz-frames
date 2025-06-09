@@ -7,8 +7,7 @@ from torch import nn
 EPS1 = 1e-5
 
 # exp(x) -> exp(x.clamp(max=CUTOFF))
-CUTOFF = 20
-CUTOFF_eta = 5  # ttbar dataset has -5 < eta < 5
+CUTOFF = 10
 
 
 class GaussianFourierProjection(nn.Module):
