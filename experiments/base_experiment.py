@@ -505,8 +505,8 @@ class BaseExperiment:
             t0 = time.time()
             self._step(data, step)
             train_time += time.time() - t0
-            if self.cfg.checkpoint_every_n_steps is not None:
-                if (step + 1) % self.cfg.checkpoint_every_n_steps == 0:
+            if self.cfg.training.checkpoint_every_n_steps is not None:
+                if (step + 1) % self.cfg.training.checkpoint_every_n_steps == 0:
                     # save model every 100k iterations without evaluating as checkpoints
                     self._save_model(f"model_run{self.cfg.run_idx}_it{step}.pt")
                     dt = time.time() - self.training_start_time
