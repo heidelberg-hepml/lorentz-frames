@@ -32,12 +32,6 @@ def get_eps(ref, eps=None):
     return eps
 
 
-def stay_positive(x):
-    # flip sign for entries with x<0 such that always x>0
-    x = torch.where(x > 0, x, -x)
-    return x
-
-
 def fourmomenta_to_jetmomenta(fourmomenta):
     pt = get_pt(fourmomenta)
     phi = get_phi(fourmomenta)

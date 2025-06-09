@@ -7,7 +7,6 @@ from experiments.eventgen.utils import (
     CUTOFF_eta,
     manual_eta,
     get_eps,
-    stay_positive,
 )
 
 
@@ -115,13 +114,13 @@ class EPPP_to_PPPM2(BaseTransform):
         E, px, py, pz = torch.unbind(eppp, dim=-1)
 
         m2 = E**2 - (px**2 + py**2 + pz**2)
-        m2 = stay_positive(m2)
+        m2 = m2.abs()
         return torch.stack((px, py, pz, m2), dim=-1)
 
     def _inverse(self, pppm2):
         px, py, pz, m2 = torch.unbind(pppm2, dim=-1)
 
-        m2 = stay_positive(m2)
+        m2 = m2.abs()
         E = torch.sqrt(m2 + (px**2 + py**2 + pz**2))
         return torch.stack((E, px, py, pz), dim=-1)
 
@@ -298,14 +297,14 @@ class PtPhiEtaE_to_PtPhiEtaM2(BaseTransform):
 
         p_abs = pt * torch.cosh(eta)
         m2 = E**2 - p_abs**2
-        m2 = stay_positive(m2)
+        m2 = m2.abs()
         return torch.stack((pt, phi, eta, m2), dim=-1)
 
     def _inverse(self, ptphietam2):
         eps = get_eps(ptphietam2)
         pt, phi, eta, m2 = torch.unbind(ptphietam2, dim=-1)
 
-        m2 = stay_positive(m2)
+        m2 = m2.abs()
         eta = eta.clamp(min=-CUTOFF_eta, max=CUTOFF_eta)
         p_abs = pt * torch.cosh(eta)
         E = torch.sqrt(torch.clamp(m2 + p_abs**2, min=eps))
@@ -351,7 +350,7 @@ class M2_to_LogM2(BaseTransform):
     def _forward(self, xm2):
         eps = get_eps(xm2)
         x1, x2, x3, m2 = torch.unbind(xm2, dim=-1)
-        m2 = stay_positive(m2)
+        m2 = m2.abs()
         logm2 = torch.log(m2 + EPS1 + eps)
         return torch.stack((x1, x2, x3, logm2), dim=-1)
 
