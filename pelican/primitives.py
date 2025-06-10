@@ -94,9 +94,9 @@ def get_indexing(edge_index, batch):
     diag_idx = batch[edge_index[0][is_diag]]
 
     N = int(edge_index.max()) + 1
-    eid = torch.arange(edge_index.size(1))
+    eid = torch.arange(edge_index.size(1), device=batch.device)
     lin_id = edge_index[0] * N + edge_index[1]
-    inv = torch.full((N * N,), -1)
+    inv = torch.full((N * N,), -1, device=batch.device)
     inv.scatter_(0, lin_id, eid)
     perm_transpose = inv[edge_index[1] * N + edge_index[0]]
     return edge_batch, is_diag, diag_idx, perm_transpose
