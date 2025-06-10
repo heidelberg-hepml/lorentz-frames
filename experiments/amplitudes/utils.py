@@ -43,8 +43,8 @@ def load_file(
     amp_mean=None,
     amp_std=None,
     mom_std=None,
-    input_dtype=torch.float32,
-    save_dtype=torch.float64,
+    network_float64=False,
+    momentum_float64=True,
     generator=None,
 ):
     """
@@ -62,16 +62,19 @@ def load_file(
         Standard deviation of the amplitude for standardization.
     mom_std : float
         Standard deviation of the momentum for standardization.
-    input_dtype : torch.dtype
-        Data type for neural network inputs, usually float32.
-    save_dtype : torch.dtype
-        Safer data type for preprocessing, usually float64.
+    network_float64 : bool
+        Should network inputs have dtype float64? Defaults to False.
+    momentum_float64 : bool
+        Should momenta be stored in float64? Defaults to True.
     generator : torch.Generator
         Random generator for reproducibility. Used for AmplitudeXL loading.
     """
+    network_dtype = torch.float64 if network_float64 else torch.float32
+    momentum_dtype = torch.float64 if momentum_float64 else torch.float32
+
     assert os.path.exists(data_path)
     data_raw = load(data_path)
-    data_raw = torch.tensor(data_raw, dtype=save_dtype)
+    data_raw = torch.tensor(data_raw, dtype=momentum_dtype)
 
     if cfg_data.subsample is not None:
         assert cfg_data.subsample <= data_raw.shape[0]
@@ -84,7 +87,7 @@ def load_file(
     # mass regulator
     if cfg_data.mass_reg is not None:
         mass = get_mass(dataset, cfg_data.mass_reg)
-        mass = torch.tensor(mass, dtype=save_dtype).unsqueeze(0)
+        mass = torch.tensor(mass, dtype=momentum_dtype).unsqueeze(0)
         momentum[..., 0] = torch.sqrt((momentum[..., 1:] ** 2).sum(dim=-1) + mass**2)
 
     # prepare momenta
@@ -93,12 +96,14 @@ def load_file(
         # then apply general Lorentz trafo L=R*B
         lab_momentum = momentum[..., :2, :].sum(dim=-2)
         to_com = restframe_boost(lab_momentum)
-        trafo = rand_lorentz(momentum.shape[:-2], generator=generator, dtype=save_dtype)
+        trafo = rand_lorentz(
+            momentum.shape[:-2], generator=generator, dtype=momentum_dtype
+        )
         trafo = torch.einsum("...ij,...jk->...ik", trafo, to_com)
     elif cfg_data.prepare == "identity":
         # keep the data unchanged
         trafo = lorentz_eye(
-            momentum.shape[:-2], device=momentum.device, dtype=save_dtype
+            momentum.shape[:-2], device=momentum.device, dtype=momentum_dtype
         )
     else:
         raise ValueError(f"cfg.data.prepare={cfg_data.prepare} not implemented")
@@ -113,8 +118,8 @@ def load_file(
     )
 
     # move everything except momentum to less safe dtype
-    amplitude = amplitude.to(input_dtype)
-    amp_mean = amp_mean.to(input_dtype)
-    amp_std = amp_std.to(input_dtype)
-    mom_std = mom_std.to(input_dtype)
+    amplitude = amplitude.to(network_dtype)
+    amp_mean = amp_mean.to(network_dtype)
+    amp_std = amp_std.to(network_dtype)
+    mom_std = mom_std.to(network_dtype)
     return amplitude, momentum, amp_mean, amp_std, mom_std

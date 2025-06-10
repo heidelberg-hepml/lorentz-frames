@@ -20,8 +20,11 @@ class TaggingExperiment(BaseExperiment):
     """
 
     def init_physics(self):
-        # decide which entries to use for the net
         modelname = self.cfg.model.net._target_.rsplit(".", 1)[-1]
+        self.momentum_dtype = (
+            torch.float64 if self.cfg.data.momentum_float64 else torch.float32
+        )
+
         self.cfg.model.out_channels = self.num_outputs
         if modelname == "LGATr":
             self.cfg.model.net.in_s_channels = (
@@ -64,9 +67,13 @@ class TaggingExperiment(BaseExperiment):
         self.data_train = Dataset()
         self.data_test = Dataset()
         self.data_val = Dataset()
-        self.data_train.load_data(data_path, "train")
-        self.data_test.load_data(data_path, "test")
-        self.data_val.load_data(data_path, "val")
+        kwargs = dict(
+            network_float64=self.cfg.use_float64,
+            momentum_float64=self.cfg.data.momentum_float64,
+        )
+        self.data_train.load_data(data_path, "train", **kwargs)
+        self.data_test.load_data(data_path, "test", **kwargs)
+        self.data_val.load_data(data_path, "val", **kwargs)
         dt = time.time() - t0
         LOGGER.info(f"Finished creating datasets after {dt:.2f} s = {dt/60:.2f} min")
 
@@ -321,7 +328,7 @@ class TaggingExperiment(BaseExperiment):
     def _get_ypred_and_label(self, batch):
         batch = batch.to(self.device)
         embedding = embed_tagging_data(
-            batch.x,
+            batch.x.to(self.momentum_dtype),
             batch.scalars.to(self.dtype),
             batch.ptr,
             self.cfg.data,
@@ -331,7 +338,12 @@ class TaggingExperiment(BaseExperiment):
         return y_pred, batch.label.to(self.dtype), tracker, lframes
 
     def _init_metrics(self):
-        return {"reg_collinear": [], "reg_coplanar": [], "reg_lightlike": []}
+        return {
+            "reg_collinear": [],
+            "reg_coplanar": [],
+            "reg_lightlike": [],
+            "reg_gammamax": [],
+        }
 
 
 class TopTaggingExperiment(TaggingExperiment):

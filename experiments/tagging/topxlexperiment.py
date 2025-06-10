@@ -124,7 +124,7 @@ class TopXLTaggingExperiment(TaggingExperiment):
         )
 
     def _get_ypred_and_label(self, batch):
-        fourmomenta = batch[0]["pf_vectors"].to(self.device)
+        fourmomenta = batch[0]["pf_vectors"].to(self.device, self.momentum_dtype)
         if self.cfg.data.features == "fourmomenta":
             scalars = torch.empty(
                 fourmomenta.shape[0],

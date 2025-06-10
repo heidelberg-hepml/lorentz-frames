@@ -1,19 +1,36 @@
 import torch
 import pytest
-from torch_geometric.utils import dense_to_sparse
-from tests.constants import TOLERANCES, LOGM2_MEAN_STD, LFRAMES_PREDICTOR
+from tests.constants import TOLERANCES, LOGM2_MEAN_STD
 from tests.helpers import sample_particle, lorentz_test, equivectors_builder
 
 from lloca.reps.tensorreps import TensorReps
 from lloca.reps.tensorreps_transform import TensorRepsTransform
-from lloca.utils.transforms import rand_lorentz
+from lloca.utils.transforms import rand_lorentz, rand_rotation, rand_xyrotation
 from lloca.lframes.lframes import LFrames
+from lloca.lframes.equi_lframes import (
+    LearnedOrthogonalLFrames,
+    LearnedRestLFrames,
+    LearnedPolarDecompositionLFrames,
+    LearnedOrthogonal3DLFrames,
+    LearnedOrthogonal2DLFrames,
+)
 
 
-@pytest.mark.parametrize("LFramesPredictor", LFRAMES_PREDICTOR)
+@pytest.mark.parametrize(
+    "LFramesPredictor,rand_trafo",
+    [
+        (LearnedOrthogonalLFrames, rand_lorentz),
+        (LearnedRestLFrames, rand_lorentz),
+        (LearnedPolarDecompositionLFrames, rand_lorentz),
+        (LearnedOrthogonal3DLFrames, rand_rotation),
+        (LearnedOrthogonal2DLFrames, rand_xyrotation),
+    ],
+)
 @pytest.mark.parametrize("batch_dims", [[10]])
 @pytest.mark.parametrize("logm2_mean,logm2_std", LOGM2_MEAN_STD)
-def test_lframes_transformation(LFramesPredictor, batch_dims, logm2_std, logm2_mean):
+def test_lframes_transformation(
+    LFramesPredictor, rand_trafo, batch_dims, logm2_std, logm2_mean
+):
     dtype = torch.float64
 
     # preparations
@@ -30,7 +47,7 @@ def test_lframes_transformation(LFramesPredictor, batch_dims, logm2_std, logm2_m
     lorentz_test(lframes.matrices, **TOLERANCES)
 
     # random global transformation
-    random = rand_lorentz([1], dtype=dtype)
+    random = rand_trafo([1], dtype=dtype)
     random = random.repeat(*batch_dims, 1, 1)
 
     # lframes for transformed fm
@@ -49,10 +66,21 @@ def test_lframes_transformation(LFramesPredictor, batch_dims, logm2_std, logm2_m
     )
 
 
-@pytest.mark.parametrize("LFramesPredictor", LFRAMES_PREDICTOR)
+@pytest.mark.parametrize(
+    "LFramesPredictor,rand_trafo",
+    [
+        (LearnedOrthogonalLFrames, rand_lorentz),
+        (LearnedRestLFrames, rand_lorentz),
+        (LearnedPolarDecompositionLFrames, rand_lorentz),
+        (LearnedOrthogonal3DLFrames, rand_rotation),
+        (LearnedOrthogonal2DLFrames, rand_xyrotation),
+    ],
+)
 @pytest.mark.parametrize("batch_dims", [[10]])
 @pytest.mark.parametrize("logm2_mean,logm2_std", LOGM2_MEAN_STD)
-def test_feature_invariance(LFramesPredictor, batch_dims, logm2_std, logm2_mean):
+def test_feature_invariance(
+    LFramesPredictor, rand_trafo, batch_dims, logm2_std, logm2_mean
+):
     dtype = torch.float64
 
     # preparations
@@ -68,7 +96,7 @@ def test_feature_invariance(LFramesPredictor, batch_dims, logm2_std, logm2_mean)
     fm = sample_particle(batch_dims, logm2_std, logm2_mean, dtype=dtype)
 
     # random global transformation
-    random = rand_lorentz([1], dtype=dtype)
+    random = rand_trafo([1], dtype=dtype)
     random = random.repeat(*batch_dims, 1, 1)
 
     # path 1: LFrames transform (+ random transform)

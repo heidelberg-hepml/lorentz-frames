@@ -217,7 +217,7 @@ def get_spurion(
     return spurion
 
 
-def get_tagging_features(fourmomenta, jet, eps=1e-10, use_float64=True):
+def get_tagging_features(fourmomenta, jet, eps=1e-10):
     """
     Compute features typically used in jet tagging
 
@@ -228,17 +228,12 @@ def get_tagging_features(fourmomenta, jet, eps=1e-10, use_float64=True):
     jet: torch.tensor of shape (n_particles, 4)
         Jet momenta in the shape (E, px, py, pz)
     eps: float
-    use_float64: bool
 
     Returns
     -------
     features: torch.tensor of shape (n_particles, 7)
         Features: log_pt, log_energy, log_pt_rel, log_energy_rel, dphi, deta, dr
     """
-    if use_float64:
-        in_dtype = fourmomenta.dtype
-        fourmomenta = fourmomenta.to(torch.float64)
-        jet = jet.to(torch.float64)
     log_pt = get_pt(fourmomenta).unsqueeze(-1).log()
     log_energy = fourmomenta[..., 0].unsqueeze(-1).clamp(min=eps).log()
 
@@ -264,6 +259,4 @@ def get_tagging_features(fourmomenta, jet, eps=1e-10, use_float64=True):
         mean, factor = TAGGING_FEATURES_PREPROCESSING[i]
         features[i] = (feature - mean) * factor
     features = torch.cat(features, dim=-1)
-    if use_float64:
-        features = features.to(in_dtype)
     return features
