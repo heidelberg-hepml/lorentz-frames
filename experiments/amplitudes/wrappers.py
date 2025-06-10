@@ -205,3 +205,54 @@ class DSIWrapper(AmplitudeWrapper):
 
         amp = self.net(fourmomenta_local.to(self.network_dtype))
         return amp, tracker, lframes
+
+
+class PELICANWrapper(AmplitudeWrapper):
+    def __init__(self, net, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.net = net
+        assert isinstance(self.lframesnet, IdentityLFrames)
+
+        self.register_buffer("edge_mean", torch.tensor(0.0))
+        self.register_buffer("edge_std", torch.tensor(1.0))
+
+    def init_standardization(self, fourmomenta):
+        super().init_standardization(fourmomenta)
+
+        # edge feature standardization parameters
+        edge_index, _ = build_edge_index_fully_connected(
+            fourmomenta, remove_self_loops=False
+        )
+        fourmomenta = fourmomenta.reshape(-1, 4)
+        edge_attr = get_edge_attr(fourmomenta, edge_index)
+        self.edge_mean = edge_attr.mean()
+        self.edge_std = edge_attr.std().clamp(min=1e-10)
+
+    def forward(self, fourmomenta_global):
+        (
+            _,
+            fourmomenta_local,
+            particle_type,
+            lframes,
+            tracker,
+        ) = super().forward(fourmomenta_global)
+
+        edge_index, batch = build_edge_index_fully_connected(
+            particle_type, remove_self_loops=False
+        )
+        fourmomenta = fourmomenta_local.reshape(-1, 4)
+        edge_attr = self.get_edge_attr(fourmomenta, edge_index).to(self.network_dtype)
+        node_attr = particle_type.reshape(-1, particle_type.shape[-1])
+
+        out = self.net(
+            in_rank2=edge_attr,
+            in_rank1=node_attr,
+            edge_index=edge_index,
+            batch=batch,
+        )
+        return out, tracker, lframes
+
+    def get_edge_attr(self, fourmomenta, edge_index):
+        edge_attr = get_edge_attr(fourmomenta, edge_index)
+        edge_attr = (edge_attr - self.edge_mean) / self.edge_std
+        return edge_attr.unsqueeze(-1)

@@ -1,0 +1,23 @@
+_target_: experiments.amplitudes.wrappers.PELICANWrapper
+particle_type: null
+network_float64: null
+
+net:
+ _target_: pelican.nets.PELICAN
+
+ in_rank0: 0
+ in_rank1: null
+ in_rank2: 1
+ out_rank: 0
+ out_channels: 1
+
+ num_blocks: 4
+ channels_1: 32
+ channels_2: 16
+
+ factorize: true
+ activation: gelu
+ aggr: mean
+
+defaults:
+ - lframesnet: identity
