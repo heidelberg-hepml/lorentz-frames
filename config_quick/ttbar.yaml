@@ -14,7 +14,7 @@ data:
   two_beams: true
   add_time_reference: true
   scalar_dims: [0, 3]
- data_float64: true
+ momentum_float64: true
 
 odeint:
  method: rk4
