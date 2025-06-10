@@ -36,7 +36,7 @@ class CFMWrapper(EventCFM):
             beam_reference=spurions.beam_reference,
             add_time_reference=spurions.add_time_reference,
             two_beams=spurions.two_beams,
-            dtype=torch.float64,
+            dtype=self.momentum_dtype,
             device="cpu",
         )
         self.n_spurions = self.spurions.shape[0]
@@ -84,8 +84,8 @@ class CFMWrapper(EventCFM):
             x_local = self.coordinates.fourmomenta_to_x(fm_local)
 
         # move everything to self.save_dtype
-        x_local = x_local.to(self.save_dtype)
-        lframes.to(self.save_dtype)
+        x_local = x_local.to(self.network_dtype)
+        lframes.to(self.network_dtype)
 
         return (
             x_local,
@@ -112,7 +112,7 @@ class CFMWrapper(EventCFM):
             v_x, _ = self.coordinates.velocity_fourmomenta_to_x(v_fm, fm)
             v_x[..., self.scalar_dims] = v_s_local
 
-        v_x = v_x.to(torch.float64)
+        v_x = v_x.to(self.momentum_dtype)
         return v_x
 
     def encode_particle_type(self, shape):
