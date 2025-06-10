@@ -1,7 +1,7 @@
 from torch import nn
 from torch.utils.checkpoint import checkpoint
 
-from layers import (
+from .layers import (
     Aggregator0to2,
     Aggregator1to2,
     Aggregator2to2,

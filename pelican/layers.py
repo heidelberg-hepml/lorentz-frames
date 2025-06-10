@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 
-from primitives import (
+from .primitives import (
     bell_number,
     aggregate_0to2,
     aggregate_1to2,
@@ -28,6 +28,7 @@ class GeneralAggregator(nn.Module):
         num_maps = bell_number(in_rank + out_rank)
         self.aggr = aggr
         self.aggregator = None
+        self.factorize = factorize
 
         if factorize:
             self.coeffs00 = nn.Parameter(torch.empty(in_channels, num_maps))
@@ -38,15 +39,22 @@ class GeneralAggregator(nn.Module):
             torch.nn.init.normal_(self.coeffs01, std=(1.0 / num_maps) ** 0.5)
             torch.nn.init.normal_(self.coeffs10, std=(2.0 / num_maps) ** 0.5)
             torch.nn.init.normal_(self.coeffs11, std=(2.0 / num_maps) ** 0.5)
-
-            self.coeffs = self.coeffs00.unsqueeze(1) * self.coeffs10.unsqueeze(
-                2
-            ) + self.coeffs01.unsqueeze(0) * self.coeffs11.unsqueeze(2)
         else:
-            self.coeffs = nn.Parameter(torch.empty(in_channels, out_channels, num_maps))
+            self.coeffs_direct = nn.Parameter(
+                torch.empty(in_channels, out_channels, num_maps)
+            )
             torch.nn.init.normal_(
                 self.coeffs, std=(4.0 / (in_channels * num_maps)) ** 0.5
             )
+
+    @property
+    def coeffs(self):
+        if self.factorize:
+            return self.coeffs00.unsqueeze(1) * self.coeffs10.unsqueeze(
+                2
+            ) + self.coeffs01.unsqueeze(0) * self.coeffs11.unsqueeze(2)
+        else:
+            return self.coeffs_direct
 
     def forward(self, x, edge_index, batch):
         x = self.aggregator(x, edge_index=edge_index, batch=batch, reduce=self.aggr)
