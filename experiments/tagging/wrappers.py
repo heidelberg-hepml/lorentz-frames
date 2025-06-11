@@ -615,7 +615,7 @@ class LorentzNetWrapper(nn.Module):
         return output, {}, None
 
 
-class PELICANWrapper(nn.Module):
+class PELICANWrapperOfficial(nn.Module):
     def __init__(self, net, lframesnet, out_channels):
         super().__init__()
         self.net = net(out_channels=out_channels)
