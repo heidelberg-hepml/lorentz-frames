@@ -421,10 +421,11 @@ class LGATrWrapper(nn.Module):
         self,
         net,
         lframesnet,
+        out_channels,
         mean_aggregation=False,
     ):
         super().__init__()
-        self.net = net
+        self.net = net(out_mv_channels=out_channels)
         self.aggregator = MeanAggregation() if mean_aggregation else None
 
         self.lframesnet = lframesnet  # not actually used
@@ -582,3 +583,127 @@ class ParTWrapper(TaggerWrapper):
             mask=mask,
         )
         return score, tracker, lframes
+
+
+class LorentzNetWrapper(nn.Module):
+    def __init__(
+        self,
+        net,
+        lframesnet,
+        out_channels,
+    ):
+        super().__init__()
+        self.net = net(n_class=out_channels)
+
+        self.lframesnet = lframesnet  # not actually used
+        assert isinstance(lframesnet, IdentityLFrames)
+
+    def forward(self, embedding):
+        # extract embedding (includes spurions)
+        fourmomenta = embedding["fourmomenta"]
+        scalars = embedding["scalars"]
+        batch = embedding["batch"]
+        ptr = embedding["ptr"]
+        is_spurion = embedding["is_spurion"]
+
+        # rescale fourmomenta (but not the spurions)
+        fourmomenta[~is_spurion] = fourmomenta[~is_spurion] / 20
+
+        edge_index = get_edge_index_from_ptr(ptr)
+        fourmomenta = fourmomenta.to(scalars.dtype)
+        output = self.net(scalars, fourmomenta, edges=edge_index, batch=batch)
+        return output, {}, None
+
+
+class PELICANWrapper(nn.Module):
+    def __init__(self, net, lframesnet, out_channels):
+        super().__init__()
+        self.net = net(out_channels=out_channels)
+        self.lframesnet = lframesnet
+        assert isinstance(lframesnet, IdentityLFrames)
+
+    def forward(self, embedding):
+        # extract embedding (includes spurions)
+        fourmomenta = embedding["fourmomenta"]
+        scalars = embedding["scalars"]
+        batch = embedding["batch"]
+        is_spurion = embedding["is_spurion"]
+
+        # rescale fourmomenta (but not the spurions)
+        fourmomenta[~is_spurion] = fourmomenta[~is_spurion] / 20
+        fourmomenta = fourmomenta.to(scalars.dtype)
+        fourmomenta, mask = to_dense_batch(fourmomenta, batch)
+        scalars, _ = to_dense_batch(scalars, batch)
+        mask = mask.unsqueeze(-1)
+
+        output = self.net(scalars, fourmomenta, mask=mask)
+        return output, {}, None
+
+
+class CGENNWrapper(nn.Module):
+    def __init__(self, net, lframesnet, out_channels):
+        super().__init__()
+        self.net = net(n_outputs=out_channels)
+        self.lframesnet = lframesnet
+        assert isinstance(lframesnet, IdentityLFrames)
+
+    def forward(self, embedding):
+        # we mimic the CGENN wrapper of
+        # https://github.com/DavidRuhe/clifford-group-equivariant-neural-networks/blob/master/models/lorentz_cggnn.py
+
+        # extract embedding (includes spurions)
+        fourmomenta = embedding["fourmomenta"]
+        scalars = embedding["scalars"]
+        batch = embedding["batch"]
+        ptr = embedding["ptr"]
+        is_spurion = embedding["is_spurion"]
+        edge_index = get_edge_index_from_ptr(ptr)
+
+        # rescale fourmomenta (but not the spurions)
+        fourmomenta[~is_spurion] = fourmomenta[~is_spurion] / 20
+        fourmomenta = fourmomenta.to(scalars.dtype)
+        zeros = torch.zeros(
+            scalars.shape[0], 1, device=scalars.device, dtype=scalars.dtype
+        )
+        scalars = torch.cat((scalars, zeros), dim=-1)
+
+        # pad to dense tensors
+        fourmomenta, mask = to_dense_batch(fourmomenta, batch)
+        scalars, _ = to_dense_batch(scalars, batch)
+        batch_size, n_nodes, _ = fourmomenta.shape
+        fourmomenta = fourmomenta.view(batch_size * n_nodes, -1)
+        scalars = scalars.view(batch_size * n_nodes, -1)
+        mask = mask.view(batch_size * n_nodes, -1)
+
+        x = fourmomenta.unsqueeze(-2)
+        i, j = edge_index
+        edge_attr_x = torch.cat(
+            [
+                x[i],
+                x[j],
+                x[i] - x[j],
+            ],
+            dim=-2,
+        )
+        node_attr_x = x
+        x = embed_vector(x)
+        edge_attr_x = embed_vector(edge_attr_x)
+        node_attr_x = embed_vector(node_attr_x)
+
+        h = scalars
+        edge_attr_h = None
+        node_attr_h = h
+
+        out = self.net(
+            h=h,
+            x=x,
+            edge_attr_x=edge_attr_x,
+            node_attr_x=node_attr_x,
+            edge_attr_h=edge_attr_h,
+            node_attr_h=node_attr_h,
+            edges=edge_index,
+            n_nodes=n_nodes,
+            node_mask=mask,
+        )
+
+        return out, {}, None
