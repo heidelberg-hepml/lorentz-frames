@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 from torch.utils.data import DataLoader
 
 import os, time
@@ -208,9 +209,10 @@ class JetClassTaggingExperiment(TaggingExperiment):
             labels_true_class = labels_true[(labels_true == 0) | (labels_true == i)]
             labels_predict_class = labels_predict_class[:, [0, i]]
 
-            predict_score = labels_predict_class[:, 1] / (
-                labels_predict_class[:, 0] + labels_predict_class[:, 1]
-            ).clamp(min=1e-10)
+            denom = labels_predict_class[:, 0] + labels_predict_class[:, 1]
+            predict_score = labels_predict_class[:, 1] / np.clip(
+                denom, a_min=1e-10, a_max=None
+            )
 
             fpr, tpr, _ = roc_curve(labels_true_class == i, predict_score)
 
