@@ -95,21 +95,22 @@ class Aggregator0to2(GeneralAggregator):
 class PELICANBlock(nn.Module):
     def __init__(
         self,
-        channels_1,
-        channels_2,
+        hidden_channels,
+        increase_hidden_channels=1.0,
         activation="gelu",
         factorize=True,
         aggr="mean",
     ):
         super().__init__()
-        linear_in = nn.Linear(channels_1, channels_2)
-        norm = nn.LayerNorm(normalized_shape=channels_2)
+        hidden_channels_2 = int(increase_hidden_channels * hidden_channels)
+        linear_in = nn.Linear(hidden_channels, hidden_channels_2)
+        norm = nn.LayerNorm(normalized_shape=hidden_channels_2)
         self.activation = ACTIVATION[activation]
         self.mlp = nn.ModuleList([linear_in, self.activation, norm])
 
         self.aggregator = Aggregator2to2(
-            in_channels=channels_2,
-            out_channels=channels_1,
+            in_channels=hidden_channels_2,
+            out_channels=hidden_channels,
             factorize=factorize,
             aggr=aggr,
         )
