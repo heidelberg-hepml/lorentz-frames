@@ -87,47 +87,43 @@ def aggregate_2to1(edges, edge_index, batch, reduce="mean"):
     return torch.stack(ops, dim=-1)
 
 
-@lru_cache()
-def get_indexing(edge_index, batch):
-    edge_batch = batch[edge_index[0]]
-    is_diag = edge_index[0] == edge_index[1]
-    diag_idx = batch[edge_index[0][is_diag]]
-
-    N = int(edge_index.max()) + 1
-    eid = torch.arange(edge_index.size(1), device=batch.device)
-    lin_id = edge_index[0] * N + edge_index[1]
-    inv = torch.full((N * N,), -1, device=batch.device)
-    inv.scatter_(0, lin_id, eid)
-    perm_transpose = inv[edge_index[1] * N + edge_index[0]]
-    return edge_batch, is_diag, diag_idx, perm_transpose
+def get_transpose(row, col):
+    key = (row << 32) | col
+    rev_key = (col << 32) | row
+    key_sorted, perm = key.sort()
+    idx = torch.searchsorted(key_sorted, rev_key)
+    return perm[idx]
 
 
 def aggregate_2to2(edges, edge_index, batch, reduce="mean"):
-    indexing = get_indexing(edge_index, batch)
-    edge_batch, is_diag, diag_idx, perm_transpose = indexing
+    E, C = edges.shape
+    N = batch.size(0)
+    row, col = edge_index
+    perm_T = get_transpose(row, col)
+    edge_batch = batch[row]
+    is_diag = row == col
+    diag_mask = is_diag.unsqueeze(-1).type_as(edges)
 
-    diags = edges[is_diag]
-    row_agg = scatter(edges, edge_index[0], dim=0, reduce=reduce)
-    col_agg = scatter(edges, edge_index[1], dim=0, reduce=reduce)
-    graph_agg = scatter(edges, edge_batch, dim=0, reduce=reduce)
-    diag_agg = scatter(diags, diag_idx, dim=0, reduce=reduce)
-    is_diag = is_diag.unsqueeze(-1)
-    zeros = torch.zeros_like(edges)
+    diags = edges * diag_mask
+    row_agg = scatter(edges, row, dim=0, dim_size=N, reduce=reduce)
+    col_agg = scatter(edges, col, dim=0, dim_size=N, reduce=reduce)
+    graph_agg = scatter(edges, edge_batch, dim=0, dim_size=N, reduce=reduce)
+    diag_agg = scatter(diags, row, dim=0, dim_size=N, reduce=reduce)
 
-    ops = [None] * 15
+    ops = edges.new_empty(15, E, C)
     ops[0] = edges
-    ops[1] = edges[perm_transpose]
-    ops[2] = torch.where(is_diag, edges, zeros)
-    ops[3] = diags[edge_index[0]]
-    ops[4] = diags[edge_index[1]]
-    ops[5] = torch.where(is_diag, col_agg[edge_index[0]], zeros)
-    ops[6] = torch.where(is_diag, row_agg[edge_index[1]], zeros)
-    ops[7] = col_agg[edge_index[0]]
-    ops[8] = col_agg[edge_index[1]]
-    ops[9] = row_agg[edge_index[0]]
-    ops[10] = row_agg[edge_index[1]]
+    ops[1] = edges[perm_T]
+    ops[2] = diags
+    ops[3] = diag_agg[row]
+    ops[4] = diag_agg[col]
+    ops[5] = col_agg[row] * diag_mask
+    ops[6] = row_agg[col] * diag_mask
+    ops[7] = col_agg[row]
+    ops[8] = col_agg[col]
+    ops[9] = row_agg[row]
+    ops[10] = row_agg[col]
     ops[11] = diag_agg[edge_batch]
-    ops[12] = torch.where(is_diag, diag_agg[edge_batch], zeros)
+    ops[12] = diag_agg[edge_batch] * diag_mask
     ops[13] = graph_agg[edge_batch]
-    ops[14] = torch.where(is_diag, graph_agg[edge_batch], zeros)
-    return torch.stack(ops, dim=-1)
+    ops[14] = graph_agg[edge_batch] * diag_mask
+    return ops.permute(1, 2, 0)
