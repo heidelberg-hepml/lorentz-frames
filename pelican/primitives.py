@@ -21,70 +21,76 @@ def bell_number(n):
 
 
 def aggregate_0to2(graph, edge_index, batch, reduce="mean"):
-    edge_batch = batch[edge_index[0]]
-    is_diag = edge_index[0] == edge_index[1]
-    is_diag = is_diag.unsqueeze(-1)
+    _, C = graph.shape
+    E = edge_index.size(1)
+    row, col = edge_index
+    edge_batch = batch[row]
+    is_diag = row == col
+    diag_mask = is_diag.unsqueeze(-1).type_as(graph)
 
-    zeros = torch.zeros(
-        edge_index.size(1), graph.shape[-1], device=graph.device, dtype=graph.dtype
-    )
-
-    ops = [None] * 2
+    ops = graph.new_empty(2, E, C)
     ops[0] = graph[edge_batch]
-    ops[1] = torch.where(is_diag, graph[edge_batch], zeros)
-    return torch.stack(ops, dim=-1)
+    ops[1] = graph[edge_batch] * diag_mask
+    return ops.permute(1, 2, 0)
 
 
 def aggregate_1to2(nodes, edge_index, batch, reduce="mean"):
-    edge_batch = batch[edge_index[0]]
-    is_diag = edge_index[0] == edge_index[1]
+    _, C = nodes.shape
+    E = edge_index.size(1)
+    row, col = edge_index
+    edge_batch = batch[row]
+    is_diag = row == col
+    diag_mask = is_diag.unsqueeze(-1).type_as(nodes)
 
     nodes_agg = scatter(nodes, batch, dim=0, reduce=reduce)
-    zeros = torch.zeros(
-        edge_index.size(1), nodes.shape[-1], device=nodes.device, dtype=nodes.dtype
-    )
     is_diag = is_diag.unsqueeze(-1)
 
-    ops = [None] * 5
-    ops[0] = torch.where(is_diag, nodes[edge_index[0]], zeros)
-    ops[1] = nodes[edge_index[0]]
-    ops[2] = nodes[edge_index[1]]
-    ops[3] = torch.where(is_diag, nodes_agg[edge_batch], zeros)
+    ops = nodes.new_empty(5, E, C)
+    ops[0] = nodes[row] * diag_mask
+    ops[1] = nodes[row]
+    ops[2] = nodes[col]
+    ops[3] = nodes_agg[edge_batch] * diag_mask
     ops[4] = nodes_agg[edge_batch]
-    return torch.stack(ops, dim=-1)
+    return ops.permute(1, 2, 0)
 
 
 def aggregate_2to0(edges, edge_index, batch, reduce="mean"):
-    is_diag = edge_index[0] == edge_index[1]
-    edge_batch = batch[edge_index[0]]
+    _, C = edges.shape
+    G = batch.max() + 1
+    row, col = edge_index
+    edge_batch = batch[row]
+    is_diag = row == col
 
     graph_agg = scatter(edges, edge_batch, dim=0, reduce=reduce)
     diag_agg = scatter(edges[is_diag], edge_batch[is_diag], dim=0, reduce=reduce)
 
-    ops = [None] * 2
+    ops = edges.new_empty(2, G, C)
     ops[0] = graph_agg
     ops[1] = diag_agg
-    return torch.stack(ops, dim=-1)
+    return ops.permute(1, 2, 0)
 
 
 def aggregate_2to1(edges, edge_index, batch, reduce="mean"):
-    is_diag = edge_index[0] == edge_index[1]
-    edge_batch = batch[edge_index[0]]
-    diag_idx = batch[edge_index[0][is_diag]]
+    _, C = edges.shape
+    N = batch.size(0)
+    row, col = edge_index
+    edge_batch = batch[row]
+    is_diag = row == col
+    diag_mask = is_diag.unsqueeze(-1).type_as(edges)
 
-    diags = edges[is_diag]
-    row_agg = scatter(edges, edge_index[0], dim=0, reduce=reduce)
-    col_agg = scatter(edges, edge_index[1], dim=0, reduce=reduce)
-    graph_agg = scatter(edges, edge_batch, dim=0, reduce=reduce)
-    diag_agg = scatter(diags, diag_idx, dim=0, reduce=reduce)
+    diags = edges * diag_mask
+    row_agg = scatter(edges, row, dim=0, dim_size=N, reduce=reduce)
+    col_agg = scatter(edges, col, dim=0, dim_size=N, reduce=reduce)
+    graph_agg = scatter(edges, edge_batch, dim=0, dim_size=N, reduce=reduce)
+    diag_agg = scatter(diags, row, dim=0, dim_size=N, reduce=reduce)
 
-    ops = [None] * 5
-    ops[0] = diags
+    ops = edges.new_empty(5, N, C)
+    ops[0] = edges[is_diag]
     ops[1] = row_agg
     ops[2] = col_agg
     ops[3] = graph_agg[batch]
     ops[4] = diag_agg[batch]
-    return torch.stack(ops, dim=-1)
+    return ops.permute(1, 2, 0)
 
 
 def get_transpose(row, col):
