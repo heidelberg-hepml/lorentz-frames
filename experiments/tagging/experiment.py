@@ -21,30 +21,42 @@ class TaggingExperiment(BaseExperiment):
 
     def init_physics(self):
         modelname = self.cfg.model.net._target_.rsplit(".", 1)[-1]
+        self.momentum_dtype = (
+            torch.float64 if self.cfg.data.momentum_float64 else torch.float32
+        )
 
-        # decide which entries to use for the net
+        self.cfg.model.out_channels = self.num_outputs
         if modelname == "LGATr":
-            self.cfg.model.net.out_mv_channels = self.num_outputs
             self.cfg.model.net.in_s_channels = (
                 0 if self.cfg.model.mean_aggregation else 1
             )
             self.cfg.model.net.in_s_channels += self.extra_scalars
+        elif modelname == "LorentzNet":
+            self.cfg.model.net.n_scalar = self.extra_scalars
+        elif modelname == "PELICAN":
+            self.cfg.model.net.num_scalars = self.extra_scalars
+        elif modelname == "CGENN":
+            # CGENN cant handle zero scalar inputs -> give 1 input with zeros
+            self.cfg.model.net.in_features_h = 1 + self.extra_scalars
         else:
-            self.cfg.model.out_channels = self.num_outputs
+            # LLoCa models
             self.cfg.model.in_channels = 7 + self.extra_scalars
 
-        if modelname == "GraphNet":
-            self.cfg.model.net.num_edge_attr = 1 if self.cfg.model.include_edges else 0
-
-        if modelname == "ParticleNet":
-            self.cfg.model.net.hidden_reps_list[0] = f"{self.cfg.model.in_channels}x0n"
+            if modelname == "GraphNet":
+                self.cfg.model.net.num_edge_attr = (
+                    1 if self.cfg.model.include_edges else 0
+                )
+            elif modelname == "ParticleNet":
+                self.cfg.model.net.hidden_reps_list[
+                    0
+                ] = f"{self.cfg.model.in_channels}x0n"
 
         # decide which entries to use for the lframesnet
         if "equivectors" in self.cfg.model.lframesnet:
-            self.cfg.model.lframesnet.equivectors.num_scalars = (
+            self.cfg.model.lframesnet.equivectors.num_scalars = self.extra_scalars
+            self.cfg.model.lframesnet.equivectors.num_scalars += (
                 7 if self.cfg.data.add_tagging_features_lframesnet else 0
             )
-            self.cfg.model.lframesnet.equivectors.num_scalars += self.extra_scalars
 
     def init_data(self):
         raise NotImplementedError
@@ -55,9 +67,13 @@ class TaggingExperiment(BaseExperiment):
         self.data_train = Dataset()
         self.data_test = Dataset()
         self.data_val = Dataset()
-        self.data_train.load_data(data_path, "train")
-        self.data_test.load_data(data_path, "test")
-        self.data_val.load_data(data_path, "val")
+        kwargs = dict(
+            network_float64=self.cfg.use_float64,
+            momentum_float64=self.cfg.data.momentum_float64,
+        )
+        self.data_train.load_data(data_path, "train", **kwargs)
+        self.data_test.load_data(data_path, "test", **kwargs)
+        self.data_val.load_data(data_path, "val", **kwargs)
         dt = time.time() - t0
         LOGGER.info(f"Finished creating datasets after {dt:.2f} s = {dt/60:.2f} min")
 
@@ -312,7 +328,7 @@ class TaggingExperiment(BaseExperiment):
     def _get_ypred_and_label(self, batch):
         batch = batch.to(self.device)
         embedding = embed_tagging_data(
-            batch.x,
+            batch.x.to(self.momentum_dtype),
             batch.scalars.to(self.dtype),
             batch.ptr,
             self.cfg.data,
@@ -322,7 +338,12 @@ class TaggingExperiment(BaseExperiment):
         return y_pred, batch.label.to(self.dtype), tracker, lframes
 
     def _init_metrics(self):
-        return {"reg_collinear": [], "reg_coplanar": [], "reg_lightlike": []}
+        return {
+            "reg_collinear": [],
+            "reg_coplanar": [],
+            "reg_lightlike": [],
+            "reg_gammamax": [],
+        }
 
 
 class TopTaggingExperiment(TaggingExperiment):

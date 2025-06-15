@@ -116,10 +116,14 @@ class LearnedPolarDecompositionLFrames(LearnedLFrames):
         self,
         *args,
         gamma_max=None,
+        gamma_hardness=None,
+        deterministic_boost=None,
         **kwargs,
     ):
         super().__init__(*args, n_vectors=3, **kwargs)
         self.gamma_max = gamma_max
+        self.gamma_hardness = gamma_hardness
+        self.deterministic_boost = deterministic_boost
 
     def forward(self, fourmomenta, scalars=None, ptr=None, return_tracker=False):
         """
@@ -144,13 +148,14 @@ class LearnedPolarDecompositionLFrames(LearnedLFrames):
         self.init_weights_or_not()
         vecs = self.equivectors(fourmomenta, scalars=scalars, ptr=ptr)
         vecs = self.globalize_vecs_or_not(vecs, ptr)
-        fourmomenta = vecs[..., 0, :]
-        references = [vecs[..., i, :] for i in range(1, vecs.shape[-2])]
-        fourmomenta, reg_gammamax = self._clamp_boost(fourmomenta)
+        boost = vecs[..., 0, :]
+        rotation_references = [vecs[..., i, :] for i in range(1, vecs.shape[-2])]
+        boost = self._deterministic_boost(boost, ptr)
+        boost, reg_gammamax = self._clamp_boost(boost)
 
         trafo, reg_collinear = polar_decomposition(
-            fourmomenta,
-            references,
+            boost,
+            rotation_references,
             **self.ortho_kwargs,
             return_reg=True,
         )
@@ -170,7 +175,9 @@ class LearnedPolarDecompositionLFrames(LearnedLFrames):
             beta = x[..., 1:] / x[..., [0]].clamp(min=1e-10)
             gamma = x[..., [0]] / mass
             reg_gammamax = (gamma > self.gamma_max).sum().cpu()
-            gamma_reg = gamma.clamp(max=self.gamma_max)
+            gamma_reg = soft_clamp(
+                gamma, min=1, max=self.gamma_max, hardness=self.gamma_hardness
+            )
             beta_scaling = (
                 torch.sqrt(
                     torch.clamp(1 - 1 / gamma_reg.clamp(min=1e-10).square(), min=1e-10)
@@ -180,6 +187,28 @@ class LearnedPolarDecompositionLFrames(LearnedLFrames):
             beta_reg = beta * beta_scaling
             x_reg = mass * torch.cat((gamma_reg, gamma_reg * beta_reg), dim=-1)
             return x_reg, reg_gammamax
+
+    def _deterministic_boost(self, boost, ptr):
+        if self.deterministic_boost is None:
+            pass
+        elif self.deterministic_boost == "global":
+            # average boost vector over the event
+            boost = average_event(boost, ptr)
+        elif self.deterministic_boost == "local":
+            # average boost over all other particles in the event
+            boost_averaged = average_event(boost, ptr)
+            if ptr is None:
+                nparticles = boost.shape[1]
+            else:
+                diff = ptr[1:] - ptr[:-1]
+                nparticles = (diff).repeat_interleave(diff).unsqueeze(-1)
+            boost = boost_averaged - boost / nparticles
+        else:
+            raise ValueError(
+                f"Option deterministic_boost={self.deterministic_boost} not implemented"
+            )
+
+        return boost
 
 
 class LearnedRestLFrames(LearnedLFrames):
@@ -232,7 +261,7 @@ class LearnedRestLFrames(LearnedLFrames):
 
 class LearnedOrthogonal3DLFrames(LearnedLFrames):
     """Local frames under rotations for SO(3)-equivariant architectures.
-    This is a special case of LearnedOrthogonalLFrames
+    This is a special case of LearnedPolarDecompositionLFrames
     where the first vector is trivial (1,0,0,0)."""
 
     def __init__(
@@ -274,7 +303,7 @@ class LearnedOrthogonal3DLFrames(LearnedLFrames):
             fourmomenta.shape[:-1], device=fourmomenta.device, dtype=fourmomenta.dtype
         )[
             ..., 0
-        ]  # only difference compared to LearnedRestLFrames
+        ]  # only difference compared to LearnedPolarDecompositionLFrames
         references = [references[..., i, :] for i in range(self.n_vectors)]
 
         trafo, reg_collinear = polar_decomposition(
@@ -283,6 +312,73 @@ class LearnedOrthogonal3DLFrames(LearnedLFrames):
             **self.ortho_kwargs,
             return_reg=True,
         )
+        tracker = {"reg_collinear": reg_collinear}
+        lframes = LFrames(trafo, is_global=self.is_global)
+        return (lframes, tracker) if return_tracker else lframes
+
+
+class LearnedOrthogonal2DLFrames(LearnedLFrames):
+    """Local frames for SO(2)-equivariant architectures
+    (equivariant under rotations around the beam axis).
+    This is a special case of LearnedPolarDecompositionLFrames
+    where the firsts two vectors are trivial (1,0,0,0) and (0,0,0,1)."""
+
+    def __init__(
+        self,
+        *args,
+        **kwargs,
+    ):
+        self.n_vectors = 1
+        super().__init__(
+            *args,
+            n_vectors=self.n_vectors,
+            **kwargs,
+        )
+
+    def forward(self, fourmomenta, scalars=None, ptr=None, return_tracker=False):
+        """
+        Parameters
+        ----------
+        fourmomenta: torch.Tensor
+            Tensor of shape (..., 4) containing the four-momenta
+        scalars: torch.Tensor or None
+            Optional tensor of shape (..., n_scalars) containing additional scalar features
+        ptr: torch.Tensor or None
+            Pointer for sparse tensors, or None for dense tensors
+        return_tracker: bool
+            If True, return a tracker dictionary with regularization information
+
+        Returns
+        -------
+        LFrames
+            Local frames constructed from the polar decomposition of the four-momenta
+        tracker: dict (optional)
+            Dictionary containing regularization information, if return_tracker is True
+        """
+        self.init_weights_or_not()
+        references = self.equivectors(fourmomenta, scalars=scalars, ptr=ptr)
+        extra_references = self.globalize_vecs_or_not(references, ptr)
+        fourmomenta = lorentz_eye(
+            fourmomenta.shape[:-1], device=fourmomenta.device, dtype=fourmomenta.dtype
+        )[
+            ..., 0
+        ]  # difference 1 compared LearnedPolarDecompositionLFrames
+        references = [
+            lorentz_eye(
+                fourmomenta.shape[:-1],
+                device=fourmomenta.device,
+                dtype=fourmomenta.dtype,
+            )[..., 3]
+        ]  # difference 2 compared LearnedPolarDecompositionLFrames
+        references.append(extra_references[..., 0, :])
+
+        trafo, reg_collinear = polar_decomposition(
+            fourmomenta,
+            references,
+            **self.ortho_kwargs,
+            return_reg=True,
+        )
+
         tracker = {"reg_collinear": reg_collinear}
         lframes = LFrames(trafo, is_global=self.is_global)
         return (lframes, tracker) if return_tracker else lframes
@@ -305,7 +401,7 @@ def average_event(vecs, ptr=None):
         Averaged vectors of shape (..., n_vectors, 4).
     """
     if ptr is None:
-        vecs = vecs.mean(dim=-3, keepdim=True).expand_as(vecs)
+        vecs = vecs.mean(dim=1, keepdim=True).expand_as(vecs)
     else:
         batch = get_batch_from_ptr(ptr)
         vecs = scatter(vecs, batch, dim=0, reduce="mean").index_select(0, batch)
@@ -315,3 +411,13 @@ def average_event(vecs, ptr=None):
 def init_weights(module):
     if hasattr(module, "reset_parameters"):
         module.reset_parameters()
+
+
+def soft_clamp(x, max=None, min=None, hardness=None):
+    if hardness is None:
+        # hard clamp
+        return x.clamp(min=min, max=max)
+    else:
+        # soft clamp (better gradients)
+        out = max - torch.nn.functional.softplus(max - x, beta=hardness)
+        return out.clamp(min=min)

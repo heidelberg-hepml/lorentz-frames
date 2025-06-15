@@ -43,7 +43,8 @@ class TopTaggingDataset(TaggingDataset):
         self,
         filename,
         mode,
-        dtype=torch.float32,
+        network_float64=False,
+        momentum_float64=True,
     ):
         """
         Parameters
@@ -53,12 +54,17 @@ class TopTaggingDataset(TaggingDataset):
         mode : {"train", "test", "val"}
             Purpose of the dataset
             Train, test and validation datasets are already seperated in the specified file
+        network_float64 : bool
+        momentum_float64 : bool
         """
+        network_dtype = torch.float64 if network_float64 else torch.float32
+        momentum_dtype = torch.float64 if momentum_float64 else torch.float32
+
         data = np.load(filename)
         kinematics = data[f"kinematics_{mode}"]
         labels = data[f"labels_{mode}"]
 
-        kinematics = torch.tensor(kinematics, dtype=torch.float64)
+        kinematics = torch.tensor(kinematics, dtype=momentum_dtype)
         labels = torch.tensor(labels, dtype=torch.bool)
 
         # create list of torch_geometric.data.Data objects
@@ -71,7 +77,7 @@ class TopTaggingDataset(TaggingDataset):
             scalars = torch.zeros(
                 fourmomenta.shape[0],
                 0,
-                dtype=dtype,
+                dtype=network_dtype,
             )  # no scalar information
             data = Data(x=fourmomenta, scalars=scalars, label=label)
             self.data_list.append(data)

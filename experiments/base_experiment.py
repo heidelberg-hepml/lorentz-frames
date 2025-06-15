@@ -596,14 +596,18 @@ class BaseExperiment:
         self.optimizer.zero_grad()
         loss.backward()
 
-        grad_norm_lframes = torch.nn.utils.clip_grad_norm_(
-            self.model.lframesnet.parameters(),
-            float("inf"),
-        ).detach()
-        grad_norm_net = torch.nn.utils.clip_grad_norm_(
-            self.model.net.parameters(),
-            float("inf"),
-        ).detach()
+        if self.cfg.training.log_grad_norm:
+            grad_norm_lframes = torch.nn.utils.clip_grad_norm_(
+                self.model.lframesnet.parameters(),
+                float("inf"),
+            ).detach()
+            grad_norm_net = torch.nn.utils.clip_grad_norm_(
+                self.model.net.parameters(),
+                float("inf"),
+            ).detach()
+        else:
+            grad_norm_lframes = torch.tensor(0.0, device=self.device)
+            grad_norm_net = torch.tensor(0.0, device=self.device)
 
         if self.cfg.training.clip_grad_value is not None:
             # clip gradients at a certain value (this is dangerous!)
@@ -612,13 +616,14 @@ class BaseExperiment:
                 self.cfg.training.clip_grad_value,
             )
         # rescale gradients such that their norm matches a given number
-        grad_norm = torch.nn.utils.clip_grad_norm_(
-            self.model.parameters(),
-            self.cfg.training.clip_grad_norm
-            if self.cfg.training.clip_grad_norm is not None
-            else float("inf"),
-            error_if_nonfinite=True,
-        ).detach()
+        if self.cfg.training.clip_grad_norm is not None:
+            grad_norm = torch.nn.utils.clip_grad_norm_(
+                self.model.parameters(),
+                self.cfg.training.clip_grad_norm,
+                error_if_nonfinite=True,
+            ).detach()
+        else:
+            grad_norm = torch.tensor(0.0, device=self.device)
         # rescale gradients of the lframesnet only
         if self.cfg.training.clip_grad_norm_lframesnet is not None:
             torch.nn.utils.clip_grad_norm_(
@@ -640,7 +645,6 @@ class BaseExperiment:
             self.scheduler.step()
 
         # collect metrics
-
         self.train_loss.append(loss.detach().item())
         self.train_lr.append(self.optimizer.param_groups[0]["lr"])
         self.grad_norm_train.append(grad_norm)

@@ -10,6 +10,7 @@ data:
  prepare: lorentz
  train_test_val: [.4, .5, .1]
  mass_reg: 1e-5
+ momentum_float64: true
 
 evaluation:
  eval_set: [train, test, val]

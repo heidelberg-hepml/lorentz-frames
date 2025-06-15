@@ -49,7 +49,8 @@ class CFM(nn.Module):
         self,
         cfm,
         odeint={"method": "dopri5", "atol": 1e-5, "rtol": 1e-5, "options": None},
-        use_float64=False,
+        network_float64=False,
+        momentum_float64=True,
     ):
         super().__init__()
         self.t_embedding = nn.Sequential(
@@ -61,7 +62,8 @@ class CFM(nn.Module):
         self.trace_fn = hutchinson_trace if cfm.hutchinson else autograd_trace
         self.odeint = odeint
         self.cfm = cfm
-        self.save_dtype = torch.float64 if use_float64 else torch.float32
+        self.network_dtype = torch.float64 if network_float64 else torch.float32
+        self.momentum_dtype = torch.float64 if momentum_float64 else torch.float32
 
         # initialize to base objects, this will be overwritten later
         self.distribution = BaseDistribution()
@@ -115,7 +117,7 @@ class CFM(nn.Module):
             fm0.shape[0],
             1,
             1,
-            dtype=self.save_dtype,
+            dtype=self.network_dtype,
             device=fm0.device,
         )
         fm1 = self.sample_base(fm0.shape, fm0.device, fm0.dtype)
@@ -132,7 +134,7 @@ class CFM(nn.Module):
             tracker[f"mse_{k}"] = ((vp_x - vt_x) ** 2)[..., k].mean().detach().cpu()
         return distance, tracker
 
-    def sample(self, shape, device, dtype):
+    def sample(self, shape, device):
         """
         Sample from CFM model
         Solve an ODE using a NN-parametrized velocity field
@@ -142,7 +144,6 @@ class CFM(nn.Module):
         shape : List[int]
             Shape of events that should be generated
         device : torch.device
-        dtype : torch.dtype
 
         Returns
         -------
@@ -152,20 +153,22 @@ class CFM(nn.Module):
 
         def velocity(t, xt):
             xt = self.geometry._handle_periodic(xt)
-            t = t * torch.ones(shape[0], 1, 1, dtype=self.save_dtype, device=xt.device)
+            t = t * torch.ones(
+                shape[0], 1, 1, dtype=self.network_dtype, device=xt.device
+            )
             vp_x = self.get_velocity(xt, t)[0]
             vp_x = self.handle_velocity(vp_x)
             return vp_x
 
         # sample fourmomenta from base distribution
-        fm1 = self.sample_base(shape, device, dtype=torch.float64)
+        fm1 = self.sample_base(shape, device, dtype=self.momentum_dtype)
         x1 = self.coordinates.fourmomenta_to_x(fm1)
 
         # solve ODE in straight space
         x0 = odeint(
             velocity,
             x1,
-            torch.tensor([1.0, 0.0], dtype=self.save_dtype, device=x1.device),
+            torch.tensor([1.0, 0.0], dtype=self.network_dtype, device=x1.device),
             **self.odeint,
         )[-1]
 
@@ -213,7 +216,7 @@ class CFM(nn.Module):
                 xt.shape[0],
                 1,
                 1,
-                dtype=self.save_dtype,
+                dtype=self.network_dtype,
                 device=xt.device,
             )
             vp_x = self.get_velocity(xt, t)[0]
@@ -225,14 +228,14 @@ class CFM(nn.Module):
         x0 = self.coordinates.fourmomenta_to_x(fm0)
         logdetjac0_cfm_x = torch.zeros(
             (x0.shape[0], 1),
-            dtype=self.save_dtype,
+            dtype=self.network_dtype,
             device=x0.device,
         )
         state0 = (x0, logdetjac0_cfm_x)
         xt, logdetjact_cfm_x = odeint(
             net_wrapper,
             state0,
-            torch.tensor([0.0, 1.0], dtype=self.save_dtype, device=x0.device),
+            torch.tensor([0.0, 1.0], dtype=self.network_dtype, device=x0.device),
             **self.odeint,
         )
         logdetjac_cfm_x = logdetjact_cfm_x[-1].detach()

@@ -1,0 +1,18 @@
+_target_: experiments.tagging.wrappers.CGENNWrapper
+out_channels: null
+
+net:
+ _target_: experiments.baselines.cgenn.cgenn.CGENN
+ _partial_: true
+
+ in_features_h: null
+ hidden_features_h: 72
+ in_features_x: 1
+ hidden_features_x: 8
+ decoder_features: 64
+ n_outputs: null
+ n_layers: 4
+ dropout: 0.2
+ 
+defaults:
+ - lframesnet: identity
