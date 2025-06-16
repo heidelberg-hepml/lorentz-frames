@@ -2,7 +2,7 @@ _target_: experiments.tagging.wrappers.PELICANWrapperOfficial
 out_channels: null
 
 net:
- _target_: experiments.baselines.pelican.pelican.PELICAN
+ _target_: experiments.baselines.pelican.pelican.PELICANOfficial
  _partial_: true
 
  num_scalars: null
