@@ -257,5 +257,6 @@ class JetClassTaggingExperiment(TaggingExperiment):
         label = batch[1]["_label_"].to(self.device)
         fourmomenta, scalars, ptr = dense_to_sparse_jet(fourmomenta, scalars)
         embedding = embed_tagging_data(fourmomenta, scalars, ptr, self.cfg.data)
+        embedding["num_graphs"] = batch[0]["pf_vectors"].shape[0]
         y_pred, tracker, lframes = self.model(embedding)
         return y_pred, label, tracker, lframes

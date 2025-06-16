@@ -334,6 +334,7 @@ class TaggingExperiment(BaseExperiment):
             batch.ptr,
             self.cfg.data,
         )
+        embedding["num_graphs"] = batch.num_graphs
         y_pred, tracker, lframes = self.model(embedding)
         y_pred = y_pred[:, 0]
         return y_pred, batch.label.to(self.dtype), tracker, lframes

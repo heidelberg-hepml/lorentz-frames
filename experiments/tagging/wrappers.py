@@ -639,6 +639,7 @@ class PELICANWrapper(nn.Module):
         batch = embedding["batch"]
         ptr = embedding["ptr"]
         is_spurion = embedding["is_spurion"]
+        num_graphs = embedding["num_graphs"]
 
         # rescale fourmomenta (but not the spurions)
         fourmomenta[~is_spurion] = fourmomenta[~is_spurion] / 20
@@ -647,7 +648,11 @@ class PELICANWrapper(nn.Module):
         fourmomenta = fourmomenta.to(scalars.dtype)
         edge_attr = self.get_edge_attr(fourmomenta, edge_index).to(scalars.dtype)
         output = self.net(
-            in_rank2=edge_attr, edge_index=edge_index, batch=batch, in_rank1=scalars
+            in_rank2=edge_attr,
+            edge_index=edge_index,
+            batch=batch,
+            in_rank1=scalars,
+            num_graphs=num_graphs,
         )
         return output, {}, None
 
