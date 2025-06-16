@@ -56,8 +56,8 @@ class GeneralAggregator(nn.Module):
         else:
             return self.coeffs_direct
 
-    def forward(self, x, edge_index, batch):
-        x = self.aggregator(x, edge_index=edge_index, batch=batch, reduce=self.aggr)
+    def forward(self, x, *args, **kwargs):
+        x = self.aggregator(x, *args, reduce=self.aggr, **kwargs)
         out = torch.einsum("ijk,bik->bj", self.coeffs, x)
         return out
 

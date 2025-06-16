@@ -20,7 +20,7 @@ def bell_number(n):
         )
 
 
-def aggregate_0to2(graph, edge_index, batch, reduce="mean"):
+def aggregate_0to2(graph, edge_index, batch, reduce="mean", **kwargs):
     _, C = graph.shape
     E = edge_index.size(1)
     row, col = edge_index
@@ -34,7 +34,7 @@ def aggregate_0to2(graph, edge_index, batch, reduce="mean"):
     return ops.permute(1, 2, 0)
 
 
-def aggregate_1to2(nodes, edge_index, batch, reduce="mean"):
+def aggregate_1to2(nodes, edge_index, batch, reduce="mean", **kwargs):
     _, C = nodes.shape
     E = edge_index.size(1)
     row, col = edge_index
@@ -54,15 +54,19 @@ def aggregate_1to2(nodes, edge_index, batch, reduce="mean"):
     return ops.permute(1, 2, 0)
 
 
-def aggregate_2to0(edges, edge_index, batch, reduce="mean"):
+def aggregate_2to0(edges, edge_index, batch, reduce="mean", G=None, **kwargs):
     _, C = edges.shape
-    G = batch.max() + 1
+    if G is None:
+        # host synchronization causes slowdown; maybe there is a better way?
+        G = batch[-1].item() + 1
     row, col = edge_index
     edge_batch = batch[row]
     is_diag = row == col
+    diag_mask = is_diag.unsqueeze(-1).type_as(edges)
 
-    graph_agg = scatter(edges, edge_batch, dim=0, reduce=reduce)
-    diag_agg = scatter(edges[is_diag], edge_batch[is_diag], dim=0, reduce=reduce)
+    diags = edges * diag_mask
+    graph_agg = scatter(edges, edge_batch, dim=0, dim_size=G, reduce=reduce)
+    diag_agg = scatter(diags, edge_batch, dim=0, dim_size=G, reduce=reduce)
 
     ops = edges.new_empty(2, G, C)
     ops[0] = graph_agg
@@ -70,7 +74,7 @@ def aggregate_2to0(edges, edge_index, batch, reduce="mean"):
     return ops.permute(1, 2, 0)
 
 
-def aggregate_2to1(edges, edge_index, batch, reduce="mean"):
+def aggregate_2to1(edges, edge_index, batch, reduce="mean", **kwargs):
     _, C = edges.shape
     N = batch.size(0)
     row, col = edge_index
@@ -101,7 +105,7 @@ def get_transpose(row, col):
     return perm[idx]
 
 
-def aggregate_2to2(edges, edge_index, batch, reduce="mean"):
+def aggregate_2to2(edges, edge_index, batch, reduce="mean", **kwargs):
     E, C = edges.shape
     N = batch.size(0)
     row, col = edge_index

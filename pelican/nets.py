@@ -101,7 +101,9 @@ class PELICAN(nn.Module):
         else:
             raise NotImplementedError
 
-    def forward(self, in_rank2, edge_index, batch, in_rank1=None, in_rank0=None):
+    def forward(
+        self, in_rank2, edge_index, batch, in_rank1=None, in_rank0=None, num_graphs=None
+    ):
         # embed inputs into edge features
         edges = [in_rank2]
         if in_rank1 is not None and self.in_aggregator_rank1 is not None:
@@ -123,5 +125,5 @@ class PELICAN(nn.Module):
                 x = block(x, edge_index=edge_index, batch=batch)
 
         # extract outputs from edge features
-        out = self.out_aggregator(x, edge_index=edge_index, batch=batch)
+        out = self.out_aggregator(x, edge_index=edge_index, batch=batch, G=num_graphs)
         return out
