@@ -607,14 +607,22 @@ class BaseExperiment:
         loss.backward()
 
         if self.cfg.training.log_grad_norm:
-            grad_norm_lframes = torch.nn.utils.clip_grad_norm_(
-                self.model.lframesnet.parameters(),
-                float("inf"),
-            ).detach()
-            grad_norm_net = torch.nn.utils.clip_grad_norm_(
-                self.model.net.parameters(),
-                float("inf"),
-            ).detach()
+            grad_norm_lframes = (
+                torch.nn.utils.clip_grad_norm_(
+                    self.model.lframesnet.parameters(),
+                    float("inf"),
+                )
+                .detach()
+                .to(self.device)
+            )
+            grad_norm_net = (
+                torch.nn.utils.clip_grad_norm_(
+                    self.model.net.parameters(),
+                    float("inf"),
+                )
+                .detach()
+                .to(self.device)
+            )
         else:
             grad_norm_lframes = torch.tensor(0.0, device=self.device)
             grad_norm_net = torch.tensor(0.0, device=self.device)
@@ -628,19 +636,23 @@ class BaseExperiment:
         # rescale gradients such that their norm matches a given number
 
         if self.cfg.training.clip_grad_norm is not None:
-            grad_norm = torch.nn.utils.clip_grad_norm_(
-                self.model.parameters(),
-                self.cfg.training.clip_grad_norm,
-                error_if_nonfinite=False,
-            ).detach()
+            grad_norm = (
+                torch.nn.utils.clip_grad_norm_(
+                    self.model.parameters(),
+                    self.cfg.training.clip_grad_norm,
+                    error_if_nonfinite=False,
+                )
+                .detach()
+                .to(self.device)
+            )
         else:
-            grad_norm = torch.tensor(0.0, device=self.device)
+            grad_norm = grad_norm_lframes + grad_norm_net
         # rescale gradients of the lframesnet only
         if self.cfg.training.clip_grad_norm_lframesnet is not None:
             torch.nn.utils.clip_grad_norm_(
                 self.model.lframesnet.parameters(),
                 self.cfg.training.clip_grad_norm_lframesnet,
-            )
+            ).detach().to(self.device)
 
         if step > MIN_STEP_SKIP and self.cfg.training.max_grad_norm is not None:
             if grad_norm > self.cfg.training.max_grad_norm:
