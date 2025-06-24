@@ -406,7 +406,7 @@ class BaseExperiment:
             self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
                 self.optimizer_net,
                 T_max=int(
-                    self.cfg.training.iterations * self.cfg.training.scheduler_scale
+                    self.cfg.training.iterations * self.cfg.training.scheduler_scale / 2
                 ),
                 eta_min=self.cfg.training.cosanneal_eta_min,
             )
@@ -504,7 +504,7 @@ class BaseExperiment:
             self.model.train()
             data = next(iterator)
             t0 = time.time()
-            if it // 10 % 2 == 0:
+            if it // self.cfg.training.alternate % 2 == 0:
                 print("freezing lframesnet")
                 for p in self.model.lframesnet.parameters():
                     p.requires_grad = False
@@ -661,7 +661,7 @@ class BaseExperiment:
                 .to(self.device)
             )
         else:
-            grad_norm = grad_norm_lframes+grad_norm_net
+            grad_norm = grad_norm_lframes + grad_norm_net
         # rescale gradients of the lframesnet only
         if self.cfg.training.clip_grad_norm_lframesnet is not None:
             grad_norm_lframes = (
