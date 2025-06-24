@@ -139,27 +139,7 @@ class TaggingExperiment(BaseExperiment):
                 },
             ]
 
-        # super()._init_optimizer(param_groups=param_groups)
-        self.optimizer_net = torch.optim.AdamW(
-            [
-                {
-                    "params": self.model.net.parameters(),
-                    "lr": self.cfg.training.lr,
-                    "weight_decay": self.cfg.training.weight_decay,
-                },
-            ]
-        )
-
-        self.optimizer_lframesnet = torch.optim.AdamW(
-            [
-                {
-                    "params": self.model.lframesnet.parameters(),
-                    "weight_decay": self.cfg.training.weight_decay_lframesnet,
-                    "lr": self.cfg.training.lr * self.cfg.training.lr_factor_lframesnet,
-                }
-            ]
-        )
-        print("lr: ", self.cfg.training.lr * self.cfg.training.lr_factor_lframesnet)
+        super()._init_optimizer(param_groups=param_groups)
 
     def evaluate(self):
         self.results = {}

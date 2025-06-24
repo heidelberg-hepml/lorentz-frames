@@ -316,7 +316,6 @@ class BaseExperiment:
 
     def _init_optimizer(self, param_groups=None):
         if param_groups is None:
-            assert False
             param_groups = [
                 {
                     "params": self.model.net.parameters(),
@@ -331,33 +330,59 @@ class BaseExperiment:
             ]
 
         if self.cfg.training.optimizer == "Adam":
-            self.optimizer = torch.optim.Adam(
-                param_groups,
+            self.optimizer_net = torch.optim.Adam(
+                param_groups[:-1],
+                betas=self.cfg.training.betas,
+                eps=self.cfg.training.eps,
+            )
+            self.optimizer_lframesnet = torch.optim.Adam(
+                param_groups[-1:],
                 betas=self.cfg.training.betas,
                 eps=self.cfg.training.eps,
             )
         elif self.cfg.training.optimizer == "AdamW":
-            self.optimizer = torch.optim.AdamW(
-                param_groups,
+            self.optimizer_net = torch.optim.AdamW(
+                param_groups[:-1],
+                betas=self.cfg.training.betas,
+                eps=self.cfg.training.eps,
+            )
+            self.optimizer_lframesnet = torch.optim.AdamW(
+                param_groups[-1:],
                 betas=self.cfg.training.betas,
                 eps=self.cfg.training.eps,
             )
         elif self.cfg.training.optimizer == "RAdam":
-            self.optimizer = torch.optim.RAdam(
-                param_groups,
+            self.optimizer_net = torch.optim.RAdam(
+                param_groups[:-1],
+                betas=self.cfg.training.betas,
+                eps=self.cfg.training.eps,
+            )
+            self.optimizer_lframesnet = torch.optim.RAdam(
+                param_groups[-1:],
                 betas=self.cfg.training.betas,
                 eps=self.cfg.training.eps,
             )
         elif self.cfg.training.optimizer == "Lion":
-            self.optimizer = pytorch_optimizer.Lion(
-                param_groups,
+            self.optimizer_net = pytorch_optimizer.Lion(
+                param_groups[:-1],
+                betas=self.cfg.training.betas,
+            )
+            self.optimizer_lframesnet = pytorch_optimizer.Lion(
+                param_groups[-1:],
                 betas=self.cfg.training.betas,
             )
         elif self.cfg.training.optimizer == "Ranger":
             # default optimizer used in the weaver package
             # see https://github.com/hqucms/weaver-core/blob/main/weaver/utils/nn/optimizer/ranger.py
-            self.optimizer = Ranger(
-                param_groups,
+            self.optimizer_net = Ranger(
+                param_groups[:-1],
+                betas=(0.95, 0.999),
+                eps=1e-5,
+                alpha=0.5,
+                k=6,
+            )
+            self.optimizer_lframesnet = Ranger(
+                param_groups[-1:],
                 betas=(0.95, 0.999),
                 eps=1e-5,
                 alpha=0.5,
@@ -394,25 +419,45 @@ class BaseExperiment:
         if self.cfg.training.scheduler is None:
             self.scheduler = None  # constant lr
         elif self.cfg.training.scheduler == "OneCycleLR":
-            self.scheduler = torch.optim.lr_scheduler.OneCycleLR(
-                self.optimizer,
+            self.scheduler_net = torch.optim.lr_scheduler.OneCycleLR(
+                self.optimizer_net,
                 max_lr=self.cfg.training.lr * self.cfg.training.onecycle_max_lr,
                 pct_start=self.cfg.training.onecycle_pct_start,
                 total_steps=int(
-                    self.cfg.training.iterations * self.cfg.training.scheduler_scale
+                    self.cfg.training.iterations * self.cfg.training.scheduler_scale / 2
+                ),
+            )
+            self.scheduler_lframesnet = torch.optim.lr_scheduler.OneCycleLR(
+                self.optimizer_lframesnet,
+                max_lr=self.cfg.training.lr * self.cfg.training.onecycle_max_lr,
+                pct_start=self.cfg.training.onecycle_pct_start,
+                total_steps=int(
+                    self.cfg.training.iterations * self.cfg.training.scheduler_scale / 2
                 ),
             )
         elif self.cfg.training.scheduler == "CosineAnnealingLR":
-            self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            self.scheduler_net = torch.optim.lr_scheduler.CosineAnnealingLR(
                 self.optimizer_net,
                 T_max=int(
                     self.cfg.training.iterations * self.cfg.training.scheduler_scale / 2
                 ),
                 eta_min=self.cfg.training.cosanneal_eta_min,
             )
+            self.scheduler_lframesnet = torch.optim.lr_scheduler.CosineAnnealingLR(
+                self.optimizer_lframesnet,
+                T_max=int(
+                    self.cfg.training.iterations * self.cfg.training.scheduler_scale / 2
+                ),
+                eta_min=self.cfg.training.cosanneal_eta_min,
+            )
         elif self.cfg.training.scheduler == "ReduceLROnPlateau":
-            self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-                self.optimizer,
+            self.scheduler_net = torch.optim.lr_scheduler.ReduceLROnPlateau(
+                self.optimizer_net,
+                factor=self.cfg.training.reduceplateau_factor,
+                patience=self.cfg.training.reduceplateau_patience,
+            )
+            self.scheduler_lframesnet = torch.optim.lr_scheduler.ReduceLROnPlateau(
+                self.optimizer_lframesnet,
                 factor=self.cfg.training.reduceplateau_factor,
                 patience=self.cfg.training.reduceplateau_patience,
             )
@@ -424,6 +469,7 @@ class BaseExperiment:
                 self.cfg.training.iterations
                 * self.cfg.training.scheduler_scale
                 / len(self.train_loader)
+                / 2
             )
             if self.cfg.exp_type == "jctagging":
                 # count 0.1 epochs as actual epoch to allow more lr updates
@@ -431,8 +477,13 @@ class BaseExperiment:
             num_decay_epochs = max(1, int(num_epochs * 0.3))
             milestones = list(range(num_epochs - num_decay_epochs, num_epochs))
             gamma = 0.01 ** (1.0 / num_decay_epochs)
-            self.scheduler = torch.optim.lr_scheduler.MultiStepLR(
-                self.optimizer,
+            self.scheduler_net = torch.optim.lr_scheduler.MultiStepLR(
+                self.optimizer_net,
+                milestones=milestones,
+                gamma=gamma,
+            )
+            self.scheduler_lframesnet = torch.optim.lr_scheduler.MultiStepLR(
+                self.optimizer_lframesnet,
                 milestones=milestones,
                 gamma=gamma,
             )
@@ -510,14 +561,21 @@ class BaseExperiment:
                     p.requires_grad = False
                 for p in self.model.net.parameters():
                     p.requires_grad = True
-                self._step(data, step, self.optimizer_net)
+                self._step(
+                    data, step, self.optimizer_net, scheduler := self.scheduler_net
+                )
             else:
                 print("freezing backbone")
                 for p in self.model.lframesnet.parameters():
                     p.requires_grad = True
                 for p in self.model.net.parameters():
                     p.requires_grad = False
-                self._step(data, step, self.optimizer_lframesnet)
+                self._step(
+                    data,
+                    step,
+                    self.optimizer_lframesnet,
+                    scheduler := self.scheduler_lframesnet,
+                )
 
             train_time += time.time() - t0
             if self.cfg.training.checkpoint_every_n_steps is not None:
@@ -555,7 +613,7 @@ class BaseExperiment:
                         break  # early stopping
 
                 if self.cfg.training.scheduler in ["ReduceLROnPlateau"]:
-                    self.scheduler.step(val_loss)
+                    scheduler.step(val_loss)
 
             # output
             dt = time.time() - self.training_start_time
@@ -578,13 +636,13 @@ class BaseExperiment:
                     self.cfg.exp_type == "toptagging"
                     and step % len(self.train_loader) == 0
                 ):
-                    self.scheduler.step()
+                    scheduler.step()
 
                 if (
                     self.cfg.exp_type == "jctagging"
                     and step % int(len(self.train_loader) / 10) == 0
                 ):
-                    self.scheduler.step()
+                    scheduler.step()
 
         dt = time.time() - self.training_start_time
         LOGGER.info(
@@ -615,7 +673,7 @@ class BaseExperiment:
                     f"Cannot load best model (epoch {smallest_val_loss_step}) from {model_path}"
                 )
 
-    def _step(self, data, step, optimizer):
+    def _step(self, data, step, optimizer, scheduler):
         # actual update step
         loss, metrics = self._batch_loss(data)
         optimizer.zero_grad()
@@ -684,8 +742,7 @@ class BaseExperiment:
             self.ema.update()
 
         if self.cfg.training.scheduler in ["OneCycleLR", "CosineAnnealingLR"]:
-            if optimizer == self.optimizer_net:
-                self.scheduler.step()
+            scheduler.step()
 
         # collect metrics
         self.train_loss.append(loss.detach().item())
@@ -768,9 +825,13 @@ class BaseExperiment:
         torch.save(
             {
                 "model": self.model.state_dict(),
-                "optimizer": self.optimizer_net.state_dict(),
-                "scheduler": self.scheduler.state_dict()
-                if self.scheduler is not None
+                "optimizer_net": self.optimizer_net.state_dict(),
+                "optimizer_lframesnet": self.optimizer_lframesnet.state_dict(),
+                "scheduler_net": self.scheduler_net.state_dict()
+                if self.scheduler_net is not None
+                else None,
+                "scheduler_lframesnet": self.scheduler_lframesnet.state_dict()
+                if self.scheduler_lframesnet is not None
                 else None,
                 "ema": self.ema.state_dict() if self.ema is not None else None,
             },
