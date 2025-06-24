@@ -651,7 +651,7 @@ class BaseExperiment:
         # rescale gradients such that their norm matches a given number
 
         if self.cfg.training.clip_grad_norm is not None:
-            grad_norm_net = (
+            grad_norm = (
                 torch.nn.utils.clip_grad_norm_(
                     self.model.parameters(),
                     self.cfg.training.clip_grad_norm,
@@ -660,6 +660,8 @@ class BaseExperiment:
                 .detach()
                 .to(self.device)
             )
+        else:
+            grad_norm = grad_norm_lframes+grad_norm_net
         # rescale gradients of the lframesnet only
         if self.cfg.training.clip_grad_norm_lframesnet is not None:
             grad_norm_lframes = (
@@ -688,7 +690,7 @@ class BaseExperiment:
         # collect metrics
         self.train_loss.append(loss.detach().item())
         self.train_lr.append(optimizer.param_groups[0]["lr"])
-        self.grad_norm_train.append(grad_norm_net + grad_norm_lframes)
+        self.grad_norm_train.append(grad_norm)
         self.grad_norm_lframes.append(grad_norm_lframes)
         self.grad_norm_net.append(grad_norm_net)
         for key, value in metrics.items():
@@ -704,7 +706,7 @@ class BaseExperiment:
                 "loss": loss.item(),
                 "lr": self.train_lr[-1],
                 "time_per_step": (time.time() - self.training_start_time) / (step + 1),
-                "grad_norm": grad_norm_net + grad_norm_lframes,
+                "grad_norm": grad_norm,
                 "grad_norm_lframes": grad_norm_lframes,
                 "grad_norm_net": grad_norm_net,
             }
