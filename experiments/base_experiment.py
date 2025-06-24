@@ -316,6 +316,7 @@ class BaseExperiment:
 
     def _init_optimizer(self, param_groups=None):
         if param_groups is None:
+            assert False
             param_groups = [
                 {
                     "params": self.model.net.parameters(),
@@ -403,7 +404,7 @@ class BaseExperiment:
             )
         elif self.cfg.training.scheduler == "CosineAnnealingLR":
             self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-                self.optimizer,
+                self.optimizer_net,
                 T_max=int(
                     self.cfg.training.iterations * self.cfg.training.scheduler_scale
                 ),
@@ -498,12 +499,26 @@ class BaseExperiment:
                     yield x
 
         iterator = iter(cycle(self.train_loader))
-        for step in range(self.cfg.training.iterations):
+        for it, step in enumerate(range(self.cfg.training.iterations)):
             # training
             self.model.train()
             data = next(iterator)
             t0 = time.time()
-            self._step(data, step)
+            if it // 10 % 2 == 0:
+                print("freezing lframesnet")
+                for p in self.model.lframesnet.parameters():
+                    p.requires_grad = False
+                for p in self.model.net.parameters():
+                    p.requires_grad = True
+                self._step(data, step, self.optimizer_net)
+            else:
+                print("freezing backbone")
+                for p in self.model.lframesnet.parameters():
+                    p.requires_grad = True
+                for p in self.model.net.parameters():
+                    p.requires_grad = False
+                self._step(data, step, self.optimizer_lframesnet)
+
             train_time += time.time() - t0
             if self.cfg.training.checkpoint_every_n_steps is not None:
                 if (step + 1) % self.cfg.training.checkpoint_every_n_steps == 0:
@@ -600,21 +615,29 @@ class BaseExperiment:
                     f"Cannot load best model (epoch {smallest_val_loss_step}) from {model_path}"
                 )
 
-    def _step(self, data, step):
+    def _step(self, data, step, optimizer):
         # actual update step
         loss, metrics = self._batch_loss(data)
-        self.optimizer.zero_grad()
+        optimizer.zero_grad()
         loss.backward()
 
         if self.cfg.training.log_grad_norm:
-            grad_norm_lframes = torch.nn.utils.clip_grad_norm_(
-                self.model.lframesnet.parameters(),
-                float("inf"),
-            ).detach()
-            grad_norm_net = torch.nn.utils.clip_grad_norm_(
-                self.model.net.parameters(),
-                float("inf"),
-            ).detach()
+            grad_norm_lframes = (
+                torch.nn.utils.clip_grad_norm_(
+                    self.model.lframesnet.parameters(),
+                    float("inf"),
+                )
+                .detach()
+                .to(self.device)
+            )
+            grad_norm_net = (
+                torch.nn.utils.clip_grad_norm_(
+                    self.model.net.parameters(),
+                    float("inf"),
+                )
+                .detach()
+                .to(self.device)
+            )
         else:
             grad_norm_lframes = torch.tensor(0.0, device=self.device)
             grad_norm_net = torch.tensor(0.0, device=self.device)
@@ -628,37 +651,44 @@ class BaseExperiment:
         # rescale gradients such that their norm matches a given number
 
         if self.cfg.training.clip_grad_norm is not None:
-            grad_norm = torch.nn.utils.clip_grad_norm_(
-                self.model.parameters(),
-                self.cfg.training.clip_grad_norm,
-                error_if_nonfinite=False,
-            ).detach()
-        else:
-            grad_norm = torch.tensor(0.0, device=self.device)
+            grad_norm_net = (
+                torch.nn.utils.clip_grad_norm_(
+                    self.model.parameters(),
+                    self.cfg.training.clip_grad_norm,
+                    error_if_nonfinite=False,
+                )
+                .detach()
+                .to(self.device)
+            )
         # rescale gradients of the lframesnet only
         if self.cfg.training.clip_grad_norm_lframesnet is not None:
-            torch.nn.utils.clip_grad_norm_(
-                self.model.lframesnet.parameters(),
-                self.cfg.training.clip_grad_norm_lframesnet,
+            grad_norm_lframes = (
+                torch.nn.utils.clip_grad_norm_(
+                    self.model.lframesnet.parameters(),
+                    self.cfg.training.clip_grad_norm_lframesnet,
+                )
+                .detach()
+                .to(self.device)
             )
 
         if step > MIN_STEP_SKIP and self.cfg.training.max_grad_norm is not None:
-            if grad_norm > self.cfg.training.max_grad_norm:
+            if grad_norm_net > self.cfg.training.max_grad_norm:
                 LOGGER.warning(
-                    f"Skipping iteration {step}, gradient norm {grad_norm} exceeds maximum {self.cfg.training.max_grad_norm}"
+                    f"Skipping iteration {step}, gradient norm {grad_norm_net} exceeds maximum {self.cfg.training.max_grad_norm}"
                 )
                 return
-        self.optimizer.step()
+        optimizer.step()
         if self.ema is not None:
             self.ema.update()
 
         if self.cfg.training.scheduler in ["OneCycleLR", "CosineAnnealingLR"]:
-            self.scheduler.step()
+            if optimizer == self.optimizer_net:
+                self.scheduler.step()
 
         # collect metrics
         self.train_loss.append(loss.detach().item())
-        self.train_lr.append(self.optimizer.param_groups[0]["lr"])
-        self.grad_norm_train.append(grad_norm)
+        self.train_lr.append(optimizer.param_groups[0]["lr"])
+        self.grad_norm_train.append(grad_norm_net + grad_norm_lframes)
         self.grad_norm_lframes.append(grad_norm_lframes)
         self.grad_norm_net.append(grad_norm_net)
         for key, value in metrics.items():
@@ -674,7 +704,7 @@ class BaseExperiment:
                 "loss": loss.item(),
                 "lr": self.train_lr[-1],
                 "time_per_step": (time.time() - self.training_start_time) / (step + 1),
-                "grad_norm": grad_norm,
+                "grad_norm": grad_norm_net + grad_norm_lframes,
                 "grad_norm_lframes": grad_norm_lframes,
                 "grad_norm_net": grad_norm_net,
             }
@@ -736,7 +766,7 @@ class BaseExperiment:
         torch.save(
             {
                 "model": self.model.state_dict(),
-                "optimizer": self.optimizer.state_dict(),
+                "optimizer": self.optimizer_net.state_dict(),
                 "scheduler": self.scheduler.state_dict()
                 if self.scheduler is not None
                 else None,
