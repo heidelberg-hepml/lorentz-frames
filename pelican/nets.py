@@ -104,6 +104,12 @@ class PELICAN(nn.Module):
     def forward(
         self, in_rank2, edge_index, batch, in_rank1=None, in_rank0=None, num_graphs=None
     ):
+        # check that diagonal edges are present (required for 2to2 aggregator)
+        N = batch.size(0)
+        row, col = edge_index
+        is_diag = row == col
+        assert is_diag.sum() == N, "PELICAN requires self-loops in the graph"
+
         # embed inputs into edge features
         edges = [in_rank2]
         if in_rank1 is not None and self.in_aggregator_rank1 is not None:
