@@ -1,5 +1,5 @@
 import torch
-from lgatr import embed_vector, extract_scalar
+from lgatr import embed_vector
 from lgatr.primitives.attention import scaled_dot_product_attention
 
 from .base import EquiVectors
@@ -12,11 +12,15 @@ class LGATrVectors(EquiVectors):
         self,
         n_vectors,
         num_scalars,
+        hidden_s_channels,
         net,
     ):
         super().__init__()
         self.n_vectors = n_vectors
-        self.net = net(in_s_channels=num_scalars)
+        self.net = net(
+            in_s_channels=num_scalars,
+            out_s_channels=2 * n_vectors * hidden_s_channels,
+        )
 
     def forward(self, fourmomenta, scalars=None, ptr=None):
         attn_kwargs = {}
@@ -32,16 +36,18 @@ class LGATrVectors(EquiVectors):
 
         # get query and key from LGATr
         mv = embed_vector(fourmomenta).unsqueeze(-2).to(scalars.dtype)
-        out_mv, _ = self.net(mv, scalars, **attn_kwargs)
-        out_s = extract_scalar(out_mv).squeeze(-1)
+        _, out_s = self.net(mv, scalars, **attn_kwargs)
         q, k = torch.chunk(out_s.to(fourmomenta.dtype), chunks=2, dim=-1)
-
-        # prepare value
-        v = fourmomenta.repeat(1, 1, self.n_vectors)
+        qs = torch.chunk(q, chunks=self.n_vectors, dim=-1)
+        ks = torch.chunk(k, chunks=self.n_vectors, dim=-1)
 
         # attention and final reshape
-        out = scaled_dot_product_attention(q, k, v, **attn_kwargs)
-        out = out.reshape(*out.shape[:-1], self.n_vectors, 4)
+        v = fourmomenta
+        out = []
+        for q, k in zip(qs, ks):
+            outi = scaled_dot_product_attention(q, k, v, **attn_kwargs)
+            out.append(outi)
+        out = torch.stack(out, dim=-2)
         if ptr is not None:
             out = out.squeeze(0)
         return out
