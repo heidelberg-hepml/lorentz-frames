@@ -59,6 +59,7 @@ class TensorRepsTransform(torch.nn.Module):
             # super efficient shortcut if only scalar and vector reps are present
             self.transform = self._transform_only_scalars_and_vectors
 
+    @torch.autocast(enabled=False)
     def forward(self, tensor: torch.Tensor, lframes: LFrames):
         """Apply a transformation to a tensor of a given representation.
 

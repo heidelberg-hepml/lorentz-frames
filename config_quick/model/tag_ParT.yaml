@@ -1,6 +1,7 @@
 _target_: experiments.tagging.wrappers.ParTWrapper
 in_channels: null
 out_channels: null
+use_amp: false
 
 net:
  _target_: lloca.nn.particletransformer.ParticleTransformer
@@ -10,7 +11,7 @@ net:
 
  attn_reps: 8x0n+2x1n
 
- use_amp: false
+ use_amp: ${model.use_amp}
  trim: false
 
  use_pre_activation_pair: false

@@ -330,9 +330,11 @@ class TransformerWrapper(AggregatedTaggerWrapper):
         self,
         net,
         *args,
+        use_amp=False,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
+        self.use_amp = use_amp
         self.net = net(in_channels=self.in_channels, out_channels=self.out_channels)
 
     def forward(self, embedding):
@@ -356,10 +358,13 @@ class TransformerWrapper(AggregatedTaggerWrapper):
         lframes = lframes.reshape(1, *lframes.shape)
 
         # network
-        outputs = self.net(inputs=features_local, lframes=lframes, attention_mask=mask)
-        outputs = outputs[0, ...]
+        with torch.autocast(enabled=self.use_amp):
+            outputs = self.net(
+                inputs=features_local, lframes=lframes, attention_mask=mask
+            )
 
         # aggregation
+        outputs = outputs[0, ...]
         score = self.extract_score(outputs, ptr)
         return score, tracker, lframes
 
@@ -423,8 +428,10 @@ class LGATrWrapper(nn.Module):
         lframesnet,
         out_channels,
         mean_aggregation=False,
+        use_amp=False,
     ):
         super().__init__()
+        self.use_amp = use_amp
         self.net = net(out_mv_channels=out_channels)
         self.aggregator = MeanAggregation() if mean_aggregation else None
 
@@ -517,7 +524,8 @@ class LGATrWrapper(nn.Module):
         mv = embed_vector(fourmomenta).unsqueeze(-2)
         s = scalars if scalars.shape[-1] > 0 else None
 
-        mv_outputs, _ = self.net(mv, s, **kwargs)
+        with torch.autocast(enabled=self.use_amp):
+            mv_outputs, _ = self.net(mv, s, **kwargs)
         out = extract_scalar(mv_outputs)[0, :, :, 0]
 
         if self.aggregator is not None:
@@ -532,10 +540,13 @@ class ParTWrapper(TaggerWrapper):
         self,
         net,
         *args,
+        use_amp=False,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
-        self.net = net(input_dim=self.in_channels, num_classes=self.out_channels)
+        self.net = net(
+            input_dim=self.in_channels, num_classes=self.out_channels, use_amp=use_amp
+        )
 
     def forward(self, embedding):
         (
