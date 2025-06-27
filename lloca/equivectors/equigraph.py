@@ -56,8 +56,8 @@ class EquiEdgeConv(MessagePassing):
         assert num_scalars > 0 or include_edges
         self.include_edges = include_edges
         self.layer_norm = layer_norm
-        self.operation = self.get_operation(operation)
-        self.nonlinearity = self.get_nonlinearity(nonlinearity)
+        self.operation = get_operation(operation)
+        self.nonlinearity = get_nonlinearity(nonlinearity)
         self.fm_norm = fm_norm
         assert not (operation == "single" and fm_norm)  # unstable
 
@@ -163,59 +163,6 @@ class EquiEdgeConv(MessagePassing):
         out = out.reshape(out.shape[0], -1)
         return out
 
-    def get_operation(self, operation):
-        """
-        Parameters
-        ----------
-        operation : str
-            Operation to perform on the fourmomenta. Options are "add", "diff", or "single".
-
-        Returns
-        -------
-        callable
-            A function that performs the specified operation on two fourmomenta tensors.
-        """
-        if operation == "diff":
-            return torch.sub
-        elif operation == "add":
-            return torch.add
-        elif operation == "single":
-            return lambda fm_i, fm_j: fm_j
-        else:
-            raise ValueError(
-                f"Invalid operation {operation}. Options are (add, diff, single)."
-            )
-
-    def get_nonlinearity(self, nonlinearity):
-        """
-        Parameters
-        ----------
-        nonlinearity : str or None
-            Nonlinearity to apply to the output of the MLP. Options are None, "exp", "softplus", "softmax".
-
-        Returns
-        -------
-        callable
-            A function that applies the specified nonlinearity to the input tensor.
-        """
-        if nonlinearity == None:
-            return lambda x, batch: x
-        elif nonlinearity == "exp":
-            return lambda x, batch: torch.clamp(x, min=-10, max=10).exp()
-        elif nonlinearity == "softplus":
-            return lambda x, batch: torch.nn.functional.softplus(x)
-        elif nonlinearity == "softmax":
-
-            def func(x, batch):
-                ptr = get_ptr_from_batch(batch)
-                return softmax(x, ptr=ptr)
-
-            return func
-        else:
-            raise ValueError(
-                f"Invalid nonlinearity {nonlinearity}. Options are (None, exp, softplus, softmax)."
-            )
-
 
 class EquiGraphNet(EquiVectors):
     def __init__(
@@ -294,3 +241,57 @@ class EquiGraphNet(EquiVectors):
             )
         fourmomenta = fourmomenta.reshape(*in_shape, -1, 4)
         return fourmomenta
+
+def get_operation(operation):
+    """
+    Parameters
+    ----------
+    operation : str
+        Operation to perform on the fourmomenta. Options are "add", "diff", or "single".
+
+    Returns
+    -------
+    callable
+        A function that performs the specified operation on two fourmomenta tensors.
+    """
+    if operation == "diff":
+        return torch.sub
+    elif operation == "add":
+        return torch.add
+    elif operation == "single":
+        return lambda fm_i, fm_j: fm_j
+    else:
+        raise ValueError(
+            f"Invalid operation {operation}. Options are (add, diff, single)."
+        )
+
+def get_nonlinearity(nonlinearity):
+    """
+    Parameters
+    ----------
+    nonlinearity : str or None
+        Nonlinearity to apply to the output of the MLP. Options are None, "exp", "softplus", "softmax".
+
+    Returns
+    -------
+    callable
+        A function that applies the specified nonlinearity to the input tensor.
+    """
+    if nonlinearity == None:
+        return lambda x, batch: x
+    elif nonlinearity == "exp":
+        return lambda x, batch: torch.clamp(x, min=-10, max=10).exp()
+    elif nonlinearity == "softplus":
+        return lambda x, batch: torch.nn.functional.softplus(x)
+    elif nonlinearity == "softmax":
+
+        def func(x, batch):
+            ptr = get_ptr_from_batch(batch)
+            x = x.clamp(min=-10, max=10)
+            return softmax(x, ptr=ptr)
+
+        return func
+    else:
+        raise ValueError(
+            f"Invalid nonlinearity {nonlinearity}. Options are (None, exp, softplus, softmax)."
+        )
