@@ -242,6 +242,7 @@ class EquiGraphNet(EquiVectors):
         fourmomenta = fourmomenta.reshape(*in_shape, -1, 4)
         return fourmomenta
 
+
 def get_operation(operation):
     """
     Parameters
@@ -264,6 +265,7 @@ def get_operation(operation):
         raise ValueError(
             f"Invalid operation {operation}. Options are (add, diff, single)."
         )
+
 
 def get_nonlinearity(nonlinearity):
     """
