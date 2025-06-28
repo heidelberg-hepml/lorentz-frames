@@ -358,7 +358,7 @@ class TransformerWrapper(AggregatedTaggerWrapper):
         lframes = lframes.reshape(1, *lframes.shape)
 
         # network
-        with torch.autocast(enabled=self.use_amp):
+        with torch.autocast("cuda", enabled=self.use_amp):
             outputs = self.net(
                 inputs=features_local, lframes=lframes, attention_mask=mask
             )
@@ -524,7 +524,7 @@ class LGATrWrapper(nn.Module):
         mv = embed_vector(fourmomenta).unsqueeze(-2)
         s = scalars if scalars.shape[-1] > 0 else None
 
-        with torch.autocast(enabled=self.use_amp):
+        with torch.autocast("cuda", enabled=self.use_amp):
             mv_outputs, _ = self.net(mv, s, **kwargs)
         out = extract_scalar(mv_outputs)[0, :, :, 0]
 

@@ -59,7 +59,7 @@ class TensorRepsTransform(torch.nn.Module):
             # super efficient shortcut if only scalar and vector reps are present
             self.transform = self._transform_only_scalars_and_vectors
 
-    @torch.autocast(enabled=False)
+    @torch.autocast("cuda", enabled=False)
     def forward(self, tensor: torch.Tensor, lframes: LFrames):
         """Apply a transformation to a tensor of a given representation.
 
@@ -117,7 +117,7 @@ class TensorRepsTransform(torch.nn.Module):
 
             einsum_string = get_einsum_string(rep.order)
             x_transformed = torch.einsum(
-                einsum_string, *([lframes.matrices] * rep.order), x
+                einsum_string, *([lframes.matrices.to(x.dtype)] * rep.order), x
             )
             output[:, idx_start:idx_end] = x_transformed.reshape(-1, mul_rep.dim)
 
@@ -160,7 +160,9 @@ class TensorRepsTransform(torch.nn.Module):
 
             if order > 0:
                 # apply transformation, then flatten because transformation is done
-                output = torch.einsum("ijk,ilk...->ilj...", lframes.matrices, output)
+                output = torch.einsum(
+                    "ijk,ilk...->ilj...", lframes.matrices.to(output.dtype), output
+                )
                 output = output.flatten(start_dim=1, end_dim=2)
 
         return output
@@ -188,7 +190,7 @@ class TensorRepsTransform(torch.nn.Module):
         vectors = vectors.reshape(tensor.shape[0], -1, 4)
         vectors_transformed = torch.einsum(
             "ijk,ilk->ilj",
-            lframes.matrices,
+            lframes.matrices.to(vectors.dtype),
             vectors,
         )
         output[:, vector_idx_start:vector_idx_end] = vectors_transformed.reshape(

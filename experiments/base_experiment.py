@@ -11,7 +11,7 @@ from hydra.utils import instantiate
 import mlflow
 from torch_ema import ExponentialMovingAverage
 import pytorch_optimizer
-from torch.cuda.amp import GradScaler
+from torch.amp import GradScaler
 
 from experiments.misc import get_device, flatten_dict
 import experiments.logger
