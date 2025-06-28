@@ -13,6 +13,7 @@ save: true
 use_mlflow: true
 save_source: true
 ema: false
+ema_decay: 0.999
 
 train: true
 evaluate: true

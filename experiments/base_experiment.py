@@ -123,7 +123,7 @@ class BaseExperiment:
         if self.cfg.ema:
             LOGGER.info(f"Using EMA for validation and eval")
             self.ema = ExponentialMovingAverage(
-                self.model.parameters(), decay=self.cfg.training.ema_decay
+                self.model.parameters(), decay=self.cfg.ema_decay
             )
         else:
             LOGGER.info(f"Not using EMA")

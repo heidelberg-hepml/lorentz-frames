@@ -152,12 +152,10 @@ class TaggingExperiment(BaseExperiment):
             if self.ema is not None:
                 with self.ema.average_parameters():
                     self.results[set_label] = self._evaluate_single(
-                        loader_dict[set_label], set_label, mode="eval"
+                        loader_dict[set_label], f"{set_label}_ema", mode="eval"
                     )
 
-                self._evaluate_single(
-                    loader_dict[set_label], f"{set_label}_noema", mode="eval"
-                )
+                self._evaluate_single(loader_dict[set_label], set_label, mode="eval")
 
             else:
                 self.results[set_label] = self._evaluate_single(
