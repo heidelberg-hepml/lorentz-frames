@@ -58,7 +58,7 @@ class GeneralAggregator(nn.Module):
 
         if compile:
             self.__class__ = torch.compile(
-                self.__class__, dynamic=True, fullgraph=True, mode="max-autotune"
+                self.__class__, dynamic=True, fullgraph=True, mode="default"
             )
 
     @property
