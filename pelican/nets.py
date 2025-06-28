@@ -27,17 +27,18 @@ class PELICAN(nn.Module):
         factorize=True,
         activation="gelu",
         aggr="mean",
+        compile=False,
         checkpoint_blocks=False,
     ):
         super().__init__()
+        layer_kwargs = dict(factorize=factorize, aggr=aggr, compile=compile)
 
         # embed inputs into edge features
         self.in_aggregator_rank1 = (
             Aggregator1to2(
                 in_channels=in_rank1,
                 out_channels=in_rank1,
-                factorize=factorize,
-                aggr=aggr,
+                **layer_kwargs,
             )
             if in_rank1 > 0
             else None
@@ -46,8 +47,7 @@ class PELICAN(nn.Module):
             Aggregator0to2(
                 in_channels=in_rank0,
                 out_channels=in_rank0,
-                factorize=factorize,
-                aggr=aggr,
+                **layer_kwargs,
             )
             if in_rank0 > 0
             else None
@@ -58,8 +58,7 @@ class PELICAN(nn.Module):
         self.in_aggregator_rank2 = Aggregator2to2(
             in_channels=in_rank2_effective,
             out_channels=hidden_channels,
-            factorize=factorize,
-            aggr=aggr,
+            **layer_kwargs,
         )
 
         # process edge features
@@ -70,8 +69,7 @@ class PELICAN(nn.Module):
                     hidden_channels=hidden_channels,
                     increase_hidden_channels=increase_hidden_channels,
                     activation=activation,
-                    factorize=factorize,
-                    aggr=aggr,
+                    **layer_kwargs,
                 )
                 for _ in range(num_blocks)
             ]
@@ -82,22 +80,19 @@ class PELICAN(nn.Module):
             self.out_aggregator = Aggregator2to0(
                 in_channels=hidden_channels,
                 out_channels=out_channels,
-                factorize=factorize,
-                aggr=aggr,
+                **layer_kwargs,
             )
         elif out_rank == 1:
             self.out_aggregator = Aggregator2to1(
                 in_channels=hidden_channels,
                 out_channels=out_channels,
-                factorize=factorize,
-                aggr=aggr,
+                **layer_kwargs,
             )
         elif out_rank == 2:
             self.out_aggregator = Aggregator2to2(
                 in_channels=hidden_channels,
                 out_channels=out_channels,
-                factorize=factorize,
-                aggr=aggr,
+                **layer_kwargs,
             )
         else:
             raise NotImplementedError

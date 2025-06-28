@@ -18,6 +18,7 @@ net:
  activation: gelu
  aggr: mean
  checkpoint_blocks: false
+ compile: true
  
 defaults:
  - lframesnet: identity

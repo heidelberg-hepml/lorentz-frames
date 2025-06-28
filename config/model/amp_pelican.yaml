@@ -18,6 +18,7 @@ net:
  factorize: true
  activation: gelu
  aggr: mean
+ compile: true
 
 defaults:
  - lframesnet: identity

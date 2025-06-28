@@ -95,7 +95,6 @@ def aggregate_2to1(edges, edge_index, batch, reduce="mean", **kwargs):
     return ops.permute(1, 2, 0)
 
 
-# @torch.compile()
 def aggregate_2to2(edges, edge_index, batch, reduce="mean", perm_T=None, **kwargs):
     E, C = edges.shape
     N = batch.size(0)

@@ -23,7 +23,14 @@ ACTIVATION = {
 
 class GeneralAggregator(nn.Module):
     def __init__(
-        self, in_rank, out_rank, in_channels, out_channels, factorize=True, aggr="mean"
+        self,
+        in_rank,
+        out_rank,
+        in_channels,
+        out_channels,
+        factorize=True,
+        aggr="mean",
+        compile=False,
     ):
         super().__init__()
         num_maps = bell_number(in_rank + out_rank)
@@ -48,6 +55,11 @@ class GeneralAggregator(nn.Module):
             )
             scale = math.sqrt(6.0 / (in_channels * num_maps))
             torch.nn.init.uniform_(self.coeffs_direct, a=-scale, b=scale)
+
+        if compile:
+            self.__class__ = torch.compile(
+                self.__class__, dynamic=True, fullgraph=True, mode="max-autotune"
+            )
 
     @property
     def coeffs(self):
@@ -103,8 +115,7 @@ class PELICANBlock(nn.Module):
         hidden_channels,
         increase_hidden_channels=1.0,
         activation="gelu",
-        factorize=True,
-        aggr="mean",
+        **kwargs,
     ):
         super().__init__()
         hidden_channels_2 = int(increase_hidden_channels * hidden_channels)
@@ -116,8 +127,7 @@ class PELICANBlock(nn.Module):
         self.aggregator = Aggregator2to2(
             in_channels=hidden_channels_2,
             out_channels=hidden_channels,
-            factorize=factorize,
-            aggr=aggr,
+            **kwargs,
         )
 
     def forward(self, x, edge_index, batch, **kwargs):
