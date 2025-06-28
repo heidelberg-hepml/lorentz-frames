@@ -10,6 +10,7 @@ from .layers import (
     Aggregator2to0,
     PELICANBlock,
 )
+from .primitives import get_transpose
 
 
 class PELICAN(nn.Module):
@@ -120,6 +121,8 @@ class PELICAN(nn.Module):
             edges.append(edges_fromrank0)
         edges = torch.cat(edges, dim=-1)
         x = self.in_aggregator_rank2(edges, edge_index, batch)
+
+        perm_T = get_transpose(edge_index)
 
         # process edge features
         for block in self.blocks:

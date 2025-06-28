@@ -1,3 +1,4 @@
+import math
 import torch
 from torch import nn
 
@@ -35,17 +36,18 @@ class GeneralAggregator(nn.Module):
             self.coeffs01 = nn.Parameter(torch.empty(out_channels, num_maps))
             self.coeffs10 = nn.Parameter(torch.empty(in_channels, out_channels))
             self.coeffs11 = nn.Parameter(torch.empty(in_channels, out_channels))
-            torch.nn.init.normal_(self.coeffs00, std=(1.0 / num_maps) ** 0.5)
-            torch.nn.init.normal_(self.coeffs01, std=(1.0 / num_maps) ** 0.5)
-            torch.nn.init.normal_(self.coeffs10, std=(2.0 / num_maps) ** 0.5)
-            torch.nn.init.normal_(self.coeffs11, std=(2.0 / num_maps) ** 0.5)
+            scale0 = math.sqrt(3.0 / num_maps)
+            scale1 = math.sqrt(3.0 / in_channels)
+            torch.nn.init.uniform_(self.coeffs00, a=-scale0, b=scale0)
+            torch.nn.init.uniform_(self.coeffs01, a=-scale0, b=scale0)
+            torch.nn.init.uniform_(self.coeffs10, a=-scale1, b=scale1)
+            torch.nn.init.uniform_(self.coeffs11, a=-scale1, b=scale1)
         else:
             self.coeffs_direct = nn.Parameter(
                 torch.empty(in_channels, out_channels, num_maps)
             )
-            torch.nn.init.normal_(
-                self.coeffs, std=(4.0 / (in_channels * num_maps)) ** 0.5
-            )
+            scale = math.sqrt(6.0 / (in_channels * num_maps))
+            torch.nn.init.uniform_(self.coeffs_direct, a=-scale, b=scale)
 
     @property
     def coeffs(self):
@@ -58,7 +60,10 @@ class GeneralAggregator(nn.Module):
 
     def forward(self, x, *args, **kwargs):
         x = self.aggregator(x, *args, reduce=self.aggr, **kwargs)
-        out = torch.einsum("ijk,bik->bj", self.coeffs, x)
+        M, C, N = x.shape
+        x_flat = x.reshape(M, C * N)
+        coeffs_flat = self.coeffs.permute(0, 1, 2).reshape(-1, C * N).contiguous()
+        out = torch.nn.functional.linear(x_flat, coeffs_flat)
         return out
 
 
@@ -115,10 +120,10 @@ class PELICANBlock(nn.Module):
             aggr=aggr,
         )
 
-    def forward(self, x, edge_index, batch):
+    def forward(self, x, edge_index, batch, **kwargs):
         for layer in self.mlp:
             x = layer(x)
 
-        x = self.aggregator(x, edge_index=edge_index, batch=batch)
+        x = self.aggregator(x, edge_index=edge_index, batch=batch, **kwargs)
         x = self.activation(x)
         return x
