@@ -123,10 +123,15 @@ class PELICAN(nn.Module):
         for block in self.blocks:
             if self._checkpoint_blocks:
                 x = checkpoint(
-                    block, x, edge_index=edge_index, batch=batch, use_reentrant=False
+                    block,
+                    x,
+                    edge_index=edge_index,
+                    batch=batch,
+                    perm_T=perm_T,
+                    use_reentrant=False,
                 )
             else:
-                x = block(x, edge_index=edge_index, batch=batch)
+                x = block(x, edge_index=edge_index, batch=batch, perm_T=perm_T)
 
         # extract outputs from edge features
         out = self.out_aggregator(x, edge_index=edge_index, batch=batch, G=num_graphs)

@@ -236,6 +236,7 @@ class PELICANWrapper(AmplitudeWrapper):
             lframes,
             tracker,
         ) = super().forward(fourmomenta_global)
+        num_graphs = fourmomenta_local.shape[0]
 
         edge_index, batch = build_edge_index_fully_connected(
             particle_type, remove_self_loops=False
@@ -249,6 +250,7 @@ class PELICANWrapper(AmplitudeWrapper):
             in_rank1=node_attr,
             edge_index=edge_index,
             batch=batch,
+            num_graphs=num_graphs,
         )
         return out, tracker, lframes
 
