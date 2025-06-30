@@ -4,6 +4,7 @@ from torch import nn
 from experiments.eventgen.utils import (
     EPS1,
     CUTOFF,
+    CUTOFF_eta,
     manual_eta,
     get_eps,
 )
@@ -223,7 +224,7 @@ class EPPP_to_PtPhiEtaE(BaseTransform):
         phi = torch.arctan2(py, px)
         p_abs = torch.sqrt(torch.clamp(pt**2 + pz**2, min=eps))
         eta = manual_eta(pz, p_abs)  # torch.arctanh(pz / p_abs)
-        eta = eta.clamp(min=-CUTOFF, max=CUTOFF)
+        eta = eta.clamp(min=-CUTOFF_eta, max=CUTOFF_eta)
         assert torch.isfinite(eta).all()
 
         return torch.stack((pt, phi, eta, E), dim=-1)
@@ -231,7 +232,7 @@ class EPPP_to_PtPhiEtaE(BaseTransform):
     def _inverse(self, ptphietae):
         pt, phi, eta, E = torch.unbind(ptphietae, dim=-1)
 
-        eta = eta.clamp(min=-CUTOFF, max=CUTOFF)
+        eta = eta.clamp(min=-CUTOFF_eta, max=CUTOFF_eta)
         px = pt * torch.cos(phi)
         py = pt * torch.sin(phi)
         pz = pt * torch.sinh(eta)
@@ -304,7 +305,7 @@ class PtPhiEtaE_to_PtPhiEtaM2(BaseTransform):
         pt, phi, eta, m2 = torch.unbind(ptphietam2, dim=-1)
 
         m2 = m2.abs()
-        eta = eta.clamp(min=-CUTOFF, max=CUTOFF)
+        eta = eta.clamp(min=-CUTOFF_eta, max=CUTOFF_eta)
         p_abs = pt * torch.cosh(eta)
         E = torch.sqrt(torch.clamp(m2 + p_abs**2, min=eps))
 
