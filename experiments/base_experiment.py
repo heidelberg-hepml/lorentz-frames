@@ -316,6 +316,11 @@ class BaseExperiment:
         self.dtype = torch.float64 if self.cfg.use_float64 else torch.float32
         LOGGER.debug(f"Using dtype {self.dtype}")
 
+        torch.set_float32_matmul_precision(self.cfg.float32_matmul_precision)
+        LOGGER.debug(
+            f"Using float32_matmul_precision {self.cfg.float32_matmul_precision}"
+        )
+
     def _init_optimizer(self, param_groups=None):
         if param_groups is None:
             param_groups = [
