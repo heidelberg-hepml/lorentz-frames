@@ -20,7 +20,6 @@ es_load_best_model: true
 
 log_every_n_steps: 1000
 validate_every_n_steps: 1252
-checkpoint_every_n_steps: null
 
 log_grad_norm: true
 clip_grad_norm: 1000
