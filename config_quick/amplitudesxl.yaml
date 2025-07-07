@@ -7,6 +7,10 @@ data:
  train_test_val: [.4, .5, .1]
  num_train_files: 5
  num_prefetch: 2
+ subsample: null
 
+evaluation:
+ eval_set: [test, val]
+ 
 defaults:
  - amplitudes

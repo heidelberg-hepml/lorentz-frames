@@ -5,8 +5,14 @@ import torch
 from einops import rearrange
 from torch import nn
 from torch.utils.checkpoint import checkpoint
-from tensorframes.nn.attention import scaled_dot_product_attention
-from tensorframes.utils.utils import to_nd
+from lloca.nn.attention import scaled_dot_product_attention
+
+
+def to_nd(tensor, d):
+    """Make tensor n-dimensional, group extra dimensions in first."""
+    return tensor.reshape(
+        -1, *(1,) * (max(0, d - 1 - tensor.dim())), *tensor.shape[-(d - 1) :]
+    )
 
 
 class BaselineLayerNorm(nn.Module):

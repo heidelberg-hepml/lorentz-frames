@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 from torch.utils.data import DataLoader
 
 import os, time
@@ -35,25 +36,25 @@ class JetClassTaggingExperiment(TaggingExperiment):
             "WToQQ",
             "ZToQQ",
         ]
-        self.cfg.model.out_channels = len(self.class_names)
-        self.cfg.model.in_channels = 4  # energy-momentum vector
+        self.num_outputs = len(self.class_names)
 
         if self.cfg.data.features == "fourmomenta":
+            self.extra_scalars = 0
             self.cfg.data.data_config = (
                 "experiments/tagging/miniweaver/configs_jetclass/fourmomenta.yaml"
             )
         elif self.cfg.data.features == "pid":
-            self.cfg.model.in_channels += 6
+            self.extra_scalars = 6
             self.cfg.data.data_config = (
                 "experiments/tagging/miniweaver/configs_jetclass/pid.yaml"
             )
         elif self.cfg.data.features == "displacements":
-            self.cfg.model.in_channels += 4
+            self.extra_scalars = 4
             self.cfg.data.data_config = (
                 "experiments/tagging/miniweaver/configs_jetclass/displacements.yaml"
             )
         elif self.cfg.data.features == "default":
-            self.cfg.model.in_channels += 10
+            self.extra_scalars = 10
             self.cfg.data.data_config = (
                 "experiments/tagging/miniweaver/configs_jetclass/default.yaml"
             )
@@ -84,7 +85,7 @@ class JetClassTaggingExperiment(TaggingExperiment):
         for label in ["train", "test", "val"]:
             path = os.path.join(self.cfg.data.data_dir, folder[label])
             flist = [
-                f"{path}/{classname}_{str(i).zfill(3)}.root"
+                f"{classname}:{path}/{classname}_{str(i).zfill(3)}.root"
                 for classname in self.class_names
                 for i in range(*files_range[label])
             ]
@@ -97,7 +98,11 @@ class JetClassTaggingExperiment(TaggingExperiment):
                 for_training=for_training[label],
                 extra_selection=self.cfg.jc_params.extra_selection,
                 remake_weights=not self.cfg.jc_params.not_remake_weights,
-                load_range_and_fraction=((0, 1), 1),
+                load_range_and_fraction=(
+                    (0, 1),
+                    1,
+                    self.cfg.jc_params.split_num,
+                ),
                 file_fraction=1,
                 fetch_by_files=self.cfg.jc_params.fetch_by_files,
                 fetch_step=self.cfg.jc_params.fetch_step,
@@ -105,6 +110,7 @@ class JetClassTaggingExperiment(TaggingExperiment):
                 in_memory=self.cfg.jc_params.in_memory,
                 name=label,
                 events_per_file=self.cfg.jc_params.events_per_file,
+                async_load=self.cfg.jc_params.async_load,
             )
         self.data_train = datasets["train"]
         self.data_test = datasets["test"]
@@ -145,6 +151,7 @@ class JetClassTaggingExperiment(TaggingExperiment):
             **self.loader_kwargs,
         )
 
+    @torch.no_grad()
     def _evaluate_single(self, loader, title, mode, step=None):
         assert mode in ["val", "eval"]
 
@@ -155,13 +162,10 @@ class JetClassTaggingExperiment(TaggingExperiment):
         # predictions
         labels_true, labels_predict = [], []
         self.model.eval()
-        if self.cfg.training.optimizer == "ScheduleFree":
-            self.optimizer.eval()
-        with torch.no_grad():
-            for batch in loader:
-                y_pred, label = self._get_ypred_and_label(batch)
-                labels_true.append(label.cpu())
-                labels_predict.append(y_pred.cpu().float())
+        for batch in loader:
+            y_pred, label, _, _ = self._get_ypred_and_label(batch)
+            labels_true.append(label.cpu())
+            labels_predict.append(y_pred.cpu().float())
 
         labels_true, labels_predict = torch.cat(labels_true), torch.cat(labels_predict)
         if mode == "eval":
@@ -205,8 +209,9 @@ class JetClassTaggingExperiment(TaggingExperiment):
             labels_true_class = labels_true[(labels_true == 0) | (labels_true == i)]
             labels_predict_class = labels_predict_class[:, [0, i]]
 
-            predict_score = labels_predict_class[:, 1] / (
-                labels_predict_class[:, 0] + labels_predict_class[:, 1]
+            denom = labels_predict_class[:, 0] + labels_predict_class[:, 1]
+            predict_score = labels_predict_class[:, 1] / np.clip(
+                denom, a_min=1e-10, a_max=None
             )
 
             fpr, tpr, _ = roc_curve(labels_true_class == i, predict_score)
@@ -240,19 +245,19 @@ class JetClassTaggingExperiment(TaggingExperiment):
         return metrics
 
     def _get_ypred_and_label(self, batch):
-        fourmomenta = batch[0]["pf_vectors"].to(self.device)
+        fourmomenta = batch[0]["pf_vectors"].to(self.device, self.momentum_dtype)
         if self.cfg.data.features == "fourmomenta":
             scalars = torch.empty(
                 fourmomenta.shape[0],
                 0,
                 fourmomenta.shape[2],
                 device=fourmomenta.device,
-                dtype=fourmomenta.dtype,
+                dtype=self.dtype,
             )
         else:
-            scalars = batch[0]["pf_features"].to(self.device)
+            scalars = batch[0]["pf_features"].to(self.device, self.dtype)
         label = batch[1]["_label_"].to(self.device)
         fourmomenta, scalars, ptr = dense_to_sparse_jet(fourmomenta, scalars)
         embedding = embed_tagging_data(fourmomenta, scalars, ptr, self.cfg.data)
-        y_pred, tracker = self.model(embedding)
-        return y_pred, label, tracker
+        y_pred, tracker, lframes = self.model(embedding)
+        return y_pred, label, tracker, lframes

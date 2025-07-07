@@ -3,12 +3,12 @@ from torch import nn
 from torch_geometric.nn.aggr import MeanAggregation
 
 from experiments.amplitudes.utils import standardize_momentum
-from experiments.baselines.gatr.interface import embed_vector, extract_scalar
+from lgatr import embed_vector, extract_scalar
 
-from tensorframes.reps.tensorreps import TensorReps
-from tensorframes.reps.tensorreps_transform import TensorRepsTransform
-from tensorframes.utils.lorentz import lorentz_squarednorm
-from tensorframes.utils.utils import build_edge_index_fully_connected
+from lloca.reps.tensorreps import TensorReps
+from lloca.reps.tensorreps_transform import TensorRepsTransform
+from lloca.utils.utils import build_edge_index_fully_connected, get_edge_attr
+from lloca.lframes.nonequi_lframes import IdentityLFrames
 
 
 class AmplitudeWrapper(nn.Module):
@@ -16,9 +16,11 @@ class AmplitudeWrapper(nn.Module):
         self,
         particle_type,
         lframesnet,
+        network_float64=False,
     ):
         super().__init__()
         self.lframesnet = lframesnet
+        self.network_dtype = torch.float64 if network_float64 else torch.float32
 
         self.register_buffer("particle_type", torch.tensor(particle_type))
         self.register_buffer("mom_mean", torch.tensor(0.0))
@@ -31,7 +33,7 @@ class AmplitudeWrapper(nn.Module):
 
     def forward(self, fourmomenta):
         particle_type = self.encode_particle_type(fourmomenta.shape[0]).to(
-            dtype=fourmomenta.dtype, device=fourmomenta.device
+            dtype=self.network_dtype, device=fourmomenta.device
         )
         lframes, tracker = self.lframesnet(
             fourmomenta, scalars=particle_type, ptr=None, return_tracker=True
@@ -41,6 +43,10 @@ class AmplitudeWrapper(nn.Module):
         features_local, _, _ = standardize_momentum(
             fourmomenta_local, self.mom_mean, self.mom_std
         )
+
+        # move everything to less safe dtype
+        features_local = features_local.to(self.network_dtype)
+        lframes.to(self.network_dtype)
         return (
             features_local,
             fourmomenta_local,
@@ -63,11 +69,11 @@ class MLPWrapper(AmplitudeWrapper):
         self.net = net
 
     def forward(self, fourmomenta_global):
-        features_local, _, _, _, tracker = super().forward(fourmomenta_global)
-        features = features_local.view(features_local.shape[0], -1)
+        features_local, _, _, lframes, tracker = super().forward(fourmomenta_global)
+        features = features_local.reshape(features_local.shape[0], -1)
 
         amp = self.net(features)
-        return amp, tracker
+        return amp, tracker, lframes
 
 
 class TransformerWrapper(AmplitudeWrapper):
@@ -86,7 +92,7 @@ class TransformerWrapper(AmplitudeWrapper):
         features = torch.cat([features_local, particle_type], dim=-1)
         output = self.net(features, lframes)
         amp = output.mean(dim=-2)
-        return amp, tracker
+        return amp, tracker, lframes
 
 
 class GraphNetWrapper(AmplitudeWrapper):
@@ -108,10 +114,7 @@ class GraphNetWrapper(AmplitudeWrapper):
             # edge feature standardization parameters
             edge_index, _ = build_edge_index_fully_connected(fourmomenta)
             fourmomenta = fourmomenta.reshape(-1, 4)
-            mij2 = lorentz_squarednorm(
-                fourmomenta[edge_index[0]] + fourmomenta[edge_index[1]]
-            )
-            edge_attr = mij2.clamp(min=1e-10).log()
+            edge_attr = get_edge_attr(fourmomenta, edge_index)
             self.edge_mean = edge_attr.mean()
             self.edge_std = edge_attr.std().clamp(min=1e-10)
 
@@ -133,7 +136,9 @@ class GraphNetWrapper(AmplitudeWrapper):
         lframes = lframes.reshape(-1, 4, 4)
         if self.include_edges:
             fourmomenta = fourmomenta_local.reshape(-1, 4)
-            edge_attr = self.get_edge_attr(fourmomenta, edge_index)
+            edge_attr = self.get_edge_attr(fourmomenta, edge_index).to(
+                self.network_dtype
+            )
         else:
             edge_attr = None
 
@@ -145,33 +150,33 @@ class GraphNetWrapper(AmplitudeWrapper):
             edge_attr=edge_attr,
         )
         amp = self.aggregator(output, index=batch)
-        return amp, tracker
+        return amp, tracker, lframes
 
     def get_edge_attr(self, fourmomenta, edge_index):
-        mij2 = lorentz_squarednorm(
-            fourmomenta[edge_index[0]] + fourmomenta[edge_index[1]]
-        )
-        edge_attr = mij2.clamp(min=1e-10).log()
+        edge_attr = get_edge_attr(fourmomenta, edge_index)
         edge_attr = (edge_attr - self.edge_mean) / self.edge_std
         return edge_attr.unsqueeze(-1)
 
 
-class GATrWrapper(AmplitudeWrapper):
+class LGATrWrapper(AmplitudeWrapper):
     def __init__(self, net, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.net = net
+        assert isinstance(self.lframesnet, IdentityLFrames)
 
     def forward(self, fourmomenta_global):
         (
             _,
             fourmomenta_local,
             particle_type,
-            _,
+            lframes,
             tracker,
         ) = super().forward(fourmomenta_global)
 
         # prepare multivectors and scalars
-        multivectors = embed_vector(fourmomenta_local.unsqueeze(-2))
+        multivectors = embed_vector(
+            fourmomenta_local.unsqueeze(-2).to(self.network_dtype)
+        )
         scalars = particle_type
 
         # call network
@@ -180,22 +185,23 @@ class GATrWrapper(AmplitudeWrapper):
 
         # mean aggregation
         amp = out_mv.mean(dim=-2)
-        return amp, tracker
+        return amp, tracker, lframes
 
 
 class DSIWrapper(AmplitudeWrapper):
     def __init__(self, net, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.net = net
+        assert isinstance(self.lframesnet, IdentityLFrames)
 
     def forward(self, fourmomenta_global):
         (
             _,
             fourmomenta_local,
             _,
-            _,
+            lframes,
             tracker,
         ) = super().forward(fourmomenta_global)
 
-        amp = self.net(fourmomenta_local)
-        return amp, tracker
+        amp = self.net(fourmomenta_local.to(self.network_dtype))
+        return amp, tracker, lframes

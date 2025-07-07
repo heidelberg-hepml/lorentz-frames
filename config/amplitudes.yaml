@@ -2,21 +2,23 @@ exp_type: amplitudes
 exp_name: amp
 
 data:
- dataset : zgg
+ dataset : zgggg
  data_path : data/
  subsample: null
  permutation_symmetry: true
  standardize: true
  prepare: lorentz
  train_test_val: [.4, .5, .1]
- mass_reg: 1e0
+ mass_reg: 1e-5
+ momentum_float64: true
 
 evaluation:
  eval_set: [train, test, val]
  batchsize: 4096
+ save_lframes: false
 
 plotting:
- histograms: true
+ histograms: false
  delta: false
  delta_prepd: false
 

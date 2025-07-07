@@ -1,0 +1,20 @@
+_target_: experiments.tagging.wrappers.GraphNetWrapper
+in_channels: null
+out_channels: null
+include_edges: false
+
+net:
+ _target_: lloca.nn.graphnet.GraphNet
+ _partial_: true
+
+ in_channels: null
+ hidden_reps: "64x0n+16x1n" # reps can be varied, but number of channels should stay fixed
+ out_channels: null
+
+ num_blocks: 3
+ num_layers_mlp1: 3
+ num_layers_mlp2: 0
+ num_edge_attr: 0
+
+defaults:
+ - lframesnet: identity

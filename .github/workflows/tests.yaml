@@ -1,9 +1,10 @@
 name: Unit tests
 
 on:
+  push:
+    branches:
+      - main
   pull_request:
-    types:
-      - labeled  # Runs when a label is added to a PR
   workflow_dispatch:  # Allows manual triggering
 
 jobs:
@@ -27,4 +28,5 @@ jobs:
 
     - name: Run unit tests
       run: |
-        pytest tests
+        pytest tests/lloca
+        pytest tests/eventgen

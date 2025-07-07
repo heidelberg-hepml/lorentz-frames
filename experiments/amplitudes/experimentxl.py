@@ -13,23 +13,39 @@ from experiments.amplitudes.experiment import AmplitudeExperiment
 
 
 class AmplitudeXLExperiment(AmplitudeExperiment):
+    def init_data(self):
+        assert not "train" in self.cfg.evaluation.eval_set
+
+        real_subsample = self.cfg.data.subsample
+        self.cfg.data.subsample = None
+        super().init_data()
+        self.cfg.data.subsample = real_subsample
+
     def _init_dataloader(self):
         super()._init_dataloader(log=False)  # init val and test dataloaders
+
+        assert (
+            self.cfg.data.subsample is None or self.cfg.data.num_train_files == 1
+        ), "You should not subsample while using multiple files"
 
         # overwrite self.train_loader
         get_fname = lambda n: os.path.join(
             self.cfg.data.data_path, f"{self.dataset}_{n}.npy"
         )
         file_paths = [get_fname(n + 1) for n in range(self.cfg.data.num_train_files)]
-        trn_set = PrefetchFilesDataset(
-            file_paths,
+        loading_kwargs = dict(
             cfg_data=self.cfg.data,
             dataset=self.dataset,
             amp_mean=self.amp_mean,
             amp_std=self.amp_std,
             mom_std=self.mom_std,
-            dtype=self.dtype,
+            network_float64=self.cfg.use_float64,
+            momentum_float64=self.cfg.data.momentum_float64,
+        )
+        trn_set = PrefetchFilesDataset(
+            file_paths,
             num_prefetch=self.cfg.data.num_prefetch,
+            **loading_kwargs,
         )
         self.train_loader = torch.utils.data.DataLoader(
             dataset=trn_set,
@@ -56,35 +72,24 @@ class PrefetchFilesDataset(IterableDataset):
     def __init__(
         self,
         file_paths,
-        cfg_data,
-        dataset,
-        amp_mean,
-        amp_std,
-        mom_std,
-        dtype,
         num_prefetch=2,
         events_per_file=1000000,
+        **loading_kwargs,
     ):
         """
         Parameters
         ----------
         file_paths : list of str
             List of paths to the files to load.
-        cfg_data
-        dataset : str
-        amp_mean : float
-        amp_std : float
-        mom_std : float
-        dtype : torch.dtype
         num_prefetch : int
             Number of files to prefetch.
         events_per_file : int
             Number of events to yield from each file.
+        **loading_kwargs
         """
         super().__init__()
-        self.events_per_file = (
-            events_per_file if cfg_data.subsample is None else cfg_data.subsample
-        )
+        subsample = loading_kwargs["cfg_data"].subsample
+        self.events_per_file = events_per_file if subsample is None else subsample
 
         # prefetch params
         self.file_paths = file_paths
@@ -92,27 +97,19 @@ class PrefetchFilesDataset(IterableDataset):
         self.rng = random.Random()
         self._EOF = object()
 
-        # load_file arguments
-        self.cfg_data = cfg_data
-        self.dataset = dataset
-        self.amp_mean = amp_mean
-        self.amp_std = amp_std
-        self.mom_std = mom_std
-        self.dtype = dtype
+        self.loading_kwargs = loading_kwargs
 
     def __len__(self):
         return len(self.file_paths) * self.events_per_file
 
     def _worker(self, file_queue):
-        for fpath in self.shuffled_files:
+        for i, fpath in enumerate(self.shuffled_files):
+            # always use the same initial randomness for each file
+            generator = torch.Generator().manual_seed(i)
             amp, mom, _, _, _ = load_file(
                 fpath,
-                cfg_data=self.cfg_data,
-                dataset=self.dataset,
-                amp_mean=self.amp_mean,
-                amp_std=self.amp_std,
-                mom_std=self.mom_std,
-                dtype=self.dtype,
+                generator=generator,
+                **self.loading_kwargs,
             )
             idx = torch.randperm(amp.shape[0])
             amp, mom = amp[idx], mom[idx]

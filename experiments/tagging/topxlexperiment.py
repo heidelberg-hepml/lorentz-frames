@@ -1,6 +1,5 @@
 import torch
 from torch.utils.data import DataLoader
-from omegaconf import open_dict
 
 import os, time
 
@@ -19,33 +18,32 @@ from experiments.tagging.miniweaver.loader import to_filelist
 class TopXLTaggingExperiment(TaggingExperiment):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        with open_dict(self.cfg):
-            self.cfg.model.out_channels = 1
-            self.cfg.model.in_channels = 4  # energy-momentum vector
+        self.num_outputs = 1
 
-            if self.cfg.data.features == "fourmomenta":
-                self.cfg.data.data_config = (
-                    "experiments/tagging/miniweaver/configs_topxl/fourmomenta.yaml"
-                )
-            elif self.cfg.data.features == "pid":
-                self.cfg.model.in_channels += 6
-                self.cfg.data.data_config = (
-                    "experiments/tagging/miniweaver/configs_topxl/pid.yaml"
-                )
-            elif self.cfg.data.features == "displacements":
-                self.cfg.model.in_channels += 4
-                self.cfg.data.data_config = (
-                    "experiments/tagging/miniweaver/configs_topxl/displacements.yaml"
-                )
-            elif self.cfg.data.features == "default":
-                self.cfg.model.in_channels += 10
-                self.cfg.data.data_config = (
-                    "experiments/tagging/miniweaver/configs_topxl/default.yaml"
-                )
-            else:
-                raise ValueError(
-                    f"Input feature option {self.cfg.data.features} not implemented"
-                )
+        if self.cfg.data.features == "fourmomenta":
+            self.extra_scalars = 0
+            self.cfg.data.data_config = (
+                "experiments/tagging/miniweaver/configs_topxl/fourmomenta.yaml"
+            )
+        elif self.cfg.data.features == "pid":
+            self.extra_scalars = 6
+            self.cfg.data.data_config = (
+                "experiments/tagging/miniweaver/configs_topxl/pid.yaml"
+            )
+        elif self.cfg.data.features == "displacements":
+            self.extra_scalars = 4
+            self.cfg.data.data_config = (
+                "experiments/tagging/miniweaver/configs_topxl/displacements.yaml"
+            )
+        elif self.cfg.data.features == "default":
+            self.extra_scalars = 10
+            self.cfg.data.data_config = (
+                "experiments/tagging/miniweaver/configs_topxl/default.yaml"
+            )
+        else:
+            raise ValueError(
+                f"Input feature option {self.cfg.data.features} not implemented"
+            )
 
     def init_data(self):
         LOGGER.info("Creating SimpleIterDataset")
@@ -78,7 +76,7 @@ class TopXLTaggingExperiment(TaggingExperiment):
                 for_training=for_training[label],
                 extra_selection=self.cfg.jc_params.extra_selection,
                 remake_weights=not self.cfg.jc_params.not_remake_weights,
-                load_range_and_fraction=((0, 1), 1),
+                load_range_and_fraction=((0, 1), 1, 1),
                 file_fraction=1,
                 fetch_by_files=self.cfg.jc_params.fetch_by_files,
                 fetch_step=self.cfg.jc_params.fetch_step,
@@ -127,20 +125,20 @@ class TopXLTaggingExperiment(TaggingExperiment):
         )
 
     def _get_ypred_and_label(self, batch):
-        fourmomenta = batch[0]["pf_vectors"].to(self.device)
+        fourmomenta = batch[0]["pf_vectors"].to(self.device, self.momentum_dtype)
         if self.cfg.data.features == "fourmomenta":
             scalars = torch.empty(
                 fourmomenta.shape[0],
                 0,
                 fourmomenta.shape[2],
                 device=fourmomenta.device,
-                dtype=fourmomenta.dtype,
+                dtype=self.dtype,
             )
         else:
-            scalars = batch[0]["pf_features"].to(self.device)
+            scalars = batch[0]["pf_features"].to(self.device, self.dtype)
         label = batch[1]["_label_"].to(self.device)
         fourmomenta, scalars, ptr = dense_to_sparse_jet(fourmomenta, scalars)
         embedding = embed_tagging_data(fourmomenta, scalars, ptr, self.cfg.data)
-        y_pred, tracker = self.model(embedding)
+        y_pred, tracker, lframes = self.model(embedding)
         y_pred = y_pred[:, 0]
-        return y_pred, label.to(self.dtype), tracker
+        return y_pred, label, tracker, lframes

@@ -4,6 +4,7 @@ import torch
 import os, time
 import zipfile
 import logging
+import resource
 from pathlib import Path
 from omegaconf import OmegaConf, open_dict, errors
 from hydra.utils import instantiate
@@ -15,14 +16,7 @@ from experiments.misc import get_device, flatten_dict
 import experiments.logger
 from experiments.logger import LOGGER, MEMORY_HANDLER, FORMATTER
 from experiments.mlflow import log_mlflow
-
-# for GATr (ignored by others)
-from hydra.core.config_store import ConfigStore
-from experiments.baselines.gatr.layers import MLPConfig, SelfAttentionConfig
-
-cs = ConfigStore.instance()
-cs.store(name="base_attention", node=SelfAttentionConfig)
-cs.store(name="base_mlp", node=MLPConfig)
+from experiments.ranger import Ranger
 
 # set to 'True' to debug autograd issues (slows down code)
 torch.autograd.set_detect_anomaly(False)
@@ -94,11 +88,12 @@ class BaseExperiment:
             self.plot()
 
         if self.device == torch.device("cuda"):
-            max_used = torch.cuda.max_memory_allocated()
-            max_total = torch.cuda.mem_get_info()[1]
-            LOGGER.info(
-                f"GPU RAM information: max_used = {max_used/1e9:.3} GB, max_total = {max_total/1e9:.3} GB"
-            )
+            max_gpuram_used = torch.cuda.max_memory_allocated() / 1024**3
+            max_gpuram_total = torch.cuda.mem_get_info()[1] / 1024**3
+            LOGGER.info(f"GPU_RAM_max_used = {max_gpuram_used:.3} GB")
+            LOGGER.info(f"GPU_RAM_max_total = {max_gpuram_total:.3} GB")
+        max_cpuram_used = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024**2
+        LOGGER.info(f"CPU_RAM_max_used = {max_cpuram_used:.3} GB")
         dt = time.time() - t0
         LOGGER.info(
             f"Finished experiment {self.cfg.exp_name}/{self.cfg.run_name} after {dt/60:.2f}min = {dt/60**2:.2f}h"
@@ -262,7 +257,7 @@ class BaseExperiment:
             zip_name = os.path.join(self.cfg.run_dir, "source.zip")
             LOGGER.debug(f"Saving source to {zip_name}")
             zipf = zipfile.ZipFile(zip_name, "w", zipfile.ZIP_DEFLATED)
-            path_code = os.path.join(self.cfg.base_dir, "tensorframes")
+            path_code = os.path.join(self.cfg.base_dir, "lloca")
             path_experiment = os.path.join(self.cfg.base_dir, "experiments")
             for path in [path_code, path_experiment]:
                 for root, dirs, files in os.walk(path):
@@ -316,13 +311,22 @@ class BaseExperiment:
     def _init_backend(self):
         self.device = get_device()
         LOGGER.info(f"Using device {self.device}")
-        self.dtype = torch.float32
-        LOGGER.debug("Using dtype float32")
+        self.dtype = torch.float64 if self.cfg.use_float64 else torch.float32
+        LOGGER.debug(f"Using dtype {self.dtype}")
 
     def _init_optimizer(self, param_groups=None):
         if param_groups is None:
             param_groups = [
-                {"params": self.model.parameters(), "lr": self.cfg.training.lr}
+                {
+                    "params": self.model.net.parameters(),
+                    "lr": self.cfg.training.lr,
+                    "weight_decay": self.cfg.training.weight_decay,
+                },
+                {
+                    "params": self.model.lframesnet.parameters(),
+                    "lr": self.cfg.training.lr_factor_lframesnet * self.cfg.training.lr,
+                    "weight_decay": self.cfg.training.weight_decay_lframesnet,
+                },
             ]
 
         if self.cfg.training.optimizer == "Adam":
@@ -330,38 +334,34 @@ class BaseExperiment:
                 param_groups,
                 betas=self.cfg.training.betas,
                 eps=self.cfg.training.eps,
-                weight_decay=self.cfg.training.weight_decay,
             )
         elif self.cfg.training.optimizer == "AdamW":
             self.optimizer = torch.optim.AdamW(
                 param_groups,
                 betas=self.cfg.training.betas,
                 eps=self.cfg.training.eps,
-                weight_decay=self.cfg.training.weight_decay,
             )
         elif self.cfg.training.optimizer == "RAdam":
             self.optimizer = torch.optim.RAdam(
                 param_groups,
                 betas=self.cfg.training.betas,
                 eps=self.cfg.training.eps,
-                weight_decay=self.cfg.training.weight_decay,
             )
         elif self.cfg.training.optimizer == "Lion":
             self.optimizer = pytorch_optimizer.Lion(
                 param_groups,
                 betas=self.cfg.training.betas,
-                weight_decay=self.cfg.training.weight_decay,
             )
         elif self.cfg.training.optimizer == "Ranger":
             # default optimizer used in the weaver package
             # see https://github.com/hqucms/weaver-core/blob/main/weaver/utils/nn/optimizer/ranger.py
-            radam = torch.optim.RAdam(
+            self.optimizer = Ranger(
                 param_groups,
                 betas=(0.95, 0.999),
                 eps=1e-5,
-                weight_decay=self.cfg.training.weight_decay,
+                alpha=0.5,
+                k=6,
             )
-            self.optimizer = pytorch_optimizer.Lookahead(radam, k=6, alpha=0.5)
         else:
             raise ValueError(f"Optimizer {self.cfg.training.optimizer} not implemented")
         LOGGER.debug(
@@ -419,7 +419,14 @@ class BaseExperiment:
             # default scheduler used in the weaver package
             # see https://github.com/hqucms/weaver-core/blob/main/weaver/train.py#L509
             # note: have to modify this if we ever do finetunings / len(names_lr_mult) > 0 in weaver
-            num_epochs = int(self.cfg.training.iterations / len(self.train_loader))
+            num_epochs = int(
+                self.cfg.training.iterations
+                * self.cfg.training.scheduler_scale
+                / len(self.train_loader)
+            )
+            if self.cfg.exp_type == "jctagging":
+                # count 0.1 epochs as actual epoch to allow more lr updates
+                num_epochs *= 10
             num_decay_epochs = max(1, int(num_epochs * 0.3))
             milestones = list(range(num_epochs - num_decay_epochs, num_epochs))
             gamma = 0.01 ** (1.0 / num_decay_epochs)
@@ -427,31 +434,6 @@ class BaseExperiment:
                 self.optimizer,
                 milestones=milestones,
                 gamma=gamma,
-            )
-        elif self.cfg.training.scheduler == "particlenet-scheduler":
-            # original ParticleNet scheduler described in
-            # Section III of https://arxiv.org/abs/1902.08570
-            lr_init = self.cfg.training.lr
-            lr_peak = lr_init * 10
-            lr_final = (
-                lr_init * 5e-7 / 3e-4
-            )  # particlenet-lite lr has small deviation from paper to simplify things
-            start_factors = [lr_init / lr_peak, 1.0, lr_init / lr_peak]
-            end_factors = [1.0, lr_init / lr_peak, lr_final / lr_peak]
-            iters = [8, 8, 4]
-            schedulers = [
-                torch.optim.lr_scheduler.LinearLR(
-                    self.optimizer,
-                    start_factor=start_factor,
-                    end_factor=end_factor,
-                    total_iters=iter,
-                )
-                for start_factor, end_factor, iter in zip(
-                    start_factors, end_factors, iters
-                )
-            ]
-            self.scheduler = torch.optim.lr_scheduler.SequentialLR(
-                self.optimizer, schedulers=schedulers, milestones=[8, 16]
             )
         else:
             raise ValueError(
@@ -523,7 +505,6 @@ class BaseExperiment:
             t0 = time.time()
             self._step(data, step)
             train_time += time.time() - t0
-
             # validation (and early stopping)
             if (step + 1) % self.cfg.training.validate_every_n_steps == 0:
                 t0 = time.time()
@@ -553,7 +534,7 @@ class BaseExperiment:
             # output
             dt = time.time() - self.training_start_time
             if (
-                step in [0, 9, 999]
+                step in [0, 9, 99, 999, 9999, 99999]
                 or (step + 1) % self.cfg.training.validate_every_n_steps == 0
             ):
                 dt_estimate = dt * self.cfg.training.iterations / (step + 1)
@@ -563,12 +544,20 @@ class BaseExperiment:
                     f"= {dt_estimate/60**2:.2f}h"
                 )
 
-            if step % len(self.train_loader) == 0:
+            if self.cfg.training.scheduler in [
+                "flat+decay",
+            ]:
                 # schedulers that step after each epoch
-                if self.cfg.training.scheduler in [
-                    "flat+decay",
-                    "particlenet-scheduler",
-                ]:
+                if (
+                    self.cfg.exp_type == "toptagging"
+                    and step % len(self.train_loader) == 0
+                ):
+                    self.scheduler.step()
+
+                if (
+                    self.cfg.exp_type == "jctagging"
+                    and step % int(len(self.train_loader) / 10) == 0
+                ):
                     self.scheduler.step()
 
         dt = time.time() - self.training_start_time
@@ -606,18 +595,26 @@ class BaseExperiment:
         self.optimizer.zero_grad()
         loss.backward()
 
-        grad_norm_lframes = (
-            torch.nn.utils.clip_grad_norm_(
-                self.model.lframesnet.parameters(), float("inf")
+        if self.cfg.training.log_grad_norm:
+            grad_norm_lframes = (
+                torch.nn.utils.clip_grad_norm_(
+                    self.model.lframesnet.parameters(),
+                    float("inf"),
+                )
+                .detach()
+                .to(self.device)
             )
-            .cpu()
-            .item()
-        )
-        grad_norm_net = (
-            torch.nn.utils.clip_grad_norm_(self.model.net.parameters(), float("inf"))
-            .cpu()
-            .item()
-        )
+            grad_norm_net = (
+                torch.nn.utils.clip_grad_norm_(
+                    self.model.net.parameters(),
+                    float("inf"),
+                )
+                .detach()
+                .to(self.device)
+            )
+        else:
+            grad_norm_lframes = torch.tensor(0.0, device=self.device)
+            grad_norm_net = torch.tensor(0.0, device=self.device)
 
         if self.cfg.training.clip_grad_value is not None:
             # clip gradients at a certain value (this is dangerous!)
@@ -626,21 +623,30 @@ class BaseExperiment:
                 self.cfg.training.clip_grad_value,
             )
         # rescale gradients such that their norm matches a given number
-        grad_norm = (
-            torch.nn.utils.clip_grad_norm_(
-                self.model.parameters(),
-                self.cfg.training.clip_grad_norm
-                if self.cfg.training.clip_grad_norm is not None
-                else float("inf"),
-                error_if_nonfinite=True,
+
+        if self.cfg.training.clip_grad_norm is not None:
+            grad_norm = (
+                torch.nn.utils.clip_grad_norm_(
+                    self.model.parameters(),
+                    self.cfg.training.clip_grad_norm,
+                    error_if_nonfinite=False,
+                )
+                .detach()
+                .to(self.device)
             )
-            .cpu()
-            .item()
-        )
+        else:
+            grad_norm = grad_norm_lframes + grad_norm_net
+        # rescale gradients of the lframesnet only
+        if self.cfg.training.clip_grad_norm_lframesnet is not None:
+            torch.nn.utils.clip_grad_norm_(
+                self.model.lframesnet.parameters(),
+                self.cfg.training.clip_grad_norm_lframesnet,
+            ).detach().to(self.device)
+
         if step > MIN_STEP_SKIP and self.cfg.training.max_grad_norm is not None:
             if grad_norm > self.cfg.training.max_grad_norm:
                 LOGGER.warning(
-                    f"Skipping update, gradient norm {grad_norm} exceeds maximum {self.cfg.training.max_grad_norm}"
+                    f"Skipping iteration {step}, gradient norm {grad_norm} exceeds maximum {self.cfg.training.max_grad_norm}"
                 )
                 return
         self.optimizer.step()
@@ -651,8 +657,7 @@ class BaseExperiment:
             self.scheduler.step()
 
         # collect metrics
-
-        self.train_loss.append(loss.item())
+        self.train_loss.append(loss.detach().item())
         self.train_lr.append(self.optimizer.param_groups[0]["lr"])
         self.grad_norm_train.append(grad_norm)
         self.grad_norm_lframes.append(grad_norm_lframes)

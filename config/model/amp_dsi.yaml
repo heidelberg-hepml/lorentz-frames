@@ -1,10 +1,11 @@
 _target_: experiments.amplitudes.wrappers.DSIWrapper
 particle_type: null
+network_float64: null
 
 net:
  _target_: experiments.baselines.dsi.DSI
 
- use_deepset: true
+ use_deepset: false
  sum_deepset: true
  use_invariants: true
  type_token_list: null

@@ -1,15 +1,17 @@
 data:
- add_tagging_features_lframesnet: false
- rescale_data: true
+ add_tagging_features_lframesnet: true
  beam_reference: lightlike
  two_beams: true
  add_time_reference: true
- mass_reg: 1e-2
+ mass_reg: 5e-3
+ spurion_scale: 1
+ momentum_float64: true
 
 evaluation:
  batchsize: 512
  save_roc: false
  eval_set: [train, test, val]
+ save_lframes: false
 
 plotting:
  roc: true
@@ -18,5 +20,5 @@ plotting:
 
 defaults:
  - default
- - training: default
- - model: graphnet
+ - training: tag_default
+ - model: tag_transformer

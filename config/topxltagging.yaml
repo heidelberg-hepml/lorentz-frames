@@ -2,15 +2,16 @@ exp_type: topxltagging
 exp_name: topxl_debug
 
 data:
- data_dir: data/topxl/ #/remote/gpu06/favaro/datasets/luigi_tagging/
+ data_dir: /remote/gpu06/favaro/datasets/luigi_tagging/
  features: default
+ data_config: null
  add_scalar_features: True
  train_files_range: [0, 99]
  test_files_range: [100, 119]
  val_files_range: [120, 129]
 
 jc_params:
- num_workers: 4
+ num_workers: 2
  fetch_step: 0.01
  extra_selection: null
  extra-test-selection: null

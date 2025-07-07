@@ -4,11 +4,9 @@ import torch
 
 from experiments.amplitudes.constants import get_mass
 
-from tensorframes.utils.transforms import (
-    rand_rotation,
-    rand_xyrotation,
-)
-from tensorframes.utils.restframe import restframe_boost
+from lloca.utils.lorentz import lorentz_eye
+from lloca.utils.transforms import rand_lorentz
+from lloca.utils.polar_decomposition import restframe_boost
 
 
 def standardize_momentum(momentum, mean=None, std=None):
@@ -45,11 +43,38 @@ def load_file(
     amp_mean=None,
     amp_std=None,
     mom_std=None,
-    dtype=torch.float32,
+    network_float64=False,
+    momentum_float64=True,
+    generator=None,
 ):
+    """
+    Parameters
+    ----------
+    data_path : str
+        Path to the data file.
+    cfg_data : object
+        Configuration object with data loading parameters.
+    dataset : str
+        Name of the dataset file, like 'zgg', 'zgggg' or 'zgggg_0'.
+    amp_mean : float
+        Mean of the amplitude for standardization.
+    amp_std : float
+        Standard deviation of the amplitude for standardization.
+    mom_std : float
+        Standard deviation of the momentum for standardization.
+    network_float64 : bool
+        Should network inputs have dtype float64? Defaults to False.
+    momentum_float64 : bool
+        Should momenta be stored in float64? Defaults to True.
+    generator : torch.Generator
+        Random generator for reproducibility. Used for AmplitudeXL loading.
+    """
+    network_dtype = torch.float64 if network_float64 else torch.float32
+    momentum_dtype = torch.float64 if momentum_float64 else torch.float32
+
     assert os.path.exists(data_path)
     data_raw = load(data_path)
-    data_raw = torch.tensor(data_raw, dtype=dtype)
+    data_raw = torch.tensor(data_raw, dtype=momentum_dtype)
 
     if cfg_data.subsample is not None:
         assert cfg_data.subsample <= data_raw.shape[0]
@@ -62,20 +87,24 @@ def load_file(
     # mass regulator
     if cfg_data.mass_reg is not None:
         mass = get_mass(dataset, cfg_data.mass_reg)
-        mass = torch.tensor(mass, dtype=dtype).unsqueeze(0)
+        mass = torch.tensor(mass, dtype=momentum_dtype).unsqueeze(0)
         momentum[..., 0] = torch.sqrt((momentum[..., 1:] ** 2).sum(dim=-1) + mass**2)
 
     # prepare momenta
-    if cfg_data.prepare == "centerofmass":
-        # rotation in z-direction to go to center-of-mass frame
+    if cfg_data.prepare == "lorentz":
+        # boost to the center-of-mass ref. frame of incoming particles
+        # then apply general Lorentz trafo L=R*B
         lab_momentum = momentum[..., :2, :].sum(dim=-2)
-        trafo = restframe_boost(-lab_momentum)
-    elif cfg_data.prepare == "lorentz":
-        # add random rotation to existing z-boost -> general Lorentz trafo
-        trafo = rand_rotation(momentum.shape[:-2])
-    elif cfg_data.prepare == "ztransform":
-        # add random xyrotation to existing z-boost -> general ztransform
-        trafo = rand_xyrotation(momentum.shape[:-2])
+        to_com = restframe_boost(lab_momentum)
+        trafo = rand_lorentz(
+            momentum.shape[:-2], generator=generator, dtype=momentum_dtype
+        )
+        trafo = torch.einsum("...ij,...jk->...ik", trafo, to_com)
+    elif cfg_data.prepare == "identity":
+        # keep the data unchanged
+        trafo = lorentz_eye(
+            momentum.shape[:-2], device=momentum.device, dtype=momentum_dtype
+        )
     else:
         raise ValueError(f"cfg.data.prepare={cfg_data.prepare} not implemented")
     momentum = torch.einsum("...ij,...kj->...ki", trafo, momentum)
@@ -87,4 +116,10 @@ def load_file(
     amplitude, amp_mean, amp_std = preprocess_amplitude(
         amplitude, std=amp_std, mean=amp_mean
     )
+
+    # move everything except momentum to less safe dtype
+    amplitude = amplitude.to(network_dtype)
+    amp_mean = amp_mean.to(network_dtype)
+    amp_std = amp_std.to(network_dtype)
+    mom_std = mom_std.to(network_dtype)
     return amplitude, momentum, amp_mean, amp_std, mom_std

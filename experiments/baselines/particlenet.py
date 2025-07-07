@@ -2,8 +2,6 @@
 
 Paper: "ParticleNet: Jet Tagging via Particle Clouds" - https://arxiv.org/abs/1902.08570
 Code: https://github.com/hqucms/weaver-core/blob/main/weaver/nn/model/ParticleNet.py
-
-Adapted from the DGCNN implementation in https://github.com/WangYueFt/dgcnn/blob/master/pytorch/model.py.
 """
 import numpy as np
 import torch
@@ -260,55 +258,3 @@ class ParticleNet(nn.Module):
             output = torch.softmax(output, dim=1)
         # print('output:\n', output)
         return output
-
-
-class FeatureConv(nn.Module):
-    def __init__(self, in_chn, out_chn, **kwargs):
-        super(FeatureConv, self).__init__(**kwargs)
-        self.conv = nn.Sequential(
-            nn.BatchNorm1d(in_chn),
-            nn.Conv1d(in_chn, out_chn, kernel_size=1, bias=False),
-            nn.BatchNorm1d(out_chn),
-            nn.ReLU(),
-        )
-
-    def forward(self, x):
-        return self.conv(x)
-
-
-class ParticleNetTagger(nn.Module):
-    def __init__(
-        self,
-        features_dims,
-        num_classes,
-        conv_params=[(7, (32, 32, 32)), (7, (64, 64, 64))],
-        fc_params=[(128, 0.1)],
-        use_fusion=True,
-        use_fts_bn=True,
-        use_counts=True,
-        input_dropout=None,
-        for_inference=False,
-        **kwargs
-    ):
-        super(ParticleNetTagger, self).__init__(**kwargs)
-        self.input_dropout = nn.Dropout(input_dropout) if input_dropout else None
-        self.conv = FeatureConv(features_dims, 32)
-        self.pn = ParticleNet(
-            input_dims=32,
-            num_classes=num_classes,
-            conv_params=conv_params,
-            fc_params=fc_params,
-            use_fusion=use_fusion,
-            use_fts_bn=use_fts_bn,
-            use_counts=use_counts,
-            for_inference=for_inference,
-        )
-
-    def forward(self, points, features, mask):
-        if self.input_dropout:
-            mask = (self.input_dropout(mask) != 0).float()
-            points *= mask
-            features *= mask
-
-        features = self.conv(features * mask) * mask
-        return self.pn(points, features, mask)

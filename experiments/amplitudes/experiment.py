@@ -13,10 +13,10 @@ from experiments.logger import LOGGER
 from experiments.mlflow import log_mlflow
 
 MODEL_TITLE = {
-    "TFTransformer": "Tr",
+    "Transformer": "Tr",
     "MLP": "MLP",
-    "TFGraphNet": "GN",
-    "GATr": "GATr",
+    "GraphNet": "GN",
+    "LGATr": "LGATr",
     "DSI": "DSI",
 }
 
@@ -28,14 +28,15 @@ class AmplitudeExperiment(BaseExperiment):
         if not self.cfg.data.permutation_symmetry:
             particle_type = list(range(len(particle_type)))
         num_particle_types = max(particle_type) + 1
+        self.cfg.model.network_float64 = self.cfg.use_float64
 
         modelname = self.cfg.model.net._target_.rsplit(".", 1)[-1]
         learnable_lframesnet = "equivectors" in self.cfg.model.lframesnet
         self.cfg.model.particle_type = particle_type
 
-        if modelname == "TFTransformer":
+        if modelname == "Transformer":
             self.cfg.model.net.in_channels = num_particle_types + 4
-        elif modelname == "TFGraphNet":
+        elif modelname == "GraphNet":
             assert self.cfg.model.include_nodes or self.cfg.model.include_edges
             self.cfg.model.net.num_edge_attr = 1 if self.cfg.model.include_edges else 0
             self.cfg.model.net.in_channels = num_particle_types
@@ -43,11 +44,9 @@ class AmplitudeExperiment(BaseExperiment):
                 self.cfg.model.net.in_channels += 4
         elif modelname == "MLP":
             self.cfg.model.net.in_shape = 4 * len(particle_type)
-        elif modelname == "GATr":
-            assert not learnable_lframesnet, "GATr is no tensorframes model"
+        elif modelname == "LGATr":
             self.cfg.model.net.in_s_channels = num_particle_types
         elif modelname == "DSI":
-            assert not learnable_lframesnet, "DSI is no tensorframes model"
             self.cfg.model.net.type_token_list = particle_type
         else:
             raise ValueError(f"Model {modelname} not implemented")
@@ -72,7 +71,8 @@ class AmplitudeExperiment(BaseExperiment):
             data_path,
             self.cfg.data,
             self.dataset,
-            dtype=self.dtype,
+            network_float64=self.cfg.use_float64,
+            momentum_float64=self.cfg.data.momentum_float64,
         )
         LOGGER.info(f"Loaded events of shape {self.momentum.shape} from {data_path}")
 
@@ -157,12 +157,14 @@ class AmplitudeExperiment(BaseExperiment):
         self.model.eval()
         t0 = time.time()
         amp_truth_prepd, amp_model_prepd = [], []
+        lframes_list = []
         for data in loader:
-            amp_model, amp_truth, _ = self._call_model(data)
+            amp_model, amp_truth, _, lframes = self._call_model(data)
             amp_model, amp_truth = amp_model.squeeze(dim=-1), amp_truth.squeeze(dim=-1)
 
             amp_truth_prepd.append(amp_truth.cpu())
             amp_model_prepd.append(amp_model.cpu())
+            lframes_list.append(lframes.matrices.cpu())
         dt = time.time() - t0
         LOGGER.info(
             f"Evaluation time: {dt*1e6/len(loader.dataset):.2f}s for 1M events "
@@ -170,6 +172,15 @@ class AmplitudeExperiment(BaseExperiment):
         )
         amp_truth_prepd = torch.cat(amp_truth_prepd, dim=0)
         amp_model_prepd = torch.cat(amp_model_prepd, dim=0)
+        lframes_list = torch.cat(lframes_list, dim=0)
+
+        # save lframes
+        if self.cfg.evaluation.save_lframes and title == "test":
+            path = os.path.join(self.cfg.run_dir, f"plots_{self.cfg.run_idx}")
+            os.makedirs(path, exist_ok=True)
+            filename = os.path.join(path, f"lframes_{title}.npy")
+            LOGGER.info(f"Saving lframes to {filename}")
+            np.save(filename, lframes_list.numpy())
 
         # MSE over preprocessed amplitudes
         mse_prepd = torch.mean((amp_model_prepd - amp_truth_prepd) ** 2)
@@ -210,7 +221,7 @@ class AmplitudeExperiment(BaseExperiment):
 
     def plot(self):
         plot_path = os.path.join(self.cfg.run_dir, f"plots_{self.cfg.run_idx}")
-        os.makedirs(plot_path)
+        os.makedirs(plot_path, exist_ok=True)
         model_title = self.cfg.model.net._target_.rsplit(".", 1)[-1]
         title = f"{MODEL_TITLE[model_title]} ({DATASET_TITLE[self.dataset]})"
         LOGGER.info(f"Creating plots in {plot_path}")
@@ -218,15 +229,16 @@ class AmplitudeExperiment(BaseExperiment):
         plot_dict = {}
         if self.cfg.evaluate and ("test" in self.cfg.evaluation.eval_set):
             plot_dict["results_test"] = self.results["test"]
+        if self.cfg.evaluate and ("train" in self.cfg.evaluation.eval_set):
             plot_dict["results_train"] = self.results["train"]
         if self.cfg.train:
             plot_dict["train_loss"] = self.train_loss
             plot_dict["val_loss"] = self.val_loss
             plot_dict["train_lr"] = self.train_lr
             plot_dict["val_metrics"] = self.val_metrics
-            plot_dict["grad_norm"] = self.grad_norm_train
-            plot_dict["grad_norm_lframes"] = self.grad_norm_lframes
-            plot_dict["grad_norm_net"] = self.grad_norm_net
+            plot_dict["grad_norm"] = torch.stack(self.grad_norm_train).cpu()
+            plot_dict["grad_norm_lframes"] = torch.stack(self.grad_norm_lframes).cpu()
+            plot_dict["grad_norm_net"] = torch.stack(self.grad_norm_net).cpu()
             for key, value in self.train_metrics.items():
                 plot_dict[key] = value
         plot_mixer(self.cfg, plot_path, title, plot_dict)
@@ -235,7 +247,7 @@ class AmplitudeExperiment(BaseExperiment):
         self.loss = torch.nn.MSELoss()
 
     def _batch_loss(self, data):
-        amp_pred, amp_truth, tracker = self._call_model(data)
+        amp_pred, amp_truth, tracker, _ = self._call_model(data)
         loss = self.loss(amp_truth, amp_pred)
 
         metrics = tracker
@@ -244,8 +256,13 @@ class AmplitudeExperiment(BaseExperiment):
     def _call_model(self, data):
         amplitude, momentum = data
         amplitude, momentum = amplitude.to(self.device), momentum.to(self.device)
-        amplitude_model, tracker = self.model(momentum)
-        return amplitude_model, amplitude, tracker
+        amplitude_model, tracker, lframes = self.model(momentum)
+        return amplitude_model, amplitude, tracker, lframes
 
     def _init_metrics(self):
-        return {"reg_collinear": [], "reg_coplanar": [], "reg_lightlike": []}
+        return {
+            "reg_collinear": [],
+            "reg_coplanar": [],
+            "reg_lightlike": [],
+            "reg_gammamax": [],
+        }

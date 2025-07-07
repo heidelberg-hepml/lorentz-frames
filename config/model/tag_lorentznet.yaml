@@ -1,0 +1,16 @@
+_target_: experiments.tagging.wrappers.LorentzNetWrapper
+out_channels: null
+
+net:
+ _target_: experiments.baselines.lorentznet.LorentzNet
+ _partial_: true
+
+ n_scalar: null
+ n_class: null
+ n_hidden: 72
+ n_layers: 6
+ c_weight: 5e-3
+ dropout: 0.2
+
+defaults:
+ - lframesnet: identity
