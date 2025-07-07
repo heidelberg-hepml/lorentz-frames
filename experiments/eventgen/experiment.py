@@ -197,7 +197,15 @@ class EventGenerationExperiment(BaseExperiment):
 
     @torch.no_grad()
     def evaluate(self):
-        # EMA-evaluation not implemented
+        if self.ema is not None:
+            # no EMA + no-EMA evaluation implemented for generation
+            LOGGER.info(f"Evaluating with ema")
+            with self.ema.average_parameters():
+                self.evaluate_inner()
+        else:
+            self.evaluate_inner()
+
+    def evaluate_inner(self):
         loaders = {
             "trn": self.train_loader,
             "tst": self.test_loader,
