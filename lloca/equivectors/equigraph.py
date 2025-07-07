@@ -2,7 +2,7 @@ import torch
 from torch import nn
 import math
 from torch_geometric.nn import MessagePassing
-from torch_geometric.utils import softmax
+from torch_geometric.utils import scatter, softmax
 
 from .base import EquiVectors
 from ..nn.mlp import MLP
@@ -163,6 +163,60 @@ class EquiEdgeConv(MessagePassing):
         out = out.reshape(out.shape[0], -1)
         return out
 
+    def get_operation(self, operation):
+        """
+        Parameters
+        ----------
+        operation : str
+            Operation to perform on the fourmomenta. Options are "add", "diff", or "single".
+
+        Returns
+        -------
+        callable
+            A function that performs the specified operation on two fourmomenta tensors.
+        """
+        if operation == "diff":
+            return torch.sub
+        elif operation == "add":
+            return torch.add
+        elif operation == "single":
+            return lambda fm_i, fm_j: fm_j
+        else:
+            raise ValueError(
+                f"Invalid operation {operation}. Options are (add, diff, single)."
+            )
+
+    def get_nonlinearity(self, nonlinearity):
+        """
+        Parameters
+        ----------
+        nonlinearity : str or None
+            Nonlinearity to apply to the output of the MLP. Options are None, "exp", "softplus", "softmax".
+
+        Returns
+        -------
+        callable
+            A function that applies the specified nonlinearity to the input tensor.
+        """
+        if nonlinearity == None:
+            return lambda x, batch: x
+        elif nonlinearity == "exp":
+            return lambda x, batch: torch.clamp(x, min=-10, max=10).exp()
+        elif nonlinearity == "softplus":
+            return lambda x, batch: torch.nn.functional.softplus(x)
+        elif nonlinearity == "softmax":
+
+            def func(x, batch):
+                ptr = get_ptr_from_batch(batch)
+                return safe_softmax(x, ptr=ptr)
+                # return softmax(x, ptr=ptr)
+
+            return func
+        else:
+            raise ValueError(
+                f"Invalid nonlinearity {nonlinearity}. Options are (None, exp, softplus, softmax)."
+            )
+
 
 class EquiGraphNet(EquiVectors):
     def __init__(
@@ -242,58 +296,22 @@ class EquiGraphNet(EquiVectors):
         fourmomenta = fourmomenta.reshape(*in_shape, -1, 4)
         return fourmomenta
 
+def safe_softmax(x, ptr):
+    """Custom softmax implementation to control numerics."""
+    seg_id = torch.arange(ptr.numel() - 1, device=x.device).repeat_interleave(
+        ptr[1:] - ptr[:-1]
+    )
 
-def get_operation(operation):
-    """
-    Parameters
-    ----------
-    operation : str
-        Operation to perform on the fourmomenta. Options are "add", "diff", or "single".
+    # rescale argument to avoid exp(large number)
+    seg_max = scatter(x, seg_id, reduce="max")[seg_id].detach()
+    z = x - seg_max
 
-    Returns
-    -------
-    callable
-        A function that performs the specified operation on two fourmomenta tensors.
-    """
-    if operation == "diff":
-        return torch.sub
-    elif operation == "add":
-        return torch.add
-    elif operation == "single":
-        return lambda fm_i, fm_j: fm_j
-    else:
-        raise ValueError(
-            f"Invalid operation {operation}. Options are (add, diff, single)."
-        )
+    # clamp to avoid rounding small values to zero (causes 'DivBackward0 returns nan')
+    # this step is not included in standard softmax implementations
+    z = z.clamp(min=-10)  # -10 works well; -20 and -5 already worse
 
-
-def get_nonlinearity(nonlinearity):
-    """
-    Parameters
-    ----------
-    nonlinearity : str or None
-        Nonlinearity to apply to the output of the MLP. Options are None, "exp", "softplus", "softmax".
-
-    Returns
-    -------
-    callable
-        A function that applies the specified nonlinearity to the input tensor.
-    """
-    if nonlinearity == None:
-        return lambda x, batch: x
-    elif nonlinearity == "exp":
-        return lambda x, batch: torch.clamp(x, min=-10, max=10).exp()
-    elif nonlinearity == "softplus":
-        return lambda x, batch: torch.nn.functional.softplus(x)
-    elif nonlinearity == "softmax":
-
-        def func(x, batch):
-            ptr = get_ptr_from_batch(batch)
-            x = x.clamp(min=-10, max=10)
-            return softmax(x, ptr=ptr)
-
-        return func
-    else:
-        raise ValueError(
-            f"Invalid nonlinearity {nonlinearity}. Options are (None, exp, softplus, softmax)."
-        )
+    # actual softmax
+    num = z.exp()
+    den = scatter(num, seg_id, reduce="sum")[seg_id]
+    out = num / den
+    return out
