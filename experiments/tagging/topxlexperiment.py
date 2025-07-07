@@ -18,6 +18,7 @@ from experiments.tagging.miniweaver.loader import to_filelist
 class TopXLTaggingExperiment(TaggingExperiment):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.num_outputs = 1
 
         if self.cfg.data.features == "fourmomenta":
             self.extra_scalars = 0

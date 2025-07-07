@@ -1,3 +1,4 @@
+# hyperparameters from GATr paper https://arxiv.org/abs/2411.00446
 weight_decay: 0
 iterations: 1000000
 validate_every_n_steps: 10000000
