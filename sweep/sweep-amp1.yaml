@@ -1,0 +1,11 @@
+exp_name: sweep-amp-gnn-1
+
+trials: 1  # one trial run per job
+seed: 0
+n_startup_trials: 50
+optuna_db: 'runs/${exp_name}/optuna/optuna.db'
+
+model_name: amp_graphnet
+
+cfg_overrides:
+ - model.net.num_blocks=3
