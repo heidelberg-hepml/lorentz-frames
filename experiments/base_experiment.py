@@ -18,6 +18,7 @@ import experiments.logger
 from experiments.logger import LOGGER, MEMORY_HANDLER, FORMATTER
 from experiments.mlflow import log_mlflow
 from experiments.ranger import Ranger
+from torch.optim.lr_scheduler import SequentialLR, LinearLR, CosineAnnealingLR
 
 # set to 'True' to debug autograd issues (slows down code)
 torch.autograd.set_detect_anomaly(False)
@@ -409,12 +410,26 @@ class BaseExperiment:
                 ),
             )
         elif self.cfg.training.scheduler == "CosineAnnealingLR":
-            self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            total_steps = int(self.cfg.training.iterations * self.cfg.training.scheduler_scale)
+            warmup_steps = self.cfg.training.warmup_steps if "warmup_steps" in self.cfg.training else 0  # fallback
+
+            warmup_scheduler = LinearLR(
                 self.optimizer,
-                T_max=int(
-                    self.cfg.training.iterations * self.cfg.training.scheduler_scale
-                ),
+                start_factor=1e-8 / self.cfg.training.lr,
+                end_factor=1.0,
+                total_iters=warmup_steps
+            )
+
+            cosine_scheduler = CosineAnnealingLR(
+                self.optimizer,
+                T_max=total_steps - warmup_steps,
                 eta_min=self.cfg.training.cosanneal_eta_min,
+            )
+
+            self.scheduler = SequentialLR(
+                self.optimizer,
+                schedulers=[warmup_scheduler, cosine_scheduler],
+                milestones=[warmup_steps]
             )
         elif self.cfg.training.scheduler == "ReduceLROnPlateau":
             self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
@@ -674,6 +689,28 @@ class BaseExperiment:
                     f"Skipping iteration {step}, gradient norm {grad_norm} exceeds maximum {self.cfg.training.max_grad_norm}"
                 )
                 return
+        
+        grad_threshold = 100.0 # HYPERPARA
+
+        if grad_norm > grad_threshold:
+            LOGGER.warning(f"[Step {step}] High grad norm: {grad_norm:.2f}, loss: {loss.item():.4f}")
+
+            # Dump input statistics
+            x = data.x if hasattr(data, 'x') else None
+            scalars = data.scalars if hasattr(data, 'scalars') else None
+
+            if x is not None:
+                LOGGER.warning(f"[Step {step}] x E: mean={x[:,0].mean():.2f}, max={x[:,0].max():.2f}")
+                LOGGER.warning(f"[Step {step}] x p: max_p={x[:,1:].norm(dim=1).max():.2f}")
+            if scalars is not None and scalars.numel() > 0:
+                LOGGER.warning(f"[Step {step}] scalar feature stats: mean={scalars.mean():.2f}, max={scalars.max():.2f}")
+
+            # Optional: save batch
+            torch.save(data, f"{self.cfg.run_dir}/outlier_step{step}.pt")
+
+
+        torch.save(data, f"{self.cfg.run_dir}/outlier_step{step}.pt")
+
         self.scaler.step(self.optimizer)
         self.scaler.update()
         if self.ema is not None:
