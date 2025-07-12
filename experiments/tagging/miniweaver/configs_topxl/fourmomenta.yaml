@@ -5,8 +5,6 @@ selection: null
 new_variables:
    ### [format] name: formula
    ### can use functions from `math`, `np` (numpy), and `awkward` in the expression
-   label_isQCD: 1-label
-   label_isTop: label
 
 inputs:
    pf_vectors:

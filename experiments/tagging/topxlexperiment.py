@@ -19,6 +19,7 @@ class TopXLTaggingExperiment(TaggingExperiment):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.num_outputs = 1
+        self.class_names = ["qcd", "top"]
 
         if self.cfg.data.features == "fourmomenta":
             self.extra_scalars = 0
@@ -52,7 +53,7 @@ class TopXLTaggingExperiment(TaggingExperiment):
         datasets = {"train": None, "test": None, "val": None}
 
         for_training = {"train": True, "val": True, "test": False}
-        folder = {"train": "train_topxl", "test": "test_topxl", "val": "val_topxl"}
+        folder = {"train": "train_100M", "test": "test_20M", "val": "val_5M"}
         files_range = {
             "train": self.cfg.data.train_files_range,
             "test": self.cfg.data.test_files_range,
@@ -64,7 +65,8 @@ class TopXLTaggingExperiment(TaggingExperiment):
         for label in ["train", "test", "val"]:
             path = os.path.join(self.cfg.data.data_dir, folder[label])
             flist = [
-                f"{path}/file_{str(i).zfill(3)}.parquet"
+                f"{classname}:{path}/{classname}_{str(i).zfill(3)}.parquet"
+                for classname in self.class_names
                 for i in range(*files_range[label])
             ]
             file_dict, _ = to_filelist(flist)
@@ -74,16 +76,17 @@ class TopXLTaggingExperiment(TaggingExperiment):
                 file_dict,
                 self.cfg.data.data_config,
                 for_training=for_training[label],
-                extra_selection=self.cfg.jc_params.extra_selection,
-                remake_weights=not self.cfg.jc_params.not_remake_weights,
+                extra_selection=self.cfg.topxl_params.extra_selection,
+                remake_weights=not self.cfg.topxl_params.not_remake_weights,
                 load_range_and_fraction=((0, 1), 1, 1),
                 file_fraction=1,
-                fetch_by_files=self.cfg.jc_params.fetch_by_files,
-                fetch_step=self.cfg.jc_params.fetch_step,
-                infinity_mode=self.cfg.jc_params.steps_per_epoch is not None,
-                in_memory=self.cfg.jc_params.in_memory,
-                events_per_file=self.cfg.jc_params.events_per_file,
+                fetch_by_files=self.cfg.topxl_params.fetch_by_files,
+                fetch_step=self.cfg.topxl_params.fetch_step,
+                infinity_mode=self.cfg.topxl_params.steps_per_epoch is not None,
+                in_memory=self.cfg.topxl_params.in_memory,
                 name=label,
+                events_per_file=self.cfg.topxl_params.events_per_file,
+                async_load=self.cfg.topxl_params.async_load,
             )
         self.data_train = datasets["train"]
         self.data_test = datasets["test"]
@@ -95,11 +98,11 @@ class TopXLTaggingExperiment(TaggingExperiment):
     def _init_dataloader(self):
         self.loader_kwargs = {
             "pin_memory": True,
-            "persistent_workers": self.cfg.jc_params.num_workers > 0
-            and self.cfg.jc_params.steps_per_epoch is not None,
+            "persistent_workers": self.cfg.topxl_params.num_workers > 0
+            and self.cfg.topxl_params.steps_per_epoch is not None,
         }
         num_workers = {
-            label: min(self.cfg.jc_params.num_workers, self.num_files[label])
+            label: min(self.cfg.topxl_params.num_workers, self.num_files[label])
             for label in ["train", "test", "val"]
         }
         self.train_loader = DataLoader(
