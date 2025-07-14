@@ -260,4 +260,4 @@ class JetClassTaggingExperiment(TaggingExperiment):
         fourmomenta, scalars, ptr = dense_to_sparse_jet(fourmomenta, scalars)
         embedding = embed_tagging_data(fourmomenta, scalars, ptr, self.cfg.data)
         y_pred, tracker, lframes = self.model(embedding)
-        return y_pred, label, tracker, lframes
+        return y_pred, label.to(torch.long), tracker, lframes
