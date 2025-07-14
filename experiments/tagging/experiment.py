@@ -101,10 +101,12 @@ class TaggingExperiment(BaseExperiment):
         )
 
     def _init_optimizer(self, param_groups=None):
-        if self.cfg.model.net._target_.rsplit(".", 1)[-1] == "ParticleTransformer":
+        if (
+            param_groups is None
+            and self.cfg.model.net._target_.rsplit(".", 1)[-1] == "ParticleTransformer"
+        ):
             # special treatment for ParT, see
             # https://github.com/hqucms/weaver-core/blob/dev/custom_train_eval/weaver/train.py#L464
-            # have to adapt this for finetuning!!!
             decay, no_decay = {}, {}
             for name, param in self.model.net.named_parameters():
                 if not param.requires_grad:

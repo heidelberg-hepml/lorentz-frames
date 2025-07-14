@@ -20,6 +20,7 @@ class TopTaggingFineTuneExperiment(TopTaggingExperiment):
 
         if not self.warmstart_cfg.model._target_ in [
             "experiments.tagging.wrappers.TransformerWrapper",
+            "experiments.tagging.wrappers.ParTWrapper",
         ]:
             raise NotImplementedError
 
@@ -77,6 +78,17 @@ class TopTaggingFineTuneExperiment(TopTaggingExperiment):
             self.model.net.linear_out = torch.nn.Linear(
                 self.model.net.hidden_channels, self.num_outputs
             ).to(self.device)
+        elif (
+            self.warmstart_cfg.model._target_
+            == "experiments.tagging.wrappers.ParTWrapper"
+        ):
+            # overwrite output layer, reset parameters for all other layers in the final MLP
+            self.model.net.fc[-1] = torch.nn.Linear(
+                self.model.net.embed_dim, self.num_outputs
+            ).to(self.device)
+            for module in self.model.net.fc.modules():
+                if hasattr(module, "reset_parameters"):
+                    module.reset_parameters()
         else:
             raise NotImplementedError
 
@@ -115,6 +127,65 @@ class TopTaggingFineTuneExperiment(TopTaggingExperiment):
                     "params": params_head,
                     "lr": self.cfg.finetune.lr_head,
                     "weight_decay": self.cfg.training.weight_decay,
+                },
+            ]
+        elif (
+            self.warmstart_cfg.model._target_
+            == "experiments.tagging.wrappers.ParTWrapper"
+        ):
+            # adapted version of the basic _init_optimizer() in TaggingExperiment
+            decay, no_decay, head_decay, head_nodecay = {}, {}, {}, {}
+            for name, param in self.model.net.named_parameters():
+                if not param.requires_grad:
+                    continue
+                if (
+                    len(param.shape) == 1
+                    or name.endswith(".bias")
+                    or (
+                        hasattr(self.model.net, "no_weight_decay")
+                        and name in {"cls_token"}
+                    )
+                ):
+                    if name.startswith("fc."):
+                        head_nodecay[name] = param
+                    else:
+                        no_decay[name] = param
+                else:
+                    if name.startswith("fc."):
+                        head_decay[name] = param
+                    else:
+                        decay[name] = param
+            decay_1x, no_decay_1x = list(decay.values()), list(no_decay.values())
+            head_decay_1x, head_nodecay_1x = (
+                list(head_decay.values()),
+                list(head_nodecay.values()),
+            )
+            param_groups = [
+                {
+                    "params": no_decay_1x,
+                    "weight_decay": 0.0,
+                    "lr": self.cfg.finetune.lr_backbone,
+                },
+                {
+                    "params": decay_1x,
+                    "weight_decay": self.cfg.training.weight_decay,
+                    "lr": self.cfg.finetune.lr_backbone,
+                },
+                {
+                    "params": self.model.lframesnet.parameters(),
+                    "weight_decay": self.cfg.training.weight_decay_lframesnet,
+                    "lr": self.cfg.finetune.lr_backbone
+                    * self.cfg.training.lr_factor_lframesnet,
+                },
+                {
+                    "params": head_nodecay_1x,
+                    "weight_decay": 0.0,
+                    "lr": self.cfg.finetune.lr_head,
+                },
+                {
+                    "params": head_decay_1x,
+                    "weight_decay": self.cfg.training.weight_decay,
+                    "lr": self.cfg.finetune.lr_head,
                 },
             ]
         else:
