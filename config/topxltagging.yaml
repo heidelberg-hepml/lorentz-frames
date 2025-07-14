@@ -2,13 +2,13 @@ exp_type: topxltagging
 exp_name: topxl_debug
 
 data:
- data_dir: /gpfs/scratch/acad/hepml/TopXL/
+ data_dir: /remote/gpu06/favaro/datasets/luigi_tagging_noshuffle
  features: default
  data_config: null
  add_scalar_features: True
- train_files_range: [0, 499]
- test_files_range: [500, 599]
- val_files_range: [600, 624]
+ train_files_range: [0, 500]
+ test_files_range: [500, 600]
+ val_files_range: [600, 625]
 
 topxl_params:
  num_workers: 2
@@ -21,10 +21,11 @@ topxl_params:
  steps_per_epoch: null
  steps_per_epoch_val: null
  events_per_file: 100000
- async_load: True
+ async_load: true
+ split_num: 1
 
 evaluation:
- batchsize: 1024
+ batchsize: 2048
  eval_set: [test]
 
 plotting:
