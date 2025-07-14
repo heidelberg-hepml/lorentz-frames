@@ -15,7 +15,7 @@ class TopTaggingFineTuneExperiment(TopTaggingExperiment):
             self.cfg.finetune.backbone_path, self.cfg.finetune.backbone_cfg
         )
         self.warmstart_cfg = OmegaConf.load(warmstart_path)
-        assert self.warmstart_cfg.exp_type in ["jctagging"]  # could extend to topxl
+        assert self.warmstart_cfg.exp_type in ["jctagging", "topxltagging"]
         assert self.warmstart_cfg.data.features == "fourmomenta"
 
         if not self.warmstart_cfg.model._target_ in [
