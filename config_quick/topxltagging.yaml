@@ -10,7 +10,7 @@ data:
  test_files_range: [623,624]
  val_files_range: [624,625]
 
-jc_params:
+topxl_params:
  num_workers: 2
  fetch_step: 0.01
  extra_selection: null
