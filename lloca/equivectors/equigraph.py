@@ -3,6 +3,7 @@ from torch import nn
 import math
 from torch_geometric.nn import MessagePassing
 from torch_geometric.utils import scatter, softmax
+from experiments.logger import LOGGER
 
 from .base import EquiVectors
 from ..nn.mlp import MLP
@@ -53,6 +54,12 @@ class EquiEdgeConv(MessagePassing):
             Nonlinearity to apply to the output of the MLP. Options are None, "exp", "softplus" and "softmax".
         """
         super().__init__(aggr=aggr, flow="target_to_source")
+        self.norm_max, self.norm_min, self.layer_norm_max, self.layer_norm_min = (
+            -torch.inf,
+            torch.inf,
+            -torch.inf,
+            torch.inf,
+        )
         assert num_scalars > 0 or include_edges
         self.include_edges = include_edges
         self.layer_norm = layer_norm
@@ -119,6 +126,12 @@ class EquiEdgeConv(MessagePassing):
         if self.layer_norm:
             norm = lorentz_squarednorm(vecs.reshape(fourmomenta.shape[0], -1, 4))
             norm = norm.sum(dim=-1).unsqueeze(-1)
+            if norm.max() > self.layer_norm_max:
+                self.layer_norm_max = norm.max().item()
+                LOGGER.info(f"New layer norm max: {self.layer_norm_max:.3f})")
+            if norm.min() < self.layer_norm_min:
+                self.layer_norm_min = norm.min().item()
+                LOGGER.info(f"New layer norm min: {self.layer_norm_min:.3f}")
             vecs = vecs / norm.clamp(min=1e-5).sqrt()
         return vecs
 
@@ -149,6 +162,12 @@ class EquiEdgeConv(MessagePassing):
         if self.fm_norm:
             fm_rel_norm = lorentz_squarednorm(fm_rel).unsqueeze(-1)
             fm_rel_norm = fm_rel_norm.abs().sqrt().clamp(min=1e-6)
+            if fm_rel_norm.max() > self.norm_max:
+                self.norm_max = fm_rel_norm.max().item()
+                LOGGER.info(f"New norm max: {self.norm_max:.3f})")
+            if fm_rel_norm.min() < self.norm_min:
+                self.norm_min = fm_rel_norm.min().item()
+                LOGGER.info(f"New norm min: {self.norm_min:.3f})")
         else:
             fm_rel_norm = 1.0
 

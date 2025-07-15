@@ -695,26 +695,6 @@ class BaseExperiment:
                     f"Skipping iteration {step}, gradient norm {grad_norm} exceeds maximum {self.cfg.training.max_grad_norm}"
                 )
                 return
-        """
-        grad_threshold = 100.0 # HYPERPARA
-
-        if grad_norm > grad_threshold:
-            LOGGER.warning(f"[Step {step}] High grad norm: {grad_norm:.2f}, loss: {loss.item():.4f}")
-
-            # Dump input statistics
-            x = data.x if hasattr(data, 'x') else None
-            scalars = data.scalars if hasattr(data, 'scalars') else None
-
-            if x is not None:
-                LOGGER.warning(f"[Step {step}] x E: mean={x[:,0].mean():.2f}, max={x[:,0].max():.2f}")
-                LOGGER.warning(f"[Step {step}] x p: max_p={x[:,1:].norm(dim=1).max():.2f}")
-            if scalars is not None and scalars.numel() > 0:
-                LOGGER.warning(f"[Step {step}] scalar feature stats: mean={scalars.mean():.2f}, max={scalars.max():.2f}")
-
-            # Optional: save batch
-            torch.save(data, f"{self.cfg.run_dir}/outlier_step{step}.pt")"""
-
-        torch.save(data, f"{self.cfg.run_dir}/outlier_step{step}.pt")
 
         self.scaler.step(self.optimizer)
         self.scaler.update()
