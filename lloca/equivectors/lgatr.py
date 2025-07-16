@@ -18,8 +18,16 @@ class LGATrVectors(EquiVectors):
     ):
         super().__init__()
         self.n_vectors = n_vectors
-        out_mv_channels = 2 * n_vectors * max(1, hidden_mv_channels // (2 * n_vectors))
-        out_s_channels = 2 * n_vectors * max(1, hidden_s_channels // (2 * n_vectors))
+        out_mv_channels = (
+            2 * n_vectors * max(1, hidden_mv_channels // (2 * n_vectors))
+            if hidden_mv_channels > 0
+            else 0
+        )
+        out_s_channels = (
+            2 * n_vectors * max(1, hidden_s_channels // (2 * n_vectors))
+            if hidden_s_channels > 0
+            else 0
+        )
         self.net = net(
             in_s_channels=num_scalars,
             out_mv_channels=out_mv_channels,

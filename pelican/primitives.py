@@ -26,10 +26,14 @@ def aggregate_0to2(graph, edge_index, batch, reduce="mean", **kwargs):
     is_diag = row == col
     diag_mask = is_diag.unsqueeze(-1).type_as(graph)
 
-    ops = graph.new_empty(2, E, C)
-    ops[0] = graph[edge_batch]
-    ops[1] = graph[edge_batch] * diag_mask
-    return ops.permute(1, 2, 0)
+    ops = torch.stack(
+        [
+            graph[edge_batch],
+            graph[edge_batch] * diag_mask,
+        ],
+        dim=-1,
+    )  # shape (E, C, 2)
+    return ops
 
 
 def aggregate_1to2(nodes, edge_index, batch, reduce="mean", **kwargs):
@@ -43,13 +47,17 @@ def aggregate_1to2(nodes, edge_index, batch, reduce="mean", **kwargs):
     nodes_agg = custom_scatter(nodes, batch, dim_size=E, C=C, reduce=reduce)
     is_diag = is_diag.unsqueeze(-1)
 
-    ops = nodes.new_empty(5, E, C)
-    ops[0] = nodes[row] * diag_mask
-    ops[1] = nodes[row]
-    ops[2] = nodes[col]
-    ops[3] = nodes_agg[edge_batch] * diag_mask
-    ops[4] = nodes_agg[edge_batch]
-    return ops.permute(1, 2, 0)
+    ops = torch.stack(
+        [
+            nodes[row] * diag_mask,
+            nodes[row],
+            nodes[col],
+            nodes_agg[edge_batch] * diag_mask,
+            nodes_agg[edge_batch],
+        ],
+        dim=-1,
+    )  # shape (E, C, 5)
+    return ops
 
 
 def aggregate_2to0(edges, edge_index, batch, reduce="mean", G=None, **kwargs):
@@ -66,10 +74,14 @@ def aggregate_2to0(edges, edge_index, batch, reduce="mean", G=None, **kwargs):
     graph_agg = custom_scatter(edges, edge_batch, dim_size=G, C=C, reduce=reduce)
     diag_agg = custom_scatter(diags, edge_batch, dim_size=G, C=C, reduce=reduce)
 
-    ops = edges.new_empty(2, G, C)
-    ops[0] = graph_agg
-    ops[1] = diag_agg
-    return ops.permute(1, 2, 0)
+    ops = torch.stack(
+        [
+            graph_agg,
+            diag_agg,
+        ],
+        dim=-1,
+    )  # shape (G, C, 2)
+    return ops
 
 
 def aggregate_2to1(edges, edge_index, batch, reduce="mean", **kwargs):
@@ -86,13 +98,17 @@ def aggregate_2to1(edges, edge_index, batch, reduce="mean", **kwargs):
     graph_agg = custom_scatter(edges, edge_batch, dim_size=N, C=C, reduce=reduce)
     diag_agg = custom_scatter(diags, row, dim_size=N, C=C, reduce=reduce)
 
-    ops = edges.new_empty(5, N, C)
-    ops[0] = edges[is_diag]
-    ops[1] = row_agg
-    ops[2] = col_agg
-    ops[3] = graph_agg[batch]
-    ops[4] = diag_agg[batch]
-    return ops.permute(1, 2, 0)
+    ops = torch.stack(
+        [
+            edges[is_diag],
+            row_agg,
+            col_agg,
+            graph_agg[batch],
+            diag_agg[batch],
+        ],
+        dim=-1,
+    )  # shape (N, C, 5)
+    return ops
 
 
 def aggregate_2to2(edges, edge_index, batch, reduce="mean", perm_T=None, **kwargs):
@@ -112,23 +128,27 @@ def aggregate_2to2(edges, edge_index, batch, reduce="mean", perm_T=None, **kwarg
     graph_agg = custom_scatter(edges, edge_batch, dim_size=N, C=C, reduce=reduce)
     diag_agg = custom_scatter(diags, row, dim_size=N, C=C, reduce=reduce)
 
-    ops = edges.new_empty(15, E, C)
-    ops[0] = edges
-    ops[1] = edges[perm_T]
-    ops[2] = diags
-    ops[3] = diag_agg[row]
-    ops[4] = diag_agg[col]
-    ops[5] = col_agg[row] * diag_mask
-    ops[6] = row_agg[col] * diag_mask
-    ops[7] = col_agg[row]
-    ops[8] = col_agg[col]
-    ops[9] = row_agg[row]
-    ops[10] = row_agg[col]
-    ops[11] = diag_agg[edge_batch]
-    ops[12] = diag_agg[edge_batch] * diag_mask
-    ops[13] = graph_agg[edge_batch]
-    ops[14] = graph_agg[edge_batch] * diag_mask
-    return ops.permute(1, 2, 0)
+    ops = torch.stack(
+        [
+            edges,
+            edges[perm_T],
+            diags,
+            diag_agg[row],
+            diag_agg[col],
+            col_agg[row] * diag_mask,
+            row_agg[col] * diag_mask,
+            col_agg[row],
+            col_agg[col],
+            row_agg[row],
+            row_agg[col],
+            diag_agg[edge_batch],
+            diag_agg[edge_batch] * diag_mask,
+            graph_agg[edge_batch],
+            graph_agg[edge_batch] * diag_mask,
+        ],
+        dim=-1,
+    )  # shape (E, C, 15)
+    return ops
 
 
 def get_transpose(edge_index):
