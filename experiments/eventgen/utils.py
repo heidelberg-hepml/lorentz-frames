@@ -32,18 +32,6 @@ def get_eps(ref, eps=None):
     return eps
 
 
-def stay_positive(x):
-    # flip sign for entries with x<0 such that always x>0
-    x = torch.where(x > 0, x, -x)
-    return x
-
-
-def unpack_last(x):
-    # unpack along the last dimension
-    n = len(x.shape)
-    return torch.permute(x, (n - 1, *list(range(n - 1))))
-
-
 def fourmomenta_to_jetmomenta(fourmomenta):
     pt = get_pt(fourmomenta)
     phi = get_phi(fourmomenta)
@@ -56,7 +44,7 @@ def fourmomenta_to_jetmomenta(fourmomenta):
 
 
 def jetmomenta_to_fourmomenta(jetmomenta):
-    pt, phi, eta, mass = unpack_last(jetmomenta)
+    pt, phi, eta, mass = torch.unbind(jetmomenta, dim=-1)
 
     px = pt * torch.cos(phi)
     py = pt * torch.sin(phi)
@@ -94,7 +82,7 @@ def manual_eta(pz, pabs, eps=None):
 
 def get_mass(fourmomenta):
     m2 = fourmomenta[..., 0] ** 2 - torch.sum(fourmomenta[..., 1:] ** 2, dim=-1)
-    m2 = stay_positive(m2)
+    m2 = m2.abs()
     m = m2.sqrt()
     return m
 
