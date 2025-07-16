@@ -7,8 +7,6 @@ new_variables:
    ### can use functions from `math`, `np` (numpy), and `awkward` in the expression
    part_d0: np.tanh(part_d0val)
    part_dz: np.tanh(part_dzval)
-   label_isQCD: 1-label
-   label_isTop: label
 
 inputs:
    pf_features:
