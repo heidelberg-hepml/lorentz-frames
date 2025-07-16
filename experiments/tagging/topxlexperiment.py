@@ -53,7 +53,7 @@ class TopXLTaggingExperiment(TaggingExperiment):
         datasets = {"train": None, "test": None, "val": None}
 
         for_training = {"train": True, "val": True, "test": False}
-        folder = {"train": "train_100M", "test": "test_20M", "val": "val_5M"}
+        folder = {"train": "train_100M", "test": "test_25M", "val": "val_10M"}
         files_range = {
             "train": self.cfg.data.train_files_range,
             "test": self.cfg.data.test_files_range,

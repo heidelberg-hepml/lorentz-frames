@@ -2,13 +2,13 @@ exp_type: topxltagging
 exp_name: topxl_debug
 
 data:
- data_dir: /remote/gpu06/favaro/datasets/luigi_tagging_noshuffle
+ data_dir: /remote/gpu06/favaro/datasets/luigi_tagging_noshuffle_v2
  features: default
  data_config: null
  add_scalar_features: True
  train_files_range: [0, 500]
- test_files_range: [500, 600]
- val_files_range: [600, 625]
+ test_files_range: [500, 625]
+ val_files_range: [625, 675]
 
 topxl_params:
  num_workers: 2
