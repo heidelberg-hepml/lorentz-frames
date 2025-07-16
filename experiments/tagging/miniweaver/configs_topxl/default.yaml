@@ -10,7 +10,7 @@ new_variables:
 
 inputs:
    pf_features:
-      length: 200
+      length: 128
       pad_mode: constant
       vars: 
       ### [format 1]: var_name (no transformation)
@@ -31,7 +31,7 @@ inputs:
          - [part_dz, null]
          - [part_ErrDZ, 0, 1, 0, 1]
    pf_vectors:
-      length: 200
+      length: 128
       pad_mode: constant
       vars: 
          - [part_energy, null]

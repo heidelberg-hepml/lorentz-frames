@@ -8,7 +8,7 @@ new_variables:
 
 inputs:
    pf_vectors:
-      length: 200
+      length: 128
       pad_mode: constant
       vars: 
          - [part_energy, null]
