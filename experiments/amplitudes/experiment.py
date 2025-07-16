@@ -138,12 +138,12 @@ class AmplitudeExperiment(BaseExperiment):
                 with self.ema.average_parameters():
                     self.results[set_label] = self._evaluate_single(
                         loader_dict[set_label],
-                        set_label,
+                        f"{set_label}_ema",
                     )
 
                 self._evaluate_single(
                     loader_dict[set_label],
-                    f"{set_label}_noema",
+                    set_label,
                 )
 
             else:

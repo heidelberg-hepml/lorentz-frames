@@ -1,6 +1,7 @@
 _target_: experiments.tagging.wrappers.LGATrWrapper
 mean_aggregation: false
 out_channels: null
+use_amp: false
 
 net:
  _target_: lgatr.LGATr

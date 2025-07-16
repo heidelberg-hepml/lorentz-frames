@@ -261,4 +261,4 @@ class JetClassTaggingExperiment(TaggingExperiment):
         embedding = embed_tagging_data(fourmomenta, scalars, ptr, self.cfg.data)
         embedding["num_graphs"] = batch[0]["pf_vectors"].shape[0]
         y_pred, tracker, lframes = self.model(embedding)
-        return y_pred, label, tracker, lframes
+        return y_pred, label.to(torch.long), tracker, lframes

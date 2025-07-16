@@ -154,12 +154,10 @@ class TaggingExperiment(BaseExperiment):
             if self.ema is not None:
                 with self.ema.average_parameters():
                     self.results[set_label] = self._evaluate_single(
-                        loader_dict[set_label], set_label, mode="eval"
+                        loader_dict[set_label], f"{set_label}_ema", mode="eval"
                     )
 
-                self._evaluate_single(
-                    loader_dict[set_label], f"{set_label}_noema", mode="eval"
-                )
+                self._evaluate_single(loader_dict[set_label], set_label, mode="eval")
 
             else:
                 self.results[set_label] = self._evaluate_single(
@@ -321,8 +319,7 @@ class TaggingExperiment(BaseExperiment):
 
     def _batch_loss(self, batch):
         y_pred, label, tracker, _ = self._get_ypred_and_label(batch)
-
-        loss = self.loss(y_pred, label.to(torch.float32))
+        loss = self.loss(y_pred, label)
         assert torch.isfinite(loss).all()
 
         metrics = tracker

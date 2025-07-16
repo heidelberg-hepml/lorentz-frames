@@ -7,12 +7,14 @@ jobid: null
 seed: null
 debug: false
 use_float64: false
+float32_matmul_precision: highest
 
 warm_start_idx: null
 save: true
 use_mlflow: true
 save_source: true
 ema: false
+ema_decay: 0.999
 
 train: true
 evaluate: true

@@ -11,6 +11,7 @@ from hydra.utils import instantiate
 import mlflow
 from torch_ema import ExponentialMovingAverage
 import pytorch_optimizer
+from torch.amp import GradScaler
 
 from experiments.misc import get_device, flatten_dict
 import experiments.logger
@@ -78,6 +79,7 @@ class BaseExperiment:
         if self.cfg.train:
             self._init_optimizer()
             self._init_scheduler()
+            self._init_scaler()
             self.train()
             self._save_model()
 
@@ -121,7 +123,7 @@ class BaseExperiment:
         if self.cfg.ema:
             LOGGER.info(f"Using EMA for validation and eval")
             self.ema = ExponentialMovingAverage(
-                self.model.parameters(), decay=self.cfg.training.ema_decay
+                self.model.parameters(), decay=self.cfg.ema_decay
             )
         else:
             LOGGER.info(f"Not using EMA")
@@ -314,6 +316,11 @@ class BaseExperiment:
         self.dtype = torch.float64 if self.cfg.use_float64 else torch.float32
         LOGGER.debug(f"Using dtype {self.dtype}")
 
+        torch.set_float32_matmul_precision(self.cfg.float32_matmul_precision)
+        LOGGER.debug(
+            f"Using float32_matmul_precision {self.cfg.float32_matmul_precision}"
+        )
+
     def _init_optimizer(self, param_groups=None):
         if param_groups is None:
             param_groups = [
@@ -456,6 +463,24 @@ class BaseExperiment:
             except FileNotFoundError:
                 raise ValueError(f"Cannot load scheduler from {model_path}")
 
+    def _init_scaler(self):
+        use_amp = OmegaConf.select(self.cfg.model, "use_amp", default=False)
+        self.scaler = GradScaler(enabled=use_amp)
+
+        # load existing scaler if specified
+        if self.warm_start and use_amp:
+            model_path = os.path.join(
+                self.cfg.run_dir, "models", f"model_run{self.cfg.warm_start_idx}.pt"
+            )
+            try:
+                state_dict = torch.load(
+                    model_path, map_location="cpu", weights_only=False
+                )["scaler"]
+                LOGGER.info(f"Loading scaler from {model_path}")
+                self.scaler.load_state_dict(state_dict)
+            except FileNotFoundError:
+                raise ValueError(f"Cannot load scaler from {model_path}")
+
     def train(self):
         # performance metrics
         (
@@ -593,7 +618,7 @@ class BaseExperiment:
         # actual update step
         loss, metrics = self._batch_loss(data)
         self.optimizer.zero_grad()
-        loss.backward()
+        self.scaler.scale(loss).backward()
 
         if self.cfg.training.log_grad_norm:
             grad_norm_lframes = (
@@ -649,7 +674,8 @@ class BaseExperiment:
                     f"Skipping iteration {step}, gradient norm {grad_norm} exceeds maximum {self.cfg.training.max_grad_norm}"
                 )
                 return
-        self.optimizer.step()
+        self.scaler.step(self.optimizer)
+        self.scaler.update()
         if self.ema is not None:
             self.ema.update()
 
@@ -742,6 +768,7 @@ class BaseExperiment:
                 if self.scheduler is not None
                 else None,
                 "ema": self.ema.state_dict() if self.ema is not None else None,
+                "scaler": self.scaler.state_dict(),
             },
             model_path,
         )

@@ -120,10 +120,8 @@ class EventGenerationExperiment(BaseExperiment):
         # initialize cfm (might require data)
         self.model.init_distribution()
         self.model.init_coordinates()
-        fit_data = self.events_raw / self.units
-        self.model.coordinates.init_fit(fit_data)
-        if hasattr(self.model, "distribution"):
-            self.model.distribution.coordinates.init_fit(fit_data)
+        self.model.coordinates.init_fit(self.events_prepd)
+        self.model.distribution.coordinates.init_fit(self.events_prepd)
         self.model.init_geometry()
 
     def _init_dataloader(self):
@@ -197,7 +195,15 @@ class EventGenerationExperiment(BaseExperiment):
 
     @torch.no_grad()
     def evaluate(self):
-        # EMA-evaluation not implemented
+        if self.ema is not None:
+            # no EMA + no-EMA evaluation implemented for generation
+            LOGGER.info(f"Evaluating with ema")
+            with self.ema.average_parameters():
+                self.evaluate_inner()
+        else:
+            self.evaluate_inner()
+
+    def evaluate_inner(self):
         loaders = {
             "trn": self.train_loader,
             "tst": self.test_loader,
