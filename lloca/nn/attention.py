@@ -122,9 +122,6 @@ class LLoCaAttention(torch.nn.Module):
 
         qkv_local = torch.stack([q_local, k_local, v_local], dim=0)
         qkv_global = self.transform(qkv_local, self.lframes_qkv)
-        qkv_global = torch.nn.functional.layer_norm(
-            qkv_global, normalized_shape=qkv_global.shape[-1:]
-        )
         q_global, k_global, v_global = torch.unbind(qkv_global, dim=0)
 
         # (B, H, N, C) format required for scaled_dot_product_attention
