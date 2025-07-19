@@ -7,7 +7,7 @@ data:
  data_config: null
  add_scalar_features: True
  train_files_range: [0, 500]
- test_files_range: [500, 625]
+ test_files_range: [500, 600]
  val_files_range: [625, 675]
 
 topxl_params:
