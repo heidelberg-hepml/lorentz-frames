@@ -34,6 +34,8 @@ class TaggingExperiment(BaseExperiment):
         elif modelname == "LorentzNet":
             self.cfg.model.net.n_scalar = self.extra_scalars
         elif modelname == "PELICAN":
+            self.cfg.model.net.in_rank1 = self.extra_scalars
+        elif modelname == "PELICANOfficial":
             self.cfg.model.net.num_scalars = self.extra_scalars
         elif modelname == "CGENN":
             # CGENN cant handle zero scalar inputs -> give 1 input with zeros
@@ -331,6 +333,7 @@ class TaggingExperiment(BaseExperiment):
             batch.ptr,
             self.cfg.data,
         )
+        embedding["num_graphs"] = batch.num_graphs
         y_pred, tracker, lframes = self.model(embedding)
         y_pred = y_pred[:, 0]
         return y_pred, batch.label.to(self.dtype), tracker, lframes

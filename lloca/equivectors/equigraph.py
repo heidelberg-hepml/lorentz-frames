@@ -56,8 +56,8 @@ class EquiEdgeConv(MessagePassing):
         assert num_scalars > 0 or include_edges
         self.include_edges = include_edges
         self.layer_norm = layer_norm
-        self.operation = self.get_operation(operation)
-        self.nonlinearity = self.get_nonlinearity(nonlinearity)
+        self.operation = get_operation(operation)
+        self.nonlinearity = get_nonlinearity(nonlinearity)
         self.fm_norm = fm_norm
         assert not (operation == "single" and fm_norm)  # unstable
 
@@ -295,7 +295,6 @@ class EquiGraphNet(EquiVectors):
             )
         fourmomenta = fourmomenta.reshape(*in_shape, -1, 4)
         return fourmomenta
-
 
 def safe_softmax(x, ptr):
     """Custom softmax implementation to control numerics."""

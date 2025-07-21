@@ -2,12 +2,23 @@ _target_: experiments.tagging.wrappers.PELICANWrapper
 out_channels: null
 
 net:
- _target_: experiments.baselines.pelican.pelican.PELICAN
+ _target_: pelican.nets.PELICAN
  _partial_: true
 
- num_scalars: null
- num_channels_1: 132
- num_channels_2: 78
+ in_rank0: 0
+ in_rank1: null
+ in_rank2: 1
+ out_channels: 1
+
+ num_blocks: 5
+ hidden_channels: 132
+ increase_hidden_channels: 0.59
+
+ factorize: true
+ activation: gelu
+ aggr: mean
+ compile: true
+ checkpoint_blocks: false
  
 defaults:
  - lframesnet: identity
