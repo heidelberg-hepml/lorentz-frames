@@ -7,12 +7,10 @@ new_variables:
    ### can use functions from `math`, `np` (numpy), and `awkward` in the expression
    part_d0: np.tanh(part_d0val)
    part_dz: np.tanh(part_dzval)
-   label_isQCD: 1-label
-   label_isTop: label
 
 inputs:
    pf_features:
-      length: 200
+      length: 128
       pad_mode: constant
       vars: 
       ### [format 1]: var_name (no transformation)
@@ -28,7 +26,7 @@ inputs:
          - [part_ErrDZ, 0, 1, 0, 1]
  
    pf_vectors:
-      length: 200
+      length: 128
       pad_mode: constant
       vars: 
          - [part_energy, null]
