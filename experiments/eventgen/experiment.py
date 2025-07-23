@@ -445,6 +445,8 @@ class EventGenerationExperiment(BaseExperiment):
             "reg_coplanar": [],
             "reg_lightlike": [],
             "reg_gammamax": [],
+            "gamma_mean": [],
+            "gamma_max": [],
         }
         for k in range(4):
             metrics[f"mse_{k}"] = []
