@@ -101,7 +101,10 @@ class TaggingExperiment(BaseExperiment):
         )
 
     def _init_optimizer(self, param_groups=None):
-        if self.cfg.model.net._target_.rsplit(".", 1)[-1] == "ParticleTransformer":
+        if self.cfg.model.net._target_.rsplit(".", 1)[-1] in [
+            "ParticleTransformer",
+            "MIParticleTransformer",
+        ]:
             # special treatment for ParT, see
             # https://github.com/hqucms/weaver-core/blob/dev/custom_train_eval/weaver/train.py#L464
             # have to adapt this for finetuning!!!
