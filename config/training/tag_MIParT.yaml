@@ -1,4 +1,5 @@
 # hyperparameters from https://arxiv.org/pdf/2407.08682 section III
+# I didnt manage to reproduce the published metrics with this setup
 batchsize: 256
 weight_decay: 0.01
 iterations: 72000 # 15 epochs
