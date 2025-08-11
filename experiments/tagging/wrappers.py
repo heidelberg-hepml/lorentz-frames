@@ -602,6 +602,33 @@ class ParTWrapper(TaggerWrapper):
         return score, tracker, lframes
 
 
+class MIParTWrapper(ParTWrapper):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        assert isinstance(self.lframesnet, IdentityLFrames)
+
+    def forward(self, embedding):
+        (features_local, fourmomenta_local, lframes, _, batch, tracker,) = super(
+            ParTWrapper, self
+        ).forward(embedding)
+        fourmomenta_local = fourmomenta_local.to(features_local.dtype)
+        fourmomenta_local = fourmomenta_local[..., [1, 2, 3, 0]]  # need (px, py, pz, E)
+
+        features_local, mask = to_dense_batch(features_local, batch)
+        fourmomenta_local, _ = to_dense_batch(fourmomenta_local, batch)
+        features_local = features_local.transpose(1, 2)
+        fourmomenta_local = fourmomenta_local.transpose(1, 2)
+        mask = mask.unsqueeze(1).float()
+
+        # network
+        score = self.net(
+            x=features_local,
+            v=fourmomenta_local,
+            mask=mask,
+        )
+        return score, tracker, lframes
+
+
 class LorentzNetWrapper(nn.Module):
     def __init__(
         self,
