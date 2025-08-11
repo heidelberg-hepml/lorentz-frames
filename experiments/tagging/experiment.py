@@ -41,6 +41,8 @@ class TaggingExperiment(BaseExperiment):
         else:
             # LLoCa models
             self.cfg.model.in_channels = 7 + self.extra_scalars
+            if self.cfg.model.add_fourmomenta_backbone:
+                self.cfg.model.in_channels += 4
 
             if modelname == "GraphNet":
                 self.cfg.model.net.num_edge_attr = (
@@ -107,7 +109,6 @@ class TaggingExperiment(BaseExperiment):
         ]:
             # special treatment for ParT, see
             # https://github.com/hqucms/weaver-core/blob/dev/custom_train_eval/weaver/train.py#L464
-            # have to adapt this for finetuning!!!
             decay, no_decay = {}, {}
             for name, param in self.model.net.named_parameters():
                 if not param.requires_grad:
