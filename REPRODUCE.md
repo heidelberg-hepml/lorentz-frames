@@ -241,3 +241,31 @@ python run.py -cp config -cn jctagging model/framesnet=learnedpd data.tagging_fe
 - Warm-start runs for evaluation or continue-training (use `training.scheduler_scale`) by pointing `-cp` and `-cn` to an existing experiment and use `warm_start_idx` to select the run to load
 - Tracking with `mlflow` (set `use_mlflow=true`)
 - ML tricks that we don't use by default (`amp`, `float32_matmul_precision`, `ema`)
+
+### 7) L-GATr-slim experiments
+
+Table 3: Amplitude regression
+```bash
+python run.py -cp config -cn amplitudesxl data.num_train_files=10 data.data_path=data/zgggg_10M data.dataset=zgggg_0 model=amp_slim
+```
+
+
+Figure 2: Event generation
+```bash
+# dataset size scaling (left)
+python run.py -cp config -cn ttbar data.train_test_val=[0.5,0.2,0.1] model=eg_slim
+python run.py -cp config -cn ttbar data.train_test_val=[0.2,0.2,0.1] model=eg_slim
+python run.py -cp config -cn ttbar data.train_test_val=[0.05,0.2,0.1] model=eg_slim
+python run.py -cp config -cn ttbar data.train_test_val=[0.02,0.2,0.1] model=eg_slim
+python run.py -cp config -cn ttbar data.train_test_val=[0.005,0.2,0.1] model=eg_slim
+python run.py -cp config -cn ttbar data.train_test_val=[0.002,0.2,0.1] model=eg_slim
+python run.py -cp config -cn ttbar data.train_test_val=[0.0005,0.2,0.1] model=eg_slim
+python run.py -cp config -cn ttbar data.train_test_val=[0.0002,0.2,0.1] model=eg_slim
+
+# multiplicity scaling (right)
+python run.py -cp config -cn ttbar data.n_jets=0 model=eg_slim
+python run.py -cp config -cn ttbar data.n_jets=1 model=eg_slim
+python run.py -cp config -cn ttbar data.n_jets=2 model=eg_slim
+python run.py -cp config -cn ttbar data.n_jets=3 model=eg_slim
+python run.py -cp config -cn ttbar data.n_jets=4 model=eg_slim
+```
