@@ -235,3 +235,36 @@ class LGATrCFM(CFMWrapper):
         v_pre = torch.cat((v_v, v_s), dim=-1)
         v = self.postprocess_velocity(v_pre, x, frames)
         return v, tracker
+
+
+class LGATrSlimCFM(CFMWrapper):
+    def __init__(self, net, **kwargs):
+        super().__init__(fourmomenta_velocity=True, **kwargs)
+        self.net = net
+        assert self.framesnet.is_identity
+
+    def get_velocity(self, x, t):
+        (
+            _,
+            t_embedding,
+            particle_type,
+            frames,
+            tracker,
+        ) = super().preprocess_velocity(x, t)
+
+        # embed into geometric algebra
+        scalars = torch.cat((particle_type, t_embedding), dim=-1)
+        fm = self.coordinates.x_to_fourmomenta(x).unsqueeze(-2)
+        spurions = (
+            self.spurions.to(x.device)
+            .unsqueeze(0)
+            .unsqueeze(0)
+            .repeat(fm.shape[0], fm.shape[1], 1, 1)
+        )
+        vector = torch.cat((fm, spurions), dim=-2).to(scalars.dtype)
+
+        v_v, v_s = self.net(vector, scalars)
+        v_v = v_v.squeeze(dim=-2)
+        v_pre = torch.cat((v_v, v_s), dim=-1)
+        v = self.postprocess_velocity(v_pre, x, frames)
+        return v, tracker

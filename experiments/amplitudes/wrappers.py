@@ -217,6 +217,35 @@ class DSIWrapper(AmplitudeWrapper):
         return amp, tracker, frames
 
 
+class LGATrSlimWrapper(AmplitudeWrapper):
+    def __init__(self, net, *args, use_amp=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.net = net
+        self.use_amp = use_amp
+        assert isinstance(self.framesnet, IdentityFrames)
+
+    def forward(self, fourmomenta_global):
+        (
+            _,
+            fourmomenta_local,
+            particle_type,
+            frames,
+            tracker,
+        ) = super().forward(fourmomenta_global)
+
+        # prepare multivectors and scalars
+        vectors = fourmomenta_local.unsqueeze(-2).to(self.network_dtype)
+        scalars = particle_type
+
+        # call network
+        with torch.autocast("cuda", enabled=self.use_amp):
+            _, out_s = self.net(vectors, scalars)
+
+        # mean aggregation
+        amp = out_s.mean(dim=-2)
+        return amp, tracker, frames
+
+
 class PELICANWrapper(AmplitudeWrapper):
     def __init__(self, net, *args, **kwargs):
         super().__init__(*args, **kwargs)
