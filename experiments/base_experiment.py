@@ -317,6 +317,8 @@ class BaseExperiment:
         self.device = get_device()
         LOGGER.info(f"Using device {self.device}; see {self.world_size} GPUs in total")
         self.dtype = torch.float64 if self.cfg.use_float64 else torch.float32
+        if torch.cuda.is_available() and torch.cuda.is_bf16_supported():
+            torch.set_autocast_gpu_dtype(torch.bfloat16)
         LOGGER.debug(f"Using dtype {self.dtype}")
 
         torch.set_float32_matmul_precision(self.cfg.float32_matmul_precision)
@@ -712,6 +714,9 @@ class BaseExperiment:
             "CosineAnnealingWarmRestarts",
         ]:
             self.scheduler.step()
+
+        if not torch.isfinite(loss):
+            LOGGER.warning(f"Loss is nonfinite (loss={loss}) at iteration {step}")
 
         # collect metrics
         if self.world_size > 1:

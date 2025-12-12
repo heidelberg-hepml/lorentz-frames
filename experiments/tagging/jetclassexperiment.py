@@ -11,7 +11,6 @@ from experiments.logger import LOGGER
 from experiments.mlflow import log_mlflow
 from experiments.tagging.embedding import (
     dense_to_sparse_jet,
-    embed_tagging_data,
 )
 from experiments.tagging.experiment import TaggingExperiment
 from experiments.tagging.miniweaver.dataset import SimpleIterDataset

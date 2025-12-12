@@ -1,0 +1,12 @@
+# transformer settings optimized by us
+iterations: 200000
+batchsize: 128
+
+optimizer: Lion
+weight_decay: 2
+
+lr: 3e-5
+scheduler: CosineAnnealingLR
+
+defaults:
+ - tag_default

@@ -11,6 +11,11 @@ net:
  num_classes: null
 
  attn_reps: 8x0n+2x1n
+ num_layers: 8
+ num_cls_layers: 2
+ num_heads: 8
+ embed_dims: [128,512,128]
+ pair_embed_dims: [64,64,64]
 
  use_amp: ${model.use_amp}
  trim: false
