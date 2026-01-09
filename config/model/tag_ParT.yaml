@@ -18,7 +18,7 @@ net:
  pair_embed_dims: [64,64,64]
 
  use_amp: ${model.use_amp}
- trim: false
+ trim: true
 
  use_pre_activation_pair: false
  pair_input_dim: 4

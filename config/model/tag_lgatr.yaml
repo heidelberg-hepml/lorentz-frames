@@ -2,6 +2,7 @@ _target_: experiments.tagging.wrappers.LGATrWrapper
 mean_aggregation: false
 out_channels: null
 use_amp: false
+attention_backend: xformers
 
 net:
  _target_: lgatr.LGATr

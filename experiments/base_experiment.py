@@ -328,7 +328,7 @@ class BaseExperiment:
         if param_groups is None:
 
             def is_bias(param):
-                return param.ndim == 1
+                return param.ndim <= 1
 
             param_groups = [
                 {

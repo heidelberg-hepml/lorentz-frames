@@ -6,6 +6,7 @@ num_scalars: null
 hidden_channels: 128
 num_layers_mlp: 2
 dropout_prob: null
+use_amp: false
 
 include_edges: true
 operation: add

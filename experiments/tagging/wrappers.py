@@ -209,6 +209,9 @@ class TransformerWrapper(AggregatedTaggerWrapper):
         self.mean_aggregation = mean_aggregation
         self.net = net(in_channels=self.in_channels, out_channels=self.out_channels)
 
+        if attention_backend == "flex":
+            compile_flex_attention(package_name="lloca")
+
     def forward(self, embedding):
         # precompute attention mask to avoid cudaStreamSynchronize
         # from .tolist() in get_xformers_attention_mask
@@ -387,6 +390,9 @@ class LGATrWrapper(nn.Module):
 
         self.framesnet = framesnet  # not actually used
         assert isinstance(framesnet, IdentityFrames)
+
+        if attention_backend == "flex":
+            compile_flex_attention(package_name="lgatr")
 
     def forward(self, embedding):
         # extract embedding (includes spurions)
@@ -761,6 +767,9 @@ class LGATrSlimWrapper(nn.Module):
         self.framesnet = framesnet  # not actually used
         assert isinstance(framesnet, IdentityFrames)
 
+        if attention_backend == "flex":
+            compile_flex_attention(package_name="lgatr")
+
     def forward(self, embedding):
         # extract embedding (includes spurions)
         fourmomenta = embedding["fourmomenta"]
@@ -849,3 +858,35 @@ class LGATrSlimWrapper(nn.Module):
         else:
             logits = out[is_global]
         return logits, {}, None
+
+
+def compile_flex_attention(package_name="lgatr"):
+    """Run torch.compile on the flex_attention function.
+
+    However, as of today (Dec 2025, pytorch 2.9.0), torch.compile + flex_attention
+    for variable-length sequences only works in a few cases:
+    - CPU: Forward pass is supported, but backward pass not (https://github.com/pytorch/pytorch/issues/169224)
+      To still let the code run through for tests, we skip torch.compile on CPU.
+      This way the code runs through, but is super slow because it materializes the attention matrix.
+      Note that we use essentially the same approach for xformers, where we fall back to default torch attention on CPU.
+      On the plus side, flex_attention supports arbitrary head_dim if torch.compile is not used.
+    - GPU: The docs say that only head dimensions being powers of 2 are supported.
+      However, on my system only head_dim=2**n with n>=4 works, i.e. head_dim=16,32,...
+      Setting head_dim=2,4,8 gives cryptic errors.
+      Moreover, transformers with flex_attention are still significantly slower than
+      transformers with xformers attention in our implementation.
+    """
+    if package_name == "lgatr":
+        import lgatr.primitives.attention_backends.flex as flex
+    elif package_name == "lloca":
+        import lloca.backbone.attention_backends.flex as flex
+    else:
+        raise ValueError(f"Unknown package {package_name}")
+
+    if torch.cuda.is_available():
+        # max-autotune strongly recommended for flex-attention with variable-length sequences,
+        # see https://pytorch.org/blog/flexattention-for-inference/
+        flex.attention = torch.compile(
+            flex.attention,
+            dynamic=True,
+        )

@@ -9,6 +9,7 @@ nonlinearity: softmax
 aggr: sum
 layer_norm: false
 lgatr_norm: true
+use_amp: false
 
 hidden_mv_channels: ${model.framesnet.equivectors.net.hidden_mv_channels}
 hidden_s_channels: ${model.framesnet.equivectors.net.hidden_s_channels}

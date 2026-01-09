@@ -91,7 +91,7 @@ def get_attention_mask(
     batch : torch.Tensor
         Batch vector, maps each token to its sequence in the batch.
     attention_backend : str
-        Attention backend to use ("xformers" or "flex_attention").
+        Attention backend to use ("xformers", "flex", or "flash").
     dtype : torch.dtype
         Data type of the attention mask (for xformers backend).
 
@@ -100,15 +100,37 @@ def get_attention_mask(
     dict[str, torch.Tensor | BlockMask | BlockDiagonalMask]
         Attention mask for the specified backend.
     """
+    on_cpu = batch.device == torch.device("cpu")
     if attention_backend == "xformers":
-        materialize = batch.device == torch.device("cpu")
-        mask = get_xformers_attention_mask(batch=batch, dtype=dtype, materialize=materialize)
-        return {"attn_mask" if materialize else "attn_bias": mask}
-    elif attention_backend == "flex_attention":
+        mask = get_xformers_attention_mask(batch=batch, dtype=dtype, materialize=on_cpu)
+        if not on_cpu:
+            return {"attn_bias": mask}
+        else:
+            # fallback to default attention
+            return {"attn_mask": mask}
+    elif attention_backend == "flash":
+        seqlens = torch.bincount(batch).to(torch.int32)
+        maxlen = int(seqlens.max().item())
+        cu_seqlens = torch.cumsum(seqlens, dim=0, dtype=torch.int32)
+        cu_seqlens = torch.cat(
+            [torch.tensor([0], dtype=torch.int32, device=seqlens.device), cu_seqlens], dim=0
+        )
+        if not on_cpu:
+            return {
+                "cu_seqlens_q": cu_seqlens,
+                "cu_seqlens_k": cu_seqlens,
+                "max_seqlen_q": maxlen,
+                "max_seqlen_k": maxlen,
+            }
+        else:
+            # fallback to default attention
+            mask = get_xformers_attention_mask(batch=batch, dtype=dtype, materialize=on_cpu)
+            return {"attn_mask": mask}
+    elif attention_backend == "flex":
         mask = get_flex_attention_mask(batch=batch)
         return {"block_mask": mask}
     else:
         raise ValueError(
             f"Unsupported attention backend: {attention_backend}. "
-            'Supported backends are "xformers" and "flex_attention".'
+            'Supported backends are "xformers", "flex", and "flash".'
         )
