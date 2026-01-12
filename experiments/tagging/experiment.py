@@ -49,6 +49,9 @@ class TaggingExperiment(BaseExperiment):
             elif modelname == "CGENN":
                 # CGENN cant handle zero scalar inputs -> give 1 input with zeros
                 self.cfg.model.net.in_features_h = 1 + in_s_channels
+
+            # doesn't affect results and never needed
+            self.cfg.data.boost_jet = False
         elif modelname in [
             "Transformer",
             "ParticleTransformer",
@@ -75,6 +78,9 @@ class TaggingExperiment(BaseExperiment):
                 )
                 self.cfg.model.framesnet.equivectors.num_scalars = self.extra_scalars
                 self.cfg.model.framesnet.equivectors.num_scalars += num_tagging_features
+            else:
+                # not allowed, because the network is not Lorentz-equivariant
+                self.cfg.data.boost_jet = False
         else:
             raise NotImplementedError(f"Model {modelname} not implemented")
 

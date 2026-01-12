@@ -12,11 +12,6 @@ except ModuleNotFoundError:
     pass
 
 
-def get_device() -> torch.device:
-    """Gets CUDA if available, CPU else."""
-    return torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-
-
 def flatten_dict(d, parent_key="", sep="."):
     """Flattens a nested dictionary with str keys."""
     items = []

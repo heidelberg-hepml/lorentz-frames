@@ -27,6 +27,7 @@ def plot_loss(file, losses, lr=None, labels=None, logy=True):
         axright = ax.twinx()
         axright.plot(iterations, lr, label="learning rate", color="crimson")
         axright.set_ylabel("Learning rate", fontsize=FONTSIZE)
+
     ax.set_xlabel("Number of iterations", fontsize=FONTSIZE)
     ax.set_ylabel("Loss", fontsize=FONTSIZE)
     ax.legend(fontsize=FONTSIZE_LEGEND, frameon=False, loc="upper right")

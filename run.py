@@ -17,7 +17,12 @@ from experiments.tagging.toptagxlexperiment import TopTagXLExperiment
 
 @hydra.main(config_path="config_quick", config_name="toptagging", version_base=None)
 def main(cfg):
-    world_size = torch.cuda.device_count() if torch.cuda.is_available() else 1
+    if torch.cuda.is_available() and cfg.gpus == -1:
+        world_size = torch.cuda.device_count()
+    elif torch.cuda.is_available() and cfg.gpus >= 1:
+        world_size = cfg.gpus
+    else:
+        world_size = 1
 
     if world_size > 1:
         os.environ.setdefault("TORCH_NCCL_ASYNC_ERROR_HANDLING", "1")

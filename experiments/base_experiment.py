@@ -17,7 +17,7 @@ from torch_ema import ExponentialMovingAverage
 
 import experiments.logger
 from experiments.logger import FORMATTER, LOGGER, MEMORY_HANDLER, RankFilter
-from experiments.misc import flatten_dict, get_device
+from experiments.misc import flatten_dict
 from experiments.mlflow import log_mlflow
 from experiments.ranger import Ranger
 
@@ -314,7 +314,11 @@ class BaseExperiment:
         LOGGER.debug("Logger initialized")
 
     def _init_backend(self):
-        self.device = get_device()
+        self.device = (
+            torch.device("cuda")
+            if torch.cuda.is_available() and self.cfg.gpus != 0
+            else torch.device("cpu")
+        )
         LOGGER.info(f"Using device {self.device}; see {self.world_size} GPUs in total")
         self.dtype = torch.float64 if self.cfg.use_float64 else torch.float32
         if torch.cuda.is_available() and torch.cuda.is_bf16_supported():
