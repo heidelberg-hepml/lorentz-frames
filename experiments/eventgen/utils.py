@@ -101,7 +101,7 @@ def ensure_onshell(fourmomenta, onshell_list, onshell_mass, mass_reg=1e-1):
 
     # ensure minimal mass
     mask = get_mass(fourmomenta) < mass_reg
-    fourmomenta[mask][..., 0] = ((fourmomenta[mask][..., 1:] ** 2).sum(dim=-1) + mass_reg**2).sqrt()
+    fourmomenta[mask, 0] = ((fourmomenta[mask, 1:] ** 2).sum(dim=-1) + mass_reg**2).sqrt()
     return fourmomenta
 
 
