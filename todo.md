@@ -77,6 +77,19 @@ input-skip (`model.net.use_input_concat`); residual-symmetry spurions on the equ
 (`model.net.beam_spurion`, `model.net.add_time_spurion`); dropout. Depth and width move the param
 count (a table column) — pair them with FLOPs/time for a fair efficiency plot.
 
+**Omitted by design: global spectral PE/SE (LapPE / SignNet / eigenvalue SE).** Not implemented,
+and the omission is deliberate — worth a sentence in the paper. (1) A jet has *no canonical graph*:
+the kNN adjacency/Laplacian is something we construct (eta–phi or minkowski kNN, and rebuilt in
+feature space for EdgeConv), so anything read off its spectrum encodes our graph-building choice, not
+the physics. (2) A jet is *not position-blind*: particles carry (Δη, Δφ, pT, E) — a physically
+meaningful absolute PE that LapPE would only try to reconstruct (this is exactly why ParT ships no
+positional encoding). (3) Under LLoCa a PE must be a *Lorentz invariant* to preserve invariance, but
+LapPE eigenvectors have sign/basis ambiguity **and** graph dependence, so they are not clean
+invariants (SignNet exists only to patch the sign ambiguity). The encodings that transfer are the
+relative QCD pairwise features (lnΔ, ln kT, ln z, ln m²) and, on a *static* graph, RWSE — both already
+exposed above. If a reviewer wants the negative result demonstrated, a LapPE node-encoder behind a
+`use_lappe` toggle on PlainGraphGPS is the cheapest way to show it doesn't help.
+
 ## 4. Open design decisions / discrepancies
 
 - [x] **CGENN-LGATr GraphGPS local branch had no edge features** — fixed: it now injects the same
