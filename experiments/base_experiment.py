@@ -72,6 +72,7 @@ class BaseExperiment:
         self.init_model()
         self.init_data()
         self._init_dataloader()
+        self._resolve_epoch_budget()
         self._init_loss()
 
         # save config
@@ -409,6 +410,31 @@ class BaseExperiment:
                 self.optimizer.load_state_dict(state_dict)
             except FileNotFoundError as err:
                 raise ValueError(f"Cannot load optimizer from {model_path}") from err
+
+    def _resolve_epoch_budget(self):
+        """Derive training.iterations from a shared epoch budget, when one is given.
+
+        If training.epochs is set, iterations = round(epochs * batches_per_epoch) with
+        batches_per_epoch = len(train_loader) -- which already reflects batchsize, any
+        subsampling and drop_last, so it is the exact per-model batch count rather than a
+        nominal ceil(N_train / batchsize). This lets every model train for the same data
+        exposure (equal passes over the dataset) while each still gets a full warmup+anneal
+        over its own iteration count (the scheduler keys off iterations). Set exactly one of
+        training.epochs / training.iterations; epochs takes precedence if both are present.
+        """
+        epochs = OmegaConf.select(self.cfg, "training.epochs", default=None)
+        iterations = OmegaConf.select(self.cfg, "training.iterations", default=None)
+        if epochs is not None:
+            batches_per_epoch = len(self.train_loader)
+            self.cfg.training.iterations = int(round(epochs * batches_per_epoch))
+            LOGGER.info(
+                f"Epoch budget: {epochs} epochs x {batches_per_epoch} batches/epoch "
+                f"-> training.iterations = {self.cfg.training.iterations}"
+            )
+        elif iterations is None:
+            raise ValueError(
+                "Set exactly one of training.epochs or training.iterations (both are unset)."
+            )
 
     def _init_scheduler(self):
         if self.cfg.training.validate_every_n_epochs_min is not None:

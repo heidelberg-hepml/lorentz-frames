@@ -10,34 +10,39 @@ a paper. Grouped by "before training", "open design decisions", and "paper relea
 The 8 hybrid recipes are skeletons with required `???` keys:
 `config/training/top_{Plain,ParticleNetParT,CGENNLGATr,LorentzNetLGATrSlim}{GraphTrans,GraphGPS}.yaml`.
 
-For each model, fill `iterations`, `batchsize`, `lr` (optionally `weight_decay`, `optimizer`,
-`scheduler`):
+Each recipe (`top_*GraphTrans/GPS.yaml`) now has `epochs`, `batchsize`, `lr` as the `???` keys
+(optionally `weight_decay`, `optimizer`, `scheduler`):
 
 - [ ] `batchsize` ← `find_lr.py +lr_find.find_batch_size=true` (largest power-of-two that fits the H100).
 - [ ] `lr` ← `find_lr.py` (reported loss-min / 10).
-- [ ] `iterations` ← `epochs * ceil(num_train_jets / batchsize)` (see §2: pick one epoch budget for all).
+- [ ] `epochs` ← pick one shared budget (see §2); `iterations` is **auto-derived** at runtime as
+      `epochs * batches_per_epoch` (`_resolve_epoch_budget`). Set `iterations` directly instead only
+      for a fixed-step budget (e.g. matching a published baseline).
 - [ ] `weight_decay` ← tune on val ∈ {0, 0.01, 0.05, 0.1} for AdamW (ParT-style 0.01 is a fine start).
-- [ ] Decide the shared `scheduler` (see §2) and set it in `tag_default.yaml` (or per-recipe).
+- [ ] Decide the shared `scheduler` (see §2): default is `CosineAnnealingLR` (no warmup) in
+      `tag_default.yaml`; set `scheduler: CosineAnnealingWarmup` there to share warmup+cosine across all.
 
 ## 2. Training-recipe decisions (fairness)
 
-**Scheduler.** Recommend a single shared **cosine-annealing-with-warmup** schedule for the whole
-comparison set (hybrids + baselines), tuning only lr/batchsize/weight_decay per model — so the
-comparison isolates the architecture, not the recipe. Warmup matters for the transformer-heavy
-hybrids. The repo's `CosineAnnealingLR` has no warmup; options:
-- [ ] use `OneCycleLR` (`onecycle_pct_start` ≈ 0.05–0.10 gives a short warmup + cosine decay), **or**
-- [ ] add a dedicated `LinearWarmup → CosineAnnealingLR` scheduler to `base_experiment._init_scheduler`
-      (cleaner "cosine + warmup"; ~5–10% warmup). *(I can add this on request.)*
+**Scheduler.** Recommended: **`CosineAnnealingWarmup`** (linear warmup over `warmup_pct_start`, then
+cosine to `cosanneal_eta_min`) shared across the **hybrids**, tuning only lr/batchsize/weight_decay per
+model — warmup matters for the transformer/equivariant layers, and a shared schedule isolates
+architecture for the hybrid-vs-hybrid table. `OneCycleLR` is the repo-proven alternative (it is
+warmup→cosine too) but its warmup is cosine-shaped and it cycles AdamW's β₁ by default — minor
+confounds. The published **baselines** (ParT/ParticleNet/L-GATr) keep their own recipes as reference
+rows (you can't out-tune the originals); optionally re-run them under the shared schedule for one
+apples-to-apples row. Annealing to ~0 is desirable (the end-of-training low-lr phase gives the best
+final val metric); the per-module heterogeneity is handled by warmup (peak) + AdamW + `lr_factor_framesnet`,
+not by raising the floor. Use a small `cosanneal_eta_min` (e.g. 1e-6) only as a hedge against a slightly
+over-long schedule.
 
-**Epochs vs iterations.** Everything is configured in *iterations* (`T_max = iterations * scheduler_scale`),
-but ParT/ParticleNet calibrate that to ~20 epochs while L-GATr uses a fixed 200k-iter budget. For a
-fair comparison fix one **epoch budget** (data exposure) for all models and derive
-`iterations = epochs * ceil(num_train_jets / batchsize)` per model; rely on early stopping
-(`es_patience`) to stop converged models early. This guarantees the hybrids see the full dataset the
-same number of times as the baselines.
+**Epochs vs iterations.** Now automated: set `training.epochs` and `iterations` is derived per model as
+`epochs * len(train_loader)` (the exact batch count — reflects batchsize, subsampling, drop_last). This
+equalizes **data exposure** (the standard fairness axis); note equal epochs ≠ equal gradient *updates*
+(a larger-batch model gets fewer steps), and each model still anneals fully over its own iteration count.
 - [ ] Pick the epoch budget (e.g. ParT-standard ~20–30 for top-tagging; raise if the hybrids underfit).
-- [ ] Re-express the baseline recipes (`top_ParT`, `top_particlenet`, `top_lgatr`) in the same epoch
-      budget for the head-to-head table (keep the published-recipe numbers as a separate reference row).
+- [ ] For the head-to-head table set the same `training.epochs` for all (CLI: `training.epochs=N`);
+      keep the baselines' published-recipe numbers as a separate reference row.
 
 ## 3. Ablations — CLI recipes (for the paper's ablation tables)
 

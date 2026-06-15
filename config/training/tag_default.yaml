@@ -1,5 +1,8 @@
 # agnostic default training hyperparameters for tagging
-iterations: ???
+# Set exactly one of `epochs` (shared data-exposure budget -> iterations are derived per model
+# as epochs * batches_per_epoch in _resolve_epoch_budget) or `iterations` (fixed step budget).
+epochs: null
+iterations: null
 batchsize: 512
 
 # optimizer: default AdamW

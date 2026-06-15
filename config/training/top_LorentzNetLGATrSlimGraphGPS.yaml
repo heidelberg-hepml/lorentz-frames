@@ -3,14 +3,14 @@
 #
 #   lr         <- find_lr.py                                   (reported loss-min / 10)
 #   batchsize  <- find_lr.py +lr_find.find_batch_size=true     (the GPU-fit size)
-#   iterations <- budget = epochs * ceil(num_train_jets / batchsize)
+#   epochs     <- shared data-exposure budget; iterations = epochs * batches_per_epoch (auto-derived)
 #   weight_decay (optional override) -> see the weight-decay guidance
 #
 # Inherits tag_default: AdamW, CosineAnnealingLR, grad-clip 1.0, early stopping (es_patience).
 defaults:
   - tag_default
 
-iterations: ???
+epochs: ???                  # shared data-exposure budget -> iterations = epochs * batches_per_epoch (auto)
 batchsize: ???
 lr: ???
 
