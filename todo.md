@@ -39,7 +39,45 @@ same number of times as the baselines.
 - [ ] Re-express the baseline recipes (`top_ParT`, `top_particlenet`, `top_lgatr`) in the same epoch
       budget for the head-to-head table (keep the published-recipe numbers as a separate reference row).
 
-## 3. Open design decisions / discrepancies
+## 3. Ablations — CLI recipes (for the paper's ablation tables)
+
+All via Hydra overrides on `run.py` (use `-cp config` for the full configs). Every override is
+recorded per-run in `config.yaml` + the flattened MLflow params, so any sweep is reconstructable
+from the run dir. **Surfaced in the results table** (`aggregate_table.py` `COLUMNS`): only `frames`
+(framesnet) and `kNN` (`knn_metric`); everything else (knn_k, num_layers/num_blocks, bias,
+pair_input_dim, use_rwse, use_edge_attr, …) lives only in config.yaml / MLflow. To put a knob in the
+head-to-head table, add it to `aggregate_table.py`'s `COLUMNS` string **and** the per-run `table …:`
+log line that the regex reads.
+
+- **kNN graph (all networks).** count `model.net.knn_k=K` (CGENN uses `model.net.k=K`); metric
+  `model.net.knn_metric=deltaR|minkowski`; fully-connected = k ≥ P−1 (`9999`, or `model.net.k=null`
+  for CGENN). minkowski is the Lorentz-invariant graph (needed for full-group invariance); deltaR is
+  the eta–phi graph.
+- **LLoCa on/off (the non-equivariant backbones: Plain, ParticleNet-ParT).** on =
+  `model/framesnet=learnedso13` (learned SO(1,3) frames → tensorial transport engaged); off / "do
+  nothing" = `model/framesnet=identity` (no-op, bit-identical plain backbone). Symmetry-budget
+  variants: `learnedso3` (rotations), `learnedso2`, `learnedz`, `learnedrest`, `learnedpd`;
+  `randomlorentz` is the data-augmentation baseline. (CGENN / LorentzNet are already internally
+  equivariant → leave on `identity`.)
+- **ParT pairwise bias (ParticleNet-ParT GraphTrans + GraphGPS).** `model.net.bias=true|false`;
+  `model.net.pair_input_dim=1|4|5|7` selects how many QCD interaction features (1=lnΔ; 4=+ln kT,
+  ln z, ln m²; 5=+lnΔs²; 7=+cosθ,Δy,Δφ — see `pairwise_lv_fts`). The learned weights compensate, so
+  the bias stays compatible with the frame transport.
+- **GraphGPS PE/SE (Plain GraphGPS).** relative edge PE `model.net.use_edge_attr=true|false`
+  (Minkowski log|(pᵢ+pⱼ)²|); structural encoding `model.net.use_rwse=true|false`
+  (+`model.net.rwse_k=K`); norm `model.net.norm=batch|layer`. CGENN GraphGPS relative edge features:
+  `model.net.use_explicit_edge_features=true|false`.
+- **Depth (transformer / GPS blocks).** `model.net.num_layers=N` (Plain, ParticleNet-ParT) /
+  `model.net.num_blocks=N` (CGENN, LorentzNet). The depth curve is the "can the transformer
+  compensate for a weaker GNN" story → a performance/efficiency section (room to discuss BigBird /
+  sparse attention and the flex / xformers / flash backends the L-GATr stack already supports).
+
+Other knobs worth a sweep: width/capacity (`hidden_*_channels`, `dim`, `gnn_dims`, `embed_dim`);
+input-skip (`model.net.use_input_concat`); residual-symmetry spurions on the equivariant models
+(`model.net.beam_spurion`, `model.net.add_time_spurion`); dropout. Depth and width move the param
+count (a table column) — pair them with FLOPs/time for a fair efficiency plot.
+
+## 4. Open design decisions / discrepancies
 
 - [x] **CGENN-LGATr GraphGPS local branch had no edge features** — fixed: it now injects the same
       static relative-momentum edge multivectors `[pᵢ−pⱼ, rawᵢ, rawⱼ]` as the GraphTrans cousin
@@ -67,7 +105,7 @@ same number of times as the baselines.
       shared block (`h_msg = m.sum(-1)`, commit `8a7b5fc`) and inherited by GraphGPS; both now match
       official LorentzNet (sum scalars / mean vectors).
 
-## 4. Paper release — branding / identity (only the maintainer has these)
+## 5. Paper release — branding / identity (only the maintainer has these)
 
 Critical (still point at the upstream LLoCa project):
 - [ ] `README.md` — title ("Lorentz Local Canonicalization"), arXiv badges (2505.20280 / 2508.14898),
@@ -90,7 +128,7 @@ Minor (stale strings / metadata):
 - [ ] **Defork** the GitHub repo when publishing (a fork is hidden from search / awkward to Zenodo-archive);
       keep the upstream attribution in README + LICENSE.
 
-## 5. Done (for reference)
+## 6. Done (for reference)
 
 - 2×2×2 hybrid family ({Plain, ParticleNet-ParT, CGENN-LGATr, LorentzNet-LGATr-slim} × {GraphTrans, GraphGPS}).
 - Faithful LLoCa tensorial message-passing for the ParticleNet-ParT **and Plain** hybrids (MPNN/EdgeConv
