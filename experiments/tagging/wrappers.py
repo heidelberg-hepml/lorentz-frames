@@ -1170,6 +1170,8 @@ class PlainGraphTransWrapper(TaggerWrapper):
         super().__init__(*args, **kwargs)
         self.use_amp = use_amp
         self.net = net(input_dim=self.in_channels, num_classes=self.out_channels, use_amp=use_amp)
+        # the prepended class token rides in the covariant jet frame -> request it
+        self.compute_jet_frames = True
 
     def forward(self, embedding):
         (
@@ -1195,11 +1197,26 @@ class PlainGraphTransWrapper(TaggerWrapper):
         fourmomenta_local, _ = to_dense_batch(fourmomenta_local, batch)
         points, _ = to_dense_batch(points, batch)
 
+        # densify the per-particle local frames to (B, P, 4, 4); padded particles -> identity.
+        # The tensorial backbone transports neighbours/q-k-v between these frames (no-op for
+        # IdentityFrames -> bit-identical to the plain backbone).
+        frames_matrices, _ = to_dense_batch(frames.matrices, batch)
+        frames_matrices[~mask] = lorentz_eye(
+            frames_matrices[~mask].shape[:-2], device=frames.device, dtype=frames.dtype
+        )
+        dense_frames = Frames(
+            matrices=frames_matrices,
+            is_global=frames.is_global,
+            is_identity=frames.is_identity,
+        )
+
         score = self.net(
             points=points.transpose(1, 2).contiguous(),  # (B, 2, P)
             features=features_local.transpose(1, 2).contiguous(),  # (B, C, P)
             v=fourmomenta_local.transpose(1, 2).contiguous(),  # (B, 4, P)
             mask=mask.unsqueeze(1).float(),  # (B, 1, P)
+            frames=dense_frames,
+            cls_frames=self._jet_frames,
         )
         return score, tracker, frames
 

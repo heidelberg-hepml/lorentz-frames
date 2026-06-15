@@ -30,6 +30,14 @@ Input convention (channels-first, matching ParT/ParticleNet):
 
 import torch
 import torch.nn as nn
+from lloca.backbone.attention import LLoCaAttention
+from lloca.backbone.particlenet import change_local_frame
+from lloca.framesnet.frames import Frames
+from lloca.reps.tensorreps import TensorReps
+from lloca.reps.tensorreps_transform import TensorRepsTransform
+from lloca.utils.lorentz import lorentz_eye
+
+from experiments.baselines.particlenettransformer import lloca_transport_attention
 
 
 def knn(x, k, metric='deltaR', mask=None):
@@ -83,8 +91,16 @@ class PlainMPNNBlock(nn.Module):
     update h_i' = MLP([h_i, agg]) + shortcut(h_i). All MLPs are 1x1 convs.
     """
 
-    def __init__(self, in_dim, out_dim):
+    def __init__(self, in_dim, out_dim, in_reps=None):
         super().__init__()
+        # in_reps (optional) types the input features for the LLoCa neighbour transport
+        # (e.g. "64x0n+16x1n"); its dim must equal in_dim. None -> no transport (the
+        # transform is built only when in_reps is given, and used only when forward gets frames).
+        self.trafo = None
+        if in_reps is not None:
+            reps = TensorReps(in_reps)
+            assert reps.dim == in_dim, f"in_reps.dim {reps.dim} != in_dim {in_dim}"
+            self.trafo = TensorRepsTransform(reps)
         self.message = nn.Sequential(
             nn.Conv2d(2 * in_dim, out_dim, 1, bias=False),
             nn.BatchNorm2d(out_dim),
@@ -105,10 +121,17 @@ class PlainMPNNBlock(nn.Module):
             self.sc = nn.Conv1d(in_dim, out_dim, 1, bias=False)
             self.sc_bn = nn.BatchNorm1d(out_dim)
 
-    def forward(self, features, idx, nbr_mask):
+    def forward(self, features, idx, nbr_mask, frames=None):
         # features: (B, C, P), idx: (B, P, K), nbr_mask: (B, P, K) bool
+        B, C, P = features.shape
         K = idx.shape[-1]
         neighbors = gather_neighbors(features, idx)                  # (B, C, P, K)
+        # LLoCa: express neighbour j (in its own local frame) in centre i's frame before the
+        # message. No-op when frames is None (identity path) or in_reps is scalar-only.
+        if frames is not None and self.trafo is not None:
+            idx_base = torch.arange(B, device=features.device).view(-1, 1, 1) * P
+            idx_flat = (idx + idx_base).reshape(-1)
+            neighbors = change_local_frame(neighbors, idx_flat, frames, self.trafo)
         center = features.unsqueeze(-1).expand(-1, -1, -1, K)        # (B, C, P, K)
         m = self.message(torch.cat([center, neighbors], dim=1))     # (B, out, P, K)
 
@@ -138,9 +161,17 @@ class PlainTransformerBlock(nn.Module):
         )
         self.dropout = nn.Dropout(dropout)
 
-    def forward(self, x, key_padding_mask=None):
+    def forward(self, x, key_padding_mask=None, lloca_attn=None):
+        # x: (N, 1+P, embed) batch-first. lloca_attn given (learned frames) -> transport q/k/v
+        # by reusing this block's MHA weights; None (identity/global) -> plain MHA (bit-identical).
         h = self.norm1(x)
-        attn = self.attn(h, h, h, key_padding_mask=key_padding_mask, need_weights=False)[0]
+        if lloca_attn is None:
+            attn = self.attn(h, h, h, key_padding_mask=key_padding_mask, need_weights=False)[0]
+        else:
+            attn = lloca_transport_attention(
+                h, self.attn, lloca_attn, key_padding_mask=key_padding_mask, attn_mask=None,
+                dropout_p=self.attn.dropout if self.training else 0.0,
+            )
         x = x + self.dropout(attn)
         x = x + self.ffn(self.norm2(x))
         return x
@@ -165,6 +196,12 @@ class PlainGraphTrans(nn.Module):
                  dropout=0.1,
                  activation='gelu',
                  fc_params=[],
+                 # LLoCa tensorial message-passing (purely additive; a no-op for identity/global
+                 # frames). attn_reps types the per-head q/k/v transport (embed_dim =
+                 # attn_reps.dim * num_heads); hidden_reps_list[i] types MPNN block i's input for
+                 # the neighbour transport (None entry -> that block is not transported).
+                 attn_reps="8x0n+2x1n",
+                 hidden_reps_list=None,
                  # misc
                  for_inference=False,
                  use_amp=False,
@@ -182,11 +219,23 @@ class PlainGraphTrans(nn.Module):
         if self.use_fts_bn:
             self.bn_fts = nn.BatchNorm1d(input_dim)
 
+        if hidden_reps_list is None:
+            hidden_reps_list = [None] * len(gnn_dims)
+        assert len(hidden_reps_list) == len(gnn_dims)
         self.gnn_blocks = nn.ModuleList()
         for idx, out_dim in enumerate(gnn_dims):
             in_dim = input_dim if idx == 0 else gnn_dims[idx - 1]
-            self.gnn_blocks.append(PlainMPNNBlock(in_dim, out_dim))
+            self.gnn_blocks.append(PlainMPNNBlock(in_dim, out_dim, in_reps=hidden_reps_list[idx]))
         gnn_out = gnn_dims[-1]
+
+        # parameter-free LLoCaAttention for the q/k/v transport (engaged only for learned frames)
+        self.lloca_attn = None
+        if attn_reps is not None:
+            attn_reps_t = TensorReps(attn_reps)
+            assert attn_reps_t.dim * num_heads == embed_dim, (
+                f"{attn_reps_t.dim}*{num_heads} != embed_dim {embed_dim}"
+            )
+            self.lloca_attn = LLoCaAttention(attn_reps_t, num_heads)
 
         bridge_in = gnn_out + input_dim if use_input_concat else gnn_out
         self.bridge = nn.Linear(bridge_in, embed_dim)
@@ -214,9 +263,14 @@ class PlainGraphTrans(nn.Module):
             "cls_token",
         }
 
-    def forward(self, points, features, v=None, mask=None):
+    def forward(self, points, features, v=None, mask=None, frames=None, cls_frames=None):
         '''
         points: (N, 2, P)   features: (N, C, P)   v: (N, 4, P) [px,py,pz,E]   mask: (N, 1, P)
+        frames: Frames (N, P, 4, 4) per-particle local frames, or None. The LLoCa transport is
+            taken only when frames is given AND not global; identity/global frames take the plain
+            path (bit-identical to the non-LLoCa backbone).
+        cls_frames: Frames (N, 4, 4) covariant jet frame for the prepended CLS token's slot
+            (transport path only); None -> identity slot.
         '''
         if mask is None:
             mask = (features.abs().sum(dim=1, keepdim=True) != 0)
@@ -224,6 +278,9 @@ class PlainGraphTrans(nn.Module):
             mask = mask.bool()
         features = features * mask
         mask_p = mask.squeeze(1)  # (N, P)
+
+        do_transport = frames is not None and not frames.is_global
+        frames_flat = frames.reshape(-1, 4, 4) if do_transport else None
 
         with torch.cuda.amp.autocast(enabled=self.use_amp):
             # static kNN graph (built once, reused by every GNN block)
@@ -235,7 +292,7 @@ class PlainGraphTrans(nn.Module):
 
             fts = self.bn_fts(features) * mask if self.use_fts_bn else features
             for block in self.gnn_blocks:
-                fts = block(fts, idx, nbr_mask) * mask
+                fts = block(fts, idx, nbr_mask, frames=frames_flat) * mask
 
             if self.use_input_concat:
                 bridge_in = torch.cat([fts, features], dim=1)
@@ -254,8 +311,21 @@ class PlainGraphTrans(nn.Module):
                 [torch.zeros_like(pad[:, :1]), pad], dim=1
             )  # (N, 1+P)
 
+            # transport path: prepend the CLS frame (covariant jet frame) and prepare the shared,
+            # parameter-free LLoCaAttention once for all blocks.
+            block_lloca = None
+            if do_transport:
+                N = features.size(0)
+                if cls_frames is not None:
+                    cls_mat = cls_frames.matrices.to(frames.dtype)
+                else:
+                    cls_mat = lorentz_eye((N,), device=frames.device, dtype=frames.dtype)
+                seq_mat = torch.cat([cls_mat.unsqueeze(1), frames.matrices], dim=1)  # (N, P+1, 4, 4)
+                self.lloca_attn.prepare_frames(Frames(seq_mat, is_global=False, is_identity=False))
+                block_lloca = self.lloca_attn
+
             for block in self.blocks:
-                x = block(x, key_padding_mask=key_padding_mask)
+                x = block(x, key_padding_mask=key_padding_mask, lloca_attn=block_lloca)
 
             x_cls = self.norm(x[:, 0])  # (N, embed_dim)
             output = self.fc(x_cls)

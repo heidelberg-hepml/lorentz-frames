@@ -10,15 +10,25 @@ net:
   input_dim: null               # supplied by the wrapper (= in_channels)
   num_classes: null             # supplied by the wrapper (= out_channels)
 
-  # static plain-MPNN graph backbone (3 GNN blocks)
+  # static plain-MPNN graph backbone (3 GNN blocks) with LLoCa tensorial message-passing.
+  # hidden_reps_list types each MPNN block's input for the neighbour frame transport: block 0
+  # is null (pure scalars = input_dim, set by the wrapper), deeper blocks carry vectors (Nx1n)
+  # so geometry is communicated between frames. Each rep's dim must equal the block's input
+  # width (here gnn_dims[0]=128, gnn_dims[1]=128). Purely additive -> a no-op under identity
+  # frames (bit-identical to the plain backbone).
   gnn_dims: [128, 128, 128]
+  hidden_reps_list: [null, "64x0n+16x1n", "64x0n+16x1n"]
   knn_k: 16
   knn_metric: deltaR            # 'deltaR' (eta-phi L2) or 'minkowski' (4-momenta)
   use_fts_bn: true
   use_input_concat: true
 
-  # plain transformer encoder (torch nn.MultiheadAttention)
+  # plain transformer encoder (torch nn.MultiheadAttention) with LLoCa tensorial attention.
+  # attn_reps is the per-head tensor representation; the transformer width is
+  # embed_dim = attn_reps.dim * num_heads (here (8 + 2*4) * 8 = 128). It must carry >=1
+  # vector (Nx1n) for the q/k/v frame transport to communicate geometric information.
   embed_dim: 128
+  attn_reps: "8x0n+2x1n"
   num_layers: 10
   num_heads: 8
   ffn_ratio: 4
