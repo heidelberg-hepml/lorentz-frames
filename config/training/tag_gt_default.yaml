@@ -1,0 +1,21 @@
+# Shared training recipe for the graph-transformer (GT) hybrid family.
+#
+# Decision: the GT hybrids are budgeted in EPOCHS, not iterations. The study compares
+# architectures that will train at different batch sizes, and equal iterations at different
+# batch sizes is unequal data exposure; equal epochs is the fair axis. iterations are derived
+# per model at runtime as epochs * batches_per_epoch (_resolve_epoch_budget), so the loop and
+# scheduler (which are iteration-native) stay unchanged. (The repo's baselines keep their own
+# iteration budgets as reference rows: L-GATr 200k, ParT 48k = 20 epochs, ...)
+#
+# This file pins the two cross-model decisions (epoch budget + scheduler); per-model tuning
+# (batchsize, lr, optional weight_decay) stays in each top_*.yaml.
+defaults:
+  - tag_default
+
+# shared data-exposure budget (ParT-standard for top-tagging; raise to ~30 if the hybrids underfit)
+epochs: 20
+
+# shared schedule: linear warmup (warmup_pct_start of the budget) then cosine decay to
+# cosanneal_eta_min. Warmup stabilises the transformer/equivariant layers; one shared schedule
+# isolates architecture for the hybrid-vs-hybrid table.
+scheduler: CosineAnnealingWarmup

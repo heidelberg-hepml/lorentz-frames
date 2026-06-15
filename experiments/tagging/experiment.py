@@ -455,6 +455,12 @@ class TaggingExperiment(BaseExperiment):
         else:
             metrics = self._evaluate_single(self.val_loader, "val", mode="val", step=step)
         self.val_loss.append(metrics["loss"])
+        # Best-checkpoint selection metric (es_load_best_model). Default 'loss' (lower=better).
+        # 'accuracy' keeps the highest-val-accuracy checkpoint instead; we return 1 - accuracy so
+        # the train loop's "lower is better" comparison is unchanged. Loss is still logged above,
+        # so only which checkpoint is kept/reported changes.
+        if self.cfg.training.get("best_model_metric", "loss") == "accuracy":
+            return 1.0 - metrics["accuracy"]
         return metrics["loss"]
 
     def _batch_loss(self, batch):

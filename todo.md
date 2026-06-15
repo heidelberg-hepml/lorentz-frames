@@ -10,39 +10,39 @@ a paper. Grouped by "before training", "open design decisions", and "paper relea
 The 8 hybrid recipes are skeletons with required `???` keys:
 `config/training/top_{Plain,ParticleNetParT,CGENNLGATr,LorentzNetLGATrSlim}{GraphTrans,GraphGPS}.yaml`.
 
-Each recipe (`top_*GraphTrans/GPS.yaml`) now has `epochs`, `batchsize`, `lr` as the `???` keys
-(optionally `weight_decay`, `optimizer`, `scheduler`):
+The 8 GT recipes now inherit `tag_gt_default` (shared `epochs=20` + `scheduler=CosineAnnealingWarmup`);
+only **`batchsize`, `lr`** remain `???` per model (optionally `weight_decay`):
 
 - [ ] `batchsize` ← `find_lr.py +lr_find.find_batch_size=true` (largest power-of-two that fits the H100).
 - [ ] `lr` ← `find_lr.py` (reported loss-min / 10).
-- [ ] `epochs` ← pick one shared budget (see §2); `iterations` is **auto-derived** at runtime as
-      `epochs * batches_per_epoch` (`_resolve_epoch_budget`). Set `iterations` directly instead only
-      for a fixed-step budget (e.g. matching a published baseline).
 - [ ] `weight_decay` ← tune on val ∈ {0, 0.01, 0.05, 0.1} for AdamW (ParT-style 0.01 is a fine start).
-- [ ] Decide the shared `scheduler` (see §2): default is `CosineAnnealingLR` (no warmup) in
-      `tag_default.yaml`; set `scheduler: CosineAnnealingWarmup` there to share warmup+cosine across all.
+- [x] `epochs` (shared data-exposure budget) and `scheduler` are **decided** in `tag_gt_default`
+      (see §2); `iterations` is auto-derived at runtime (`_resolve_epoch_budget`).
 
 ## 2. Training-recipe decisions (fairness)
 
-**Scheduler.** Recommended: **`CosineAnnealingWarmup`** (linear warmup over `warmup_pct_start`, then
-cosine to `cosanneal_eta_min`) shared across the **hybrids**, tuning only lr/batchsize/weight_decay per
-model — warmup matters for the transformer/equivariant layers, and a shared schedule isolates
-architecture for the hybrid-vs-hybrid table. `OneCycleLR` is the repo-proven alternative (it is
-warmup→cosine too) but its warmup is cosine-shaped and it cycles AdamW's β₁ by default — minor
-confounds. The published **baselines** (ParT/ParticleNet/L-GATr) keep their own recipes as reference
-rows (you can't out-tune the originals); optionally re-run them under the shared schedule for one
-apples-to-apples row. Annealing to ~0 is desirable (the end-of-training low-lr phase gives the best
-final val metric); the per-module heterogeneity is handled by warmup (peak) + AdamW + `lr_factor_framesnet`,
-not by raising the floor. Use a small `cosanneal_eta_min` (e.g. 1e-6) only as a hedge against a slightly
-over-long schedule.
+**Scheduler — DECIDED: `CosineAnnealingWarmup`** (set in `tag_gt_default`), shared across the GT
+hybrids, tuning only lr/batchsize/weight_decay per model — warmup matters for the transformer/
+equivariant layers, and one shared schedule isolates architecture for the hybrid-vs-hybrid table.
+`OneCycleLR` is the repo-proven alternative (it is warmup→cosine too) but its warmup is cosine-shaped
+and it cycles AdamW's β₁ by default — minor confounds. The published **baselines** (ParT/ParticleNet/
+L-GATr) keep their own recipes as reference rows (you can't out-tune the originals); optionally re-run
+them under the shared schedule for one apples-to-apples row. Annealing to ~0 is desirable (the
+end-of-training low-lr phase gives the best final val metric); per-module heterogeneity is handled by
+warmup (peak) + AdamW + `lr_factor_framesnet`, not by raising the floor. Set a small
+`cosanneal_eta_min` (e.g. 1e-6) only as a hedge against a slightly over-long schedule.
 
 **Epochs vs iterations.** Now automated: set `training.epochs` and `iterations` is derived per model as
 `epochs * len(train_loader)` (the exact batch count — reflects batchsize, subsampling, drop_last). This
 equalizes **data exposure** (the standard fairness axis); note equal epochs ≠ equal gradient *updates*
 (a larger-batch model gets fewer steps), and each model still anneals fully over its own iteration count.
-- [ ] Pick the epoch budget (e.g. ParT-standard ~20–30 for top-tagging; raise if the hybrids underfit).
-- [ ] For the head-to-head table set the same `training.epochs` for all (CLI: `training.epochs=N`);
-      keep the baselines' published-recipe numbers as a separate reference row.
+- [x] Epoch budget **decided: `epochs=20`** (ParT-standard) in `tag_gt_default`, shared by all 8 GT
+      hybrids; bump to ~30 if they underfit (CLI: `training.epochs=30`).
+- [ ] Keep the baselines' published-recipe numbers as a separate reference row in the table.
+
+**Best-checkpoint metric.** `best_model_metric` (in `tag_default`): `loss` (default, lowest val loss) or
+`accuracy` (highest val accuracy). Selection-by-loss and -by-accuracy usually track but can diverge late;
+the toggle only changes which checkpoint `es_load_best_model` keeps/reports.
 
 ## 3. Ablations — CLI recipes (for the paper's ablation tables)
 

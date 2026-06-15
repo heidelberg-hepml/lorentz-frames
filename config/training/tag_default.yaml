@@ -33,6 +33,10 @@ warmup_start_factor: 0.01
 # validation checkpoint, so accuracy is never capped by stopping early.
 es_patience: null
 es_load_best_model: true
+# which validation metric selects the best checkpoint (es_load_best_model): 'loss' (default,
+# lowest val loss) or 'accuracy' (highest val accuracy). Only changes which checkpoint is kept
+# and reported; everything else is unaffected.
+best_model_metric: loss
 
 log_every_n_steps: 200
 validate_every_n_steps: 5000

@@ -23,6 +23,7 @@ warmup_start_factor: 0.01
 
 es_patience: 100
 es_load_best_model: true
+best_model_metric: loss   # 'loss' (lowest val loss) or 'accuracy' (highest val accuracy)
 
 log_every_n_steps: 200
 validate_every_n_steps: 5000
