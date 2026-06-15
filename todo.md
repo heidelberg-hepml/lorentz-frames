@@ -93,7 +93,8 @@ Minor (stale strings / metadata):
 ## 5. Done (for reference)
 
 - 2×2×2 hybrid family ({Plain, ParticleNet-ParT, CGENN-LGATr, LorentzNet-LGATr-slim} × {GraphTrans, GraphGPS}).
-- Faithful LLoCa tensorial message-passing for the ParticleNet-ParT hybrids (EdgeConv `change_local_frame`
-  + `LLoCaAttention`), **additive** (identity frames bit-identical), jet-frame class token, rapidity clamp.
+- Faithful LLoCa tensorial message-passing for the ParticleNet-ParT **and Plain** hybrids (MPNN/EdgeConv
+  `change_local_frame` + `LLoCaAttention`), **additive** (identity frames bit-identical: 0 added params),
+  jet-frame class token (GraphTrans) / invariant mean-pool (GraphGPS), rapidity clamp.
 - Equivariance suite (24/24, incl. full Lorentz boost under learned `so(1,3)` frames).
 - `find_lr.py` batch-size finder; `aggregate_table.py`; `data/collect_data.py jetclass`; `GUIDE.md`; `docs/SLURM.md`.
