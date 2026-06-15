@@ -21,10 +21,17 @@ net:
   use_rwse: false               # on -> Random-Walk Structural Encoding (PE/SE) on the kNN graph
   rwse_k: 16
 
-  # interleaved GPS layers (local static-MPNN + torch-MHA, fused per layer)
+  # interleaved GPS layers (tensorial local static-MPNN + LLoCa-tensorial torch-MHA)
   dim: 128
   num_layers: 10
   num_heads: 8
+  # LLoCa message-passing reps (shared by every layer, since h keeps width dim):
+  #   attn_reps per head -> dim = attn_reps.dim(16) * num_heads(8) = 128
+  #   edge_reps for the local-MPNN hidden features -> edge_reps.dim = dim = 128
+  # Both carry vectors (Nx1n) so geometry flows through the frame transport. Purely
+  # additive -> a no-op under identity frames (bit-identical to the plain backbone).
+  attn_reps: "8x0n+2x1n"
+  edge_reps: "64x0n+16x1n"
   ffn_ratio: 2                  # GraphGPS FFN inner width = 2 * dim
   dropout: 0.0
   attn_dropout: 0.0

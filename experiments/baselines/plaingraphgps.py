@@ -44,9 +44,15 @@ sequential) and nothing else:
     slots excluded). 'layer' is the padding-safe per-token alternative for
     ablation (it is unaffected by jet size and batch composition).
 
-Being non-equivariant, it is made Lorentz-equivariant through LLoCa input
-canonicalization in PlainGraphGPSWrapper (which inherits TaggerWrapper), exactly like
-ParT / ParticleNet / PlainGraphTrans.
+Being non-equivariant, it is made Lorentz-equivariant by LLoCa tensorial
+message-passing in PlainGraphGPSWrapper (which inherits TaggerWrapper), exactly like
+ParticleNetParTGraphGPS: the inputs are canonicalized and the per-particle frames are
+passed into the backbone, which transports the local-MPNN neighbours
+(``change_local_frame``, typed by ``edge_reps``) and the attention q/k/v
+(``LLoCaAttention``, typed by ``attn_reps``). LLoCa is added *purely additively*: for
+identity/global frames every transport is skipped and the backbone is bit-identical to
+the plain, non-equivariant hybrid (the transport adds no parameters and no init
+randomness). The mean-pool readout over the invariant local features needs no jet frame.
 
 Input convention (channels-first, matching ParT/ParticleNet/PlainGraphTrans):
     points:   (N, 2, P)   kNN coordinates (eta, phi), used when knn_metric='deltaR'
@@ -57,7 +63,12 @@ Input convention (channels-first, matching ParT/ParticleNet/PlainGraphTrans):
 
 import torch
 import torch.nn as nn
+from lloca.backbone.attention import LLoCaAttention
+from lloca.backbone.particlenet import change_local_frame
+from lloca.reps.tensorreps import TensorReps
+from lloca.reps.tensorreps_transform import TensorRepsTransform
 
+from experiments.baselines.particlenettransformer import lloca_transport_attention
 from experiments.baselines.plaingraphtrans import gather_neighbors, knn
 
 _ACT = {"relu": nn.ReLU, "gelu": nn.GELU}
@@ -127,8 +138,16 @@ class GPSLocalMPNN(nn.Module):
     norm -- the GPS layer owns the external dropout -> residual -> norm (Eq. 9).
     """
 
-    def __init__(self, dim, edge_dim=0, act="relu"):
+    def __init__(self, dim, edge_dim=0, act="relu", in_reps=None):
         super().__init__()
+        # in_reps (optional) types the dim-wide hidden features for the LLoCa neighbour
+        # transport (e.g. "64x0n+16x1n"); its dim must equal dim. None -> no transport (the
+        # transform is built only when in_reps is given, used only when forward gets frames).
+        self.trafo = None
+        if in_reps is not None:
+            reps = TensorReps(in_reps)
+            assert reps.dim == dim, f"in_reps.dim {reps.dim} != dim {dim}"
+            self.trafo = TensorRepsTransform(reps)
         Act = _ACT[act]
         self.message = nn.Sequential(
             nn.Conv2d(2 * dim + edge_dim, dim, 1), Act(),
@@ -139,10 +158,17 @@ class GPSLocalMPNN(nn.Module):
             nn.Conv1d(dim, dim, 1),
         )
 
-    def forward(self, h, idx, nbr_mask, edge_attr=None):
+    def forward(self, h, idx, nbr_mask, edge_attr=None, frames=None):
         # h: (B, C, P); idx: (B, P, K); nbr_mask: (B, P, K) bool; edge_attr: (B, E, P, K)
+        B, C, P = h.shape
         K = idx.shape[-1]
         nbr = gather_neighbors(h, idx)                       # (B, C, P, K)
+        # LLoCa: express neighbour j (in its own local frame) in centre i's frame before the
+        # message. No-op when frames is None (identity path) or in_reps is scalar-only.
+        if frames is not None and self.trafo is not None:
+            idx_base = torch.arange(B, device=h.device).view(-1, 1, 1) * P
+            idx_flat = (idx + idx_base).reshape(-1)
+            nbr = change_local_frame(nbr, idx_flat, frames, self.trafo)
         center = h.unsqueeze(-1).expand(-1, -1, -1, K)       # (B, C, P, K)
         msg_in = [center, nbr] + ([edge_attr] if edge_attr is not None else [])
         m = self.message(torch.cat(msg_in, dim=1))           # (B, C, P, K)
@@ -162,10 +188,12 @@ class GPSLayer(nn.Module):
     """
 
     def __init__(self, dim, num_heads, edge_dim=0, ffn_ratio=2,
-                 dropout=0.0, attn_dropout=0.0, act="relu", norm="batch"):
+                 dropout=0.0, attn_dropout=0.0, act="relu", norm="batch", in_reps=None):
         super().__init__()
         Act = _ACT[act]
-        self.local = GPSLocalMPNN(dim, edge_dim, act)
+        # in_reps types the local-MPNN hidden features for the LLoCa neighbour transport
+        # (additive; no-op for identity frames). None -> non-tensorial original MPNN.
+        self.local = GPSLocalMPNN(dim, edge_dim, act, in_reps=in_reps)
         self.attn = nn.MultiheadAttention(dim, num_heads, dropout=attn_dropout, batch_first=True)
 
         self.norm_local = MaskedNorm(dim, norm)
@@ -179,15 +207,24 @@ class GPSLayer(nn.Module):
             nn.Dropout(dropout), nn.Linear(ffn_ratio * dim, dim),
         )
 
-    def forward(self, h, idx, nbr_mask, key_padding_mask, node_mask, edge_attr=None):
-        # h: (B, P, C); node_mask: (B, P, 1) float
+    def forward(self, h, idx, nbr_mask, key_padding_mask, node_mask, edge_attr=None,
+                frames_flat=None, lloca_attn=None):
+        # h: (B, P, C); node_mask: (B, P, 1) float; frames_flat: (B*P, 4, 4) for the local
+        # transport; lloca_attn: shared LLoCaAttention (None on the identity/global path ->
+        # plain attention, bit-identical to the original).
         mask_bool = ~key_padding_mask                                # (B, P)
         # ---- local branch (Eq. 9) ----
         h_cf = (h * node_mask).transpose(1, 2)                       # (B, C, P)
-        m_local = self.local(h_cf, idx, nbr_mask, edge_attr).transpose(1, 2)  # (B, P, C)
+        m_local = self.local(h_cf, idx, nbr_mask, edge_attr, frames=frames_flat).transpose(1, 2)  # (B, P, C)
         h_local = self.norm_local(self.drop_local(m_local) + h, mask_bool)
-        # ---- global branch (Eq. 10) ----
-        a = self.attn(h, h, h, key_padding_mask=key_padding_mask, need_weights=False)[0]
+        # ---- global branch (Eq. 10): LLoCa q/k/v transport for learned frames ----
+        if lloca_attn is None:
+            a = self.attn(h, h, h, key_padding_mask=key_padding_mask, need_weights=False)[0]
+        else:
+            a = lloca_transport_attention(
+                h, self.attn, lloca_attn, key_padding_mask=key_padding_mask, attn_mask=None,
+                dropout_p=self.attn.dropout if self.training else 0.0,
+            )
         h_attn = self.norm_attn(self.drop_attn(a) + h, mask_bool)
         # ---- fuse by SUM, then FFN (Eq. 11) ----
         h = h_local + h_attn
@@ -212,6 +249,12 @@ class PlainGraphGPS(nn.Module):
                  dim=128,
                  num_layers=10,
                  num_heads=8,
+                 # LLoCa tensorial message-passing (additive; a no-op for identity/global frames).
+                 # attn_reps types the per-head q/k/v transport (attn_reps.dim * num_heads == dim);
+                 # edge_reps types the local-MPNN hidden features (edge_reps.dim == dim). Shared by
+                 # every layer (h keeps width dim). None -> non-tensorial (original GraphGPS hybrid).
+                 attn_reps="8x0n+2x1n",
+                 edge_reps=None,
                  ffn_ratio=2,
                  dropout=0.0,
                  attn_dropout=0.0,
@@ -234,13 +277,21 @@ class PlainGraphGPS(nn.Module):
         self.use_amp = use_amp
         Act = _ACT[act]
 
+        # shared, parameter-free LLoCaAttention for the attention transport (learned frames only)
+        self.lloca_attn = None
+        if attn_reps is not None:
+            attn_reps_t = TensorReps(attn_reps)
+            assert attn_reps_t.dim * num_heads == dim, f"{attn_reps_t.dim}*{num_heads} != dim {dim}"
+            self.lloca_attn = LLoCaAttention(attn_reps_t, num_heads)
+
         self.bn_fts = nn.BatchNorm1d(input_dim) if use_fts_bn else None
         enc_in = input_dim + (rwse_k if use_rwse else 0)
         self.node_encoder = nn.Linear(enc_in, dim)
 
         edge_dim = 1 if use_edge_attr else 0
         self.layers = nn.ModuleList([
-            GPSLayer(dim, num_heads, edge_dim, ffn_ratio, dropout, attn_dropout, act, norm)
+            GPSLayer(dim, num_heads, edge_dim, ffn_ratio, dropout, attn_dropout, act, norm,
+                     in_reps=edge_reps)
             for _ in range(num_layers)
         ])
 
@@ -252,13 +303,21 @@ class PlainGraphGPS(nn.Module):
         head += [nn.Linear(d, num_classes)]
         self.head = nn.Sequential(*head)
 
-    def forward(self, points, features, v=None, mask=None):
+    def forward(self, points, features, v=None, mask=None, frames=None):
         if mask is None:
             mask = (features.abs().sum(dim=1, keepdim=True) != 0)
         else:
             mask = mask.bool()
         features = features * mask
         mask_p = mask.squeeze(1)                     # (B, P)
+
+        # LLoCa transport is additive: engaged only for non-trivial frames. The readout is a
+        # mean-pool over the (invariant) local features, so no jet frame is needed.
+        do_transport = frames is not None and not frames.is_global
+        frames_flat = frames.reshape(-1, 4, 4) if do_transport else None
+        if do_transport:
+            self.lloca_attn.prepare_frames(frames)
+        block_lloca = self.lloca_attn if do_transport else None
 
         with torch.cuda.amp.autocast(enabled=self.use_amp):
             # static kNN graph (built once, reused by every GPS layer)
@@ -283,7 +342,8 @@ class PlainGraphGPS(nn.Module):
             node_mask = mask_p.unsqueeze(-1).to(h.dtype)                      # (B, P, 1)
             key_padding_mask = ~mask_p                                        # (B, P), True = ignore
             for layer in self.layers:
-                h = layer(h, idx, nbr_mask, key_padding_mask, node_mask, edge_attr)
+                h = layer(h, idx, nbr_mask, key_padding_mask, node_mask, edge_attr,
+                          frames_flat, block_lloca)
 
             # masked mean pooling over real particles
             pooled = (h * node_mask).sum(dim=1) / node_mask.sum(dim=1).clamp(min=1.0)

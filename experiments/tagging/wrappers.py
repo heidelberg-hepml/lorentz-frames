@@ -1160,10 +1160,12 @@ class LorentzNetLGATrSlimGraphGPSWrapper(nn.Module):
 class PlainGraphTransWrapper(TaggerWrapper):
     """Wrapper for the plain graph-transformer (static MPNN + torch-MHA encoder).
 
-    Non-equivariant, made Lorentz-equivariant by LLoCa input canonicalization,
-    exactly like ParTWrapper / ParticleNetParTGraphTransWrapper: channels-first
-    (N, C, P), four-momenta as (px, py, pz, E), a (N, 1, P) mask, and (eta, phi)
-    points for the deltaR kNN.
+    Non-equivariant, made Lorentz-equivariant by LLoCa tensorial message-passing
+    (matching the library), exactly like ParticleNetParTGraphTransWrapper: the inputs
+    are canonicalized and the per-particle frames are passed into the backbone, which
+    transports the MPNN neighbours and the attention q/k/v between frames. Channels-first
+    (N, C, P), four-momenta as (px, py, pz, E), a (N, 1, P) mask, and (eta, phi) points
+    for the deltaR kNN. The prepended class token rides in the covariant jet frame.
     """
 
     def __init__(self, net, *args, use_amp=False, **kwargs):
@@ -1224,9 +1226,12 @@ class PlainGraphTransWrapper(TaggerWrapper):
 class PlainGraphGPSWrapper(TaggerWrapper):
     """Wrapper for the plain GraphGPS hybrid (interleaved static-MPNN + torch-MHA).
 
-    Non-equivariant, made Lorentz-equivariant by LLoCa input canonicalization,
-    exactly like PlainGraphTransWrapper: channels-first (N, C, P), four-momenta as
-    (px, py, pz, E), a (N, 1, P) mask, and (eta, phi) points for the deltaR kNN.
+    Non-equivariant, made Lorentz-equivariant by LLoCa tensorial message-passing
+    (matching the library): the inputs are canonicalized and the per-particle frames are
+    passed into the backbone, which transports the local-MPNN neighbours and the attention
+    q/k/v between frames. Channels-first (N, C, P), four-momenta as (px, py, pz, E), a
+    (N, 1, P) mask, and (eta, phi) points for the deltaR kNN. No jet frame is needed -- the
+    mean-pool readout over invariant local features is already invariant.
     """
 
     def __init__(self, net, *args, use_amp=False, **kwargs):
@@ -1258,10 +1263,24 @@ class PlainGraphGPSWrapper(TaggerWrapper):
         fourmomenta_local, _ = to_dense_batch(fourmomenta_local, batch)
         points, _ = to_dense_batch(points, batch)
 
+        # densify the per-particle local frames to (B, P, 4, 4); padded particles -> identity.
+        # The tensorial backbone transports neighbours/q-k-v between these frames (no-op for
+        # IdentityFrames -> bit-identical to the plain backbone).
+        frames_matrices, _ = to_dense_batch(frames.matrices, batch)
+        frames_matrices[~mask] = lorentz_eye(
+            frames_matrices[~mask].shape[:-2], device=frames.device, dtype=frames.dtype
+        )
+        dense_frames = Frames(
+            matrices=frames_matrices,
+            is_global=frames.is_global,
+            is_identity=frames.is_identity,
+        )
+
         score = self.net(
             points=points.transpose(1, 2).contiguous(),  # (B, 2, P)
             features=features_local.transpose(1, 2).contiguous(),  # (B, C, P)
             v=fourmomenta_local.transpose(1, 2).contiguous(),  # (B, 4, P)
+            frames=dense_frames,
             mask=mask.unsqueeze(1).float(),  # (B, 1, P)
         )
         return score, tracker, frames
