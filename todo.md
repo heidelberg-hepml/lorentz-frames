@@ -105,6 +105,27 @@ exposed above. If a reviewer wants the negative result demonstrated, a LapPE nod
 - [x] Scheduler: shared **CosineAnnealingWarmup** available; **early termination off** (`es_patience=null`),
       best-validation checkpoint still reported.
 
+### Audit findings (property-based sweep — permutation / mask / determinism / degenerate jets)
+- [ ] **(material) BatchNorm normalises over zero-padded particle slots in the channels-first
+      backbones.** In *training*, a real particle's normalization depends on how many padding slots
+      share its batch row: padding the same jet to more columns shifts the logits by up to **0.18**
+      (ParticleNet-ParT GraphTrans), **0.08** (Plain GraphTrans), ~1e-3 (the two GPS). Eval is
+      bit-exact (running stats), but those running stats — and the training gradients — are biased by
+      the padding fraction (large for low-multiplicity jets). Layers: the entry `bn_fts`
+      (`nn.BatchNorm1d`, all 4 channels-first models, applied to the full (B,C,P) *before* the mask),
+      and the EdgeConv/MPNN internal `BatchNorm2d/1d` (Plain + ParticleNet **GraphTrans**; the GPS
+      local branches already mask via `MaskedNorm`, leaving only `bn_fts`). Fix = normalise over real
+      slots only (reuse the `MaskedNorm` pattern). Changes every run's behaviour → not done unilaterally;
+      recommended (fidelity vs official ParticleNet/ParT). Broader cousin of the LorentzNet BN notes below.
+- [ ] **(minor) `embed_tagging_data` mutates its `ptr` argument in place** (`embedding.py:103`,
+      `ptr[1:] = ptr[1:] + …`; also `fourmomenta` for `mass_reg` at :109). Harmless in the loop (each
+      batch is embedded once) but a latent aliasing footgun — calling the model twice on one batch
+      corrupts `batch.ptr`. Clone before mutating if a batch is ever reused.
+- [x] **Verified clean (all 8, float64):** determinism (bit-exact), permutation-invariance over
+      particles (~1e-16), padded-VALUE leakage in eval (bit-exact), padding-COUNT invariance in eval
+      (bit-exact), finite logits on degenerate 1-particle jets. Set-symmetry, eval-time masking and
+      numerics are sound across the family.
+
 ### Audit findings (full GraphTrans-vs-GraphGPS sweep) — remaining, low priority
 - [ ] **Local-branch dropout is inconsistent across the GraphGPS family.** Plain + CGENN GPS apply an
       external `Dropout` to the local-MPNN output (`Norm(Dropout(MPNN(X)) + X)`); LorentzNet + ParticleNet
