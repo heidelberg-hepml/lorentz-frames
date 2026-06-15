@@ -106,25 +106,32 @@ exposed above. If a reviewer wants the negative result demonstrated, a LapPE nod
       best-validation checkpoint still reported.
 
 ### Audit findings (property-based sweep — permutation / mask / determinism / degenerate jets)
-- [ ] **(material) BatchNorm normalises over zero-padded particle slots in the channels-first
-      backbones.** In *training*, a real particle's normalization depends on how many padding slots
-      share its batch row: padding the same jet to more columns shifts the logits by up to **0.18**
-      (ParticleNet-ParT GraphTrans), **0.08** (Plain GraphTrans), ~1e-3 (the two GPS). Eval is
-      bit-exact (running stats), but those running stats — and the training gradients — are biased by
-      the padding fraction (large for low-multiplicity jets). Layers: the entry `bn_fts`
-      (`nn.BatchNorm1d`, all 4 channels-first models, applied to the full (B,C,P) *before* the mask),
-      and the EdgeConv/MPNN internal `BatchNorm2d/1d` (Plain + ParticleNet **GraphTrans**; the GPS
-      local branches already mask via `MaskedNorm`, leaving only `bn_fts`). Fix = normalise over real
-      slots only (reuse the `MaskedNorm` pattern). Changes every run's behaviour → not done unilaterally;
-      recommended (fidelity vs official ParticleNet/ParT). Broader cousin of the LorentzNet BN notes below.
-- [ ] **(minor) `embed_tagging_data` mutates its `ptr` argument in place** (`embedding.py:103`,
-      `ptr[1:] = ptr[1:] + …`; also `fourmomenta` for `mass_reg` at :109). Harmless in the loop (each
-      batch is embedded once) but a latent aliasing footgun — calling the model twice on one batch
-      corrupts `batch.ptr`. Clone before mutating if a batch is ever reused.
+- [x] **BatchNorm-over-padding is FAITHFUL to official ParticleNet/ParT — verified, do NOT "fix".**
+      The property test showed a real effect: in *training*, padding the same jet to more columns
+      shifts the logits by up to 0.18 (ParticleNet-ParT GraphTrans), 0.08 (Plain GraphTrans), ~1e-3
+      (the two GPS), because the input `bn_fts` (`nn.BatchNorm1d`, all 4 channels-first models) and the
+      EdgeConv/MPNN `BatchNorm2d/1d` (Plain + ParticleNet GraphTrans) compute statistics over the
+      zero-padded slots. **Checked against the references**: weaver ParticleNet does
+      `self.bn_fts(features).masked_fill(padding_mask, 0)` (BN over the full padded tensor, mask
+      *after*) with unmasked EdgeConv `BatchNorm2d`; weaver ParT's `Embed.input_bn` is a
+      `nn.BatchNorm1d` over `(batch, channels, seq_len)` with no pre-mask (zeroed only after embed).
+      Our ports reproduce both exactly, so this is intended fidelity, not a bug — masking it would
+      DIVERGE from the architectures being compared. (The GraphGPS per-layer `MaskedNorm` is likewise
+      faithful to the *GraphGPS* recipe's masked BatchNorm; each backbone matches its own lineage.)
+      Eval is bit-exact (running stats). Nothing to change; documented for the paper's fidelity claim.
 - [x] **Verified clean (all 8, float64):** determinism (bit-exact), permutation-invariance over
       particles (~1e-16), padded-VALUE leakage in eval (bit-exact), padding-COUNT invariance in eval
-      (bit-exact), finite logits on degenerate 1-particle jets. Set-symmetry, eval-time masking and
-      numerics are sound across the family.
+      (bit-exact), finite logits on degenerate 1-particle jets, **gradient coverage** (every trainable
+      param reached by the loss), **batch-composition independence** (a jet's logits identical alone vs
+      batched, ~1e-16 — no cross-jet leakage), and **identical-particle / collinear jets finite**.
+      Set-symmetry, eval-time masking, batch isolation and numerics are sound across the family. (The
+      `embed_tagging_data` in-place-`ptr` footgun found en route is documented at `embedding.py:103`.)
+- [x] **Benign dead vector-path in `LorentzNetLGATrSlimGraphTrans`** (grad-coverage check). The
+      `lgatr` LGATrSlim's `linear_out` multivector weights and the *last* block's MLP multivector
+      weights get no gradient — they feed only the deliberately-discarded vector output
+      (`out_v_channels=1`, "vector sink"; the model reads `_, s_out`). Intended, not a bug; a few wasted
+      multivector params. (Earlier blocks' vector weights are live — vectors reach later scalars via
+      attention. The GPS sibling routes differently and has none.)
 
 ### Audit findings (full GraphTrans-vs-GraphGPS sweep) — remaining, low priority
 - [ ] **Local-branch dropout is inconsistent across the GraphGPS family.** Plain + CGENN GPS apply an

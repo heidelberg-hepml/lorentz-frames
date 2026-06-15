@@ -100,6 +100,9 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
             device=scalars.device,
         )
         scalars[~is_spurion] = scalars_buffer
+        # NB: this mutates the caller's `ptr` in place (and `fourmomenta` below, for mass_reg).
+        # Safe in the train/eval loop since each batch is embedded exactly once; if you ever embed
+        # the same batch twice, clone ptr/fourmomenta first, or the second call double-counts spurions.
         ptr[1:] = ptr[1:] + (arange + 1) * n_spurions
 
     # add mass regulator
