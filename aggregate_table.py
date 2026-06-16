@@ -3,7 +3,7 @@
 
 Every ``run.py`` invocation logs one line per evaluated split:
 
-    table test: <Model> & <frames> (<iters>)[N trials] & <params> & <acc> & <auc>
+    table test: <Model> & <frames> & <iters>[N trials] & <params> & <acc> & <auc>
                 & <rej03> & <rej05> & <rej08> & <time>s & <flops> & <kNN> \\
 
 For warm-started runs that line already carries ``mean +- std`` over the trials in
@@ -21,7 +21,7 @@ import re
 from glob import glob
 
 COLUMNS = (
-    r"model & frames (iters) & params & accuracy & AUC & "
+    r"model & frames & iters & params & accuracy & AUC & "
     r"$1/\epsilon_B$(0.3) & (0.5) & (0.8) & time & FLOPs & kNN"
 )
 
@@ -71,7 +71,7 @@ def main():
     body = " \\\\\n".join(rows[m] for m in sorted(rows)) + " \\\\"
     table = (
         "% columns: " + COLUMNS + "\n"
-        "\\begin{tabular}{l l r c c c c c r r l}\n"
+        "\\begin{tabular}{l l r r c c c c c r r l}\n"
         "\\hline\n" + body + "\n\\hline\n"
         "\\end{tabular}\n"
     )

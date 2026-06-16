@@ -347,11 +347,11 @@ class TaggingExperiment(BaseExperiment):
                 return f"${format(arr.mean(), fmt)} \\pm {format(arr.std(ddof=1), fmt)}$"
 
             trials = f" [{n_trials} trials]" if n_trials > 1 else ""
-            # columns: model & frames (iters)[trials] & params & acc & auc & rej03
+            # columns: model & frames & iters[trials] & params & acc & auc & rej03
             #          & rej05 & rej08 & traintime & flops & knn
             LOGGER.info(
                 f"table {title}: {modelname} & {framesString}"
-                f" ({self.cfg.training.iterations} iterations){trials}"
+                f" & {self.cfg.training.iterations}{trials}"
                 f" & {num_parameters} & {cell('accuracy', '.4f')} & {cell('auc', '.4f')}"
                 f" & {cell('rej03', '.0f')} & {cell('rej05', '.0f')} & {cell('rej08', '.0f')}"
                 f" & {cell('train_time', '.0f')}s & {flops_str} & {knn} \\\\"
