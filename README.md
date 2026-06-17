@@ -1,7 +1,8 @@
-<div align="center">
 RENAME
+<br>
+<div align="center">
 
-    <br>
+
 ## Lorentz Local Canonicalization: How to Make Any Network Lorentz-Equivariant
 
 [![pytorch](https://img.shields.io/badge/PyTorch_2.0+-ee4c2c?logo=pytorch&logoColor=white)](https://pytorch.org/get-started/locally/)
