@@ -97,9 +97,13 @@ exposed above. If a reviewer wants the negative result demonstrated, a LapPE nod
 
 ## 4. Open design decisions / discrepancies
 
-- [x] **CGENN-LGATr GraphGPS local branch had no edge features** — fixed: it now injects the same
-      static relative-momentum edge multivectors `[pᵢ−pⱼ, rawᵢ, rawⱼ]` as the GraphTrans cousin
-      (`use_explicit_edge_features`, default on). Equivariance 3/3.
+- [x] **CGENN-LGATr GraphGPS local branch under-fed vs its GraphTrans cousin** — fixed in two
+      passes: it now injects, under `use_explicit_edge_features` (default on), all three static
+      signals the GraphTrans CGENN stage does — the relative-momentum edge multivectors
+      `[pᵢ−pⱼ, rawᵢ, rawⱼ]`, **and** the raw mv / raw scalar inputs re-injected as per-node
+      attributes (`node_attr_x` in `theta_x`, `node_attr_h` in `theta_h`) every layer. (The first
+      pass added only the edge features; the node attributes were the missing two-thirds.)
+      Equivariance 3/3 (xy-rotation + full-group rotation + Lorentz boost).
 - [x] CLS readout frame: **jet frame** (covariant, boost into the jet rest frame). Decided.
 - [x] LLoCa transport made **strictly additive** (identity frames bit-identical to the plain backbone).
 - [x] Scheduler: shared **CosineAnnealingWarmup** available; **early termination off** (`es_patience=null`),

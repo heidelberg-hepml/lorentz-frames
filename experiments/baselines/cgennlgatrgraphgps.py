@@ -73,17 +73,20 @@ class CGENNLGATrGPSLayer(nn.Module):
                  cgenn_aggregation, cgenn_layer_type, cgenn_normalization_init,
                  increase_hidden_channels_attention, increase_hidden_channels_mlp,
                  num_hidden_layers_mlp, head_scale, multi_query, activation, dropout_prob,
-                 edge_attr_x_dim=0):
+                 edge_attr_x_dim=0, node_attr_x_dim=0, node_attr_h_dim=0):
         super().__init__()
         # ---- local branch: one CGENN message-passing layer. residual=False because the GPS
         #      layer owns the external residual. edge_attr_x_dim > 0 -> the layer consumes the
-        #      static relative-momentum edge multivectors (matching the GraphTrans CGENN
-        #      stage); the (static) edge features are passed in forward and shared across layers.
+        #      static relative-momentum edge multivectors; node_attr_{x,h}_dim > 0 -> the raw
+        #      inputs are re-injected as per-node attributes every layer (theta_x/theta_h) --
+        #      all three matching the GraphTrans CGENN stage. The static features are passed in
+        #      forward and shared across layers.
         self.cgenn = CGLayer(
             algebra,
             mv_channels, mv_channels, mv_channels,
             s_channels, s_channels, s_channels,
-            edge_attr_x=edge_attr_x_dim, edge_attr_h=0, node_attr_x=0, node_attr_h=0,
+            edge_attr_x=edge_attr_x_dim, edge_attr_h=0,
+            node_attr_x=node_attr_x_dim, node_attr_h=node_attr_h_dim,
             aggregation=cgenn_aggregation, use_invariants_to_update=True,
             residual=False, normalization_init=cgenn_normalization_init,
             layer_type=cgenn_layer_type,
@@ -111,9 +114,11 @@ class CGENNLGATrGPSLayer(nn.Module):
         self.norm = EquiLayerNorm()
         self.dropout = GradeDropout(dropout_prob if dropout_prob is not None else 0.0)
 
-    def forward(self, mv, s, edges, attn_mask, edge_attr_x=None):
+    def forward(self, mv, s, edges, attn_mask, edge_attr_x=None,
+                node_attr_x=None, node_attr_h=None):
         # mv: (B, P, C_mv, 16); s: (B, P, C_s); edge_attr_x: (num_edges, E, 16) static
-        # relative-momentum edge multivectors (or None when explicit edge features are off).
+        # relative-momentum edge multivectors; node_attr_x/node_attr_h: the static raw mv /
+        # scalar inputs re-injected per node (or None when explicit edge features are off).
         B, P = mv.shape[0], mv.shape[1]
 
         # ---- local branch (Eq. 9): CGENN message passing on the static kNN graph.
@@ -123,7 +128,8 @@ class CGENNLGATrGPSLayer(nn.Module):
         # through message passing -- only into the scalar BN statistics, as upstream.
         s_loc, mv_loc = self.cgenn(
             s.reshape(B * P, -1), mv.reshape(B * P, -1, 16), edges,
-            node_attr_h=None, node_attr_x=None, edge_attr_h=None, edge_attr_x=edge_attr_x,
+            node_attr_h=node_attr_h, node_attr_x=node_attr_x,
+            edge_attr_h=None, edge_attr_x=edge_attr_x,
         )
         mv_loc = mv_loc.view(B, P, -1, 16)
         s_loc = s_loc.view(B, P, -1)
@@ -198,7 +204,12 @@ class CGENNLGATrGraphGPS(nn.Module):
         # matching the GraphTrans CGENN stage. 0 disables them (bare hidden-stream message passing).
         self.use_explicit_edge_features = use_explicit_edge_features
         raw_mv_channels = 1 + self.num_spurions
+        # Matching the GraphTrans CGENN stage, the explicit-edge-feature path injects THREE static
+        # signals into every local CGENN layer: the relative-momentum edge multivectors, and the
+        # raw mv / raw scalar inputs re-injected as per-node attributes (theta_x/theta_h). 0 = off.
         edge_attr_x_dim = (1 + 2 * raw_mv_channels) if use_explicit_edge_features else 0
+        node_attr_x_dim = raw_mv_channels if use_explicit_edge_features else 0
+        node_attr_h_dim = in_s_channels if use_explicit_edge_features else 0
         self.layers = nn.ModuleList([
             CGENNLGATrGPSLayer(
                 self.algebra, hidden_mv_channels, hidden_s_channels, num_heads,
@@ -206,6 +217,7 @@ class CGENNLGATrGraphGPS(nn.Module):
                 increase_hidden_channels_attention, increase_hidden_channels_mlp,
                 num_hidden_layers_mlp, head_scale, multi_query, activation, dropout_prob,
                 edge_attr_x_dim=edge_attr_x_dim,
+                node_attr_x_dim=node_attr_x_dim, node_attr_h_dim=node_attr_h_dim,
             )
             for _ in range(num_blocks)
         ])
@@ -246,12 +258,15 @@ class CGENNLGATrGraphGPS(nn.Module):
         # Stage 2b: static relative-momentum edge features from the RAW input multivectors
         # (before linear_in), [p_i - p_j, raw_i, raw_j], shared across every layer's local
         # CGENN branch -- the same geometric edge signal the GraphTrans CGENN stage injects.
-        edge_attr_x = None
+        edge_attr_x = node_attr_x = node_attr_h = None
         if self.use_explicit_edge_features:
             i, j = edges
             mv_raw = mv.reshape(B * P, -1, 16)            # (B*P, 1+num_spurions, 16)
             particle_diff = mv_raw[i, :1] - mv_raw[j, :1]  # (num_edges, 1, 16)
             edge_attr_x = torch.cat([particle_diff, mv_raw[i], mv_raw[j]], dim=1)
+            # raw inputs re-injected as per-node attributes every layer (as in GraphTrans)
+            node_attr_x = mv_raw                          # (B*P, 1+num_spurions, 16) raw mv
+            node_attr_h = s.reshape(B * P, -1)            # (B*P, in_s_channels) raw scalars
 
         # Stage 3: equivariant input projection to hidden channels
         mv, s = self.linear_in(mv, scalars=s)            # (B, P, C_mv, 16), (B, P, C_s)
@@ -259,7 +274,8 @@ class CGENNLGATrGraphGPS(nn.Module):
         # Stage 4: interleaved equivariant GPS layers
         attn_mask = mask[:, None, None, :]               # (B, 1, 1, P) bool, True = real
         for layer in self.layers:
-            mv, s = layer(mv, s, edges, attn_mask, edge_attr_x=edge_attr_x)
+            mv, s = layer(mv, s, edges, attn_mask, edge_attr_x=edge_attr_x,
+                          node_attr_x=node_attr_x, node_attr_h=node_attr_h)
 
         # Stage 5: final norm + masked mean pool + invariant head
         mv, s = self.final_norm(mv, scalars=s)
