@@ -13,7 +13,9 @@ net:
   # EdgeConv local branch (dynamic kNN, rebuilt from hidden features each layer)
   knn_k: 16
   knn_metric: deltaR            # how layer-0 graph is seeded: 'deltaR' (eta-phi) or 'minkowski' (4-momenta)
-  edge_mlp_layers: 2            # 1x1 convs inside each EdgeConv
+  edge_mlp_layers: 3            # conv layers in each EdgeConv message MLP -> out_feats=[dim]*3=[128,128,128];
+                               # matches ParticleNet/GraphTrans per-block depth (flat, NOT tapered 32/64/128:
+                               # the growth in ParticleNet is ACROSS blocks, which the 10 GPS layers already give)
   use_fts_bn: true
 
   # ParT pairwise interaction bias on the global attention (ParT-style U_ij)

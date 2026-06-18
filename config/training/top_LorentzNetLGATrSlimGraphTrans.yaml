@@ -3,12 +3,12 @@
 #
 #   lr         <- find_lr.py                                   (reported loss-min / 10)
 #   batchsize  <- find_lr.py +lr_find.find_batch_size=true     (the GPU-fit size)
-#   (epochs=20 + CosineAnnealingWarmup are shared in tag_gt_default; iterations auto-derived)
+#   (epochs=20 + CosineAnnealingWarmup are shared in tag_gtfriends_default; iterations auto-derived)
 #   weight_decay (optional override) -> see the weight-decay guidance
 #
-# Inherits tag_gt_default: AdamW, CosineAnnealingWarmup, epochs=20, grad-clip 1.0, best-val checkpoint.
+# Inherits tag_gtfriends_default: AdamW, CosineAnnealingWarmup, epochs=20, grad-clip 1.0, best-val checkpoint.
 defaults:
-  - tag_gt_default
+  - tag_gtfriends_default
 
 batchsize: ???
 lr: ???
