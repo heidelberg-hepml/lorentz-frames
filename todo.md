@@ -10,18 +10,18 @@ a paper. Grouped by "before training", "open design decisions", and "paper relea
 The 8 hybrid recipes are skeletons with required `???` keys:
 `config/training/top_{Plain,ParticleNetParT,CGENNLGATr,LorentzNetLGATrSlim}{GraphTrans,GraphGPS}.yaml`.
 
-The 8 GT recipes now inherit `tag_gtfriends_default` (shared `epochs=20` + `scheduler=CosineAnnealingWarmup`);
+The 8 GT recipes now inherit `tag_gtagger_and_friends_default` (shared `epochs=20` + `scheduler=CosineAnnealingWarmup`);
 only **`batchsize`, `lr`** remain `???` per model (optionally `weight_decay`):
 
 - [ ] `batchsize` ← `find_lr.py +lr_find.find_batch_size=true` (largest power-of-two that fits the H100).
 - [ ] `lr` ← `find_lr.py` (reported loss-min / 10).
 - [ ] `weight_decay` ← tune on val ∈ {0, 0.01, 0.05, 0.1} for AdamW (ParT-style 0.01 is a fine start).
-- [x] `epochs` (shared data-exposure budget) and `scheduler` are **decided** in `tag_gtfriends_default`
+- [x] `epochs` (shared data-exposure budget) and `scheduler` are **decided** in `tag_gtagger_and_friends_default`
       (see §2); `iterations` is auto-derived at runtime (`_resolve_epoch_budget`).
 
 ## 2. Training-recipe decisions (fairness)
 
-**Scheduler — DECIDED: `CosineAnnealingWarmup`** (set in `tag_gtfriends_default`), shared across the GT
+**Scheduler — DECIDED: `CosineAnnealingWarmup`** (set in `tag_gtagger_and_friends_default`), shared across the GT
 hybrids, tuning only lr/batchsize/weight_decay per model — warmup matters for the transformer/
 equivariant layers, and one shared schedule isolates architecture for the hybrid-vs-hybrid table.
 `OneCycleLR` is the repo-proven alternative (it is warmup→cosine too) but its warmup is cosine-shaped
@@ -36,7 +36,7 @@ warmup (peak) + AdamW + `lr_factor_framesnet`, not by raising the floor. Set a s
 `epochs * len(train_loader)` (the exact batch count — reflects batchsize, subsampling, drop_last). This
 equalizes **data exposure** (the standard fairness axis); note equal epochs ≠ equal gradient *updates*
 (a larger-batch model gets fewer steps), and each model still anneals fully over its own iteration count.
-- [x] Epoch budget **decided: `epochs=20`** (ParT-standard) in `tag_gtfriends_default`, shared by all 8 GT
+- [x] Epoch budget **decided: `epochs=20`** (ParT-standard) in `tag_gtagger_and_friends_default`, shared by all 8 GT
       hybrids; bump to ~30 if they underfit (CLI: `training.epochs=30`).
 - [ ] Keep the baselines' published-recipe numbers as a separate reference row in the table.
 

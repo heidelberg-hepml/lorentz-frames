@@ -1,6 +1,6 @@
-# Shared training recipe for the graph-transformer (GT) hybrid family -- and "friends":
-# any other model you choose to put on the same fair budget (inherit this file to join the
-# shared epoch axis; it is no longer GT-only, hence the name).
+# Shared training recipe for "GTagger and friends": the GTagger graph-transformer (GT) hybrid
+# family plus any other model you choose to put on the same fair budget (inherit this file to
+# join the shared epoch axis; it is not GT-only, hence the "and friends").
 #
 # Decision: the GT hybrids are budgeted in EPOCHS, not iterations. The study compares
 # architectures that will train at different batch sizes, and equal iterations at different
