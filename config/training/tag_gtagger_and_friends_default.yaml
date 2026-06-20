@@ -9,8 +9,8 @@
 # scheduler (which are iteration-native) stay unchanged. (The repo's baselines keep their own
 # iteration budgets as reference rows: L-GATr 200k, ParT 48k = 20 epochs, ...)
 #
-# This file pins the cross-model decisions (epoch budget + scheduler + validation cadence);
-# per-model tuning (batchsize, lr, optional weight_decay) stays in each top_*.yaml.
+# This file pins the cross-model decisions (epoch budget + scheduler + validation cadence +
+# weight decay); per-model tuning (batchsize, lr) stays in each top_*.yaml.
 defaults:
   - tag_default
 
@@ -21,6 +21,13 @@ epochs: 20
 # cosanneal_eta_min. Warmup stabilises the transformer/equivariant layers; one shared schedule
 # isolates architecture for the hybrid-vs-hybrid table.
 scheduler: CosineAnnealingWarmup
+
+# shared weight decay (AdamW). One value for the whole family isolates architecture: with
+# decoupled WD on normalized weights this is mostly an effective-LR / weight-norm knob
+# (scale-invariant), so a single moderate value is fair across GNN / transformer / hybrid
+# parts. 0.01 is a safe default; sweep {0, 0.01, 0.05} on val with one model to optimize.
+# (Framesnet keeps weight_decay_framesnet=0 from tag_default -- canonicalization is not decayed.)
+weight_decay: 0.01
 
 # Validate exactly once per epoch for every model, whatever batchsize find_lr ends up picking.
 # _init_scheduler sets validate_every_n_steps = min(value below, validate_every_n_epochs_min *

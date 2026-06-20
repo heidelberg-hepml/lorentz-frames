@@ -319,7 +319,9 @@ def make_plot(lrs, losses, steepest, min_loss_lr, output):
     LOGGER.info(f"Saved LR-finder plot to {os.path.abspath(output)}")
  
  
-@hydra.main(config_path="config_quick", config_name="toptagging", version_base=None)
+# Default to the real config/ tree so a bare run matches training (clipping on, full data);
+# pass `-cp config_quick ... data.dataset=mini` for a fast smoke test of the finder itself.
+@hydra.main(config_path="config", config_name="toptagging", version_base=None)
 def main(cfg):
     # LR finding is single-process and never trains / evaluates / saves a model
     cfg.train = False
