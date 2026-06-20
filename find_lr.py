@@ -11,6 +11,12 @@ larger `+lr_find.num_iter` samples more of the data.
 The recommended learning rate is reported as `loss-min / 10` (a robust peak lr for
 an annealed / one-cycle schedule); the steepest-descent point is also printed.
 
+Prefer `loss-min / 10`: it is stable in `num_iter` because it tracks the
+edge-of-divergence lr that the loss landscape fixes. The steepest-descent point is
+NOT -- a longer sweep lets ordinary training progress (not the lr) dominate the loss
+drop and biases it toward low lr (davidtvs/pytorch-lr-finder#68). Keep `num_iter`
+short (300 is deliberate); if a suggestion looks unstable, lower it, don't raise it.
+
 It reuses the experiment's own `_batch_loss`, optimizer, scaler and dataloader,
 so the measured loss-vs-lr curve reflects the exact training setup: param groups,
 `lr_factor_framesnet`, gradient clipping and amp are all honoured. The base
@@ -19,7 +25,8 @@ ratios between param groups (e.g. framesnet vs net) are preserved.
  
 The test follows the Leslie-Smith / fastai recipe: exponentially ramp the lr over
 a few hundred batches, record an EMA-smoothed training loss, stop early if the
-loss diverges, then suggest an lr via the steepest-descent heuristic.
+loss diverges, then report `loss-min / 10` (steepest-descent is printed too, but see
+the num_iter caveat above).
  
 Pass `save=false` so no run directory is created. Tune the sweep on the CLI under
 `lr_find.*` (these keys are added at runtime, so prefix with `+` is optional):
