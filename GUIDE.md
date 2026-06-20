@@ -126,9 +126,10 @@ lr=1e-3, 35 epochs), `top_lgatr` (Lion, lr=3e-4, wd=0.2), `top_particlenet` (lr=
 ## 6. Choosing hyperparameters
 
 **Learning rate (and GPU batch size) — `find_lr.py`.** Runs a Leslie-Smith LR
-range test with the *training config's* optimizer / param-groups / clipping and
-reports a robust `loss-min/10` peak LR — a safe peak for the warmup→cosine schedule
-(it never builds the scheduler; it ramps the LR by hand from 1e-7). The default training
+range test under the *training config's* optimizer + param-group ratios (but with
+weight-decay and grad-clipping switched off for the sweep — they'd only mask the
+divergence) and reports a robust `loss-min/10` peak LR — a safe peak for the
+warmup→cosine schedule (it never builds the scheduler; it ramps the LR by hand from 1e-7). The default training
 is now `tag_gtagger_and_friends_default` (AdamW, clip=1.0, wd=0.01), so for the GT
 hybrids you sweep with nothing extra. Pass `training=<recipe>` only to match a
 *different* optimizer — the LR scale is optimizer-specific, so a Lion baseline (e.g.

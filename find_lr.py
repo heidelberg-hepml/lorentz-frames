@@ -18,12 +18,14 @@ drop and biases it toward low lr (davidtvs/pytorch-lr-finder#68). Keep `num_iter
 short (300 is deliberate); if a suggestion looks unstable, lower it, don't raise it.
 
 It reuses the experiment's own `_batch_loss`, optimizer, scaler and dataloader,
-so the measured loss-vs-lr curve reflects the exact training setup: param groups,
-`lr_factor_framesnet`, gradient clipping and amp are all honoured. The base
-learning rate in `training.lr` is *ignored* during the sweep; only the relative
-ratios between param groups (e.g. framesnet vs net) are preserved.
+so the measured loss-vs-lr curve reflects the lr-scale-determining setup: optimizer
+type, betas/eps, param-group ratios (`lr_factor_framesnet`), batchsize and amp. Two
+regularizers are deliberately switched off for the sweep -- `weight_decay` (inert over
+~300 steps) and gradient clipping (it would cap the step and mask the high-lr
+divergence the test needs) -- so the curve is the raw loss-vs-lr response. The base
+`training.lr` is *ignored*; only the inter-group lr ratios are preserved.
 
-The optimizer/clipping/param-groups come from the chosen *training* config; the task
+The optimizer (type/betas) and param-groups come from the chosen *training* config; the task
 defaults (e.g. `toptagging`) now select `tag_gtagger_and_friends_default` (AdamW), so
 the GT hybrids sweep correctly with just `model=...`. Because the suggested lr is
 optimizer-specific, pass `training=top_<baseline>` to sweep a baseline under its own
@@ -211,12 +213,20 @@ def _cycle(loader):
 def range_test(exp, start_lr, end_lr, num_iter, beta, diverge):
     """Exponentially ramp the lr and record the EMA-smoothed training loss."""
     optimizer, scaler = exp.optimizer, exp.scaler
-    cfg_training = exp.cfg.training
  
     # preserve the relative lr ratios between param groups (net vs framesnet vs ...)
     base_lr0 = optimizer.param_groups[0]["lr"]
     base_ratios = [pg["lr"] / base_lr0 for pg in optimizer.param_groups]
     gamma = (end_lr / start_lr) ** (1.0 / max(1, num_iter - 1))
+
+    # The range test measures the RAW loss-vs-lr response, so neutralize the two training
+    # regularizers that would only distort it (neither sets the lr SCALE -- that is the
+    # optimizer type + batchsize): weight_decay is inert over a ~300-step sweep (the
+    # weight-norm equilibrium needs thousands of steps), and grad clipping would cap the
+    # step and can mask the high-lr divergence the test must see (a no-op for AdamW/Lion,
+    # which renormalize, but not for plain SGD -> off keeps the test optimizer-agnostic).
+    for pg in optimizer.param_groups:
+        pg["weight_decay"] = 0.0
  
     lrs, losses = [], []
     avg_loss, best_loss = 0.0, float("inf")
@@ -233,16 +243,10 @@ def range_test(exp, start_lr, end_lr, num_iter, beta, diverge):
         data = next(iterator)
         loss, _ = exp._batch_loss(data)
  
-        # update step, mirroring BaseExperiment._step (scaler + optional clipping)
+        # update step -- NO grad clipping on purpose: it would cap the step and hide the
+        # high-lr divergence the test needs to graph (see the note above the loop).
         optimizer.zero_grad()
         scaler.scale(loss).backward()
-        scaler.unscale_(optimizer)
-        if cfg_training.clip_grad_norm is not None:
-            torch.nn.utils.clip_grad_norm_(
-                exp.model.parameters(),
-                cfg_training.clip_grad_norm,
-                error_if_nonfinite=False,
-            )
         scaler.step(optimizer)
         scaler.update()
  
