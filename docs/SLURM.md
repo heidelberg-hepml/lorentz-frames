@@ -67,8 +67,8 @@ First (interactively or as a short job) size the batch and lr:
 ```bash
 apptainer exec --nv "$IMG" bash -lc '
   source venv/bin/activate
-  python find_lr.py -cp config -cn toptagging model=tag_LorentzNetLGATrSlimGraphGPS \
-      save=false +lr_find.find_batch_size=true
+  python find_lr.py -cn toptagging model=tag_LorentzNetLGATrSlimGraphGPS \
+      training=tag_gtagger_and_friends_default save=false +lr_find.find_batch_size=true
 '   # prints:  ->  reuse with:  training.batchsize=<N> training.lr=<lr>
 ```
 
