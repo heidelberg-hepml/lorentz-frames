@@ -22,6 +22,12 @@ so the measured loss-vs-lr curve reflects the exact training setup: param groups
 `lr_factor_framesnet`, gradient clipping and amp are all honoured. The base
 learning rate in `training.lr` is *ignored* during the sweep; only the relative
 ratios between param groups (e.g. framesnet vs net) are preserved.
+
+The optimizer/clipping/param-groups come from the chosen *training* config; the task
+defaults (e.g. `toptagging`) now select `tag_gtagger_and_friends_default` (AdamW), so
+the GT hybrids sweep correctly with just `model=...`. Because the suggested lr is
+optimizer-specific, pass `training=top_<baseline>` to sweep a baseline under its own
+optimizer (e.g. `training=top_transformer` for the Lion transformer).
  
 The test follows the Leslie-Smith / fastai recipe: exponentially ramp the lr over
 a few hundred batches, record an EMA-smoothed training loss, stop early if the

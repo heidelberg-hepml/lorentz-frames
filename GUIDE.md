@@ -105,11 +105,12 @@ Each run prints a paste-ready LaTeX table row at the end:
 ## 5. Configs: model vs training
 
 A `config/model/tag_*.yaml` is **model definition only** — it has no LR, optimizer
-or budget. Those come from the **training** config, selected separately. If you
-don't pass `training=…`, the top-tagging default is `top_transformer`
-(**Lion, lr=3e-5, weight_decay=2, 300k iters**), which was tuned for the plain
-transformer and is *not* appropriate for the GNN-hybrids. Always pick a training
-config (or override the keys) for the new models — see §7.
+or budget. Those come from the **training** config, selected separately. The
+top-tagging default is now `tag_gtagger_and_friends_default` (AdamW, epochs=20,
+CosineAnnealingWarmup, wd=0.01) — the shared GT-hybrid recipe — so the new models run
+correctly with no `training=` at all (you just fill `lr`/`batchsize` from
+`find_lr.py`). Pass `training=top_<baseline>` to run a baseline under its own tuned
+recipe (e.g. `top_transformer` = Lion, lr=3e-5, 300k iters) — see §7.
 
 The 8 GT hybrids share one recipe: each `config/training/top_<hybrid>.yaml`
 `defaults: [tag_gtagger_and_friends_default]` (AdamW, **epochs=20**,
@@ -127,21 +128,20 @@ lr=1e-3, 35 epochs), `top_lgatr` (Lion, lr=3e-4, wd=0.2), `top_particlenet` (lr=
 **Learning rate (and GPU batch size) — `find_lr.py`.** Runs a Leslie-Smith LR
 range test with the *training config's* optimizer / param-groups / clipping and
 reports a robust `loss-min/10` peak LR — a safe peak for the warmup→cosine schedule
-(it never builds the scheduler; it ramps the LR by hand from 1e-7). **Pass the
-training recipe you'll actually train with:** the LR scale is optimizer-specific, so
-sweeping under the default `top_transformer` (Lion) then training under AdamW gives a
-wrong-scale LR. For the GT hybrids use `training=tag_gtagger_and_friends_default`
-(AdamW, clip=1.0, wd=0.01). `find_lr.py` now defaults to the real `config/` tree
+(it never builds the scheduler; it ramps the LR by hand from 1e-7). The default training
+is now `tag_gtagger_and_friends_default` (AdamW, clip=1.0, wd=0.01), so for the GT
+hybrids you sweep with nothing extra. Pass `training=<recipe>` only to match a
+*different* optimizer — the LR scale is optimizer-specific, so a Lion baseline (e.g.
+`training=top_transformer`) must be swept under Lion. `find_lr.py` now defaults to the real `config/` tree
 (full data); add `data.dataset=mini` for a quick trial.
 
 ```bash
-# LR only (AdamW recipe -> AdamW-scale LR)
-python find_lr.py -cn toptagging model=tag_CGENNLGATrGraphGPS \
-    training=tag_gtagger_and_friends_default save=false
+# LR only (default training is the shared AdamW gtagger recipe)
+python find_lr.py -cn toptagging model=tag_CGENNLGATrGraphGPS save=false
 
 # on a GPU: fit the batch size first, then sweep the LR at that size
 python find_lr.py -cn toptagging model=tag_LorentzNetLGATrSlimGraphGPS \
-    training=tag_gtagger_and_friends_default save=false +lr_find.find_batch_size=true
+    save=false +lr_find.find_batch_size=true
 ```
 
 With `+lr_find.find_batch_size=true` it doubles the batch size until CUDA OOM
@@ -233,8 +233,9 @@ float64), and LLoCa-frame invariance for the canonicalized ones under a learned
 
 ## 10. Gotchas
 
-- **Default training config is mistuned** for the new models — always set
-  `training=…` and an LR from `find_lr.py` (§5/§6).
+- **The default training recipe** (`tag_gtagger_and_friends_default`, AdamW) now
+  fits the new models — just set an LR/batchsize from `find_lr.py` (§5/§6). Baselines
+  still need their own `training=top_<baseline>` (e.g. Lion for the transformer).
 - **`use_float64`** is `false` in production (float32); the equivariance tests flip
   it on for the exact-invariance checks. The kNN distance computations follow the
   run dtype.
