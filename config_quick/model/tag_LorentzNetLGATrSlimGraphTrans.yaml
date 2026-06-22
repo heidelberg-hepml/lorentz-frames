@@ -13,7 +13,7 @@ net:
   n_v_hidden: 4
   knn_k: 4
   knn_metric: minkowski         # 'minkowski' (Lorentz-invariant) or 'deltaR' (eta-phi L2)
-  c_weight: 1e-3
+  c_weight: 5e-3
   use_phi_m: true               # LorentzNet per-edge gate (weights within the kNN nbhd); false -> plain mean
   concat_original: true
 
