@@ -1,4 +1,4 @@
-# Shared training recipe for "GTagger and friends": the GTagger graph-transformer (GT) hybrid
+# Shared training recipe for "GTs and friends": the graph-transformer (GT) hybrid
 # family plus any other model you choose to put on the same fair budget (inherit this file to
 # join the shared epoch axis; it is not GT-only, hence the "and friends").
 #

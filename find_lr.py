@@ -26,7 +26,7 @@ divergence the test needs) -- so the curve is the raw loss-vs-lr response. The b
 `training.lr` is *ignored*; only the inter-group lr ratios are preserved.
 
 The optimizer (type/betas) and param-groups come from the chosen *training* config; the task
-defaults (e.g. `toptagging`) now select `tag_gtagger_and_friends_default` (AdamW), so
+defaults (e.g. `toptagging`) now select `tag_gts_and_friends_default` (AdamW), so
 the GT hybrids sweep correctly with just `model=...`. Because the suggested lr is
 optimizer-specific, pass `training=top_<baseline>` to sweep a baseline under its own
 optimizer (e.g. `training=top_transformer` for the Lion transformer).
@@ -304,7 +304,7 @@ def suggest_lr(lrs, losses, skip_start, skip_end, beta=0.98):
     return steepest, min_loss_lr, lr_trim, loss_trim
  
  
-def make_plot(lrs, losses, steepest, min_loss_lr, output):
+def make_plot(lrs, losses, steepest, min_loss_lr, output, title="LR range test"):
     import matplotlib
  
     matplotlib.use("Agg")
@@ -322,7 +322,7 @@ def make_plot(lrs, losses, steepest, min_loss_lr, output):
     ax.set_xscale("log")
     ax.set_xlabel("learning rate")
     ax.set_ylabel("smoothed training loss")
-    ax.set_title("LR range test")
+    ax.set_title(title)
     ax.legend()
     fig.tight_layout()
     fig.savefig(output, dpi=150)
@@ -360,6 +360,11 @@ def main(cfg):
         exp.model.to(exp.device)
         exp._init_dataloader()
 
+    # name the plot/npz after the model + batchsize so repeated sweeps don't clobber each other
+    model_name = (OmegaConf.select(cfg, "model.net._target_", default="") or "").rsplit(".", 1)[-1] or "model"
+    if params["output"] == DEFAULTS["output"]:
+        params["output"] = f"lr_finder_{model_name}_bs{cfg.training.batchsize}.png"
+
     LOGGER.info(
         f"Running LR range test: {params['start_lr']:.1e} -> {params['end_lr']:.1e} "
         f"over <= {params['num_iter']} batches (batchsize={cfg.training.batchsize})"
@@ -387,7 +392,10 @@ def main(cfg):
         skip_end=params["skip_end"],
         beta=params["beta"],
     )
-    make_plot(lrs, losses, steepest, min_loss_lr, params["output"])
+    make_plot(
+        lrs, losses, steepest, min_loss_lr, params["output"],
+        title=f"LR range test - {model_name} (bs={cfg.training.batchsize})",
+    )
     np.savez(os.path.splitext(params["output"])[0] + ".npz", lr=lrs, loss=losses)
 
     # loss-min/10 is the robust recommendation (peak lr for an annealed schedule);

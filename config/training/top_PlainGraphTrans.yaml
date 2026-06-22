@@ -3,12 +3,12 @@
 #
 #   lr         <- find_lr.py                                   (reported loss-min / 10)
 #   batchsize  <- find_lr.py +lr_find.find_batch_size=true     (the GPU-fit size)
-#   (epochs=20 + CosineAnnealingWarmup are shared in tag_gtagger_and_friends_default; iterations auto-derived)
+#   (epochs=20 + CosineAnnealingWarmup are shared in tag_gts_and_friends_default; iterations auto-derived)
 #   weight_decay (optional override) -> see the weight-decay guidance
 #
-# Inherits tag_gtagger_and_friends_default: AdamW, CosineAnnealingWarmup, epochs=20, grad-clip 1.0, best-val checkpoint.
+# Inherits tag_gts_and_friends_default: AdamW, CosineAnnealingWarmup, epochs=20, grad-clip 1.0, best-val checkpoint.
 defaults:
-  - tag_gtagger_and_friends_default
+  - tag_gts_and_friends_default
 
 batchsize: ???
 lr: ???

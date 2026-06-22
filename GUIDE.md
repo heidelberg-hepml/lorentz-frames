@@ -88,7 +88,7 @@ python run.py model=tag_PlainGraphGPS model/framesnet=learnedso13
 # an internally-equivariant hybrid (identity frames; nothing to set)
 python run.py model=tag_LorentzNetLGATrSlimGraphGPS
 
-# the hybrid's own recipe (inherits tag_gtagger_and_friends_default), full data, a GPU
+# the hybrid's own recipe (inherits tag_gts_and_friends_default), full data, a GPU
 python run.py model=tag_ParticleNetParTGraphGPS training=top_ParticleNetParTGraphGPS \
     data.dataset=full gpus=1
 ```
@@ -106,20 +106,20 @@ Each run prints a paste-ready LaTeX table row at the end:
 
 A `config/model/tag_*.yaml` is **model definition only** — it has no LR, optimizer
 or budget. Those come from the **training** config, selected separately. The
-top-tagging default is now `tag_gtagger_and_friends_default` (AdamW, epochs=20,
+top-tagging default is now `tag_gts_and_friends_default` (AdamW, epochs=20,
 CosineAnnealingWarmup, wd=0.01) — the shared GT-hybrid recipe — so the new models run
 correctly with no `training=` at all (you just fill `lr`/`batchsize` from
 `find_lr.py`). Pass `training=top_<baseline>` to run a baseline under its own tuned
 recipe (e.g. `top_transformer` = Lion, lr=3e-5, 300k iters) — see §7.
 
 The 8 GT hybrids share one recipe: each `config/training/top_<hybrid>.yaml`
-`defaults: [tag_gtagger_and_friends_default]` (AdamW, **epochs=20**,
+`defaults: [tag_gts_and_friends_default]` (AdamW, **epochs=20**,
 CosineAnnealingWarmup, shared `weight_decay=0.01`, validate once/epoch) and only fills
 its own `batchsize` + `lr` from `find_lr.py` — that shared budget is what makes the
 hybrid-vs-hybrid table fair. The upstream baselines keep their own recipes as
 reference rows — `top_ParT` (Ranger, lr=1e-3, 20 epochs), `top_lorentznet` (AdamW,
 lr=1e-3, 35 epochs), `top_lgatr` (Lion, lr=3e-4, wd=0.2), `top_particlenet` (lr=1e-2)
-— or point them at `tag_gtagger_and_friends_default` to put them on the same budget.
+— or point them at `tag_gts_and_friends_default` to put them on the same budget.
 
 ---
 
@@ -130,14 +130,14 @@ range test under the *training config's* optimizer + param-group ratios (but wit
 weight-decay and grad-clipping switched off for the sweep — they'd only mask the
 divergence) and reports a robust `loss-min/10` peak LR — a safe peak for the
 warmup→cosine schedule (it never builds the scheduler; it ramps the LR by hand from 1e-7). The default training
-is now `tag_gtagger_and_friends_default` (AdamW, clip=1.0, wd=0.01), so for the GT
+is now `tag_gts_and_friends_default` (AdamW, clip=1.0, wd=0.01), so for the GT
 hybrids you sweep with nothing extra. Pass `training=<recipe>` only to match a
 *different* optimizer — the LR scale is optimizer-specific, so a Lion baseline (e.g.
 `training=top_transformer`) must be swept under Lion. `find_lr.py` now defaults to the real `config/` tree
 (full data); add `data.dataset=mini` for a quick trial.
 
 ```bash
-# LR only (default training is the shared AdamW gtagger recipe)
+# LR only (default training is the shared AdamW gts-and-friends recipe)
 python find_lr.py -cn toptagging model=tag_CGENNLGATrGraphGPS save=false
 
 # on a GPU: fit the batch size first, then sweep the LR at that size
@@ -157,7 +157,7 @@ a longer sweep biases the suggestion lower, it doesn't sharpen it).
 **Weight decay.** No automated finder — it can't be range-tested like the LR (its
 effect emerges over a full run), so sweep `weight_decay=0,0.01,0.05` (Hydra multirun)
 on one model and apply the winner to all. The GT hybrids ship a shared
-**`weight_decay: 0.01`** (AdamW) in `tag_gtagger_and_friends_default`; one value for
+**`weight_decay: 0.01`** (AdamW) in `tag_gts_and_friends_default`; one value for
 the whole family keeps the comparison about architecture. With decoupled decay on
 normalized weights it acts mostly as an effective-LR / weight-norm knob
 (scale-invariant), so a single value is fair across GNN and transformer parts alike;
@@ -169,7 +169,7 @@ Lion's decay also scales with LR, so the L-GATr (`wd=0.2`, lr=3e-4) and slim
 
 **Budget / epochs.** Early stopping is on (`es_patience`), so the iteration count
 is an upper bound — but its patience is large, so in practice the budget *is* the
-cap. The GT hybrids encode the fair choice in `tag_gtagger_and_friends_default`:
+cap. The GT hybrids encode the fair choice in `tag_gts_and_friends_default`:
 **epochs=20** (equal data exposure — derived per model as `epochs × batches_per_epoch`,
 not one model's ad-hoc 20-epochs / 200k-iters) and **validate once per epoch** so
 best-val checkpointing has equal granularity across the family. Check the val curve
@@ -234,7 +234,7 @@ float64), and LLoCa-frame invariance for the canonicalized ones under a learned
 
 ## 10. Gotchas
 
-- **The default training recipe** (`tag_gtagger_and_friends_default`, AdamW) now
+- **The default training recipe** (`tag_gts_and_friends_default`, AdamW) now
   fits the new models — just set an LR/batchsize from `find_lr.py` (§5/§6). Baselines
   still need their own `training=top_<baseline>` (e.g. Lion for the transformer).
 - **`use_float64`** is `false` in production (float32); the equivariance tests flip
