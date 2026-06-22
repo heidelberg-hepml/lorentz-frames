@@ -57,11 +57,25 @@ class TaggerWrapper(nn.Module):
         batch = get_batch_from_ptr(ptr)
         jet_p = scatter(fourmomenta, batch, dim=0, reduce="sum")  # (B, 4): jet four-momentum
         jet_p = fn.mass_regularize(jet_p)
-        vecs = fn.equivectors(fn.mass_regularize(fourmomenta), scalars=scalars, ptr=ptr)
+        # set-level equivectors (e.g. pelican) require num_graphs; the main framesnet path
+        # passes it, so mirror that here (B events for these no-spurion particles).
+        vecs = fn.equivectors(
+            fn.mass_regularize(fourmomenta),
+            scalars=scalars,
+            ptr=ptr,
+            num_graphs=ptr.numel() - 1,
+        )
         vecs = scatter(vecs, batch, dim=0, reduce="mean")  # (B, n_vectors, 4) per event
         # time axis = jet momentum; spatial orientation from the (covariant) equivectors
         vecs = torch.cat([jet_p.unsqueeze(1), vecs[:, :2]], dim=1)  # (B, 3, 4)
-        trafo = orthogonalize_4d(vecs, **fn.ortho_kwargs)  # (B, 4, 4)
+        # jet_frames always uses the 4d orthogonalizer, but reuses the framesnet's
+        # ortho_kwargs. The PD-family framesnets (LearnedPD/SO3/Rest/SO2/Z) key the coplanar
+        # regulator as `eps_reg` -- the name their internal orthogonalize_3d expects -- whereas
+        # orthogonalize_4d names it `eps_reg_coplanar`. Translate so any framesnet works here.
+        ortho_kwargs = dict(fn.ortho_kwargs)
+        if "eps_reg" in ortho_kwargs:
+            ortho_kwargs.setdefault("eps_reg_coplanar", ortho_kwargs.pop("eps_reg"))
+        trafo = orthogonalize_4d(vecs, **ortho_kwargs)  # (B, 4, 4)
         return Frames(trafo.to(fourmomenta.dtype))
 
     def init_standardization(self, fourmomenta, ptr, reduce_size=None):
