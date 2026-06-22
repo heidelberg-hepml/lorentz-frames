@@ -7,15 +7,17 @@ net:
   in_s_channels: null           # init_physics -> extra_scalars + tagging features
   # num_classes is supplied by the wrapper at call time (= out_channels)
 
-  # dual-stream hidden widths (4-vectors + scalars)
-  hidden_v_channels: 16
-  hidden_s_channels: 32
+  # dual-stream hidden widths -- option A: one shared dim_h for the GNN + attention (as in the
+  # official GraphGPS). Set to the slim transformer's widths (tag_slim 96/32); the LorentzNet GNN
+  # rides this shared width too. (Towards-transformer; a midpoint ~84/24 is the alternative.)
+  hidden_v_channels: 32
+  hidden_s_channels: 96
 
   # interleaved equivariant GPS layers (LorentzNet edge conv local + slim attn global)
   num_blocks: 10
   num_heads: 8
   attn_ratio: 1
-  mlp_ratio: 2
+  mlp_ratio: 4                  # slim's mlp_ratio (tag_slim); lgatr lib default is 2
   num_layers_mlp: 2
   nonlinearity: gelu
   dropout_prob: null
