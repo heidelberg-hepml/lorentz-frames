@@ -309,6 +309,9 @@ class LorentzNetLGATrSlimGraphTrans(nn.Module):
         hidden_s_channels=32,
         num_blocks=10,
         num_heads=8,
+        mlp_ratio=2,
+        attn_ratio=1,
+        num_layers_mlp=2,
     ):
         super().__init__()
         if knn_metric not in ("minkowski", "deltaR"):
@@ -386,6 +389,9 @@ class LorentzNetLGATrSlimGraphTrans(nn.Module):
             hidden_s_channels=hidden_s_channels,
             num_blocks=num_blocks,
             num_heads=num_heads,
+            mlp_ratio=mlp_ratio,
+            attn_ratio=attn_ratio,
+            num_layers_mlp=num_layers_mlp,
         )
 
     @torch.jit.ignore

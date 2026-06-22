@@ -24,11 +24,15 @@ net:
   # global CLS token for classification
   global_token: true
 
-  # L-GATr-slim transformer
-  hidden_v_channels: 16
-  hidden_s_channels: 32
+  # L-GATr-slim transformer -- widths match the standalone slim (tag_slim: hidden_s=96,
+  # hidden_v=32, mlp_ratio=4); num_blocks kept at the shared 10 (slim uses 12).
+  hidden_v_channels: 32
+  hidden_s_channels: 96
   num_blocks: 10
   num_heads: 8
+  mlp_ratio: 4
+  attn_ratio: 1
+  num_layers_mlp: 2
 
 defaults:
   - framesnet: identity
