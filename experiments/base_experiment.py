@@ -777,6 +777,7 @@ class BaseExperiment:
         if self.cfg.training.scheduler in [
             "OneCycleLR",
             "CosineAnnealingLR",
+            "CosineAnnealingWarmup",
             "CosineAnnealingWarmRestarts",
         ]:
             self.scheduler.step()
