@@ -219,16 +219,17 @@ For 3 seeds of a model: launch the run, then warm-start it twice more (same
 ## 9. Tests
 
 ```bash
-pytest tests/experiments/test_tag_equivariance.py -q   # invariance (24 cases)
+pytest tests/experiments/test_tag_equivariance.py -q   # invariance (32 cases)
 pytest tests/experiments/test_tag_flops.py -q -s       # FLOPs + param counts
 ```
 
 `test_tag_equivariance.py` asserts three properties on the `config_quick` models:
 azimuthal invariance for every hybrid (Minkowski kNN), full SO(3)/Lorentz
 invariance for the internally-equivariant ones (spurions off, fully connected,
-float64), and LLoCa-frame invariance for the canonicalized ones under a learned
-`learnedso13` frame. Run these locally as your gate — CI does not pick up
-`tests/experiments/`.
+float64), and LLoCa-frame invariance for the canonicalized ones under both learned
+frames (`learnedpd` and `learnedso13`; `learnedpd` carries a looser float64 bound for
+its polar-decomposition boost-precision floor). Run these locally as your gate — CI does
+not pick up `tests/experiments/`.
 
 ---
 
