@@ -144,6 +144,52 @@ exposed above. If a reviewer wants the negative result demonstrated, a LapPE nod
       The residual difference is *deliberate* (avoids a double residual), but the dropout is dropped as a
       side effect. No-op at the default `dropout_prob=0`, so it only matters if dropout is enabled — decide
       whether the four local branches should match.
+
+### Pre-publication audit (session: jet_frames + GT-family sanity sweep)
+
+Training-readiness verified across all 8 GT hybrids (real `config/`): forward + backward + AdamW step
+crash-free; param counts 1.16–2.53M (LorentzNet 1.83/2.46M, CGENN GNN 248k — the earlier fixes held);
+**zero dead input channels** in either the four-momentum path or the 7 `tagging_features` (the general
+form of the CGENN `node_attr` check — CGENN comes back balanced). PDFrames runs end-to-end on the 4
+non-equivariant hybrids (Plain × {Trans, GPS}, ParticleNet-ParT × {Trans, GPS}); the 4 internally-equivariant
+hybrids (CGENN, LorentzNet) **assert `IdentityFrames`** by design (`self.framesnet = framesnet  # not actually
+used`; `IdentityFrames` is 0-param and never referenced — a perfect no-op). The `/20` momentum rescale is
+inherited from the standalone references (equivariant backbones rescale manually; non-equivariant ones
+canonicalize via `TaggerWrapper` + BatchNorm). Equivariance 32/32 (both frames), `test_amplitudes` fixed,
+training smoke (`PlainGraphTrans + learnedpd`) ran end-to-end through evaluation.
+
+- [ ] **`torch.cuda.amp.autocast(...)` deprecation in 4 active baseline files** (plaingraphtrans.py:285,
+      plaingraphgps.py:322, particlenetpartgraphgps.py:223, particlenettransformer.py:792; mipart.py
+      has 2 more in commented-out code). `FutureWarning` today, error in some future torch. Mechanical
+      migration to `torch.amp.autocast('cuda', ...)`; will not change current numerics.
+- [ ] **ParT-GPS mixed-type attention mask deprecation** at particlenetpartgraphgps.py:115 — float
+      `attn_mask=attn_bias` paired with bool `key_padding_mask` triggers torch's "mismatched
+      key_padding_mask and attn_mask is deprecated" warning. Functionally correct today (padding still
+      goes to −∞); future-fatal. Fix: merge the bool padding mask into the float bias (`bias.masked_fill(pad, -inf)`)
+      and pass a single float `attn_mask`.
+- [ ] **`xformers` env note for the SLURM target** — the installed wheel must match the cluster's
+      torch+python or the L-GATr `lgatr` equivectors silently fall back / fail to load (this is the same
+      class as the 9 environment-only FLOPs failures in this dev container). Pin a known-good
+      (torch, xformers) pair in `docs/SLURM.md` under the install step; matters only for runs that
+      actually use `lgatr` equivectors.
+- [ ] **Precision-floor note for the paper** — `learnedpd` carries a higher boost-precision floor than
+      `learnedso13` (float64, polar decomposition divides by energy). Measured at ~1e-4 absolute (kNN, 10
+      boosts) on the GT hybrids — far below any true symmetry break and consistent with the standalone
+      baselines (ParT ~1e-4, ParticleNet ~1e-7 same conditions). The test file already encodes per-frame
+      tolerances; one sentence in the methods section would head off reviewer questions.
+
+- [x] **jet_frames lloca-compat fix** — `TaggerWrapper.jet_frames` always uses the 4d orthogonalizer
+      but reused the framesnet's `ortho_kwargs` (which the PD family keys as `eps_reg`, the 3d name).
+      Translate the key for the 4d call so any framesnet works.
+- [x] **jet_frames missing `num_graphs`** — set-level equivectors (`pelican`) need it; mirror the main
+      framesnet path. `equimlp` absorbs it via `**kwargs`.
+- [x] **`test_tag_equivariance.py::test_lloca_frame_invariance`** now parametrizes over both `learnedpd`
+      and `learnedso13` (LLoCa's recommended default is PD; `so13` was the only frame tested before, which
+      hid the jet_frames bug). Per-frame tolerances (`so13` ≤ 1e-3, `pd` ≤ 2e-2) — 16/16.
+- [x] **`test_tag_invariance.py::test_amplitudes`** had a stale config key (`data.tagging_features_framesnet=null`,
+      removed upstream by `f08f7df`/`a45da1b`) — every case failed at config composition before any model ran,
+      so the baseline-under-frames check was silently dead. Aligned to `data.tagging_features=null`; 16/16.
+
 - [ ] **LorentzNet GraphGPS never zeroes padded slots between its layers** (only at the final pool), so the
       shared `LorentzNetKNNBlock`'s BatchNorms accumulate over nonzero padded state across the 10 layers
       (GraphTrans zeroes after its GNN stack). Logits are unaffected (readout is masked) but BN running
