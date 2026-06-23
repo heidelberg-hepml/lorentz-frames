@@ -154,10 +154,13 @@ def test_full_group_invariance(model, full_group_off, transform):
 # ---------------------------------------------------------------------------
 # 3. LLoCa frame invariance of the non-equivariant backbones
 # ---------------------------------------------------------------------------
-# A learned SO(1,3) frame canonicalizes every particle, so the kNN graph and all
-# features are frame-invariant and the (non-equivariant) backbone becomes Lorentz
-# invariant. Beam/time references and the global tagging features are switched off
-# so nothing else breaks the symmetry; learned frames run in float64.
+# A learned local frame -- LLoCa's default polar decomposition (learnedpd) or the
+# orthonormal SO(1,3) tetrad (learnedso13) -- canonicalizes every particle, so the kNN
+# graph and all features are frame-invariant and the (non-equivariant) backbone becomes
+# Lorentz invariant. Both frame families are exercised because they feed jet_frames
+# different ortho_kwargs (learnedpd: eps_reg -> the 3d name; learnedso13: eps_reg_coplanar).
+# Beam/time references and the global tagging features are switched off so nothing else
+# breaks the symmetry; learned frames run in float64.
 #
 # The ParticleNet-ParT hybrids now do genuine LLoCa tensorial message-passing (neighbours
 # transported in the EdgeConv, q/k/v transported in the attention), so this pins down the
@@ -174,13 +177,26 @@ CANONICALIZED_MODELS = [
 ]
 
 
+# Per-frame float64 tolerance: (rtol, atol, bound). learnedso13 builds the frame by direct
+# 4d orthonormalization and transports near-exactly (~1e-6). learnedpd's polar decomposition
+# divides by energy in the rest-frame boost, so boosts amplify rounding and the per-edge
+# transport accumulates a higher floor (worse with more edges; ~5e-3 fully connected). Both
+# are exact in real arithmetic; the looser learnedpd bound still catches any true break
+# (those are O(0.1-1), far above the floor).
+FRAME_TOL = {
+    "learnedso13": (1e-4, 1e-4, 1e-3),
+    "learnedpd": (1e-2, 1e-2, 2e-2),
+}
+
+
 @pytest.mark.parametrize("model,extra", CANONICALIZED_MODELS)
+@pytest.mark.parametrize("framesnet", ["learnedpd", "learnedso13"])
 @pytest.mark.parametrize("transform", ["rotation", "lorentz"])
-def test_lloca_frame_invariance(model, transform, extra):
+def test_lloca_frame_invariance(model, transform, extra, framesnet):
     exp = _build(
         [
             f"model={model}",
-            "model/framesnet=learnedso13",
+            f"model/framesnet={framesnet}",
             "use_float64=true",
             "data.tagging_features=null",
             "data.beam_reference=null",
@@ -189,7 +205,10 @@ def test_lloca_frame_invariance(model, transform, extra):
         ]
     )
     data = next(iter(exp.train_loader))
+    rtol, atol, bound = FRAME_TOL[framesnet]
     max_dev = check_tagging_invariance(
-        exp, data, transform=transform, num_checks=5, rtol=1e-4, atol=1e-4
+        exp, data, transform=transform, num_checks=5, rtol=rtol, atol=atol
     )
-    assert max_dev < 1e-3, f"{model}: LLoCa frame not {transform} invariant (max dev {max_dev:.2e})"
+    assert max_dev < bound, (
+        f"{model}/{framesnet}: LLoCa frame not {transform} invariant (max dev {max_dev:.2e})"
+    )
