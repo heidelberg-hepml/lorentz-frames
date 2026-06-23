@@ -987,12 +987,13 @@ class CGENNLGATrGraphGPSWrapper(nn.Module):
 class ParticleNetParTGraphTransWrapper(TaggerWrapper):
     """Wrapper for the ParticleNet-ParT graph-transformer hybrid.
 
-    Like ParTWrapper / ParticleNetWrapper, this is a non-equivariant backbone
-    that is made Lorentz-equivariant through LLoCa input canonicalization:
-    TaggerWrapper expresses every particle in its learned local frame, and the
-    (frame-agnostic) backbone then operates on those canonicalized features. With
-    IdentityFrames this reduces to the plain baseline in the global frame, and any
-    learned framesnet is supported through the shared TaggerWrapper machinery.
+    Non-equivariant, made Lorentz-equivariant by LLoCa tensorial message-passing
+    (matching the library), exactly like the other GraphTrans/GPS wrappers: the inputs
+    are canonicalized and the per-particle frames are passed into the backbone, which
+    transports the EdgeConv neighbours and the attention q/k/v between frames. With
+    IdentityFrames the transport is a no-op and this reduces to the plain baseline in the
+    global frame; any learned framesnet is supported through the shared TaggerWrapper
+    machinery.
 
     The backbone differs from the rest of the repo only in its conventions: it is
     channels-first (N, C, P), expects four-momenta as (px, py, pz, E) rather than
