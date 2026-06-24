@@ -1,4 +1,4 @@
-<bold>RENAME/REDO</bold>
+<b>RENAME/REDO</b>
 <br>
 <div align="center">
 
