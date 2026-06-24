@@ -158,6 +158,15 @@ class BaseExperiment:
                 broadcast_buffers=False,
                 find_unused_parameters=False,  # might have to turn this on for some models
             )
+#syncs gradients across multiple gpus using DDP for non identity frames
+            if any(p.requires_grad for p in self.model.framesnet.parameters()):
+            self.model.framesnet = torch.nn.parallel.DistributedDataParallel(
+                self.model.framesnet,
+                device_ids=[self.rank],
+                output_device=self.rank,
+                broadcast_buffers=False,
+                find_unused_parameters=False,
+            )
 
     def _init(self):
         run_name = self._init_experiment()
