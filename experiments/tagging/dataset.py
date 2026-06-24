@@ -71,7 +71,7 @@ class TopTaggingDataset(TaggingDataset):
         self.data_list = []
         for i in range(kinematics.shape[0]):
             # drop zero-padded components
-            mask = (kinematics[i, ...].abs() > EPS).all(dim=-1)
+            mask = (kinematics[i, ...].abs() > EPS).any(dim=-1)
             fourmomenta = kinematics[i, ...][mask]
             label = labels[i, ...]
             scalars = torch.zeros(
