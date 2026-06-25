@@ -25,7 +25,7 @@ python data/collect_data.py toptagging
 Smoke-test the install on the tiny datasets shipped under `data/` (no GPU needed):
 
 ```bash
-pytest tests/experiments/test_tag_equivariance.py -q     # 24 invariance checks
+pytest tests/experiments/test_tag_equivariance.py -q     # 32 invariance checks
 python run.py -cp config_quick -cn toptagging save=false # one quick training
 ```
 
@@ -152,7 +152,11 @@ power of two for headroom), then prints the batch size and LR, e.g.
 `-> reuse with: training.batchsize=2048 training.lr=3.1e-04`. Verify the batch size
 with a short real run first (it probes one batch, and jets vary in size). Knobs:
 `+lr_find.{bs_start,bs_max,bs_safety,num_iter,end_lr}` — keep `num_iter` short (~300;
-a longer sweep biases the suggestion lower, it doesn't sharpen it).
+a longer sweep biases the suggestion lower, it doesn't sharpen it). For models that expose a
+`knn_metric`, the sweep pins **`deltaR`** by default so the suggested LRs are comparable across
+the family (the LR scale is metric-independent — the model still *trains* under its own
+configured metric); pass `+lr_find.force_knn_metric=keep` to sweep each model's own metric
+instead (or `=minkowski` to pin that).
 
 **Weight decay.** No automated finder — it can't be range-tested like the LR (its
 effect emerges over a full run), so sweep `weight_decay=0,0.01,0.05` (Hydra multirun)
@@ -206,9 +210,10 @@ touch xformers in the framesnet.
   the run directory, and appends to `runs/<exp>/<run>/table_metrics_*.json`). The
   final row then reads `… (iters) [N trials] & $acc ± σ$ & …`.
 - **Different models do *not* merge** into one table — each lands in its own run
-  directory with its own row. To build a comparison table, collect the printed
-  `table test:` lines from each run's log (`grep "table test:" runs/*/*/out_0.log`)
-  and paste the LaTeX rows together.
+  directory with its own row. To build a comparison table, run
+  `python aggregate_table.py --runs runs --split test --out comparison.tex` (it collects each
+  run's row into one LaTeX table; its `COLUMNS` includes `frames` and `kNN`), or do it by hand
+  from the printed `table test:` lines (`grep "table test:" runs/*/*/out_0.log`).
 
 For 3 seeds of a model: launch the run, then warm-start it twice more (same
 `exp_name`/`run_name`). For the heavy `CGENNLGATrGraphGPS` (~4.5e11 FLOPs/jet,

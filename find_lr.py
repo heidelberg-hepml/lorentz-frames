@@ -106,8 +106,9 @@ DEFAULTS = dict(
     output="lr_finder.png",
     # pin the kNN graph metric for the sweep when the model exposes a `knn_metric` choice
     # (no-op for models without one). The lr SCALE is fixed by the optimizer/batchsize/amp,
-    # not the graph metric, so we pin the cheaper, more-stable 'deltaR' for a clean,
-    # model-comparable curve. Set to 'keep' to retain each model's own configured metric.
+    # not the graph metric, so pinning one metric only makes the suggested lr comparable
+    # across models -- the model still TRAINS under its own configured metric. 'deltaR' is the
+    # default pin (every model can build it); set 'keep' to sweep each model's own metric.
     force_knn_metric="deltaR",
     # optional GPU batch-size search (CUDA only; no-op on CPU)
     find_batch_size=False,
@@ -354,12 +355,12 @@ def main(cfg):
         params.update({k: v for k, v in overrides.items() if v is not None})
 
     # Pin the kNN graph metric for the sweep when the model exposes one. GT/hybrid models carry
-    # `model.net.knn_metric` ('deltaR' = eta-phi L2, 'minkowski' = 4-momenta); models without it
-    # (ParT, transformer, ...) are untouched. The lr SCALE is set by the optimizer + batchsize +
-    # amp, not the graph metric, so pinning 'deltaR' gives a clean, model-comparable curve whose
-    # suggested lr still transfers to a run trained under 'minkowski'. The wrappers always build the
-    # (eta, phi) points, so flipping to 'deltaR' is input-safe. Pass +lr_find.force_knn_metric=keep
-    # to retain the model's own metric (or =minkowski to sweep that instead).
+    # `model.net.knn_metric` ('deltaR' = eta-phi L2, 'minkowski' = Lorentz interval); models
+    # without it (ParT, transformer, ...) are untouched. The lr SCALE is set by the optimizer +
+    # batchsize + amp, not the graph metric, so pinning one metric only makes the suggested lr
+    # comparable across models -- the model still trains under its own configured metric. The
+    # wrappers always build the (eta, phi) points, so pinning 'deltaR' is input-safe. Pass
+    # +lr_find.force_knn_metric=keep to sweep each model's own metric (or =minkowski to pin that).
     forced_metric = params["force_knn_metric"]
     if isinstance(forced_metric, str) and forced_metric.lower() in ("keep", "none", "off", ""):
         forced_metric = None
