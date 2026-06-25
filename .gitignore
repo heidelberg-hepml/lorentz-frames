@@ -23,4 +23,4 @@ data/jetclass/
 *.ipynb_checkpoint*
 
 # find_lr.py default outputs (plot; the .npz is already covered above)
-lr_finder.png
+lr_finder_*.png
