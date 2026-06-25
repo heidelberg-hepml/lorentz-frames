@@ -179,6 +179,13 @@ class TaggingExperiment(BaseExperiment):
             self.model.init_standardization(embedding["fourmomenta"], embedding["ptr"])
 
     def _init_optimizer(self, param_groups=None):
+        # ParT/weaver weight-decay grouping. Its ONLY effect beyond the base default
+        # (base_experiment._init_optimizer) is excluding the learnable CLS token(s) from
+        # weight decay via net.no_weight_decay() -- the base already exempts norms/biases
+        # (ndim<=1) and groups the framesnet (even splitting its biases off). So only models
+        # with a class token (a non-empty no_weight_decay()) belong here. The mean-pool
+        # GraphGPS models have none -- CGENN/LorentzNet GPS return set() and the plain/PNet
+        # GPS define no such method -- so they correctly fall through to the base default.
         if self.cfg.model.net._target_.rsplit(".", 1)[-1] in [
             "ParticleTransformer",
             "MIParticleTransformer",
@@ -186,8 +193,6 @@ class TaggingExperiment(BaseExperiment):
             "LorentzNetLGATrSlimGraphTrans",
             "CGENNLGATrGraphTrans",
             "PlainGraphTrans",
-            "PlainGraphGPS",
-            "ParticleNetParTGraphGPS",
         ]:
             # special treatment for ParT, see
             # https://github.com/hqucms/weaver-core/blob/dev/custom_train_eval/weaver/train.py#L464
