@@ -97,10 +97,21 @@ def knn(x, k, metric='deltaR', mask=None):
             pairwise_distance = pairwise_distance.masked_fill(~mask.bool().unsqueeze(1), float('-inf'))
         idx = pairwise_distance.topk(k=k, dim=-1)[1]
     else:
-        # 'deltaR': L2 on the supplied coordinates (e.g. (eta, phi))
-        inner = -2 * torch.matmul(x.transpose(2, 1), x)
-        xx = torch.sum(x ** 2, dim=1, keepdim=True)
-        pairwise_distance = -xx - inner - xx.transpose(2, 1)
+        # 'deltaR': squared-L2 on the supplied coordinates. A 2-channel input is the
+        # (eta, phi) points, whose azimuth is PERIODIC: the true particle-particle distance
+        # is the shorter arc, so wrap d_phi into [0, pi] before the L2 (a pair straddling the
+        # +/-pi seam is adjacent, not ~2*pi apart). Higher-dim deltaR is a feature-space
+        # graph (ordinary Euclidean) -> keep the plain gram L2.
+        if x.size(1) == 2:
+            eta, phi = x[:, 0, :], x[:, 1, :]
+            deta = eta[:, :, None] - eta[:, None, :]
+            dphi = (phi[:, :, None] - phi[:, None, :]).abs()
+            dphi = torch.minimum(dphi, 2 * torch.pi - dphi)
+            pairwise_distance = -(deta ** 2 + dphi ** 2)
+        else:
+            inner = -2 * torch.matmul(x.transpose(2, 1), x)
+            xx = torch.sum(x ** 2, dim=1, keepdim=True)
+            pairwise_distance = -xx - inner - xx.transpose(2, 1)
         if mask is not None:
             eye = torch.eye(num_points, dtype=torch.bool, device=x.device).unsqueeze(0)
             pairwise_distance = pairwise_distance.masked_fill(
