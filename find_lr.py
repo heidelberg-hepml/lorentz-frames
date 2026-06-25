@@ -47,6 +47,10 @@ Pass `save=false` so no run directory is created. Tune the sweep on the CLI unde
     +lr_find.skip_start=5    points dropped from the start          (default 5)
     +lr_find.skip_end=5      points dropped from the end            (default 5)
     +lr_find.output=lr_finder.png   plot path                       (default lr_finder.png)
+    +lr_find.force_knn_metric=deltaR  pin the kNN metric for models that have one (default
+                                    'deltaR'; 'keep' uses the model's own, 'minkowski' sweeps that).
+                                    The lr scale is metric-independent, so the suggestion still
+                                    transfers to a run trained under the model's configured metric.
 
 On a GPU you can also auto-size the batch first, then sweep the lr at that size
 (so the suggested lr matches the regime you will train in):
@@ -100,6 +104,11 @@ DEFAULTS = dict(
     skip_start=10,
     skip_end=5,
     output="lr_finder.png",
+    # pin the kNN graph metric for the sweep when the model exposes a `knn_metric` choice
+    # (no-op for models without one). The lr SCALE is fixed by the optimizer/batchsize/amp,
+    # not the graph metric, so we pin the cheaper, more-stable 'deltaR' for a clean,
+    # model-comparable curve. Set to 'keep' to retain each model's own configured metric.
+    force_knn_metric="deltaR",
     # optional GPU batch-size search (CUDA only; no-op on CPU)
     find_batch_size=False,
     bs_start=16,       # smallest batchsize tried
@@ -343,7 +352,26 @@ def main(cfg):
     if lr_find is not None:
         overrides = OmegaConf.to_container(lr_find, resolve=True)
         params.update({k: v for k, v in overrides.items() if v is not None})
- 
+
+    # Pin the kNN graph metric for the sweep when the model exposes one. GT/hybrid models carry
+    # `model.net.knn_metric` ('deltaR' = eta-phi L2, 'minkowski' = 4-momenta); models without it
+    # (ParT, transformer, ...) are untouched. The lr SCALE is set by the optimizer + batchsize +
+    # amp, not the graph metric, so pinning 'deltaR' gives a clean, model-comparable curve whose
+    # suggested lr still transfers to a run trained under 'minkowski'. The wrappers always build the
+    # (eta, phi) points, so flipping to 'deltaR' is input-safe. Pass +lr_find.force_knn_metric=keep
+    # to retain the model's own metric (or =minkowski to sweep that instead).
+    forced_metric = params["force_knn_metric"]
+    if isinstance(forced_metric, str) and forced_metric.lower() in ("keep", "none", "off", ""):
+        forced_metric = None
+    current_metric = OmegaConf.select(cfg, "model.net.knn_metric", default=None)
+    if forced_metric is not None and current_metric is not None and current_metric != forced_metric:
+        with open_dict(cfg):
+            cfg.model.net.knn_metric = forced_metric
+        LOGGER.info(
+            f"LR sweep: forcing model.net.knn_metric '{current_metric}' -> '{forced_metric}' "
+            f"(metric-independent lr scale; +lr_find.force_knn_metric=keep to retain '{current_metric}')."
+        )
+
     exp = build_experiment(cfg)
 
     # optional: size the batch to the GPU before the lr sweep, then sweep at that
