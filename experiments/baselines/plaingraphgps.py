@@ -32,11 +32,18 @@ sequential) and nothing else:
     head-to-head; turning it on is the "physically-motivated relative PE" ablation;
   * ``use_rwse`` -- Random-Walk Structural Encoding (return probabilities of
     length-1..``rwse_k`` walks on the static kNN graph) concatenated to the node
-    inputs. This is the only PE/SE that stays a Lorentz invariant when the graph
-    is invariant (e.g. minkowski kNN); LapPE is permissible but unmotivated. Jet
-    constituents are never anonymous nodes, so PE/SE is not expected to help here
-    -- it is provided purely for ablation. (In a *dynamic*-graph model that rebuilds
-    the kNN graph each layer, RWSE would have to be recomputed per layer.)
+    inputs. A local SE that stays a Lorentz invariant when the graph is invariant
+    (e.g. minkowski kNN). (In a *dynamic*-graph model that rebuilds the kNN graph
+    each layer it would have to be recomputed per layer.)
+  * ``use_lappe`` -- LapPE: the lowest ``lappe_k`` non-trivial eigenvectors of the
+    static-kNN normalized Laplacian, sign-flipped in training (GraphGPS's global PE,
+    the one it found most useful on molecules). The *least* motivated encoding for
+    jets -- it manufactures absolute node position that constituents already carry as
+    (eta, phi), and it tracks the *invented* graph rather than the physics; it is also
+    O(B*P^3) per forward (no preprocessing cache). Provided for faithful ablation.
+
+  Jet constituents are never anonymous nodes, so PE/SE is not expected to help here;
+  both ``use_rwse`` and ``use_lappe`` are OFF by default and provided purely for ablation.
   * ``norm`` -- 'batch' (default) or 'layer'. GraphGPS uses BatchNorm in every
     one of its 59 dataset configs (the ``gt.batch_norm`` flag; ``gt.layer_norm``
     is never True), so 'batch' is the faithful default; here it is applied over
@@ -80,6 +87,12 @@ def minkowski_edge_attr(v, idx, eps=1e-8):
     v: (B, 4, P) as (px, py, pz, E); idx: (B, P, K). Returns (B, 1, P, K). This is
     the physically-motivated, frame-invariant relative encoding GraphGPS's local
     MPNN can consume in place of PE/SE (toggle ``use_edge_attr``).
+
+    Not a GraphGPS construct -- it is a spiritual sibling of ParT's pairwise
+    interaction features (specifically the pair invariant-mass term of the U_ij
+    attention bias), routed through the MPNN edge channel instead of the attention
+    logits; it stands in for the (molecular) edge features GraphGPS's local MPNN
+    consumes, which a jet has none of.
     """
     nbr = gather_neighbors(v, idx)            # (B, 4, P, K)
     psum = v.unsqueeze(-1) + nbr              # (B, 4, P, K), center broadcast over K
@@ -110,6 +123,46 @@ def rwse_encoding(idx, mask_p, k):
         out.append(torch.diagonal(Mp, dim1=1, dim2=2))       # (B, P): return prob this step
         Mp = torch.bmm(Mp, M)
     return torch.stack(out, dim=-1) * m.unsqueeze(-1)         # (B, P, k)
+
+
+def lappe_encoding(idx, mask_p, k, training=False):
+    """Laplacian-eigenvector positional encoding (LapPE) on the static kNN graph.
+
+    The k lowest non-trivial eigenvectors of the symmetric-normalized Laplacian
+    L = I - D^-1/2 A D^-1/2, computed per jet, with GraphGPS's random sign-flip in
+    training (LapPE eigenvectors are sign-ambiguous; SignNet is the heavier
+    sign-invariant alternative, not implemented here). idx: (B, P, K); mask_p: (B, P).
+    Returns (B, P, k) with padded nodes zeroed.
+
+    Padded nodes are decoupled with a large diagonal (3 > the normalized-Laplacian
+    spectrum max of 2) so they sort ABOVE the real spectrum -- their eigenvectors are
+    then zero on real nodes, and a jet with < k+1 real nodes just gets zero-padded
+    LapPE channels.
+
+    Largely UNMOTIVATED for jets (see the module docstring): LapPE manufactures absolute
+    node position, which jet constituents already carry as (eta, phi), and it is defined
+    on the *invented* kNN graph, so it tracks the graph you built rather than the physics.
+    It is also O(B*P^3) per forward (no cross-batch caching, unlike GraphGPS's
+    preprocessed PE). Provided as a faithful-GraphGPS ablation toggle only.
+    """
+    B, P, _ = idx.shape
+    m = mask_p.to(torch.float32)                              # (B, P)
+    A = torch.zeros(B, P, P, device=idx.device)
+    A.scatter_(2, idx, 1.0)
+    A = torch.maximum(A, A.transpose(1, 2)) * m.unsqueeze(1) * m.unsqueeze(2)
+    A.diagonal(dim1=1, dim2=2).zero_()
+    dinv = A.sum(-1).clamp(min=1.0).rsqrt()                   # (B, P): D^-1/2
+    eye = torch.eye(P, device=idx.device).expand(B, -1, -1)
+    L = eye - dinv.unsqueeze(2) * A * dinv.unsqueeze(1)       # sym-normalized Laplacian
+    L = L * m.unsqueeze(1) * m.unsqueeze(2)                   # zero padded rows/cols
+    L = L + torch.diag_embed((1.0 - m) * 3.0)                # padded diag -> 3 (decoupled)
+    evecs = torch.linalg.eigh(L)[1]                           # ascending eigenvalues
+    pe = evecs[..., 1:k + 1]                                  # drop trivial, take k lowest
+    if pe.shape[-1] < k:                                      # tiny event -> zero-pad channels
+        pe = torch.cat([pe, pe.new_zeros(B, P, k - pe.shape[-1])], dim=-1)
+    if training:                                             # GraphGPS sign-flip augmentation
+        pe = pe * (torch.randint(0, 2, (B, 1, k), device=idx.device) * 2 - 1).to(pe.dtype)
+    return pe * m.unsqueeze(-1)                               # (B, P, k)
 
 
 class MaskedNorm(nn.Module):
@@ -245,6 +298,8 @@ class PlainGraphGPS(nn.Module):
                  # positional/structural encoding (ablation; off by default)
                  use_rwse=False,
                  rwse_k=16,
+                 use_lappe=False,
+                 lappe_k=8,
                  # GPS layers
                  dim=128,
                  num_layers=10,
@@ -273,6 +328,8 @@ class PlainGraphGPS(nn.Module):
         self.use_edge_attr = use_edge_attr
         self.use_rwse = use_rwse
         self.rwse_k = rwse_k
+        self.use_lappe = use_lappe
+        self.lappe_k = lappe_k
         self.for_inference = for_inference
         self.use_amp = use_amp
         Act = _ACT[act]
@@ -285,7 +342,7 @@ class PlainGraphGPS(nn.Module):
             self.lloca_attn = LLoCaAttention(attn_reps_t, num_heads)
 
         self.bn_fts = nn.BatchNorm1d(input_dim) if use_fts_bn else None
-        enc_in = input_dim + (rwse_k if use_rwse else 0)
+        enc_in = input_dim + (rwse_k if use_rwse else 0) + (lappe_k if use_lappe else 0)
         self.node_encoder = nn.Linear(enc_in, dim)
 
         edge_dim = 1 if use_edge_attr else 0
@@ -337,6 +394,11 @@ class PlainGraphGPS(nn.Module):
             if self.use_rwse:
                 rwse = rwse_encoding(idx, mask_p, self.rwse_k).to(h_in.dtype)  # (B, P, rwse_k)
                 h_in = torch.cat([h_in, rwse], dim=-1)
+            if self.use_lappe:
+                lappe = lappe_encoding(
+                    idx, mask_p, self.lappe_k, training=self.training
+                ).to(h_in.dtype)                                              # (B, P, lappe_k)
+                h_in = torch.cat([h_in, lappe], dim=-1)
             h = self.node_encoder(h_in)                                       # (B, P, dim)
 
             node_mask = mask_p.unsqueeze(-1).to(h.dtype)                      # (B, P, 1)

@@ -18,8 +18,10 @@ net:
   # GraphGPS ingredients, OFF by default so PlainGraphGPS vs PlainGraphTrans
   # isolates the interleaved-vs-sequential fusion (see the module docstring):
   use_edge_attr: false          # on -> Minkowski edge invariant log|(p_i+p_j)^2| in the messages
-  use_rwse: false               # on -> Random-Walk Structural Encoding (PE/SE) on the kNN graph
+  use_rwse: false               # on -> Random-Walk Structural Encoding (local SE) on the kNN graph
   rwse_k: 4
+  use_lappe: false              # on -> LapPE (Laplacian-eigvec PE); least motivated for jets, O(B*P^3)
+  lappe_k: 4
 
   # interleaved GPS layers (tensorial local static-MPNN + LLoCa-tensorial torch-MHA)
   dim: 16
