@@ -223,7 +223,17 @@ class CGENNLGATrGraphGPS(nn.Module):
         ])
         self.final_norm = EquiLayerNorm()
 
-        # invariant head: extract_scalar(mv) + pooled scalars -> MLP -> logits
+        # invariant head: extract_scalar(mv) + pooled scalars -> MLP -> logits.
+        # NOTE: extract_scalar keeps only the grade-0 (scalar) part of each multivector; the
+        # higher grades are dropped at readout, and with them their own Lorentz invariants --
+        # the Minkowski norms of the vector (grade-1) and trivector (grade-3) parts, the two
+        # invariants of the bivector (grade-2), and the grade-4 pseudoscalar. This is the
+        # standard L-GATr scalar readout and is *correct* (invariant), and not lossy in
+        # principle -- the geometric products inside the blocks can route any needed invariant
+        # into grade-0 before this point. But a richer multivector readout is a valid option if
+        # you want those invariants directly: e.g. also feed the squared norms of the vector
+        # grade (and/or the pseudoscalar). The sibling LorentzNet-slim GPS head already does
+        # this -- it pools vector squared-norms alongside the scalars.
         head, d = [], hidden_mv_channels + hidden_s_channels
         for _ in range(head_layers):
             nd = max(d // 2, num_classes)
