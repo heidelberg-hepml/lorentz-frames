@@ -1184,7 +1184,7 @@ class CGENNLGATrGraphTrans(nn.Module):
         cls_mv[..., 0] = self.cls_mv_scalar.expand(B, 1, -1)
         cls_s = self.cls_s.expand(B, -1, -1)
         cls_mask = torch.ones(B, 1, device=device, dtype=torch.bool)
-
+#tests say no
         mv_out = torch.cat([cls_mv, mv_out], dim=1)
         s_out = torch.cat([cls_s, s_out], dim=1)
         mask = torch.cat([cls_mask, mask], dim=1)
