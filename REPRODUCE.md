@@ -224,15 +224,15 @@ https://arxiv.org/abs/2508.14898 Table 7
 # Architecture-level symmetry breaking
 python run.py -cp config -cn jctagging data.beam_reference=null data.add_time_reference=false # non-equivariant
 python run.py -cp config -cn jctagging data.beam_reference=null data.add_time_reference=false model/framesnet=learnedso2 # SO(2)
-python run.py -cp config -cn jctagging data.tagging_features_framesnet=zinvariant data.beam_reference=null data.add_time_reference=false model/framesnet=learnedz # SO(1,1)xSO(2)
-python run.py -cp config -cn jctagging data.tagging_features_framesnet=so3invariant data.beam_reference=null data.add_time_reference=false model/framesnet=learnedso3 # SO(3)
-python run.py -cp config -cn jctagging data.tagging_features_framesnet=null data.beam_reference=null data.add_time_reference=false model/framesnet=learnedpd # SO(1,3)
+python run.py -cp config -cn jctagging data.tagging_features=zinvariant data.beam_reference=null data.add_time_reference=false model/framesnet=learnedz # SO(1,1)xSO(2)
+python run.py -cp config -cn jctagging data.tagging_features=so3invariant data.beam_reference=null data.add_time_reference=false model/framesnet=learnedso3 # SO(3)
+python run.py -cp config -cn jctagging data.tagging_features=null data.beam_reference=null data.add_time_reference=false model/framesnet=learnedpd # SO(1,3)
 
 # Input-level symmetry breaking
 python run.py -cp config -cn jctagging model/framesnet=learnedpd data.beam_reference=all # non-equivariant
 python run.py -cp config -cn jctagging model/framesnet=learnedpd # SO(2)
-python run.py -cp config -cn jctagging model/framesnet=learnedpd data.tagging_features_framesnet=zinvariant data.add_time_reference=false # SO(1,1)xSO(2)
-python run.py -cp config -cn jctagging model/framesnet=learnedpd data.tagging_features_framesnet=so3invariant data.beam_reference=null # SO(3)
+python run.py -cp config -cn jctagging model/framesnet=learnedpd data.tagging_features=zinvariant data.add_time_reference=false # SO(1,1)xSO(2)
+python run.py -cp config -cn jctagging model/framesnet=learnedpd data.tagging_features=so3invariant data.beam_reference=null # SO(3)
 # SO(1,3) is the same as for 'architecture'
 ```
 
