@@ -13,7 +13,7 @@ from experiments.tagging.experiment import TopTaggingExperiment
 BREAKING = [
     "data.beam_reference=null",
     "data.add_time_reference=false",
-    "data.tagging_features_framesnet=null",
+    "data.tagging_features=null",
 ]
 
 
