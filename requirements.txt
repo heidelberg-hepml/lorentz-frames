@@ -31,5 +31,4 @@ uproot>=4.2.0,<5.2.0
 awkward>=1.8.0
 lz4
 xxhash
-wget #for getting the datasets, could upgrade to requests lib since it's effectively abandoned, original repo likely doesn't have it in requirements for that reason and since there are other ways to aquire datasets 
-# but imo it should be in requirements if its the repos sole way of getting the datasets and reproducing some of the results so here it is (plus I like to assume repos are plug and play)
+wget 
