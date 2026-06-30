@@ -30,6 +30,8 @@ python run.py -cp config_quick -cn ttbar save=false
 
 <span style="color:red">xformers on MacOS</span> The Transformer, LLoCa-Transformer and L-GATr taggers use xformers' `memory_efficient_attention` as attention backend, because it supports block-diagonal attention matrices that allow us to save a factor of ~2 of RAM usage compared to standard torch attention with zero-padding for different-length jets. Unfortunately, [xformers does not support MacOS anymore](https://github.com/facebookresearch/xformers/issues/775). As a Mac user, we recommend to run this code on a HPC cluster in an interactive session. Note that LLoCa/L-GATr taggers can also be used without xformers, but that requires modifying the data embedding and attention mask construction. If you want to run just amplitude regression or event generation, it should be possible to just comment out the xformers imports in `experiments/`.
 
+<span style="color:red">Multi-GPU not supported</span> This repo implements multi-GPU / DDP runs only in a partial way, and we do not recommend to use this feature. We will release a new repo that supports DDP properly in July 2026.
+
 ### 2) Collect datasets
 
 - Amplitude regression: Download from https://zenodo.org/records/16793011; set `data.data_path` in `config/amplitudesxl.yaml`
@@ -224,15 +226,15 @@ https://arxiv.org/abs/2508.14898 Table 7
 # Architecture-level symmetry breaking
 python run.py -cp config -cn jctagging data.beam_reference=null data.add_time_reference=false # non-equivariant
 python run.py -cp config -cn jctagging data.beam_reference=null data.add_time_reference=false model/framesnet=learnedso2 # SO(2)
-python run.py -cp config -cn jctagging data.tagging_features_framesnet=zinvariant data.beam_reference=null data.add_time_reference=false model/framesnet=learnedz # SO(1,1)xSO(2)
-python run.py -cp config -cn jctagging data.tagging_features_framesnet=so3invariant data.beam_reference=null data.add_time_reference=false model/framesnet=learnedso3 # SO(3)
-python run.py -cp config -cn jctagging data.tagging_features_framesnet=null data.beam_reference=null data.add_time_reference=false model/framesnet=learnedpd # SO(1,3)
+python run.py -cp config -cn jctagging data.tagging_features=zinvariant data.beam_reference=null data.add_time_reference=false model/framesnet=learnedz # SO(1,1)xSO(2)
+python run.py -cp config -cn jctagging data.tagging_features=so3invariant data.beam_reference=null data.add_time_reference=false model/framesnet=learnedso3 # SO(3)
+python run.py -cp config -cn jctagging data.tagging_features=null data.beam_reference=null data.add_time_reference=false model/framesnet=learnedpd # SO(1,3)
 
 # Input-level symmetry breaking
 python run.py -cp config -cn jctagging model/framesnet=learnedpd data.beam_reference=all # non-equivariant
 python run.py -cp config -cn jctagging model/framesnet=learnedpd # SO(2)
-python run.py -cp config -cn jctagging model/framesnet=learnedpd data.tagging_features_framesnet=zinvariant data.add_time_reference=false # SO(1,1)xSO(2)
-python run.py -cp config -cn jctagging model/framesnet=learnedpd data.tagging_features_framesnet=so3invariant data.beam_reference=null # SO(3)
+python run.py -cp config -cn jctagging model/framesnet=learnedpd data.tagging_features=zinvariant data.add_time_reference=false # SO(1,1)xSO(2)
+python run.py -cp config -cn jctagging model/framesnet=learnedpd data.tagging_features=so3invariant data.beam_reference=null # SO(3)
 # SO(1,3) is the same as for 'architecture'
 ```
 
