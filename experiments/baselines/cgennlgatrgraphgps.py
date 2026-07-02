@@ -287,11 +287,16 @@ class CGENNLGATrGraphGPS(nn.Module):
             mv, s = layer(mv, s, edges, attn_mask, edge_attr_x=edge_attr_x,
                           node_attr_x=node_attr_x, node_attr_h=node_attr_h)
 
-        # Stage 5: final norm + masked mean pool + invariant head
+        # Stage 5: final norm + per-node invariants + masked mean pool + head.
+        # get_invariants is applied PER NODE and THEN mean-pooled (extract-then-pool),
+        # exactly as pure CGENN's readout (cgenn.py) and the LorentzNet-slim GPS head --
+        # NOT pool-then-extract. Grade-0 agrees either way (linear), but the grade norms
+        # are nonlinear, so the mean of the per-node norms (this) differs from the norm of
+        # the mean multivector.
         mv, s = self.final_norm(mv, scalars=s)
         m = mask[..., None].to(s.dtype)                  # (B, P, 1)
         denom = m.sum(dim=1).clamp(min=1.0)              # (B, 1)
-        mv_pool = (mv * m[..., None]).sum(dim=1) / denom[..., None]   # (B, C_mv, 16)
+        inv_nodes = get_invariants(self.algebra, mv).flatten(2)      # (B, P, C_mv * n_mv_inv)
+        inv = (inv_nodes * m).sum(dim=1) / denom                     # (B, C_mv * n_mv_inv)
         s_pool = (s * m).sum(dim=1) / denom                          # (B, C_s)
-        inv = get_invariants(self.algebra, mv_pool).flatten(1)   # (B, C_mv * n_mv_inv): all-grade invariants
         return self.head(torch.cat([inv, s_pool], dim=-1))
