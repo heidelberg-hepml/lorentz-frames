@@ -22,7 +22,7 @@ by construction (symmetry broken only by the optional input spurions):
     residual adds (x + ...)   multivector + scalar addition (linear -> equivariant)
     sum fusion (X_M + X_T)    multivector + scalar addition
     mean-pool readout         mean over real tokens (equivariant), then
-                              extract_scalar(mv) (-> invariants) + pooled scalars
+                              get_invariants(mv) (grade-0 + norms of grades 1-4) + pooled scalars
 
 The L-GATr attention / GeoMLP sublayers are used RAW -- their internal
 dropout/residual/norm are disabled (``dropout_prob=None``; the LGATrBlock's
@@ -50,7 +50,7 @@ from dataclasses import replace
 
 import torch
 import torch.nn as nn
-from lgatr import embed_vector, extract_scalar, get_num_spurions, get_spurions
+from lgatr import embed_vector, get_num_spurions, get_spurions
 from lgatr.layers.attention.config import SelfAttentionConfig
 from lgatr.layers.attention.self_attention import SelfAttention
 from lgatr.layers.dropout import GradeDropout
@@ -63,6 +63,7 @@ from experiments.baselines.CGENNLGATrGraphTransHybrid import (
     CGLayer,
     CliffordAlgebra,
     generate_edges_vectorized,
+    get_invariants,
 )
 
 
@@ -223,18 +224,17 @@ class CGENNLGATrGraphGPS(nn.Module):
         ])
         self.final_norm = EquiLayerNorm()
 
-        # invariant head: extract_scalar(mv) + pooled scalars -> MLP -> logits.
-        # NOTE: extract_scalar keeps only the grade-0 (scalar) part of each multivector; the
-        # higher grades are dropped at readout, and with them their own Lorentz invariants --
-        # the Minkowski norms of the vector (grade-1) and trivector (grade-3) parts, the two
-        # invariants of the bivector (grade-2), and the grade-4 pseudoscalar. This is the
-        # standard L-GATr scalar readout and is *correct* (invariant), and not lossy in
-        # principle -- the geometric products inside the blocks can route any needed invariant
-        # into grade-0 before this point. But a richer multivector readout is a valid option if
-        # you want those invariants directly: e.g. also feed the squared norms of the vector
-        # grade (and/or the pseudoscalar). The sibling LorentzNet-slim GPS head already does
-        # this -- it pools vector squared-norms alongside the scalars.
-        head, d = [], hidden_mv_channels + hidden_s_channels
+        # invariant head: the FULL multivector invariants (grade-0 plus the norms of grades
+        # 1-4) of the pooled mv, concatenated with the pooled scalars, then MLP -> logits.
+        # This is exactly pure CGENN's readout (`get_invariants` = grade-0 + qs(grades[1:])).
+        # We extract every grade's invariant rather than only extract_scalar's grade-0 because
+        # the mean-pool cannot learn to route higher-grade content into grade-0 the way a CLS
+        # token can (see the LorentzNet-slim GPS head, which likewise pools vector norms) --
+        # so the discarded-grade invariants (vector/trivector norms, the two bivector
+        # invariants, the pseudoscalar) are surfaced here. n_mv_inv = len(grades) invariants
+        # per mv channel; all are Lorentz-invariant, so the readout stays invariant.
+        n_mv_inv = len(self.algebra.grades)
+        head, d = [], hidden_mv_channels * n_mv_inv + hidden_s_channels
         for _ in range(head_layers):
             nd = max(d // 2, num_classes)
             head += [nn.Linear(d, nd), nn.GELU()]
@@ -293,5 +293,5 @@ class CGENNLGATrGraphGPS(nn.Module):
         denom = m.sum(dim=1).clamp(min=1.0)              # (B, 1)
         mv_pool = (mv * m[..., None]).sum(dim=1) / denom[..., None]   # (B, C_mv, 16)
         s_pool = (s * m).sum(dim=1) / denom                          # (B, C_s)
-        inv = extract_scalar(mv_pool)[..., 0]            # (B, C_mv): invariant scalar grade
+        inv = get_invariants(self.algebra, mv_pool).flatten(1)   # (B, C_mv * n_mv_inv): all-grade invariants
         return self.head(torch.cat([inv, s_pool], dim=-1))
