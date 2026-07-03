@@ -221,11 +221,11 @@ Minor (stale strings / metadata):
       (`topt_local_debug`, `jc_debug`, `ttbar_debug`).
 - [ ] `config/model/tag_CGENNLGATrGraphTrans.yaml` — incomplete `#should be` comment (cosmetic).
 - [ ] `tests/helpers/equivariance.py:4` — upstream attribution comment; fine to keep as a credit.
-- [ ] **stale `tagging_features_framesnet` overrides** — the data key was renamed to
-      `tagging_features`, but the old name lingers in run-command examples that would error under
+- [x] **stale `tagging_features_framesnet` overrides** — the data key was renamed to
+      `tagging_features`, but the old name lingered in run-command examples that would error under
       Hydra (struct mode rejects unknown-key overrides): `REPRODUCE.md` lines 227–229 & 234–235
-      (×5) and `.github/workflows/experiments_tagging.yaml:39` (×1). Rename each to
-      `data.tagging_features=…` (the workflow one would otherwise fail the tagging CI job).
+      (×5) and `.github/workflows/experiments_tagging.yaml:39` (×1). Renamed each to
+      `data.tagging_features=…` (the workflow one would otherwise have failed the tagging CI job).
 - [ ] **Defork** the GitHub repo when publishing (a fork is hidden from search / awkward to Zenodo-archive);
       keep the upstream attribution in README + LICENSE.
 
