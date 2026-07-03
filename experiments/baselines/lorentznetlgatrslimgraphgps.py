@@ -23,8 +23,10 @@ GraphGPS primitive replaced by its slim equivariant counterpart:
     Dropout                   lgatr.nets.lgatr_slim.Dropout (shared mask over a
                               vector's 4 components; plain dropout on scalars)
     residual / sum            vector + scalar addition (linear -> equivariant)
-    mean-pool readout         mean over real tokens of the invariant scalars and the
-                              per-token vector squared-norms (both Lorentz invariant)
+    mean-pool readout         mean over real tokens of the invariant scalar stream
+                              only (matching pure LorentzNet's h-pool -> graph_dec;
+                              the vector geometry already feeds s via each layer's
+                              |dp|^2 / <p_i,p_j> edge invariants, so no |v|^2 readout)
 
 The slim SelfAttention / MLP sublayers are used RAW (no internal residual; their
 internal qkv-RMSNorm is attention-stability, not a residual norm), so GraphGPS's
@@ -161,8 +163,14 @@ class LorentzNetLGATrSlimGraphGPS(nn.Module):
             for _ in range(num_blocks)
         ])
 
-        # invariant head: pooled scalars + pooled vector squared-norms -> logits
-        head, d = [], hidden_s_channels + hidden_v_channels
+        # invariant head: pooled scalars -> logits. SCALAR-ONLY, matching pure LorentzNet's
+        # readout (mean-pool of the scalar stream h -> graph_dec). The GraphGPS hybrid adheres
+        # to its GNN reference's readout, and pure LorentzNet reads only the scalars -- its LGEB
+        # already funnels the four-vector geometry into them via per-layer |dp|^2 / <p_i,p_j>
+        # edge invariants, and the LorentzNetKNNBlock local branch does the same into s here.
+        # So we do NOT add per-node vector self-norms |v|^2 (that would make the head richer than
+        # the GNN it mirrors). Contrast CGENN GPS, whose pure reference IS rich (get_invariants).
+        head, d = [], hidden_s_channels
         for _ in range(head_layers):
             nd = max(d // 2, num_classes)
             head += [nn.Linear(d, nd), nn.GELU()]
@@ -203,10 +211,10 @@ class LorentzNetLGATrSlimGraphGPS(nn.Module):
         for layer in self.layers:
             v_h, s_h = layer(v_h, s_h, idx, nbr_mask, attn_mask)
 
-        # masked mean pool of the invariants: scalars + per-token vector squared-norms
+        # masked mean pool of the SCALAR stream only (matching pure LorentzNet's h-pool). The
+        # vector stream v_h fed s_h through every layer's invariant edge features, so its content
+        # is already in s_h; its final per-node self-norm is intentionally not read out.
         m = mask_b[..., None].to(s_h.dtype)                     # (B, P, 1)
         denom = m.sum(dim=1).clamp(min=1.0)                     # (B, 1)
         s_pool = (s_h * m).sum(dim=1) / denom                  # (B, S)
-        vnorm = (v_h[..., 0] ** 2 - v_h[..., 1:].pow(2).sum(-1)).abs()   # (B, P, V): invariant
-        v_pool = (vnorm * m).sum(dim=1) / denom                # (B, V)
-        return self.head(torch.cat([s_pool, v_pool], dim=-1))
+        return self.head(s_pool)
