@@ -446,6 +446,10 @@ class LorentzNetLGATrSlimGraphTrans(nn.Module):
         # validity mask for the gathered neighbours (handles the n_real < k case)
         nbr_valid = gather_neighbors(mask_b.unsqueeze(-1), idx).squeeze(-1)
         nbr_mask = nbr_valid & mask_b.unsqueeze(-1)                  # (B, P, K)
+        # Exclude self: sparse jets (n_real < knn_k) let topk fill the neighbour list from the
+        # tied -inf/self slots, and the realness masks above would re-admit the node's own index
+        # as a spurious self message. The knn distance already masks self to -inf.
+        nbr_mask = nbr_mask & (idx != torch.arange(idx.shape[1], device=idx.device)[None, :, None])
 
         # ---- Internal reorder to (E, px, py, pz).
         v_in = v.transpose(1, 2)                                     # (B, P, 4) (px,py,pz,E)

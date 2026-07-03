@@ -300,6 +300,12 @@ class PlainGraphTrans(nn.Module):
             else:
                 idx = knn(points, self.knn_k, metric='deltaR', mask=mask_p)
             nbr_mask = gather_neighbors(mask.float(), idx).squeeze(1) > 0.5  # (N, P, K)
+            # Exclude self. On jets with fewer real constituents than knn_k, topk pads the
+            # neighbour list from the tied -inf/self slots, and the realness-only mask above
+            # would re-admit the node's OWN index as a "valid" neighbour -- a spurious self
+            # message whose value depends on batch-mates and topk tie-breaking. The knn distance
+            # already masks self to -inf, so self is never an intended neighbour; drop it here.
+            nbr_mask = nbr_mask & (idx != torch.arange(idx.shape[1], device=idx.device)[None, :, None])
 
             fts = self.bn_fts(features) * mask if self.use_fts_bn else features
             for block in self.gnn_blocks:

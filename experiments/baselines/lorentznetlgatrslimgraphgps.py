@@ -197,6 +197,10 @@ class LorentzNetLGATrSlimGraphGPS(nn.Module):
             idx = knn(points, self.knn_k, metric="deltaR", mask=mask_b)
         nbr_valid = gather_neighbors(mask_b.unsqueeze(-1), idx).squeeze(-1)
         nbr_mask = nbr_valid & mask_b.unsqueeze(-1)              # (B, P, K)
+        # Exclude self (see the GraphTrans sibling): sparse jets (n_real < knn_k) let topk fill
+        # the neighbour list from the tied -inf/self slots, and the realness masks above would
+        # re-admit the node's own index as a spurious self message.
+        nbr_mask = nbr_mask & (idx != torch.arange(idx.shape[1], device=idx.device)[None, :, None])
 
         # particle 4-vector (reordered to time-first) + spurion channels
         v_etxyz = v.transpose(1, 2)[..., [3, 0, 1, 2]]           # (B, P, 4) (E, px, py, pz)

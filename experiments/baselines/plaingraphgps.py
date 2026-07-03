@@ -383,6 +383,10 @@ class PlainGraphGPS(nn.Module):
             else:
                 idx = knn(points, self.knn_k, metric="deltaR", mask=mask_p)
             nbr_mask = gather_neighbors(mask.float(), idx).squeeze(1) > 0.5   # (B, P, K)
+            # Exclude self (see PlainGraphTrans): sparse jets (n_real < knn_k) let topk fill the
+            # neighbour list from the tied -inf/self slots, and the realness-only mask would
+            # re-admit the node's own index. Done before edge_attr masking so it inherits it.
+            nbr_mask = nbr_mask & (idx != torch.arange(idx.shape[1], device=idx.device)[None, :, None])
 
             edge_attr = None
             if self.use_edge_attr and v is not None:
