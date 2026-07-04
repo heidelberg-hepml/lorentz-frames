@@ -1004,6 +1004,18 @@ class CGENNLGATrGraphTrans(nn.Module):
         self.in_s_channels = in_s_channels
         self.concat_original = concat_original
         self.use_explicit_edge_features = use_explicit_edge_features
+        if not use_explicit_edge_features:
+            # The CGENN stage's CGLayers are built expecting the relative-momentum edge
+            # multivectors and the re-injected raw node attributes (edge_attr_x / node_attr_x /
+            # node_attr_h with nonzero dims); the forward would pass None for them, mismatching
+            # the layer dimensions -> a shape RuntimeError on the first layer. Fail loudly here
+            # instead. (The GraphGPS sibling, cgennlgatrgraphgps.py, DOES support the toggle --
+            # it zeroes those dims at construction when the flag is off.)
+            raise NotImplementedError(
+                "CGENNLGATrGraphTrans supports only use_explicit_edge_features=True; the CGENN "
+                "stage is constructed with the static edge/node attributes always enabled. Use "
+                "CGENNLGATrGraphGPS if you need the no-edge-feature ablation."
+            )
         self.spurion_kwargs = {
             "beam_spurion": beam_spurion,
             "add_time_spurion": add_time_spurion,
