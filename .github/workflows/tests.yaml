@@ -28,5 +28,9 @@ jobs:
 
     - name: Run unit tests
       run: |
-        pytest tests/lloca
+        # tests/lloca does not exist in this repo (the lloca library tests live in the
+        # lloca repo), so this step errored on its first line and tests/experiments was
+        # run by no CI job at all. Run the tagging invariance suite instead; test_tag_flops
+        # stays out of CI because its learned-frame cases need a CUDA-matched xformers build.
+        pytest tests/experiments/test_tag_invariance.py
         pytest tests/eventgen
