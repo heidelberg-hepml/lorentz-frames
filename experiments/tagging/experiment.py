@@ -41,7 +41,7 @@ class TaggingExperiment(BaseExperiment):
                 self.cfg.model.net.in_s_channels = 0 if self.cfg.model.mean_aggregation else 1
                 self.cfg.model.net.in_s_channels += in_s_channels
             elif modelname == "LorentzNet":
-                self.cfg.model.net.in_s_channels = in_s_channels
+                self.cfg.model.net.n_scalar = in_s_channels
             elif modelname == "PELICAN":
                 self.cfg.model.net.in_channels_rank1 = in_s_channels
             elif modelname == "PELICANOfficial":
