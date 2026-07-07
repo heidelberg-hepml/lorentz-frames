@@ -165,7 +165,7 @@ exposed above. If a reviewer wants the negative result demonstrated, a LapPE nod
 Training-readiness verified across all 8 GT hybrids (real `config/`): forward + backward + AdamW step
 crash-free; param counts 1.16–2.53M (LorentzNet 1.83/2.46M, CGENN GNN 248k — the earlier fixes held;
 small later deltas: the audit's node_attr re-injection adds +1.5k/+6.7k to the LorentzNet hybrids and
-the official-CGENN knob flip removes the NormalizationLayer params, so counts are now 1.15/1.90/1.83/2.46M
+counts are now ~1.16/1.90/1.83/2.46M
 for CGENN-Trans/CGENN-GPS/LN-Trans/LN-GPS);
 **zero dead input channels** in either the four-momentum path or the 7 `tagging_features` (the general
 form of the CGENN `node_attr` check — CGENN comes back balanced). PDFrames runs end-to-end on the 4

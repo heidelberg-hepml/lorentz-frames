@@ -19,9 +19,9 @@ net:
   cgenn_hidden_h: 16
   cgenn_hidden_x: 4
   cgenn_aggregation: mean
-  cgenn_residual: false           # match official CGENN top-tagging (LorentzCGGNN default) and the tag_cgenn reference row
+  cgenn_residual: true
   cgenn_layer_type: fc
-  cgenn_normalization_init: null  # match official CGENN top-tagging (LorentzCGGNN default: no NormalizationLayer) and the tag_cgenn reference row
+  cgenn_normalization_init: 0
   concat_original: true
   use_explicit_edge_features: true
 

@@ -29,7 +29,7 @@ net:
   # per-layer CGENN message passing
   cgenn_aggregation: mean
   cgenn_layer_type: fc
-  cgenn_normalization_init: null  # match official CGENN top-tagging (LorentzCGGNN default: no NormalizationLayer) and the tag_cgenn reference row
+  cgenn_normalization_init: 0
 
   # input-stage spurions (both on -> residual symmetry SO(2) about the beam)
   beam_spurion: xyplane
