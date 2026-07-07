@@ -145,6 +145,21 @@ exposed above. If a reviewer wants the negative result demonstrated, a LapPE nod
       side effect. No-op at the default `dropout_prob=0`, so it only matters if dropout is enabled — decide
       whether the four local branches should match.
 
+### Audit findings (infrastructure sweep: JetClass path / plots / trials)
+- [ ] **No `jc_*` training recipes exist for the 8 GT hybrids** (only jc_ParT / jc_MIParT / jc_lgatr /
+      jc_transformer). `config/jctagging.yaml` defaults `training: jc_ParT`, so a naive
+      `run.py -cn jctagging model=tag_<hybrid>` silently trains the hybrid under ParT's recipe — the
+      same inheritance trap the top-tagging tree fixed with `tag_gts_and_friends_default`. Author a
+      `jc_gts_and_friends_default` (epoch budget semantics work: the streaming loader's len() is
+      nominal files x events_per_file) before any JetClass hybrid runs.
+- [ ] **Rejection-metric convention differs between experiments** (pre-existing): top-tagging uses the
+      nearest-ROC-point (`argmin |tpr - epsS|`), JetClass uses `scipy.interp1d` interpolation. One
+      methods sentence, or unify.
+- [ ] **best-checkpoint restore ignores the saved EMA** (pre-existing, inert at `ema: false`): the end of
+      `train()` loads only `"model"` from the best-val checkpoint; `self.ema` keeps its end-of-training
+      shadow, so with `ema: true` the headline `_ema` eval pairs end-of-training EMA weights with a
+      best-val model. Load the checkpoint's `"ema"` alongside if EMA is ever enabled.
+
 ### Pre-publication audit (session: jet_frames + GT-family sanity sweep)
 
 Training-readiness verified across all 8 GT hybrids (real `config/`): forward + backward + AdamW step

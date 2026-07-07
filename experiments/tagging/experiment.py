@@ -273,17 +273,19 @@ class TaggingExperiment(BaseExperiment):
             labels_predict.append(y_pred.cpu().float())
         labels_true, labels_predict = torch.cat(labels_true), torch.cat(labels_predict)
 
-        if mode == "eval":
-            metrics["labels_true"], metrics["labels_predict"] = (
-                labels_true,
-                labels_predict,
-            )
-
-        # bce loss
+        # bce loss (from the raw logits)
         metrics["loss"] = torch.nn.functional.binary_cross_entropy_with_logits(
             labels_predict, labels_true
         ).item()
         labels_predict = torch.nn.functional.sigmoid(labels_predict)
+        if mode == "eval":
+            # store the sigmoid PROBABILITIES, not the logits: plot_score histograms
+            # metrics["labels_predict"] over [0, 1] (matplotlib silently drops
+            # out-of-range values, so storing logits made score.pdf meaningless)
+            metrics["labels_true"], metrics["labels_predict"] = (
+                labels_true,
+                labels_predict,
+            )
         labels_true, labels_predict = labels_true.numpy(), labels_predict.numpy()
 
         # accuracy
