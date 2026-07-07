@@ -731,11 +731,15 @@ class BaseExperiment:
                 f"model_run{self.cfg.run_idx}_it{smallest_val_loss_step}.pt",
             )
             try:
-                state_dict = torch.load(model_path, map_location=self.device, weights_only=False)[
-                    "model"
-                ]
+                checkpoint = torch.load(model_path, map_location=self.device, weights_only=False)
                 LOGGER.info(f"Loading model from {model_path}")
-                self.model.load_state_dict(state_dict)
+                self.model.load_state_dict(checkpoint["model"])
+                # keep the EMA shadow PAIRED with the restored best checkpoint: without this,
+                # self.ema kept its end-of-training state, so the headline `_ema` eval would
+                # combine end-of-training EMA weights with the best-validation model.
+                if self.ema is not None and checkpoint.get("ema") is not None:
+                    LOGGER.info(f"Loading EMA state from {model_path}")
+                    self.ema.load_state_dict(checkpoint["ema"])
             except FileNotFoundError:
                 LOGGER.warning(
                     f"Cannot load best model (epoch {smallest_val_loss_step}) from {model_path}"
