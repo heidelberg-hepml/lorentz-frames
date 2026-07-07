@@ -88,12 +88,18 @@ def knn(x, k, metric='deltaR', mask=None):
         gram = torch.matmul(x.transpose(2, 1), xp)  # (N, P, P): <x_i, x_j>_mink
         d2 = msq.transpose(2, 1) + msq - 2 * gram  # (N, P, P): (x_i - x_j)^2_mink
         pairwise_distance = -d2.abs()
+        if mask is not None:
+            # Padded senders sit at a large-but-finite distance: they rank BELOW every
+            # real pair but ABOVE self (-inf). On sparse jets (n_real <= k) the surplus
+            # neighbour slots then fill deterministically with padded points (zeroed
+            # features), exactly like official ParticleNet's far coord-shifted padding --
+            # instead of non-deterministically tie-breaking between self and padding at
+            # -inf, which could admit a spurious self edge into unmasked aggregations
+            # (e.g. EdgeConvBlock's plain mean).
+            pairwise_distance = pairwise_distance.masked_fill(~mask.bool().unsqueeze(1), -1e30)
         # drop self-loops explicitly (lightlike pairs can also reach |interval|=0)
         eye = torch.eye(num_points, dtype=torch.bool, device=x.device).unsqueeze(0)
         pairwise_distance = pairwise_distance.masked_fill(eye, float('-inf'))
-        if mask is not None:
-            # never rank a padded particle as a neighbour
-            pairwise_distance = pairwise_distance.masked_fill(~mask.bool().unsqueeze(1), float('-inf'))
         idx = pairwise_distance.topk(k=k, dim=-1)[1]  # (batch_size, num_points, k)
     else:
         # 'deltaR': squared-L2 on the supplied coordinates. A 2-channel input is the
@@ -112,10 +118,11 @@ def knn(x, k, metric='deltaR', mask=None):
             xx = torch.sum(x ** 2, dim=1, keepdim=True)
             pairwise_distance = -xx - inner - xx.transpose(2, 1)
         if mask is not None:
+            # padded senders large-but-finite, self -inf: sparse jets fill their surplus
+            # slots deterministically with padded points, never with self (see above)
             eye = torch.eye(num_points, dtype=torch.bool, device=x.device).unsqueeze(0)
-            pairwise_distance = pairwise_distance.masked_fill(
-                eye | ~mask.bool().unsqueeze(1), float('-inf')
-            )
+            pairwise_distance = pairwise_distance.masked_fill(~mask.bool().unsqueeze(1), -1e30)
+            pairwise_distance = pairwise_distance.masked_fill(eye, float('-inf'))
             idx = pairwise_distance.topk(k=k, dim=-1)[1]  # (batch_size, num_points, k)
         else:
             idx = pairwise_distance.topk(k=k + 1, dim=-1)[1][:, :, 1:]  # (batch_size, num_points, k)

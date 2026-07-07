@@ -681,9 +681,15 @@ def generate_edges_vectorized(mask, points, k, M, device,
     send = (nbr + offset).reshape(-1)
 
     # keep edges with both endpoints real (drops padded senders in sparse jets,
-    # which is what a sparse graph wants -- those nodes simply get fewer edges)
+    # which is what a sparse graph wants -- those nodes simply get fewer edges).
+    # Also drop self-loops: on jets with n_real <= k, topk fills the remaining
+    # slots from the tied +inf pool (self and padded columns), and while padded
+    # fills fail the realness filter, a self fill has BOTH endpoints real and
+    # would survive as a spurious i->i message (tie-break dependent, hence
+    # non-deterministic) -- the same sparse-jet leak fixed in the static-kNN
+    # nbr_masks of the Plain/LorentzNet hybrids.
     valid = mask_bool.reshape(-1)
-    keep = valid[recv] & valid[send]
+    keep = valid[recv] & valid[send] & (recv != send)
     return torch.stack([recv[keep], send[keep]])
 
 class CGLayer(nn.Module):

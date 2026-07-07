@@ -91,10 +91,15 @@ def knn(x, k, metric='deltaR', mask=None):
         gram = torch.matmul(x.transpose(2, 1), xp)  # (N, P, P): <x_i, x_j>_mink
         d2 = msq.transpose(2, 1) + msq - 2 * gram  # (N, P, P)
         pairwise_distance = -d2.abs()
+        if mask is not None:
+            # padded senders large-but-finite, self -inf: sparse jets (n_real <= k) fill
+            # their surplus neighbour slots deterministically with padded points, never
+            # with self (a -inf tie-break could otherwise pick self; the nbr_mask in the
+            # forward rejects both, this just makes the fill choice deterministic and
+            # keeps the helper identical to the ParticleNetParT one, where it matters)
+            pairwise_distance = pairwise_distance.masked_fill(~mask.bool().unsqueeze(1), -1e30)
         eye = torch.eye(num_points, dtype=torch.bool, device=x.device).unsqueeze(0)
         pairwise_distance = pairwise_distance.masked_fill(eye, float('-inf'))
-        if mask is not None:
-            pairwise_distance = pairwise_distance.masked_fill(~mask.bool().unsqueeze(1), float('-inf'))
         idx = pairwise_distance.topk(k=k, dim=-1)[1]
     else:
         # 'deltaR': squared-L2 on the supplied coordinates. A 2-channel input is the
@@ -113,10 +118,10 @@ def knn(x, k, metric='deltaR', mask=None):
             xx = torch.sum(x ** 2, dim=1, keepdim=True)
             pairwise_distance = -xx - inner - xx.transpose(2, 1)
         if mask is not None:
+            # padded senders large-but-finite, self -inf (see the minkowski branch)
             eye = torch.eye(num_points, dtype=torch.bool, device=x.device).unsqueeze(0)
-            pairwise_distance = pairwise_distance.masked_fill(
-                eye | ~mask.bool().unsqueeze(1), float('-inf')
-            )
+            pairwise_distance = pairwise_distance.masked_fill(~mask.bool().unsqueeze(1), -1e30)
+            pairwise_distance = pairwise_distance.masked_fill(eye, float('-inf'))
             idx = pairwise_distance.topk(k=k, dim=-1)[1]
         else:
             idx = pairwise_distance.topk(k=k + 1, dim=-1)[1][:, :, 1:]
