@@ -697,9 +697,7 @@ class CGENNWrapper(nn.Module):
         fourmomenta = embedding["fourmomenta"]
         scalars = torch.cat([embedding["scalars"], embedding["tagging_features"]], dim=-1)
         batch = embedding["batch"]
-        ptr = embedding["ptr"]
         is_spurion = embedding["is_spurion"]
-        edge_index = get_edge_index_from_ptr(ptr, fourmomenta.shape, remove_self_loops=True)
 
         # rescale fourmomenta (but not the spurions)
         fourmomenta[~is_spurion] = fourmomenta[~is_spurion] / 20
@@ -711,6 +709,17 @@ class CGENNWrapper(nn.Module):
         fourmomenta, mask = to_dense_batch(fourmomenta, batch)
         scalars, _ = to_dense_batch(scalars, batch)
         batch_size, n_nodes, _ = fourmomenta.shape
+        # Build the fully-connected (no self-loop) edges among the REAL nodes of each jet
+        # in the DENSE b*n_nodes+i frame that the flattened tensors below actually use.
+        # The previous get_edge_index_from_ptr(ptr, ...) call produced edges in the SPARSE
+        # ptr[b]+i frame; the two frames only agree when every jet in the batch has the
+        # same length, so with variable jet sizes ~1/3 of the edges crossed jet boundaries
+        # or pointed at padded slots, silently scrambling the CGENN message passing and
+        # leaking information across batch-mates.
+        pair = mask[:, :, None] & mask[:, None, :]
+        pair &= ~torch.eye(n_nodes, dtype=torch.bool, device=mask.device)[None]
+        b_idx, i_idx, j_idx = pair.nonzero(as_tuple=True)
+        edge_index = torch.stack([b_idx * n_nodes + i_idx, b_idx * n_nodes + j_idx])
         fourmomenta = fourmomenta.view(batch_size * n_nodes, -1)
         scalars = scalars.view(batch_size * n_nodes, -1)
         mask = mask.view(batch_size * n_nodes, -1)
