@@ -177,11 +177,16 @@ class LorentzNetKNNBlock(nn.Module):
                                   in (E, px, py, pz) ordering
     """
 
-    def __init__(self, n_h_in, n_h_out, n_v_in, n_v_out, c_weight=1e-3, use_phi_m=True):
+    def __init__(self, n_h_in, n_h_out, n_v_in, n_v_out, c_weight=1e-3, use_phi_m=True,
+                 n_node_attr=0):
         super().__init__()
         self.n_v_in = n_v_in
         self.n_v_out = n_v_out
         self.c_weight = c_weight
+        # official LorentzNet re-injects the RAW input scalars as per-node attributes
+        # into phi_h at EVERY layer (LGEB's n_node_attr / node_attr); n_node_attr=0
+        # disables the pathway (the pre-audit behaviour).
+        self.n_node_attr = n_node_attr
 
         # 2 * n_v_out invariants per edge (psi-compressed Minkowski
         # norm-of-diff and dot-product, one per projected vector channel).
@@ -206,9 +211,10 @@ class LorentzNetKNNBlock(nn.Module):
             nn.Sequential(nn.Conv2d(n_h_out, 1, 1), nn.Sigmoid()) if use_phi_m else None
         )
 
-        # Scalar node update (LorentzNet-style).
+        # Scalar node update (LorentzNet-style). Input: [h, aggregated message(, node_attr)]
+        # -- the optional node_attr slot is official LGEB's per-layer raw-scalar re-injection.
         self.phi_h = nn.Sequential(
-            nn.Conv1d(n_h_in + n_h_out, n_h_out, 1),
+            nn.Conv1d(n_h_in + n_h_out + n_node_attr, n_h_out, 1),
             nn.BatchNorm1d(n_h_out),
             nn.ReLU(),
             nn.Conv1d(n_h_out, n_h_out, 1),
@@ -229,7 +235,7 @@ class LorentzNetKNNBlock(nn.Module):
 
         self.residual_h = (n_h_in == n_h_out)
 
-    def forward(self, h, x, idx, neighbor_mask):
+    def forward(self, h, x, idx, neighbor_mask, node_attr=None):
         """
         Parameters
         ----------
@@ -237,6 +243,8 @@ class LorentzNetKNNBlock(nn.Module):
         x : (B, P, n_v_in, 4)
         idx : (B, P, K) -- neighbour indices (static across blocks)
         neighbor_mask : (B, P, K) bool, True where edge is valid.
+        node_attr : (B, P, n_node_attr) or None -- the RAW input scalars, re-injected
+            into phi_h every layer exactly as official LorentzNet's LGEB node_attr.
         """
         B, P, K = idx.shape
 
@@ -274,9 +282,13 @@ class LorentzNetKNNBlock(nn.Module):
         nm_count = nm.sum(dim=-1).clamp(min=1.0)                    # (B, 1, P)
         h_msg = m.sum(dim=-1)                                       # (B, n_h_out, P): SUM
 
-        # 6. Scalar update.
+        # 6. Scalar update: [h, agg(, node_attr)] as in official LGEB's h_model.
         h_in = h.transpose(1, 2)                                    # (B, n_h_in, P)
-        h_update = self.phi_h(torch.cat([h_in, h_msg], dim=1))     # (B, n_h_out, P)
+        phi_h_in = [h_in, h_msg]
+        if self.n_node_attr > 0:
+            assert node_attr is not None, "block built with n_node_attr > 0 but got node_attr=None"
+            phi_h_in.append(node_attr.transpose(1, 2))              # (B, n_node_attr, P)
+        h_update = self.phi_h(torch.cat(phi_h_in, dim=1))          # (B, n_h_out, P)
         h_new = h_update.transpose(1, 2)
         if self.residual_h:
             h_new = h_new + h
@@ -313,6 +325,9 @@ class LorentzNetLGATrSlimGraphTrans(nn.Module):
         knn_metric="minkowski",
         c_weight=1e-3,
         use_phi_m=True,
+        # official LorentzNet re-injects the raw input scalars into phi_h at every
+        # LGEB layer (node_attr); keep on for faithfulness, off = pre-audit ablation.
+        use_node_attr=True,
         # Bridge
         concat_original=True,
         # Symmetry breaking (input-stage only): time + beam reference 4-vectors.
@@ -344,6 +359,7 @@ class LorentzNetLGATrSlimGraphTrans(nn.Module):
         self.global_token = global_token
         self.use_time_spurion = use_time_spurion
         self.use_beam_spurion = use_beam_spurion
+        self.use_node_attr = use_node_attr
 
         # ---- Spurions: hard-coded grade-1 4-vectors in (E, px, py, pz).
         spurions = []
@@ -373,6 +389,7 @@ class LorentzNetLGATrSlimGraphTrans(nn.Module):
                 n_v_out=n_v_hidden,
                 c_weight=c_weight,
                 use_phi_m=use_phi_m,
+                n_node_attr=in_s_channels if use_node_attr else 0,
             )
             for i in range(n_gnn_layers)
         ])
@@ -473,9 +490,11 @@ class LorentzNetLGATrSlimGraphTrans(nn.Module):
             x_vec = particle_v
         # x_vec: (B, P, 1 + num_spurions, 4)
 
-        # ---- GNN stack (same static graph across all blocks).
+        # ---- GNN stack (same static graph across all blocks). The raw input scalars
+        # ride along as per-layer node attributes (official LorentzNet's node_attr).
+        node_attr = s_in if self.use_node_attr else None
         for block in self.gnn_blocks:
-            h, x_vec = block(h, x_vec, idx, nbr_mask)
+            h, x_vec = block(h, x_vec, idx, nbr_mask, node_attr=node_attr)
 
         # ---- Zero out padded slots before the bridge / L-GATr-slim.
         m_h = mask_b.unsqueeze(-1).to(h.dtype)

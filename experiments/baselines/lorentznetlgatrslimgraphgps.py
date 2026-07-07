@@ -64,13 +64,18 @@ class LorentzNetSlimGPSLayer(nn.Module):
     """One equivariant slim GPS layer (Eq. 9-11) on the dual (v, s) stream."""
 
     def __init__(self, v_channels, s_channels, num_heads, c_weight, use_phi_m,
-                 attn_ratio, mlp_ratio, num_layers_mlp, nonlinearity, dropout_prob):
+                 attn_ratio, mlp_ratio, num_layers_mlp, nonlinearity, dropout_prob,
+                 n_node_attr=0):
         super().__init__()
-        # local branch: LorentzNet edge conv (carries its own internal residual)
+        # local branch: LorentzNet edge conv (carries its own internal residual).
+        # n_node_attr > 0 re-injects the raw input scalars into phi_h every layer,
+        # exactly as official LorentzNet's LGEB node_attr (and as the CGENN GPS
+        # sibling re-injects its raw node attributes into every local CGENN branch).
         self.gnn = LorentzNetKNNBlock(
             n_h_in=s_channels, n_h_out=s_channels,
             n_v_in=v_channels, n_v_out=v_channels,
             c_weight=c_weight, use_phi_m=use_phi_m,
+            n_node_attr=n_node_attr,
         )
         # global branch: raw slim self-attention (no internal residual)
         self.attention = SlimSelfAttention(
@@ -86,10 +91,10 @@ class LorentzNetSlimGPSLayer(nn.Module):
         self.norm = SlimRMSNorm()
         self.dropout = SlimDropout(dropout_prob if dropout_prob is not None else 0.0)
 
-    def forward(self, v, s, idx, nbr_mask, attn_mask):
+    def forward(self, v, s, idx, nbr_mask, attn_mask, node_attr=None):
         # v: (B, P, V, 4); s: (B, P, S); slim layers take (vectors, scalars)
         # ---- local branch (Eq. 9): LorentzNet edge conv owns its residual ----
-        s_loc, v_loc = self.gnn(s, v, idx, nbr_mask)        # gnn(h, x) -> (h_new, x_new)
+        s_loc, v_loc = self.gnn(s, v, idx, nbr_mask, node_attr=node_attr)  # gnn(h, x) -> (h_new, x_new)
         v_M, s_M = self.norm(v_loc, s_loc)                  # external norm only
 
         # ---- global branch (Eq. 10): slim Lorentz attention ----
@@ -126,6 +131,9 @@ class LorentzNetLGATrSlimGraphGPS(nn.Module):
                  knn_metric="minkowski",
                  c_weight=1e-3,
                  use_phi_m=True,
+                 # official LorentzNet re-injects the raw input scalars into phi_h at
+                 # every LGEB layer (node_attr); keep on for faithfulness.
+                 use_node_attr=True,
                  # input-stage spurions (break equivariance to the residual symmetry)
                  use_time_spurion=True,
                  use_beam_spurion=True,
@@ -155,10 +163,12 @@ class LorentzNetLGATrSlimGraphGPS(nn.Module):
             in_v_channels=1 + self.num_spurions, out_v_channels=hidden_v_channels,
             in_s_channels=in_s_channels, out_s_channels=hidden_s_channels,
         )
+        self.use_node_attr = use_node_attr
         self.layers = nn.ModuleList([
             LorentzNetSlimGPSLayer(
                 hidden_v_channels, hidden_s_channels, num_heads, c_weight, use_phi_m,
                 attn_ratio, mlp_ratio, num_layers_mlp, nonlinearity, dropout_prob,
+                n_node_attr=in_s_channels if use_node_attr else 0,
             )
             for _ in range(num_blocks)
         ])
@@ -209,11 +219,14 @@ class LorentzNetLGATrSlimGraphGPS(nn.Module):
             spur = self.spurions_4v_buffer.to(x_vec.dtype)
             x_vec = torch.cat([x_vec, spur[None, None].expand(B, P, -1, -1)], dim=2)
 
-        # equivariant input projection, then interleaved GPS layers
+        # equivariant input projection, then interleaved GPS layers. The raw input
+        # scalars ride along as per-layer node attributes (official LorentzNet's
+        # node_attr), matching the CGENN GPS sibling's raw re-injection.
         v_h, s_h = self.linear_in(x_vec, s_in)                  # (B,P,V,4), (B,P,S)
+        node_attr = s_in if self.use_node_attr else None
         attn_mask = mask_b[:, None, None, :]                    # (B, 1, 1, P) bool, True = real
         for layer in self.layers:
-            v_h, s_h = layer(v_h, s_h, idx, nbr_mask, attn_mask)
+            v_h, s_h = layer(v_h, s_h, idx, nbr_mask, attn_mask, node_attr=node_attr)
 
         # masked mean pool of the SCALAR stream only (matching pure LorentzNet's h-pool). The
         # vector stream v_h fed s_h through every layer's invariant edge features, so its content
