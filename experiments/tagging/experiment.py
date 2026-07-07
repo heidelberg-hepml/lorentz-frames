@@ -367,10 +367,11 @@ class TaggingExperiment(BaseExperiment):
         """Persist this run's table metrics and return all trials in the run dir.
 
         Multiple trials/seeds are launched as successive run_idx that share one
-        run directory (warm starts), each a separate process. We accumulate their
-        scalar metrics in a JSON file so the final table reports mean +- std
-        automatically. With save=False (e.g. tests) nothing is written and only
-        the current run is returned.
+        run directory (fresh-trial warm starts: warm_start_load=false, so each
+        trial trains from its own random init -- see GUIDE.md section 8), each a
+        separate process. We accumulate their scalar metrics in a JSON file so
+        the final table reports mean +- std automatically. With save=False
+        (e.g. tests) nothing is written and only the current run is returned.
         """
         if not self.cfg.save:
             return [row]
@@ -382,6 +383,11 @@ class TaggingExperiment(BaseExperiment):
                     rows = json.load(f)
             except (json.JSONDecodeError, OSError):
                 rows = []
+        if not self.cfg.train:
+            # eval-only rerun (e.g. a warm-start reload): it re-evaluates an ALREADY-COUNTED
+            # trial, so appending would duplicate that trial's row and shrink the std. Just
+            # report the accumulated trials (or this run alone if none are persisted yet).
+            return rows if rows else [row]
         rows.append(row)
         try:
             with open(path, "w") as f:

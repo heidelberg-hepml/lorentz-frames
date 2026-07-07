@@ -206,18 +206,31 @@ touch xformers in the framesnet.
 
 - **One `run.py` invocation = one trial** (`run_idx=0`) and emits one table row.
 - **Several trials of the *same* model** accumulate into `mean ± std` automatically:
-  re-run the *same* experiment as a **warm start** (it increments `run_idx`, shares
-  the run directory, and appends to `runs/<exp>/<run>/table_metrics_*.json`). The
-  final row then reads `… (iters) [N trials] & $acc ± σ$ & …`.
+  re-run the *same* experiment as a **fresh-trial warm start** — point `-cp`/`-cn` at the
+  saved run config and pass `warm_start_idx=<prev run_idx> warm_start_load=false`. It
+  increments `run_idx`, shares the run directory, appends to
+  `runs/<exp>/<run>/table_metrics_*.json`, and starts from a **new random initialization**
+  with a fresh optimizer/scheduler. The final row then reads
+  `… (iters) [N trials] & $acc ± σ$ & …`.
+  **Do NOT use a plain warm start (the `warm_start_load=true` default) for trials**: that
+  reloads the previous model *and* the finished scheduler, so the "trial" is a correlated
+  continuation of the same training — and the reloaded cosine steps past `T_max`, ramping
+  the lr back *up* toward its maximum over the run. Plain warm starts are for eval-reload
+  and deliberate continue-training (with `training.scheduler_scale`) only.
+  Seed bookkeeping: with the default `seed=null` every trial draws a fresh init
+  automatically; if you pin `seed`, vary it per trial (`seed=1`, `seed=2`, …) or all
+  trials are identical. (Batch *order* is sampler-seeded and identical across trials
+  either way.)
 - **Different models do *not* merge** into one table — each lands in its own run
   directory with its own row. To build a comparison table, run
   `python aggregate_table.py --runs runs --split test --out comparison.tex` (it collects each
   run's row into one LaTeX table; its `COLUMNS` includes `frames` and `kNN`), or do it by hand
   from the printed `table test:` lines (`grep "table test:" runs/*/*/out_0.log`).
 
-For 3 seeds of a model: launch the run, then warm-start it twice more (same
-`exp_name`/`run_name`). For the heavy `CGENNLGATrGraphGPS` (~4.5e11 FLOPs/jet,
-~a day per trial on an H100) budget accordingly; the slim model is ~300× lighter.
+For 3 seeds of a model: launch the run, then fresh-trial warm-start it twice more (same
+`exp_name`/`run_name`, `warm_start_load=false`). For the heavy `CGENNLGATrGraphGPS`
+(~4.5e11 FLOPs/jet, ~a day per trial on an H100) budget accordingly; the slim model is
+~300× lighter.
 
 ---
 
