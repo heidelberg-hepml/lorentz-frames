@@ -19,9 +19,10 @@ defaults:
 
 epochs: 5
 
-# shared schedule + weight decay, as in the top-tagging family recipe
+# shared schedule as in the top-tagging family recipe, but NO weight decay on JetClass
+# (matching jc_ParT: at 100M jets regularization is unnecessary and only slows fitting)
 scheduler: CosineAnnealingWarmup
-weight_decay: 0.01
+weight_decay: 0
 
 # validate once per (nominal) epoch for every model; the sentinel base guarantees the
 # epoch cap binds. With the default val_files_range this is one ~100k-jet pass per epoch.
