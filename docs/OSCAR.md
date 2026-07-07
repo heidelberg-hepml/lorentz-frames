@@ -27,12 +27,12 @@ editing, installs, and *submitting* jobs only — do **not** run trainings, test
 
 Check your quotas any time with `checkquota`. The CCV-recommended pattern is exactly what
 we set up below: read inputs from `~/data`, write outputs to `~/scratch`, copy keepers back
-to `~/data` when a run finishes. Mind the *inode* quota too (a venv is ~50k files — fine in
+to `~/data` when a run finishes (step 9). Mind the *inode* quota too (a venv is ~50k files — fine in
 home, don't put it in data).
 
 > **Scratch purge is per-file by atime** (last read). A 3-seed campaign finishes well inside
 > 30 days, but if you pause mid-campaign, `find ~/scratch -atime +25` shows what's at risk —
-> copy checkpoints you care about to `~/data` (step 8).
+> copy checkpoints you care about to `~/data` (step 9).
 
 ## 2. One-time setup (on the login node — this part is allowed there)
 
@@ -168,13 +168,45 @@ python run.py -cp ~/GTagger-experiments/runs/<exp_name>/<run_name> -cn config \
 in the run dir carries everything else.) The run's table row consolidates to
 `[N trials] $mean ± std$` automatically.
 
-## 7. The comparison table
+## 7. The full campaign (which models, and which need the LR finder)
+
+The study's grid is the 8 hybrids. **All 8 need §4** (their recipes deliberately leave
+`batchsize`/`lr` as `???`); everything else in their shared recipe is already decided:
+
+```bash
+MODELS="tag_PlainGraphTrans tag_PlainGraphGPS \
+        tag_ParticleNetParTGraphTrans tag_ParticleNetParTGraphGPS \
+        tag_CGENNLGATrGraphTrans tag_CGENNLGATrGraphGPS \
+        tag_LorentzNetLGATrSlimGraphTrans tag_LorentzNetLGATrSlimGraphGPS"
+
+# in a GPU interact session (§4): one sweep per model, fill each top_<Model>.yaml
+for M in $MODELS; do
+  python find_lr.py -cn toptagging model=$M save=false +lr_find.find_batch_size=true
+done
+
+# then one sbatch per model (§5), then 2 more fresh-trial seeds each (§6)
+```
+
+The **baseline reference rows** (`tag_ParT`, `tag_particlenet`, `tag_lgatr`, `tag_slim`,
+`tag_lorentznet`, `tag_transformer`, …) do **not** need the LR finder — they run under
+their published recipes, which already pin lr/batchsize/budget:
+
+```bash
+python run.py -cp config -cn toptagging model=tag_ParT training=top_ParT data.dataset=full gpus=1
+# likewise: tag_lgatr+top_lgatr, tag_slim+top_slim, tag_lorentznet+top_lorentznet, ...
+```
+
+(Heads-up on wall time: order the queue submissions cheapest-first; `CGENNLGATrGraphGPS`
+is the expensive one — budget ~a day per trial on a top GPU — while the slim models are
+orders of magnitude lighter.)
+
+## 8. The comparison table
 
 ```bash
 python aggregate_table.py --runs runs --split test --out comparison.tex
 ```
 
-## 8. Save what matters (scratch purges!)
+## 9. Save what matters (scratch purges!)
 
 ```bash
 # finished runs you want to keep -> data (permanent, backed up)
