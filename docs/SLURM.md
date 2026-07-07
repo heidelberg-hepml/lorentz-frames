@@ -90,11 +90,13 @@ IMG=<path/to/pytorch.sif>
 
 srun apptainer exec --nv --bind "$PWD:$PWD" --pwd "$PWD" "$IMG" bash -lc '
   source venv/bin/activate
-  python run.py \
+  python run.py -cp config -cn toptagging \
       model=tag_LorentzNetLGATrSlimGraphGPS \
       training=top_LorentzNetLGATrSlimGraphGPS \
       data.dataset=full gpus=1
 '
+# -cp config is REQUIRED here: run.py defaults to the tiny config_quick tree,
+# which has no top_<Model> training recipes (the command would fail at composition).
 ```
 
 ```bash
@@ -103,9 +105,13 @@ sbatch train.sbatch
 
 ## 5. Multiple seeds, and the table
 
-A single submission is one trial. For 3 seeds, submit the **same** run twice more
-as warm starts (same `exp_name`/`run_name`) so the row consolidates to `mean ± std`
-in that run directory. Across *different* models, collect the rows afterwards:
+A single submission is one trial. For 3 seeds, submit the **same** run twice more as
+**fresh-trial warm starts** — point `-cp`/`-cn` at the saved run config and pass
+`warm_start_idx=<prev run_idx> warm_start_load=false` — so each trial trains from a
+fresh initialization and the row consolidates to `mean ± std` in that run directory.
+(A plain warm start, `warm_start_load=true` default, RELOADS the trained model and its
+finished scheduler — that's for eval-reload / continue-training, not seeds; see
+`GUIDE.md` §8.) Across *different* models, collect the rows afterwards:
 
 ```bash
 python aggregate_table.py --runs runs --split test --out comparison.tex

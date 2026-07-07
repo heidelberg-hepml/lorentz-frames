@@ -46,7 +46,7 @@ and reading along with print statements. `config/` is the real training setup.
 | `config/model/framesnet/` | LLoCa frame predictors (for non-equivariant models) |
 | `experiments/baselines/` | the network implementations |
 | `experiments/tagging/wrappers.py` | the wrapper that adapts each net to the tagging pipeline |
-| `tests/experiments/` | `test_tag_equivariance.py`, `test_tag_flops.py` |
+| `tests/experiments/` | `test_tag_equivariance.py`, `test_tag_invariance.py`, `test_tag_flops.py` |
 
 ---
 
@@ -98,7 +98,9 @@ Useful overrides: `data.dataset={full,mini}`, `training.iterations=…`,
 `model.net.knn_metric={deltaR,minkowski}`, `model.net.num_blocks=…`.
 
 Each run prints a paste-ready LaTeX table row at the end:
-`table test: <Model> & <frames> (<iters>) & <params> & <acc> & <auc> & … & <kNN>`.
+`table test: <Model> & <frames> & <iters> [N trials] & <params> & <acc> & <auc> &
+<rej03> & <rej05> & <rej08> & <time>s & <flops> & <kNN>` (the `[N trials]` tag and
+`mean ± std` cells appear once a run directory holds more than one trial, §8).
 
 ---
 
@@ -211,7 +213,7 @@ touch xformers in the framesnet.
   increments `run_idx`, shares the run directory, appends to
   `runs/<exp>/<run>/table_metrics_*.json`, and starts from a **new random initialization**
   with a fresh optimizer/scheduler. The final row then reads
-  `… (iters) [N trials] & $acc ± σ$ & …`.
+  `… & <iters> [N trials] & $acc ± σ$ & …`.
   **Do NOT use a plain warm start (the `warm_start_load=true` default) for trials**: that
   reloads the previous model *and* the finished scheduler, so the "trial" is a correlated
   continuation of the same training — and the reloaded cosine steps past `T_max`, ramping
@@ -246,8 +248,11 @@ azimuthal invariance for every hybrid (Minkowski kNN), full SO(3)/Lorentz
 invariance for the internally-equivariant ones (spurions off, fully connected,
 float64), and LLoCa-frame invariance for the canonicalized ones under both learned
 frames (`learnedpd` and `learnedso13`; `learnedpd` carries a looser float64 bound for
-its polar-decomposition boost-precision floor). Run these locally as your gate — CI does
-not pick up `tests/experiments/`.
+its polar-decomposition boost-precision floor). The unit-test workflow
+(`.github/workflows/tests.yaml`) now runs the equivariance + invariance suites, but it
+only triggers on the `ready for review` label — so still run them locally as your gate.
+(`test_tag_flops.py` stays out of CI: its learned-frame cases need a CUDA-matched
+xformers build.)
 
 ---
 
