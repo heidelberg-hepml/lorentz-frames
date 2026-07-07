@@ -164,7 +164,7 @@ class CGENNLGATrGraphGPS(nn.Module):
                  # per-layer CGENN message passing
                  cgenn_aggregation: str = "mean",
                  cgenn_layer_type: str = "fc",
-                 cgenn_normalization_init: int = 0,
+                 cgenn_normalization_init=None,  # official CGENN: no NormalizationLayer (tag_cgenn row)
                  # relative-momentum edge features for the local CGENN branch (as in the
                  # GraphTrans cousin's CGENN stage). Computed once from the raw four-momenta
                  # and shared across layers. True -> like-for-like local MPNN; False -> the

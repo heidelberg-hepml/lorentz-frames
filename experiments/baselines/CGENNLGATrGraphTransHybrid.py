@@ -986,9 +986,9 @@ class CGENNLGATrGraphTrans(nn.Module):
         cgenn_hidden_h: int = 72,
         cgenn_hidden_x: int = 8,
         cgenn_aggregation: str = "mean",
-        cgenn_residual: bool = True,
+        cgenn_residual: bool = False,  # official CGENN top-tagging default (tag_cgenn row)
         cgenn_layer_type: str = "fc",
-        cgenn_normalization_init: int = 0,
+        cgenn_normalization_init=None,  # official CGENN: no NormalizationLayer (tag_cgenn row)
         concat_original: bool = True,
         use_explicit_edge_features: bool = True,
         beam_spurion: str = "xyplane",
