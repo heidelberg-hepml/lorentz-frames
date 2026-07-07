@@ -95,7 +95,9 @@ def knn(x, k, metric='deltaR', mask=None):
             # features), exactly like official ParticleNet's far coord-shifted padding --
             # instead of non-deterministically tie-breaking between self and padding at
             # -inf, which could admit a spurious self edge into unmasked aggregations
-            # (e.g. EdgeConvBlock's plain mean).
+            # (e.g. EdgeConvBlock's plain mean). (Under fp16 autocast -1e30 saturates to
+            # -inf and this degrades to the old tie-break -- harmless; the repo autocasts
+            # to bf16, where 1e30 is representable, and use_amp defaults to false.)
             pairwise_distance = pairwise_distance.masked_fill(~mask.bool().unsqueeze(1), -1e30)
         # drop self-loops explicitly (lightlike pairs can also reach |interval|=0)
         eye = torch.eye(num_points, dtype=torch.bool, device=x.device).unsqueeze(0)
