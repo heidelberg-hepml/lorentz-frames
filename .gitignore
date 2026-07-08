@@ -24,3 +24,6 @@ data/jetclass/
 
 # find_lr.py default outputs (plot; the .npz is already covered above)
 lr_finder_*.png
+
+# Claude Code local tooling (agent worktrees, session state) -- never part of the project
+.claude/
