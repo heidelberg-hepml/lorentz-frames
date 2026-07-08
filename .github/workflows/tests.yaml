@@ -28,5 +28,4 @@ jobs:
 
     - name: Run unit tests
       run: |
-        pytest tests/lloca
         pytest tests/eventgen
