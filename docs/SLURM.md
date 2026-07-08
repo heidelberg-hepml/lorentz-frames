@@ -19,25 +19,28 @@ IMG=<path/to/pytorch.sif>                    # your PyTorch container
 apptainer exec "$IMG" python -m venv --system-site-packages venv
 
 # install the repo + deps inside the container, but NOT torch (the container owns it)
+# and not xformers (hard to build against a container torch; we run without it)
 apptainer exec "$IMG" bash -lc '
   source venv/bin/activate
   pip install -e .
-  grep -vE "^torch([>=<]|-geometric|-ema)?\b" requirements.txt > /tmp/reqs.txt
+  sed -E -e "/^torch[>=<]/d" -e "/^xformers/d" -e "s/\[xformers-attention\]//" \
+      requirements.txt > /tmp/reqs.txt
   pip install -r /tmp/reqs.txt
 '
 ```
 
 Notes:
-- `requirements.txt` lists `torch`, `torch-geometric`, `torch-ema` and `xformers`.
-  The container usually already provides a CUDA-matched torch (and often
-  torch-geometric); the `grep -vE` above drops the torch lines so pip keeps the
-  container's build. If torch-geometric is *not* in the container, drop only
-  `^torch>` / `^torch-ema` and let pip install `torch-geometric`.
-- **xformers** is pulled in via `lgatr[xformers-attention]` / `lloca[xformers-attention]`
-  and can be hard to build. If it won't install, you can install `lgatr`/`lloca`
-  without the extra and run xformers-free: the GraphGPS non-equivariant models use
-  plain torch attention, the equivariant ones fall back to non-xformers L-GATr
-  backends, and learned frames work with `model/framesnet/equivectors=equimlp`.
+- The filter drops only the `torch` and `xformers` lines (and the lgatr/lloca
+  `[xformers-attention]` extras) so pip keeps the container's CUDA-matched torch.
+  `torch-geometric` stays IN the install even if the container ships one: the repo
+  needs ≥ 2.6.0 (its ptr-only `MeanAggregation` calls raise `NotImplementedError`
+  on ≤ 2.5), and containers often carry older. pip's copy in the venv shadows the
+  container's, safely — PyG ≥ 2.4 is pure Python and does not pull in a new torch.
+- **xformers-free is fine**: the GraphGPS non-equivariant models use plain torch
+  attention, the equivariant ones fall back to non-xformers L-GATr backends, and
+  learned frames work with `model/framesnet/equivectors=equimlp` (already the
+  default in this repo's framesnet configs). If your cluster can build xformers
+  against the container torch, keep the lines in instead.
 
 ## 2. Get the data
 

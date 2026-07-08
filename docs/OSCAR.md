@@ -85,9 +85,10 @@ apptainer exec "$NGC_PYTORCH_CONTAINER" bash -lc '
 ```
 
 Notes:
-- **torch-geometric**: the image ships 2.3.1 but the repo pins ≥ 2.4.0, so pip installs a
-  newer one *into the venv*, shadowing the container's copy. Safe: PyG ≥ 2.4 is pure Python
-  and does not pull in a new torch.
+- **torch-geometric**: the image ships 2.3.1 but the repo needs ≥ 2.6.0 (its ptr-only
+  `MeanAggregation` calls raise `NotImplementedError` on ≤ 2.5 — verified by test suite),
+  so pip installs a newer one *into the venv*, shadowing the container's copy. Safe:
+  PyG ≥ 2.4 is pure Python and does not pull in a new torch.
 - **numpy**: the repo pins < 2.0 (weaver compatibility); if the image carries numpy 2.x,
   pip shadows it in the venv the same way. The sanity line above shows what won.
 - **xformers-free is fine**: the non-equivariant GPS models use plain torch attention,

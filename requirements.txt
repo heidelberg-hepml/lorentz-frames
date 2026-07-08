@@ -11,7 +11,7 @@ scikit-learn
 
 # deep learning
 torch>=2.0.0
-torch-geometric>=2.4.0
+torch-geometric>=2.6.0 # ptr-only Aggregation calls (tagging/wrappers.py) raise NotImplementedError on <= 2.5
 torch-ema
 pytorch_optimizer>=3.2.0
 
