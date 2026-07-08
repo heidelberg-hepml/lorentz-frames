@@ -1,3 +1,5 @@
+<b>RENAME/REDO</b>
+<br>
 <div align="center">
 
 ## Lorentz Local Canonicalization: How to Make Any Network Lorentz-Equivariant
