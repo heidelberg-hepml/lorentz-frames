@@ -111,6 +111,11 @@ srun apptainer exec --nv --bind "$PWD:$PWD" --pwd "$PWD" "$IMG" bash -lc '
 sbatch train.sbatch
 ```
 
+JetClass instead of top-tagging: fetch the ~190 GB dataset with
+`python data/collect_data.py jetclass` (put it on big-file storage and symlink
+`data/JetClass` there), then swap `-cn toptagging` → `-cn jctagging` and
+`training=top_<Model>` → `training=jc_<Model>` in the same commands (GUIDE §5.1).
+
 ## 5. Multiple seeds, and the table
 
 A single submission is one trial. For 3 seeds, submit the **same** run twice more as

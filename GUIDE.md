@@ -123,6 +123,39 @@ reference rows — `top_ParT` (Ranger, lr=1e-3, 20 epochs), `top_lorentznet` (Ad
 lr=1e-3, 35 epochs), `top_lgatr` (Lion, lr=3e-4, wd=0.2), `top_particlenet` (lr=1e-2)
 — or point them at `tag_gts_and_friends_default` to put them on the same budget.
 
+### 5.1 JetClass
+
+The JetClass task mirrors the top-tagging setup one-to-one, selected with
+`-cn jctagging` (dataset: `python data/collect_data.py jetclass` — the full 100M-jet
+training set, streamed from ROOT files, so mind the disk). Two differences to know:
+
+- **Wider inputs.** `features: default` adds 10 particle-ID / trajectory scalars, so
+  the non-equivariant models see `in_channels = 7 + 10 = 17` (wired automatically by
+  `init_physics`).
+- **JetClass recipes drop weight decay** (`weight_decay: 0`, matching `jc_ParT`).
+
+The training-config structure repeats the §5 pattern: the task default is
+`jc_gts_and_friends_default` (AdamW, CosineAnnealingWarmup, **epochs=5** — the
+ParT-standard exposure, 1M steps × batch 512 ≈ 5 passes of the 100M train set —
+validate once per nominal epoch), and each hybrid has a `config/training/jc_<hybrid>.yaml`
+whose `batchsize`/`lr` are `???` until you fill them from the LR finder **on the
+jctagging task** (don't copy the top-tagging values — the wider inputs move both the
+memory ceiling and the loss-vs-lr curve):
+
+```bash
+python find_lr.py -cn jctagging model=tag_CGENNLGATrGraphGPS save=false \
+    +lr_find.find_batch_size=true
+# -> fill training.batchsize / training.lr into config/training/jc_CGENNLGATrGraphGPS.yaml
+```
+
+Note the `???` markers are for humans — hydra cannot enforce them here (an OmegaConf
+`???` never overrides a value inherited from `tag_default`), so an unfilled recipe
+silently trains at the 512 / 1e-3 fallback instead of erroring. The JetClass baseline
+reference rows keep their published budgets: `jc_ParT` (Ranger, 1M iterations),
+`jc_MIParT`, `jc_lgatr` (Lion, bs=512), `jc_transformer`. To cut cost, shrink
+`data.train_files_range` — the same 5 passes then apply to the subset; don't lower
+the epochs.
+
 ---
 
 ## 6. Choosing hyperparameters

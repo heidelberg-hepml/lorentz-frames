@@ -122,6 +122,34 @@ ln -s ~/scratch/gtagger_runs runs
 
 (The tiny `data/*_mini.npz` smoke files ship with the repo and stay in home.)
 
+### 2.1 JetClass (only if you run the jctagging campaign)
+
+The JetClass dataset is ~190 GB of tars extracting to roughly as much again — too big
+for home, and it strains a group's `~/data` quota, so **scratch** is the natural home.
+The purge risk manages itself while you train: the streaming loader reads the ROOT
+files continuously, refreshing their atime — an *active* campaign is purge-safe, but
+files idle > 30 days are at risk (§1).
+
+```bash
+# download + extract (hours — run in a CPU interact session, not on the login node)
+interact -n 4 -m 16g -t 12:00:00
+mkdir -p ~/scratch/jetclass && ln -s ~/scratch/jetclass ~/GTagger-experiments/data/JetClass
+cd ~/GTagger-experiments
+apptainer exec "$NGC_PYTORCH_CONTAINER" bash -lc \
+  'source venv/bin/activate && python data/collect_data.py jetclass'
+rm ~/scratch/jetclass/*.tar     # reclaim the ~190 GB of tars once extraction finished
+exit
+```
+
+Training swaps the config name and recipe in the *same* §4/§5 commands (science:
+GUIDE §5.1 — shared epochs=5, wd=0; fill each `jc_<hybrid>.yaml`'s `???` from the
+jctagging sweep, not the top-tagging one):
+
+```bash
+# §4 becomes:  python find_lr.py -cn jctagging model=tag_<hybrid> save=false +lr_find.find_batch_size=true
+# train.sh:    python run.py -cp config -cn jctagging model=tag_<hybrid> training=jc_<hybrid> gpus=1
+```
+
 ## 3. Smoke-test on a compute node
 
 Never on the login node — grab a short interactive CPU session for the tests, then a
