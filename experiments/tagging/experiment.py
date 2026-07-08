@@ -45,7 +45,7 @@ class TaggingExperiment(BaseExperiment):
                 self.cfg.model.net.in_s_channels = 0 if self.cfg.model.mean_aggregation else 1
                 self.cfg.model.net.in_s_channels += in_s_channels
             elif modelname == "LorentzNet":
-                self.cfg.model.net.in_s_channels = in_s_channels
+                self.cfg.model.net.n_scalar = in_s_channels
             elif modelname == "PELICAN":
                 self.cfg.model.net.in_channels_rank1 = in_s_channels
             elif modelname == "PELICANOfficial":
@@ -258,17 +258,16 @@ class TaggingExperiment(BaseExperiment):
             labels_predict.append(y_pred.cpu().float())
         labels_true, labels_predict = torch.cat(labels_true), torch.cat(labels_predict)
 
+        # bce loss (from the raw logits)
+        metrics["loss"] = torch.nn.functional.binary_cross_entropy_with_logits(
+            labels_predict, labels_true
+        ).item()
+        labels_predict = torch.nn.functional.sigmoid(labels_predict)
         if mode == "eval":
             metrics["labels_true"], metrics["labels_predict"] = (
                 labels_true,
                 labels_predict,
             )
-
-        # bce loss
-        metrics["loss"] = torch.nn.functional.binary_cross_entropy_with_logits(
-            labels_predict, labels_true
-        ).item()
-        labels_predict = torch.nn.functional.sigmoid(labels_predict)
         labels_true, labels_predict = labels_true.numpy(), labels_predict.numpy()
 
         # accuracy

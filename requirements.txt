@@ -12,7 +12,7 @@ scikit-learn
 
 # deep learning
 torch>=2.0.0
-torch-geometric>=2.4.0
+torch-geometric>=2.6.0
 torch-ema
 pytorch_optimizer>=3.2.0
 
