@@ -46,7 +46,7 @@ and reading along with print statements. `config/` is the real training setup.
 | `config/model/framesnet/` | LLoCa frame predictors (for non-equivariant models) |
 | `experiments/baselines/` | the network implementations |
 | `experiments/tagging/wrappers.py` | the wrapper that adapts each net to the tagging pipeline |
-| `tests/experiments/` | `test_tag_equivariance.py`, `test_tag_flops.py` |
+| `tests/experiments/` | `test_tag_equivariance.py`, `test_tag_invariance.py`, `test_tag_flops.py` |
 
 ---
 
@@ -98,7 +98,9 @@ Useful overrides: `data.dataset={full,mini}`, `training.iterations=…`,
 `model.net.knn_metric={deltaR,minkowski}`, `model.net.num_blocks=…`.
 
 Each run prints a paste-ready LaTeX table row at the end:
-`table test: <Model> & <frames> (<iters>) & <params> & <acc> & <auc> & … & <kNN>`.
+`table test: <Model> & <frames> & <iters> [N trials] & <params> & <acc> & <auc> &
+<rej03> & <rej05> & <rej08> & <time>s & <flops> & <kNN>` (the `[N trials]` tag and
+`mean ± std` cells appear once a run directory holds more than one trial, §8).
 
 ---
 
@@ -198,7 +200,14 @@ python run.py model=tag_PlainGraphGPS model/framesnet=learnedpd \
 
 (`equivectors` ∈ {`equimlp`, `pelican`, `lgatr`}; `equimlp` is the lightest and
 xformers-free.) The internally-equivariant hybrids use identity frames and never
-touch xformers in the framesnet.
+touch xformers in the framesnet — their L-GATr stages attend with dense masks
+(native torch attention), so all 8 hybrids run on a GPU without xformers installed.
+The only models that don't are the four baselines whose configs pin
+`attention_backend: xformers` (`tag_transformer`, `tag_top_transformer`,
+`tag_lgatr`, `tag_slim`); on an xformers-free install, run those with
+`model.attention_backend=flash` (needs the flash-attn package; NGC/cluster
+containers usually ship it) or `=flex` (pure-torch FlexAttention — slower, and
+its torch.compile path is version-sensitive, so smoke-test it on your GPU first).
 
 ---
 
@@ -206,18 +215,31 @@ touch xformers in the framesnet.
 
 - **One `run.py` invocation = one trial** (`run_idx=0`) and emits one table row.
 - **Several trials of the *same* model** accumulate into `mean ± std` automatically:
-  re-run the *same* experiment as a **warm start** (it increments `run_idx`, shares
-  the run directory, and appends to `runs/<exp>/<run>/table_metrics_*.json`). The
-  final row then reads `… (iters) [N trials] & $acc ± σ$ & …`.
+  re-run the *same* experiment as a **fresh-trial warm start** — point `-cp`/`-cn` at the
+  saved run config and pass `warm_start_idx=<prev run_idx> warm_start_load=false`. It
+  increments `run_idx`, shares the run directory, appends to
+  `runs/<exp>/<run>/table_metrics_*.json`, and starts from a **new random initialization**
+  with a fresh optimizer/scheduler. The final row then reads
+  `… & <iters> [N trials] & $acc ± σ$ & …`.
+  **Do NOT use a plain warm start (the `warm_start_load=true` default) for trials**: that
+  reloads the previous model *and* the finished scheduler, so the "trial" is a correlated
+  continuation of the same training — and the reloaded cosine steps past `T_max`, ramping
+  the lr back *up* toward its maximum over the run. Plain warm starts are for eval-reload
+  and deliberate continue-training (with `training.scheduler_scale`) only.
+  Seed bookkeeping: with the default `seed=null` every trial draws a fresh init
+  automatically; if you pin `seed`, vary it per trial (`seed=1`, `seed=2`, …) or all
+  trials are identical. (Batch *order* is sampler-seeded and identical across trials
+  either way.)
 - **Different models do *not* merge** into one table — each lands in its own run
   directory with its own row. To build a comparison table, run
   `python aggregate_table.py --runs runs --split test --out comparison.tex` (it collects each
   run's row into one LaTeX table; its `COLUMNS` includes `frames` and `kNN`), or do it by hand
   from the printed `table test:` lines (`grep "table test:" runs/*/*/out_0.log`).
 
-For 3 seeds of a model: launch the run, then warm-start it twice more (same
-`exp_name`/`run_name`). For the heavy `CGENNLGATrGraphGPS` (~4.5e11 FLOPs/jet,
-~a day per trial on an H100) budget accordingly; the slim model is ~300× lighter.
+For 3 seeds of a model: launch the run, then fresh-trial warm-start it twice more (same
+`exp_name`/`run_name`, `warm_start_load=false`). For the heavy `CGENNLGATrGraphGPS`
+(~4.5e11 FLOPs/jet, ~a day per trial on an H100) budget accordingly; the slim model is
+~300× lighter.
 
 ---
 
@@ -233,8 +255,11 @@ azimuthal invariance for every hybrid (Minkowski kNN), full SO(3)/Lorentz
 invariance for the internally-equivariant ones (spurions off, fully connected,
 float64), and LLoCa-frame invariance for the canonicalized ones under both learned
 frames (`learnedpd` and `learnedso13`; `learnedpd` carries a looser float64 bound for
-its polar-decomposition boost-precision floor). Run these locally as your gate — CI does
-not pick up `tests/experiments/`.
+its polar-decomposition boost-precision floor). The unit-test workflow
+(`.github/workflows/tests.yaml`) now runs the equivariance + invariance suites, but it
+only triggers on the `ready for review` label — so still run them locally as your gate.
+(`test_tag_flops.py` stays out of CI: its learned-frame cases need a CUDA-matched
+xformers build.)
 
 ---
 

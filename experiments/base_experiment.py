@@ -129,8 +129,8 @@ class BaseExperiment:
             LOGGER.info("Not using EMA")
             self.ema = None
 
-        # load existing model if specified
-        if self.warm_start:
+        # load existing model if specified (skipped for fresh trials, warm_start_load=false)
+        if self.warm_start and self.warm_load:
             model_path = os.path.join(
                 self.cfg.run_dir, "models", f"model_run{self.cfg.warm_start_idx}.pt"
             )
@@ -186,6 +186,30 @@ class BaseExperiment:
 
     def _init_experiment(self):
         self.warm_start = False if self.cfg.warm_start_idx is None else True
+        # warm_start_load=false turns a warm start into a FRESH TRIAL: it shares the run
+        # directory and increments run_idx (so table_metrics_*.json accumulates mean+-std
+        # rows), but does NOT load the previous run's model/ema/optimizer/scheduler/scaler.
+        # This is the correct multi-seed workflow -- loading them (the default, for
+        # eval-reload / continue-training) would make "trials" correlated continuations of
+        # one training, and the reloaded cosine scheduler would step past T_max, RAISING
+        # the lr back toward its maximum over the second run.
+        self.warm_load = self.warm_start and OmegaConf.select(
+            self.cfg, "warm_start_load", default=True
+        )
+        if self.warm_start and not self.warm_load:
+            LOGGER.info(
+                "Fresh-trial warm start (warm_start_load=false): sharing the run directory "
+                "but starting from a new random initialization."
+            )
+            if not self.cfg.train:
+                LOGGER.warning(
+                    "warm_start_load=false with train=false evaluates an UNTRAINED model."
+                )
+            # do NOT persist the flag into the saved run config: each fresh trial opts in
+            # explicitly on the CLI, and a later eval-reload / continue-training warm start
+            # from this directory gets the safe loading default back.
+            with open_dict(self.cfg):
+                self.cfg.warm_start_load = True
 
         if not self.warm_start:
             if self.cfg.run_name is None:
@@ -406,8 +430,8 @@ class BaseExperiment:
             f"Using optimizer {self.cfg.training.optimizer} with lr={self.cfg.training.lr}"
         )
 
-        # load existing optimizer if specified
-        if self.warm_start:
+        # load existing optimizer if specified (skipped for fresh trials)
+        if self.warm_start and self.warm_load:
             model_path = os.path.join(
                 self.cfg.run_dir, "models", f"model_run{self.cfg.warm_start_idx}.pt"
             )
@@ -529,8 +553,8 @@ class BaseExperiment:
 
         LOGGER.debug(f"Using learning rate scheduler {self.cfg.training.scheduler}")
 
-        # load existing scheduler if specified
-        if self.warm_start and self.scheduler is not None:
+        # load existing scheduler if specified (skipped for fresh trials)
+        if self.warm_start and self.warm_load and self.scheduler is not None:
             model_path = os.path.join(
                 self.cfg.run_dir, "models", f"model_run{self.cfg.warm_start_idx}.pt"
             )
@@ -547,8 +571,8 @@ class BaseExperiment:
         use_amp = OmegaConf.select(self.cfg.model, "use_amp", default=False)
         self.scaler = GradScaler(enabled=use_amp)
 
-        # load existing scaler if specified
-        if self.warm_start and use_amp:
+        # load existing scaler if specified (skipped for fresh trials)
+        if self.warm_start and self.warm_load and use_amp:
             model_path = os.path.join(
                 self.cfg.run_dir, "models", f"model_run{self.cfg.warm_start_idx}.pt"
             )
@@ -707,11 +731,15 @@ class BaseExperiment:
                 f"model_run{self.cfg.run_idx}_it{smallest_val_loss_step}.pt",
             )
             try:
-                state_dict = torch.load(model_path, map_location=self.device, weights_only=False)[
-                    "model"
-                ]
+                checkpoint = torch.load(model_path, map_location=self.device, weights_only=False)
                 LOGGER.info(f"Loading model from {model_path}")
-                self.model.load_state_dict(state_dict)
+                self.model.load_state_dict(checkpoint["model"])
+                # keep the EMA shadow PAIRED with the restored best checkpoint: without this,
+                # self.ema kept its end-of-training state, so the headline `_ema` eval would
+                # combine end-of-training EMA weights with the best-validation model.
+                if self.ema is not None and checkpoint.get("ema") is not None:
+                    LOGGER.info(f"Loading EMA state from {model_path}")
+                    self.ema.load_state_dict(checkpoint["ema"])
             except FileNotFoundError:
                 LOGGER.warning(
                     f"Cannot load best model (epoch {smallest_val_loss_step}) from {model_path}"

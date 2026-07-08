@@ -145,10 +145,25 @@ exposed above. If a reviewer wants the negative result demonstrated, a LapPE nod
       side effect. No-op at the default `dropout_prob=0`, so it only matters if dropout is enabled — decide
       whether the four local branches should match.
 
+### Audit findings (infrastructure sweep: JetClass path / plots / trials)
+- [x] **`jc_gts_and_friends_default` added** and `config/jctagging.yaml` now defaults to it (was
+      `jc_ParT` — the same recipe-inheritance trap the top tree fixed). ParT-standard `epochs: 5`
+      (1M steps x 512 = ~5 passes of 100M), CosineAnnealingWarmup, wd 0.01, validate once per
+      nominal epoch; per-model batchsize/lr from `find_lr.py -cn jctagging` before a real campaign.
+- [ ] **Rejection-metric convention differs between experiments** (pre-existing): top-tagging uses the
+      nearest-ROC-point (`argmin |tpr - epsS|`), JetClass uses `scipy.interp1d` interpolation. One
+      methods sentence, or unify.
+- [x] **best-checkpoint restore now re-pairs the EMA**: the end of `train()` loads the checkpoint's
+      `"ema"` alongside `"model"` (when `ema: true`), so the `_ema` eval uses the EMA shadow that
+      belongs to the restored best-validation checkpoint instead of the end-of-training one.
+
 ### Pre-publication audit (session: jet_frames + GT-family sanity sweep)
 
 Training-readiness verified across all 8 GT hybrids (real `config/`): forward + backward + AdamW step
-crash-free; param counts 1.16–2.53M (LorentzNet 1.83/2.46M, CGENN GNN 248k — the earlier fixes held);
+crash-free; param counts 1.16–2.53M (LorentzNet 1.83/2.46M, CGENN GNN 248k — the earlier fixes held;
+small later deltas: the audit's node_attr re-injection adds +1.5k/+6.7k to the LorentzNet hybrids and
+the official-CGENN knob flip removes the NormalizationLayer params, so counts are now 1.15/1.90/1.83/2.46M
+for CGENN-Trans/CGENN-GPS/LN-Trans/LN-GPS);
 **zero dead input channels** in either the four-momentum path or the 7 `tagging_features` (the general
 form of the CGENN `node_attr` check — CGENN comes back balanced). PDFrames runs end-to-end on the 4
 non-equivariant hybrids (Plain × {Trans, GPS}, ParticleNet-ParT × {Trans, GPS}); the 4 internally-equivariant
@@ -209,6 +224,10 @@ Critical (still point at the upstream LLoCa project):
 - [ ] `reproduce.md` — clone URL `heidelberg-hepml/lloca-experiments` + `cd lloca-experiments`,
       upstream arXiv references; **replace the manual JetClass-download line with
       `python data/collect_data.py jetclass`** (now automated).
+- [ ] `REPRODUCE.md` — stale xformers claim: says running LLoCa/L-GATr taggers without xformers
+      "requires modifying the data embedding and attention mask construction". No longer true —
+      `model.attention_backend=flash|flex` does it as a config override (GUIDE §7, docs/OSCAR.md §2
+      note). Rewrite the paragraph; upstream PR comment about it planned separately.
 - [ ] `LICENSE` — copyright currently lists the upstream LLoCa authors; add your authors / mark derivative.
 
 Minor (stale strings / metadata):

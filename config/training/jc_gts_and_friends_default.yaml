@@ -1,0 +1,30 @@
+# Shared JetClass training recipe for the GT-hybrid family ("GTs and friends") -- the
+# jctagging analogue of tag_gts_and_friends_default, closing the recipe-inheritance trap
+# where a naive `run.py -cn jctagging model=tag_<hybrid>` silently trained under jc_ParT
+# (Ranger, ParT's recipe).
+#
+# Budget: EPOCHS again (equal data exposure), derived per model at runtime as
+# epochs * batches_per_epoch (_resolve_epoch_budget; the streaming loader's len() is the
+# nominal files x events_per_file). epochs=5 is the ParT-standard JetClass exposure
+# (ParT trains 1M steps x batch 512 = ~5 passes of the 100M train set); with a
+# data.train_files_range subset the SAME 5 passes apply to the subset -- shrink the range,
+# not the epochs, to cut cost.
+#
+# Per-model batchsize + lr come from find_lr on the jctagging task:
+#   python find_lr.py -cn jctagging model=tag_<hybrid> save=false +lr_find.find_batch_size=true
+# (defaults below inherit tag_default: AdamW, lr=1e-3, batchsize=512, clip 1.0 -- runnable
+# out of the box, but sweep before a real campaign.)
+defaults:
+  - tag_default
+
+epochs: 5
+
+# shared schedule as in the top-tagging family recipe, but NO weight decay on JetClass
+# (matching jc_ParT: at 100M jets regularization is unnecessary and only slows fitting)
+scheduler: CosineAnnealingWarmup
+weight_decay: 0
+
+# validate once per (nominal) epoch for every model; the sentinel base guarantees the
+# epoch cap binds. With the default val_files_range this is one ~100k-jet pass per epoch.
+validate_every_n_epochs_min: 1
+validate_every_n_steps: 1000000000

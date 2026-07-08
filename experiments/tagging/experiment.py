@@ -273,17 +273,19 @@ class TaggingExperiment(BaseExperiment):
             labels_predict.append(y_pred.cpu().float())
         labels_true, labels_predict = torch.cat(labels_true), torch.cat(labels_predict)
 
-        if mode == "eval":
-            metrics["labels_true"], metrics["labels_predict"] = (
-                labels_true,
-                labels_predict,
-            )
-
-        # bce loss
+        # bce loss (from the raw logits)
         metrics["loss"] = torch.nn.functional.binary_cross_entropy_with_logits(
             labels_predict, labels_true
         ).item()
         labels_predict = torch.nn.functional.sigmoid(labels_predict)
+        if mode == "eval":
+            # store the sigmoid PROBABILITIES, not the logits: plot_score histograms
+            # metrics["labels_predict"] over [0, 1] (matplotlib silently drops
+            # out-of-range values, so storing logits made score.pdf meaningless)
+            metrics["labels_true"], metrics["labels_predict"] = (
+                labels_true,
+                labels_predict,
+            )
         labels_true, labels_predict = labels_true.numpy(), labels_predict.numpy()
 
         # accuracy
@@ -367,10 +369,11 @@ class TaggingExperiment(BaseExperiment):
         """Persist this run's table metrics and return all trials in the run dir.
 
         Multiple trials/seeds are launched as successive run_idx that share one
-        run directory (warm starts), each a separate process. We accumulate their
-        scalar metrics in a JSON file so the final table reports mean +- std
-        automatically. With save=False (e.g. tests) nothing is written and only
-        the current run is returned.
+        run directory (fresh-trial warm starts: warm_start_load=false, so each
+        trial trains from its own random init -- see GUIDE.md section 8), each a
+        separate process. We accumulate their scalar metrics in a JSON file so
+        the final table reports mean +- std automatically. With save=False
+        (e.g. tests) nothing is written and only the current run is returned.
         """
         if not self.cfg.save:
             return [row]
@@ -382,6 +385,11 @@ class TaggingExperiment(BaseExperiment):
                     rows = json.load(f)
             except (json.JSONDecodeError, OSError):
                 rows = []
+        if not self.cfg.train:
+            # eval-only rerun (e.g. a warm-start reload): it re-evaluates an ALREADY-COUNTED
+            # trial, so appending would duplicate that trial's row and shrink the std. Just
+            # report the accumulated trials (or this run alone if none are persisted yet).
+            return rows if rows else [row]
         rows.append(row)
         try:
             with open(path, "w") as f:

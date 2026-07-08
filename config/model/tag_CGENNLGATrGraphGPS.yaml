@@ -29,7 +29,7 @@ net:
   # per-layer CGENN message passing
   cgenn_aggregation: mean
   cgenn_layer_type: fc
-  cgenn_normalization_init: 0
+  cgenn_normalization_init: null  # match official CGENN top-tagging (LorentzCGGNN default: no NormalizationLayer) and the tag_cgenn reference row
   # static relative-momentum edge multivectors [p_i-p_j, raw_i, raw_j] injected into every
   # local CGENN branch (parity with the GraphTrans cousin). Ablate the relative edge PE: set false.
   use_explicit_edge_features: true

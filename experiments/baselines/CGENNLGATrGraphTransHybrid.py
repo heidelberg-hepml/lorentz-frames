@@ -681,9 +681,15 @@ def generate_edges_vectorized(mask, points, k, M, device,
     send = (nbr + offset).reshape(-1)
 
     # keep edges with both endpoints real (drops padded senders in sparse jets,
-    # which is what a sparse graph wants -- those nodes simply get fewer edges)
+    # which is what a sparse graph wants -- those nodes simply get fewer edges).
+    # Also drop self-loops: on jets with n_real <= k, topk fills the remaining
+    # slots from the tied +inf pool (self and padded columns), and while padded
+    # fills fail the realness filter, a self fill has BOTH endpoints real and
+    # would survive as a spurious i->i message (tie-break dependent, hence
+    # non-deterministic) -- the same sparse-jet leak fixed in the static-kNN
+    # nbr_masks of the Plain/LorentzNet hybrids.
     valid = mask_bool.reshape(-1)
-    keep = valid[recv] & valid[send]
+    keep = valid[recv] & valid[send] & (recv != send)
     return torch.stack([recv[keep], send[keep]])
 
 class CGLayer(nn.Module):
@@ -980,9 +986,9 @@ class CGENNLGATrGraphTrans(nn.Module):
         cgenn_hidden_h: int = 72,
         cgenn_hidden_x: int = 8,
         cgenn_aggregation: str = "mean",
-        cgenn_residual: bool = True,
+        cgenn_residual: bool = False,  # official CGENN top-tagging default (tag_cgenn row)
         cgenn_layer_type: str = "fc",
-        cgenn_normalization_init: int = 0,
+        cgenn_normalization_init=None,  # official CGENN: no NormalizationLayer (tag_cgenn row)
         concat_original: bool = True,
         use_explicit_edge_features: bool = True,
         beam_spurion: str = "xyplane",

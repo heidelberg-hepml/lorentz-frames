@@ -71,8 +71,11 @@ class TopTaggingFineTuneExperiment(TopTaggingExperiment):
 
         super().init_model()
 
-        if self.warm_start:
-            # nothing to do
+        if self.warm_start and self.warm_load:
+            # resumed finetune run: the finetuned weights were already loaded by
+            # super().init_model(), nothing to do. (A fresh-trial warm start,
+            # warm_start_load=false, falls through and re-loads the PRETRAINED
+            # backbone instead -- a new independent finetuning trial.)
             return
 
         # load pretrained weights
