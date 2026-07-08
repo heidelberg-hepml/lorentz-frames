@@ -709,13 +709,6 @@ class CGENNWrapper(nn.Module):
         fourmomenta, mask = to_dense_batch(fourmomenta, batch)
         scalars, _ = to_dense_batch(scalars, batch)
         batch_size, n_nodes, _ = fourmomenta.shape
-        # Build the fully-connected (no self-loop) edges among the REAL nodes of each jet
-        # in the DENSE b*n_nodes+i frame that the flattened tensors below actually use.
-        # The previous get_edge_index_from_ptr(ptr, ...) call produced edges in the SPARSE
-        # ptr[b]+i frame; the two frames only agree when every jet in the batch has the
-        # same length, so with variable jet sizes ~1/3 of the edges crossed jet boundaries
-        # or pointed at padded slots, silently scrambling the CGENN message passing and
-        # leaking information across batch-mates.
         pair = mask[:, :, None] & mask[:, None, :]
         pair &= ~torch.eye(n_nodes, dtype=torch.bool, device=mask.device)[None]
         b_idx, i_idx, j_idx = pair.nonzero(as_tuple=True)

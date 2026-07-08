@@ -246,9 +246,6 @@ class TaggingExperiment(BaseExperiment):
         ).item()
         labels_predict = torch.nn.functional.sigmoid(labels_predict)
         if mode == "eval":
-            # store the sigmoid PROBABILITIES, not the logits: plot_score histograms
-            # metrics["labels_predict"] over [0, 1] (matplotlib silently drops
-            # out-of-range values, so storing logits made score.pdf meaningless)
             metrics["labels_true"], metrics["labels_predict"] = (
                 labels_true,
                 labels_predict,
