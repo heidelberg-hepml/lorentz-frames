@@ -6,7 +6,7 @@ mlflow-skinny # can optionally install extras, see https://pypi.org/project/mlfl
 wget # for getting top tagging, could use requests instead of this abandonware if someone feels up to it
 
 # standard science stack
-numpy>=1.19.5,<2.0.0 # constrain version for weaver (for miniweaver, copied from weaver which was pretty untouched for the past 4 years but now is updated and I believe supports above numpy 2.0.0 now. A miniweaver refresh from the new weaver could be pursued but is a big task that buys pretty much nothing)
+numpy>=1.19.5,<2.0.0 # constrain version for weaver (for miniweaver, weaver now updated to support this but parity is unneeded)
 matplotlib
 scikit-learn
 
