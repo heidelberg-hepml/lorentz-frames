@@ -224,6 +224,10 @@ Critical (still point at the upstream LLoCa project):
 - [ ] `reproduce.md` — clone URL `heidelberg-hepml/lloca-experiments` + `cd lloca-experiments`,
       upstream arXiv references; **replace the manual JetClass-download line with
       `python data/collect_data.py jetclass`** (now automated).
+- [ ] `REPRODUCE.md` — stale xformers claim: says running LLoCa/L-GATr taggers without xformers
+      "requires modifying the data embedding and attention mask construction". No longer true —
+      `model.attention_backend=flash|flex` does it as a config override (GUIDE §7, docs/OSCAR.md §2
+      note). Rewrite the paragraph; upstream PR comment about it planned separately.
 - [ ] `LICENSE` — copyright currently lists the upstream LLoCa authors; add your authors / mark derivative.
 
 Minor (stale strings / metadata):
