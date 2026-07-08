@@ -36,34 +36,73 @@ home, don't put it in data).
 
 ## 2. One-time setup (on the login node — this part is allowed there)
 
+Python ≥ 3.10 and a CUDA-tuned torch both come from the **NGC PyTorch container module**:
+`module load ngc-pytorch-container/25.08-py3-ayk4` sets `$NGC_PYTORCH_CONTAINER` to the
+container image, and every python command in this guide runs inside it via
+`apptainer exec --nv "$NGC_PYTORCH_CONTAINER" …`. Bare `python` on Oscar is the system
+3.9 — never use it for this repo (too old, and no torch).
+
 ```bash
 # repo + venv live in home
 cd ~
 git clone https://github.com/t0mnt/GTagger-experiments.git
 cd GTagger-experiments
 
-# the repo needs python >= 3.10; Oscar's system python is older, so load a module
-module avail python          # pick the newest 3.1x
-module load python/3.11<TAB-complete-the-exact-name>
-python -m venv venv && source venv/bin/activate
-pip install --upgrade pip
-pip install -e .
-pip install -r requirements.txt   # pip torch wheels bundle their own CUDA -- no cuda module needed to install
+module load ngc-pytorch-container/25.08-py3-ayk4
+echo "$NGC_PYTORCH_CONTAINER"        # -> the image everything below runs in
+
+# containers auto-mount only $HOME and /tmp; bind the data/scratch trees so the
+# symlinks wired up below keep working inside the container
+export APPTAINER_BINDPATH="/oscar/home/$USER,/oscar/scratch/$USER,/oscar/data"
+
+# make both permanent, for new shells and for the sbatch scripts below
+echo 'module load ngc-pytorch-container/25.08-py3-ayk4' >> ~/.bashrc
+echo 'export APPTAINER_BINDPATH="/oscar/home/$USER,/oscar/scratch/$USER,/oscar/data"' >> ~/.bashrc
+
+# a venv that INHERITS the container's stack (torch, torch-geometric, numpy, ...),
+# created from INSIDE the container; pip adds only what the image lacks.
+# Filtered out of requirements.txt before installing:
+#   - torch:    keep the container's CUDA-tuned build (a pip torch would clobber it)
+#   - xformers: not in the image and won't build against its torch -- we run without it
+#   - the lgatr/lloca [xformers-attention] extras -> plain lgatr/lloca (same reason)
+apptainer exec "$NGC_PYTORCH_CONTAINER" bash -lc '
+  python -m venv --system-site-packages venv
+  source venv/bin/activate
+  pip install --upgrade pip
+  pip install -e .
+  sed -E -e "/^torch[>=<]/d" -e "/^xformers/d" -e "s/\[xformers-attention\]//" \
+      requirements.txt > /tmp/reqs-oscar.txt
+  pip install -r /tmp/reqs-oscar.txt
+'
+
+# sanity: torch must still be the container build (an NGC "a0" version string);
+# torch-geometric should now be >= 2.4
+apptainer exec "$NGC_PYTORCH_CONTAINER" bash -lc '
+  source venv/bin/activate
+  python -c "import torch, torch_geometric, numpy; \
+             print(torch.__version__, torch_geometric.__version__, numpy.__version__)"
+'
 ```
 
 Notes:
-- If **xformers** fights the resolver, it's optional here: the non-equivariant GPS models use
-  plain torch attention, and learned frames work xformers-free with
-  `model/framesnet/equivectors=equimlp` (GUIDE §7).
-- Make the module load automatic for jobs: you'll repeat `module load python/3.11…` in every
-  sbatch script below (or add it to `~/.bashrc`).
+- **torch-geometric**: the image ships 2.3.1 but the repo pins ≥ 2.4.0, so pip installs a
+  newer one *into the venv*, shadowing the container's copy. Safe: PyG ≥ 2.4 is pure Python
+  and does not pull in a new torch.
+- **numpy**: the repo pins < 2.0 (weaver compatibility); if the image carries numpy 2.x,
+  pip shadows it in the venv the same way. The sanity line above shows what won.
+- **xformers-free is fine**: the non-equivariant GPS models use plain torch attention,
+  lgatr/lloca fall back to non-xformers attention backends, and learned frames use
+  `equivectors: equimlp` (already the default in this repo's framesnet configs; GUIDE §7).
+- The venv's `bin/python` symlinks to the *container's* python — only activate it inside
+  `apptainer exec`, never in a bare login shell.
 
 Now wire the directories per §1 — dataset into `data`, run output into `scratch`:
 
 ```bash
 # dataset -> ~/data (permanent, backed up). <group> = your PI's group dir under ~/data
 mkdir -p ~/data/<group>/<you>/gtagger
-python data/collect_data.py toptagging                       # ~1.5 GB download (file mgmt: login node OK)
+apptainer exec "$NGC_PYTORCH_CONTAINER" bash -lc \
+  'source venv/bin/activate && python data/collect_data.py toptagging'   # ~1.5 GB download (file mgmt: login node OK)
 mv data/toptagging_full.npz ~/data/<group>/<you>/gtagger/
 ln -s ~/data/<group>/<you>/gtagger/toptagging_full.npz data/toptagging_full.npz
 
@@ -80,25 +119,28 @@ Never on the login node — grab a short interactive CPU session for the tests, 
 GPU-debug session for the model smoke:
 
 ```bash
-# CPU: the invariance/equivariance suites (~6 min)
+# CPU: the invariance/equivariance suites (~6 min). No --nv on a CPU node.
 interact -n 4 -m 16g -t 00:30:00
-source ~/GTagger-experiments/venv/bin/activate && cd ~/GTagger-experiments
-pytest tests/experiments/test_tag_equivariance.py tests/experiments/test_tag_invariance.py -q
+cd ~/GTagger-experiments
+apptainer exec "$NGC_PYTORCH_CONTAINER" bash -lc \
+  'source venv/bin/activate && pytest tests/experiments/test_tag_equivariance.py tests/experiments/test_tag_invariance.py -q'
 exit
 
 # GPU: one tiny training end-to-end (gpu-debug = short wait, short cap)
 interact -q gpu-debug -g 1 -n 4 -m 20g -t 00:30:00
-source ~/GTagger-experiments/venv/bin/activate && cd ~/GTagger-experiments
-nvidia-smi                                   # confirm you see a GPU
-python -c "import torch; print(torch.cuda.is_available(), torch.cuda.get_device_name(0))"
-python run.py -cp config_quick -cn toptagging model=tag_LorentzNetLGATrSlimGraphGPS save=false gpus=1
+cd ~/GTagger-experiments
+nvidia-smi                                   # confirm you see a GPU (host side)
+apptainer exec --nv "$NGC_PYTORCH_CONTAINER" bash -lc '
+  source venv/bin/activate
+  python -c "import torch; print(torch.cuda.is_available(), torch.cuda.get_device_name(0))"
+  python run.py -cp config_quick -cn toptagging model=tag_LorentzNetLGATrSlimGraphGPS save=false gpus=1
+'
 exit
 ```
 
-If `torch.cuda.is_available()` is `False`, your torch wheel/driver mismatch: rebuild the venv
-from a GPU node following CCV's
-[framework-install recipe](https://docs.ccv.brown.edu/oscar/gpu-computing/installing-frameworks-pytorch-tensorflow-jax)
-(`interact -q gpu -g 1`, `module purge && unset LD_LIBRARY_PATH`, recreate the venv there).
+If `torch.cuda.is_available()` is `False` inside the container, the usual causes are a
+missing `--nv` flag or not actually being on a GPU node (`nvidia-smi` on the host settles
+which) — the torch build itself comes from the NGC image and is known-good.
 
 ## 4. Find batch size + LR per model (GPU interactive)
 
@@ -106,9 +148,12 @@ One session per model you plan to train (or chain them in one longer session):
 
 ```bash
 interact -q gpu -g 1 -n 8 -m 48g -t 02:00:00     # add -f <feature> to pin a GPU type; `nodes gpu` lists them
-source ~/GTagger-experiments/venv/bin/activate && cd ~/GTagger-experiments
-python find_lr.py -cn toptagging model=tag_LorentzNetLGATrSlimGraphGPS \
-    save=false +lr_find.find_batch_size=true
+cd ~/GTagger-experiments
+apptainer exec --nv "$NGC_PYTORCH_CONTAINER" bash -lc '
+  source venv/bin/activate
+  python find_lr.py -cn toptagging model=tag_LorentzNetLGATrSlimGraphGPS \
+      save=false +lr_find.find_batch_size=true
+'
 #  ->  reuse with:  training.batchsize=<N> training.lr=<lr>
 ```
 
@@ -117,7 +162,25 @@ only `???` keys — the shared recipe pins epochs=20, AdamW, warmup-cosine; GUID
 
 ## 5. Submit the real training
 
-`train.sbatch` (one per model, or parametrize `$MODEL`):
+Two files: the sbatch header wraps a payload script that runs inside the container
+(the `apptainer run --nv "$NGC_PYTORCH_CONTAINER" script.sh` pattern).
+
+`train.sh` (the payload — one per model, or parametrize `$MODEL`; `chmod +x train.sh`):
+
+```bash
+#!/bin/bash
+source ~/GTagger-experiments/venv/bin/activate
+cd ~/GTagger-experiments
+
+python run.py -cp config -cn toptagging \
+    model=tag_LorentzNetLGATrSlimGraphGPS \
+    training=top_LorentzNetLGATrSlimGraphGPS \
+    data.dataset=full gpus=1
+# -cp config is REQUIRED: run.py defaults to the tiny config_quick tree,
+# which has no top_<Model> training recipes.
+```
+
+`train.sbatch`:
 
 ```bash
 #!/bin/bash
@@ -131,16 +194,10 @@ only `???` keys — the shared recipe pins epochs=20, AdamW, warmup-cosine; GUID
 # #SBATCH -a <account>            # only if you belong to a condo/priority account (see `condos`)
 # #SBATCH -f ampere               # optionally pin a GPU architecture/feature
 
-module load python/3.11<exact-name>
-source ~/GTagger-experiments/venv/bin/activate
-cd ~/GTagger-experiments
+module load ngc-pytorch-container/25.08-py3-ayk4
+export APPTAINER_BINDPATH="/oscar/home/$USER,/oscar/scratch/$USER,/oscar/data"
 
-python run.py -cp config -cn toptagging \
-    model=tag_LorentzNetLGATrSlimGraphGPS \
-    training=top_LorentzNetLGATrSlimGraphGPS \
-    data.dataset=full gpus=1
-# -cp config is REQUIRED: run.py defaults to the tiny config_quick tree,
-# which has no top_<Model> training recipes.
+apptainer run --nv "$NGC_PYTORCH_CONTAINER" ~/GTagger-experiments/train.sh
 ```
 
 ```bash
@@ -157,7 +214,7 @@ Each finished run prints its `table test: … \\` row into the log (GUIDE §4).
 
 After trial 1 finishes, submit the same run twice more as **fresh-trial warm starts**
 (never plain warm starts — those reload the trained model and its finished scheduler;
-GUIDE §8). In the sbatch, replace the `python run.py` line with:
+GUIDE §8). In `train.sh`, replace the `python run.py` line with:
 
 ```bash
 python run.py -cp ~/GTagger-experiments/runs/<exp_name>/<run_name> -cn config \
@@ -181,7 +238,8 @@ MODELS="tag_PlainGraphTrans tag_PlainGraphGPS \
 
 # in a GPU interact session (§4): one sweep per model, fill each top_<Model>.yaml
 for M in $MODELS; do
-  python find_lr.py -cn toptagging model=$M save=false +lr_find.find_batch_size=true
+  apptainer exec --nv "$NGC_PYTORCH_CONTAINER" bash -lc \
+    "source venv/bin/activate && python find_lr.py -cn toptagging model=$M save=false +lr_find.find_batch_size=true"
 done
 
 # then one sbatch per model (§5), then 2 more fresh-trial seeds each (§6)
@@ -192,6 +250,7 @@ The **baseline reference rows** (`tag_ParT`, `tag_particlenet`, `tag_lgatr`, `ta
 their published recipes, which already pin lr/batchsize/budget:
 
 ```bash
+# same train.sh/train.sbatch pattern as §5, with the payload line:
 python run.py -cp config -cn toptagging model=tag_ParT training=top_ParT data.dataset=full gpus=1
 # likewise: tag_lgatr+top_lgatr, tag_slim+top_slim, tag_lorentznet+top_lorentznet, ...
 ```
@@ -203,7 +262,8 @@ orders of magnitude lighter.)
 ## 8. The comparison table
 
 ```bash
-python aggregate_table.py --runs runs --split test --out comparison.tex
+apptainer exec "$NGC_PYTORCH_CONTAINER" bash -lc \
+  'source venv/bin/activate && python aggregate_table.py --runs runs --split test --out comparison.tex'
 ```
 
 ## 9. Save what matters (scratch purges!)
@@ -221,6 +281,7 @@ irreplaceable parts.
 
 | task | command |
 |---|---|
+| run anything in the container | `apptainer exec --nv "$NGC_PYTORCH_CONTAINER" bash -lc 'source venv/bin/activate && <cmd>'` |
 | my jobs / all GPU jobs | `myq` / `allq gpu` |
 | GPU types available | `nodes gpu` |
 | quotas | `checkquota` |
