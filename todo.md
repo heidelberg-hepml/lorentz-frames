@@ -148,8 +148,15 @@ exposed above. If a reviewer wants the negative result demonstrated, a LapPE nod
 ### Audit findings (infrastructure sweep: JetClass path / plots / trials)
 - [x] **`jc_gts_and_friends_default` added** and `config/jctagging.yaml` now defaults to it (was
       `jc_ParT` — the same recipe-inheritance trap the top tree fixed). ParT-standard `epochs: 5`
-      (1M steps x 512 = ~5 passes of 100M), CosineAnnealingWarmup, wd 0.01, validate once per
-      nominal epoch; per-model batchsize/lr from `find_lr.py -cn jctagging` before a real campaign.
+      (1M steps x 512 = ~5 passes of 100M), CosineAnnealingWarmup, wd 0 (JetClass convention),
+      validate once per nominal epoch.
+- [x] **per-model `jc_<Hybrid>.yaml` recipes added (all 8)**, mirroring `top_<Hybrid>` on
+      `jc_gts_and_friends_default`. See GUIDE §5.1. (`jc_lgatr`'s broken `tag_gatr` base was
+      fixed on `main` directly — merges in cleanly.)
+- [ ] **JetClass: fill the 8 `jc_<Hybrid>.yaml` `???` batchsize/lr** from
+      `find_lr.py -cn jctagging model=tag_<hybrid> save=false +lr_find.find_batch_size=true`
+      before the JetClass campaign (don't copy top values — inputs are 7+10 channels; and note
+      an unfilled `???` silently runs at the 512/1e-3 fallback instead of erroring).
 - [ ] **Rejection-metric convention differs between experiments** (pre-existing): top-tagging uses the
       nearest-ROC-point (`argmin |tpr - epsS|`), JetClass uses `scipy.interp1d` interpolation. One
       methods sentence, or unify.
