@@ -282,6 +282,13 @@ done
 # then one sbatch per model (§5), then 2 more fresh-trial seeds each (§6)
 ```
 
+Once the recipes are filled, shake down the config axes before (or alongside) the seed
+runs, in this order — PlainGraphGPS PE/SE variants first (`model.net.use_edge_attr`,
+`model.net.use_rwse`, `model.net.norm=batch|layer` — confirm each trains), then every
+model under both graph metrics (`model.net.knn_metric=deltaR|minkowski`), then the
+LLoCa models (Plain / ParticleNet-ParT) under PD frames (`model/framesnet=learnedpd`).
+See GUIDE §6's shakedown note for the reasoning.
+
 The **baseline reference rows** (`tag_ParT`, `tag_particlenet`, `tag_lgatr`, `tag_slim`,
 `tag_lorentznet`, `tag_transformer`, …) do **not** need the LR finder — they run under
 their published recipes, which already pin lr/batchsize/budget:

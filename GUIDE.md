@@ -215,6 +215,20 @@ best-val checkpointing has equal granularity across the family. Check the val cu
 converged; the repo always reports the best-validation checkpoint, so over-budgeting
 only costs compute, not accuracy.
 
+**After the sweeps — shakedown order for the config axes.** Once every model's
+`batchsize`/`lr` are filled in, exercise the variant knobs in this order:
+
+1. **PlainGraphGPS PE/SE variants first** (cheapest model, most toggles — confirm each
+   trains): `model.net.use_edge_attr=true|false` (relative Minkowski edge PE),
+   `model.net.use_rwse=true|false` (+ `model.net.rwse_k=K`), `model.net.norm=batch|layer`.
+2. **Then every model under both graph metrics**: `model.net.knn_metric=deltaR|minkowski`
+   (minkowski is the Lorentz-invariant graph; deltaR the eta–phi one).
+3. **Then the LLoCa-canonicalized models under PD frames**: `model/framesnet=learnedpd`
+   on the Plain and ParticleNet-ParT hybrids (the internally-equivariant CGENN /
+   LorentzNet hybrids stay on `identity`).
+
+(The full knob catalogue lives in `todo.md` §3 and `docs/ablations.md`.)
+
 ---
 
 ## 7. Frames, xformers, and avoiding it

@@ -39,6 +39,15 @@ equalizes **data exposure** (the standard fairness axis); note equal epochs ≠ 
 - [x] Epoch budget **decided: `epochs=20`** (ParT-standard) in `tag_gts_and_friends_default`, shared by all 8 GT
       hybrids; bump to ~30 if they underfit (CLI: `training.epochs=30`).
 - [ ] Keep the baselines' published-recipe numbers as a separate reference row in the table.
+- [ ] **Paper — methods sentence for the budget.** Something like: *"All hybrid taggers are trained
+      for an equal data exposure of 20 epochs on the top-tagging dataset (5 epochs on JetClass,
+      the ParT-standard exposure). Because batch sizes are tuned per model, the iteration count is
+      derived at run time as epochs × batches/epoch, and each model's warmup–cosine schedule
+      anneals over its own iteration count. Equal epochs implies unequal optimizer-step counts
+      across batch sizes; we follow the community convention of fixing data exposure (ParT: 20
+      epochs; LorentzNet, PELICAN: 35). Baseline reference rows are trained under their published
+      recipes."* Optionally cite the recipe drift this replaces (published iteration counts
+      correspond to 20.5 / 21.3 / 32 epochs for ParT / L-GATr / the Lion transformer).
 
 **Best-checkpoint metric.** `best_model_metric` (in `tag_default`): `loss` (default, lowest val loss) or
 `accuracy` (highest val accuracy). Selection-by-loss and -by-accuracy usually track but can diverge late;
