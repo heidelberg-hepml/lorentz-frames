@@ -36,11 +36,16 @@ Notes:
   needs ≥ 2.6.0 (its ptr-only `MeanAggregation` calls raise `NotImplementedError`
   on ≤ 2.5), and containers often carry older. pip's copy in the venv shadows the
   container's, safely — PyG ≥ 2.4 is pure Python and does not pull in a new torch.
-- **xformers-free is fine**: the GraphGPS non-equivariant models use plain torch
-  attention, the equivariant ones fall back to non-xformers L-GATr backends, and
-  learned frames work with `model/framesnet/equivectors=equimlp` (already the
-  default in this repo's framesnet configs). If your cluster can build xformers
-  against the container torch, keep the lines in instead.
+- **xformers-free is fine**, with one override to remember: all 8 hybrids and most
+  baselines never touch xformers (the hybrids' L-GATr stages use dense masks →
+  native torch attention, the GPS models plain torch attention, and learned frames
+  use `model/framesnet/equivectors=equimlp`, already the default). Only the four
+  attention baselines whose configs pin `attention_backend: xformers`
+  (`tag_transformer`, `tag_top_transformer`, `tag_lgatr`, `tag_slim`) would crash
+  on a GPU without it — run those with `model.attention_backend=flash` (if the
+  container ships flash-attn; NGC images usually do) or `=flex` (pure torch), and
+  validate the override with a quick config_quick run first. If your cluster can
+  build xformers against the container torch, keep the lines in instead.
 
 ## 2. Get the data
 

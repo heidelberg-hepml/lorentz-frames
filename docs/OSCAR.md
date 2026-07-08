@@ -76,7 +76,7 @@ apptainer exec "$NGC_PYTORCH_CONTAINER" bash -lc '
 '
 
 # sanity: torch must still be the container build (an NGC "a0" version string);
-# torch-geometric should now be >= 2.4
+# torch-geometric should now be >= 2.6
 apptainer exec "$NGC_PYTORCH_CONTAINER" bash -lc '
   source venv/bin/activate
   python -c "import torch, torch_geometric, numpy; \
@@ -91,9 +91,17 @@ Notes:
   PyG ≥ 2.4 is pure Python and does not pull in a new torch.
 - **numpy**: the repo pins < 2.0 (weaver compatibility); if the image carries numpy 2.x,
   pip shadows it in the venv the same way. The sanity line above shows what won.
-- **xformers-free is fine**: the non-equivariant GPS models use plain torch attention,
-  lgatr/lloca fall back to non-xformers attention backends, and learned frames use
-  `equivectors: equimlp` (already the default in this repo's framesnet configs; GUIDE §7).
+- **xformers-free is fine**, with one override to remember: all 8 hybrids and most
+  baselines never touch xformers (the hybrids' L-GATr stages use dense masks → native
+  torch attention, the GPS models plain torch attention, and learned frames use
+  `equivectors: equimlp`, already the default; GUIDE §7). Only the four attention
+  baselines whose configs pin `attention_backend: xformers` — `tag_transformer`,
+  `tag_top_transformer`, `tag_lgatr`, `tag_slim` — would crash on a GPU without it.
+  For those, override the backend: `model.attention_backend=flash` if the NGC image
+  ships flash-attn (`apptainer exec "$NGC_PYTORCH_CONTAINER" python -c "import flash_attn"`
+  — it usually does), else `=flex` (pure torch, slower, and its torch.compile path is
+  version-sensitive). Either way, validate the override with one §3-style quick run
+  on gpu-debug before a real job.
 - The venv's `bin/python` symlinks to the *container's* python — only activate it inside
   `apptainer exec`, never in a bare login shell.
 
@@ -254,6 +262,10 @@ their published recipes, which already pin lr/batchsize/budget:
 # same train.sh/train.sbatch pattern as §5, with the payload line:
 python run.py -cp config -cn toptagging model=tag_ParT training=top_ParT data.dataset=full gpus=1
 # likewise: tag_lgatr+top_lgatr, tag_slim+top_slim, tag_lorentznet+top_lorentznet, ...
+# xformers isn't installed (§2), so the four attention baselines need a backend override
+# (flash if the image has flash-attn, else flex -- see the §2 note; validate on gpu-debug):
+#   model=tag_lgatr training=top_lgatr model.attention_backend=flash
+# (same for tag_slim, tag_transformer, tag_top_transformer; all other rows run as-is)
 ```
 
 (Heads-up on wall time: order the queue submissions cheapest-first; `CGENNLGATrGraphGPS`

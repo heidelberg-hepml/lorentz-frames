@@ -200,7 +200,14 @@ python run.py model=tag_PlainGraphGPS model/framesnet=learnedpd \
 
 (`equivectors` ∈ {`equimlp`, `pelican`, `lgatr`}; `equimlp` is the lightest and
 xformers-free.) The internally-equivariant hybrids use identity frames and never
-touch xformers in the framesnet.
+touch xformers in the framesnet — their L-GATr stages attend with dense masks
+(native torch attention), so all 8 hybrids run on a GPU without xformers installed.
+The only models that don't are the four baselines whose configs pin
+`attention_backend: xformers` (`tag_transformer`, `tag_top_transformer`,
+`tag_lgatr`, `tag_slim`); on an xformers-free install, run those with
+`model.attention_backend=flash` (needs the flash-attn package; NGC/cluster
+containers usually ship it) or `=flex` (pure-torch FlexAttention — slower, and
+its torch.compile path is version-sensitive, so smoke-test it on your GPU first).
 
 ---
 
