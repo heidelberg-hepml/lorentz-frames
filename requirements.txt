@@ -3,7 +3,7 @@ hydra-core
 pytest
 pre-commit>=3.7
 mlflow-skinny # can optionally install extras, see https://pypi.org/project/mlflow-skinny/
-wget
+wget # for getting top tagging, could use requests instead of this abandonware if someone feels up to it
 
 # standard science stack
 numpy>=1.19.5,<2.0.0 # constrain version for weaver
@@ -31,4 +31,4 @@ uproot>=4.2.0,<5.2.0
 awkward>=1.8.0
 lz4
 xxhash
-wget 
+
