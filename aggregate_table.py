@@ -8,8 +8,10 @@ Every ``run.py`` invocation logs one line per evaluated split:
 
 For warm-started runs that line already carries ``mean +- std`` over the trials in
 that run directory. This script walks a ``runs/`` tree, takes the latest such line
-per run directory (highest ``run_idx`` = most trials), de-duplicates by model name,
-and assembles them into a single LaTeX ``tabular``.
+per run directory (highest ``run_idx`` = most trials), de-duplicates by
+(model, frames, kNN) — so ablation variants of the same model keep separate rows
+and only true re-runs of an identical variant supersede each other — and assembles
+them into a single LaTeX ``tabular``.
 
     python aggregate_table.py                       # scans runs/, split=test
     python aggregate_table.py --runs runs/topt_local_debug --split test --out table.tex
@@ -56,19 +58,29 @@ def main():
     run_dirs = sorted(
         {os.path.dirname(p) for p in glob(os.path.join(args.runs, "**", "out_*.log"), recursive=True)}
     )
-    rows = {}  # model name -> row; later run dirs win on a name clash
+    # key on (model, frames, kNN) -- the variant axes that are table columns -- so
+    # ablation runs of the SAME model (identity vs learnedpd frames, deltaR vs
+    # minkowski kNN) each keep their own row. Later run dirs win only on a true
+    # re-run of the identical variant.
+    rows = {}
     for d in run_dirs:
         row = latest_row(d, args.split)
         if row is None:
             continue
-        model = row.split("&", 1)[0].strip()
-        rows[model] = row
+        cells = [c.strip() for c in row.split("&")]
+        model = cells[0]
+        frames = cells[1] if len(cells) > 1 else ""
+        knn = cells[-1] if len(cells) > 2 else ""
+        key = (model, frames, knn)
+        if key in rows and rows[key] != row:
+            print(f"[note] {d}: re-run of {key} supersedes an earlier run dir")
+        rows[key] = row
 
     if not rows:
         print(f"No 'table {args.split}:' rows found under {args.runs}/")
         return
 
-    body = " \\\\\n".join(rows[m] for m in sorted(rows)) + " \\\\"
+    body = " \\\\\n".join(rows[k] for k in sorted(rows)) + " \\\\"
     table = (
         "% columns: " + COLUMNS + "\n"
         "\\begin{tabular}{l l r r c c c c c r r l}\n"
