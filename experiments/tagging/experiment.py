@@ -483,6 +483,11 @@ class TaggingExperiment(BaseExperiment):
         else:
             metrics = self._evaluate_single(self.val_loader, "val", mode="val", step=step)
         self.val_loss.append(metrics["loss"])
+        # per-validation (step, loss, accuracy) history for the end-of-training
+        # loss-vs-accuracy selection cross-check (_log_checkpoint_selection)
+        if not hasattr(self, "val_selection_history"):
+            self.val_selection_history = []
+        self.val_selection_history.append((step, metrics["loss"], metrics["accuracy"]))
         # Best-checkpoint selection metric (es_load_best_model). Default 'loss' (lower=better).
         # 'accuracy' keeps the highest-val-accuracy checkpoint instead; we return 1 - accuracy so
         # the train loop's "lower is better" comparison is unchanged. Loss is still logged above,
@@ -490,6 +495,43 @@ class TaggingExperiment(BaseExperiment):
         if self.cfg.training.get("best_model_metric", "loss") == "accuracy":
             return 1.0 - metrics["accuracy"]
         return metrics["loss"]
+
+    def _log_checkpoint_selection(self, best_step):
+        """Cross-check the kept checkpoint against selection-by-accuracy.
+
+        Runs after the best-val-loss restore. Selection-by-loss and -by-accuracy usually
+        agree; small argmax divergence is common late in training (accuracy is a thresholded
+        count, so near-ties are settled by counting noise), but a MATERIAL accuracy gap is
+        rare and worth eyes -- it is the one signal that selection-by-loss cost accuracy.
+        Only meaningful under the default best_model_metric='loss' (under 'accuracy' the
+        kept checkpoint IS the accuracy argmax).
+        """
+        hist = getattr(self, "val_selection_history", [])
+        if len(hist) < 2 or self.cfg.training.get("best_model_metric", "loss") != "loss":
+            return
+        by_loss = min(hist, key=lambda t: t[1])
+        by_acc = max(hist, key=lambda t: t[2])
+        if by_acc[0] == by_loss[0]:
+            LOGGER.info(
+                f"Checkpoint selection: best val loss and best val accuracy agree "
+                f"(it {by_loss[0]}: loss {by_loss[1]:.5f}, acc {by_loss[2]:.5f})."
+            )
+            return
+        gap = by_acc[2] - by_loss[2]
+        msg = (
+            f"Checkpoint selection diverges: kept best-val-LOSS it {by_loss[0]} "
+            f"(loss {by_loss[1]:.5f}, acc {by_loss[2]:.5f}); best-val-ACCURACY was "
+            f"it {by_acc[0]} (loss {by_acc[1]:.5f}, acc {by_acc[2]:.5f}), "
+            f"accuracy gap {gap:+.5f}."
+        )
+        # ~1 sigma of accuracy counting noise on a few-1e5-jet val set; below this the
+        # divergence is expected tie-breaking, above it flag for eyes
+        if gap > 5e-4:
+            LOGGER.warning(
+                msg + " Material gap -- consider a best_model_metric=accuracy cross-check run."
+            )
+        else:
+            LOGGER.info(msg + " Within counting noise; selection-by-loss stands.")
 
     def _batch_loss(self, batch):
         y_pred, label, tracker, _ = self._get_ypred_and_label(batch)

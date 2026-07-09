@@ -751,6 +751,12 @@ class BaseExperiment:
                 LOGGER.warning(
                     f"Cannot load best model (epoch {smallest_val_loss_step}) from {model_path}"
                 )
+            self._log_checkpoint_selection(smallest_val_loss_step)
+
+    def _log_checkpoint_selection(self, best_step):
+        """Hook: after the best-checkpoint restore, report whether an alternative selection
+        metric would have picked a different checkpoint. No-op here; the tagging experiment
+        overrides it with a loss-vs-accuracy cross-check."""
 
     def _step(self, data, step):
         # actual update step
