@@ -158,11 +158,17 @@ exposed above. If a reviewer wants the negative result demonstrated, a LapPE nod
       dropout keys), while CGENN/LorentzNet GraphTrans run dropout-free (`dropout_prob=None`). So the
       two non-equivariant GT hybrids train WITH dropout and the six other hybrids without — a live
       regularization asymmetry across both comparison axes (GT-vs-GPS and equivariant-vs-not).
-      Each stage is *faithful to its source* (ParT blocks publish 0.1; L-GATr publishes none; note the
-      repo's own `tag_ParT` reference row pins dropout 0, and pure `tag_cgenn`/`tag_lorentznet` use 0.2)
-      — decide before the sweeps: harmonize the family to 0 (add explicit zeros to the two GT configs;
-      free until find_lr runs) and keep faithful-0.1 as an ablation row, OR keep faithful defaults and
-      state the asymmetry in the methods.
+      Each stage is *faithful to its source*: ParT blocks publish 0.1 — and the repo's `tag_ParT`
+      reference row DOES train its 8 main blocks at 0.1 (its config zeroes only `cls_block_params`,
+      weaver's own convention for the class-attention blocks) — L-GATr publishes none, and pure
+      `tag_cgenn`/`tag_lorentznet` use 0.2 on their classification heads only (LorentzNet's LGEB
+      dropout kwarg is dead code). So the consistent chains are: ParT-baseline 0.1 ↔ PNParT-GT 0.1
+      (faithful), and L-GATr-none ↔ equivariant hybrids none (faithful). The one axis where dropout
+      is confounded with the comparison is **GT (0.1) vs GPS (0) within the two non-equivariant
+      backbones**. Decision: treat dropout as part of the reference block definition (per-reference,
+      like FFN ratio and GELU/ReLU — keep as-is + one methods sentence + the existing family-wide
+      dropout ablation row), OR harmonize the family to 0 (zeroing PNParT-GT breaks its faithfulness
+      to the ParT baseline row it is directly compared against).
 
 ### Audit findings (infrastructure sweep: JetClass path / plots / trials)
 - [x] **`jc_gts_and_friends_default` added** and `config/jctagging.yaml` now defaults to it (was
