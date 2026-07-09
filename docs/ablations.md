@@ -97,9 +97,11 @@ ParT pairwise-bias features, PE/SE, depth) live in `todo.md` §3 and are not rep
 
 ## Training-side minor tunes
 
-- EMA of weights for eval (`ema=true`, decay 0.999) — classic small, free gain; note the
-  best-checkpoint reload currently keeps the end-of-training EMA shadow (see todo).
-- `weight_decay` {0, 0.05, 0.1} beyond the shared 0.01; AdamW betas/eps.
+- EMA of weights for eval (`ema=true`, decay 0.999) — classic small, free gain (the
+  best-checkpoint reload now correctly re-pairs the EMA shadow).
+- `weight_decay` sweep {0, 0.01, 0.05, 0.1} on ONE mid-cost hybrid, freeze the winner
+  family-wide (moved from todo §1; the shared 0.01 ships as the default until then);
+  AdamW betas/eps.
 - Warmup fraction `warmup_pct_start` 0.01/0.1 and a small `cosanneal_eta_min` (1e-6) hedge.
 - `epochs` 30/35 vs the shared 20 (`training.epochs=30` is a one-flag change).
 - `best_model_metric: accuracy` vs `loss` for checkpoint selection (toggle exists).
@@ -109,6 +111,49 @@ ParT pairwise-bias features, PE/SE, depth) live in `todo.md` §3 and are not rep
 - Label smoothing on the BCE loss (not implemented; one-line).
 - Gradient clip 0.5/5.0/off vs the standard 1.0.
 - More than 3 fresh-trial seeds per row (tightens the error bars, changes no mean).
+
+## New tricks (modern transformer/CS innovations, none physics-motivated)
+
+Bags-of-tricks from the post-ParT transformer literature. All are drop-in replacements
+inside the non-equivariant transformer stages (Plain / ParticleNet-ParT); for the
+equivariant stages each needs an equivariance check first (grade-wise application is
+usually the fix, as lgatr already does for its own norm).
+
+- **SwiGLU** FFN (gated `SiLU(xW₁)·xW₂` → W₃) instead of the plain 2-layer GELU/ReLU FFN
+  — the LLaMA-era default, usually a small free gain at matched params (shrink the hidden
+  ratio 4 → 8/3 to compensate the third matrix).
+- **Gated attention**: element-wise output gate on the attention branch
+  (`x + g(x) ⊙ Attn(x)`, sigmoid or SiLU gate) — stabilizes deep stacks and is the same
+  mechanism `use_phi_m` already gives the LorentzNet stage; this would add it to the
+  transformer side.
+- **RMSNorm everywhere**, not just where the L-GATr-slim stack already uses it — swap the
+  `nn.LayerNorm`s in the Plain/PNP transformer blocks and GPS heads (cheaper, usually
+  neutral-to-positive; keep BatchNorm out of it, that's a separate axis).
+- **QK normalization** (L2-normalize or RMSNorm queries/keys before the dot product, with
+  a learned temperature) — kills attention-logit blowups at high lr; pairs well with the
+  warmup-cosine recipe and might let find_lr pick a higher peak.
+- **Attention-logit soft-capping** (`cap·tanh(logits/cap)`, Gemma-style) — same failure
+  mode as QK-norm, cheaper, mutually exclusive with it in practice.
+- **LayerScale / residual-branch scaling** — per-channel learnable scale on each residual
+  branch, init ~1e-2. Note the ParT blocks already ship weaver's variant
+  (`scale_fc/scale_attn/scale_heads/scale_resids`, all currently true): ablating those
+  OFF is the zero-cost version of this axis.
+- **DropPath / stochastic depth** (drop whole residual branches at rate ~0.05–0.1) — the
+  ViT-era regularizer that often beats plain dropout at fixed budget; interacts with the
+  dropout decision above.
+- **ReZero / zero-init residual gates** (init the residual branch scale at exactly 0) —
+  overlaps with LayerScale; pick one.
+- **Register tokens** (a few extra learnable no-readout tokens alongside the CLS) — ViT
+  finding that they absorb attention-sink artifacts; trivially equivariance-safe if kept
+  scalar-grade like the CLS.
+- **Muon / second-order-ish optimizers** for the transformer stage — the current-gen
+  optimizer family beyond Lion; a training-side swap, not an architecture change.
+
+Deliberately excluded from this list: **RoPE / ALiBi / any positional encoding along the
+token axis** (jets are unordered sets — a sequence position is physics-meaningless; the
+kinematic features already carry the real geometry), and **Mixup/CutMix-style input
+interpolation** (a mixed jet is not a physical jet; label smoothing above is the sane
+sibling).
 
 Deliberately excluded as *conceptually broken* (not "minor"): learnable **vector/multivector**
 class tokens (pick a direction → break equivariance), BatchNorm over multivector components,

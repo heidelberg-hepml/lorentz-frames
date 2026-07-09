@@ -35,7 +35,11 @@ es_patience: null
 es_load_best_model: true
 # which validation metric selects the best checkpoint (es_load_best_model): 'loss' (default,
 # lowest val loss) or 'accuracy' (highest val accuracy). Only changes which checkpoint is kept
-# and reported; everything else is unaffected.
+# and reported; everything else is unaffected. 'loss' is the default because accuracy is a
+# thresholded count (accuracy_score(labels, round(sigmoid(logits)))): it only moves when a jet
+# crosses 0.5, so near convergence it plateaus/ties and the argmax is settled by counting noise,
+# while val loss sees every jet's margin and tracks the threshold-free report metrics
+# (AUC, rejections) far better. See GUIDE section 6.
 best_model_metric: loss
 
 log_every_n_steps: 200

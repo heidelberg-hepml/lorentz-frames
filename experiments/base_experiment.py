@@ -205,6 +205,13 @@ class BaseExperiment:
                 LOGGER.warning(
                     "warm_start_load=false with train=false evaluates an UNTRAINED model."
                 )
+            if self.cfg.seed is not None:
+                LOGGER.warning(
+                    f"seed={self.cfg.seed} with warm_start_load=false: successive fresh "
+                    "trials share the same initialization and data order, so the 'trials' "
+                    "are identical and the table's mean +- std is degenerate. Unset seed "
+                    "for independent trials."
+                )
             # do NOT persist the flag into the saved run config: each fresh trial opts in
             # explicitly on the CLI, and a later eval-reload / continue-training warm start
             # from this directory gets the safe loading default back.
@@ -744,6 +751,12 @@ class BaseExperiment:
                 LOGGER.warning(
                     f"Cannot load best model (epoch {smallest_val_loss_step}) from {model_path}"
                 )
+            self._log_checkpoint_selection(smallest_val_loss_step)
+
+    def _log_checkpoint_selection(self, best_step):
+        """Hook: after the best-checkpoint restore, report whether an alternative selection
+        metric would have picked a different checkpoint. No-op here; the tagging experiment
+        overrides it with a loss-vs-accuracy cross-check."""
 
     def _step(self, data, step):
         # actual update step
