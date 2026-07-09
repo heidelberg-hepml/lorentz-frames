@@ -148,6 +148,10 @@ python find_lr.py -cn jctagging model=tag_CGENNLGATrGraphGPS save=false \
 # -> fill training.batchsize / training.lr into config/training/jc_CGENNLGATrGraphGPS.yaml
 ```
 
+(The default `num_iter=300` sweep length is right on JetClass too — it samples the lr
+ramp, not the dataset, so the 100M-jet size changes nothing; raising it only biases the
+suggestion low, per the finder's docstring. No JetClass-specific overrides are needed.)
+
 Note the `???` markers are for humans — hydra cannot enforce them here (an OmegaConf
 `???` never overrides a value inherited from `tag_default`), so an unfilled recipe
 silently trains at the 512 / 1e-3 fallback instead of erroring. The JetClass baseline
