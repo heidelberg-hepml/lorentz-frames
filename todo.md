@@ -15,7 +15,8 @@ only **`batchsize`, `lr`** remain `???` per model (optionally `weight_decay`):
 
 - [ ] `batchsize` ← `find_lr.py +lr_find.find_batch_size=true` (largest power-of-two that fits the H100).
 - [ ] `lr` ← `find_lr.py` (reported loss-min / 10).
-- [ ] `weight_decay` ← tune on val ∈ {0, 0.01, 0.05, 0.1} for AdamW (ParT-style 0.01 is a fine start).
+      (`weight_decay` tuning moved to `docs/ablations.md` "Training-side minor tunes" —
+      the shared 0.01 ships as the decided default.)
 - [x] `epochs` (shared data-exposure budget) and `scheduler` are **decided** in `tag_gts_and_friends_default`
       (see §2); `iterations` is auto-derived at runtime (`_resolve_epoch_budget`).
 
@@ -147,12 +148,21 @@ exposed above. If a reviewer wants the negative result demonstrated, a LapPE nod
       attention. The GPS sibling routes differently and has none.)
 
 ### Audit findings (full GraphTrans-vs-GraphGPS sweep) — remaining, low priority
-- [ ] **Local-branch dropout is inconsistent across the GraphGPS family.** Plain + CGENN GPS apply an
-      external `Dropout` to the local-MPNN output (`Norm(Dropout(MPNN(X)) + X)`); LorentzNet + ParticleNet
-      GPS apply **none** (their GNN owns an internal residual, so the layer adds only the external Norm).
-      The residual difference is *deliberate* (avoids a double residual), but the dropout is dropped as a
-      side effect. No-op at the default `dropout_prob=0`, so it only matters if dropout is enabled — decide
-      whether the four local branches should match.
+- [ ] **Dropout is inconsistent across the hybrid family — two layers to the decision (checked):**
+      (a) *GPS local branch (latent)*: Plain + CGENN GPS apply an external `Dropout` to the local-MPNN
+      output; LorentzNet + ParticleNet GPS apply none. No-op at shipped defaults — ALL FOUR GPS configs
+      ship dropout 0/None, so at defaults the GPS family is behaviorally equal; only matters if the
+      dropout ablation is ever run.
+      (b) *GraphTrans transformer stage (LIVE)*: `tag_PlainGraphTrans` ships `dropout: 0.1` and
+      `ParticleNetParTGraphTrans` gets 0.1/0.1/0.1 from its ParT-block class defaults (config sets no
+      dropout keys), while CGENN/LorentzNet GraphTrans run dropout-free (`dropout_prob=None`). So the
+      two non-equivariant GT hybrids train WITH dropout and the six other hybrids without — a live
+      regularization asymmetry across both comparison axes (GT-vs-GPS and equivariant-vs-not).
+      Each stage is *faithful to its source* (ParT blocks publish 0.1; L-GATr publishes none; note the
+      repo's own `tag_ParT` reference row pins dropout 0, and pure `tag_cgenn`/`tag_lorentznet` use 0.2)
+      — decide before the sweeps: harmonize the family to 0 (add explicit zeros to the two GT configs;
+      free until find_lr runs) and keep faithful-0.1 as an ablation row, OR keep faithful defaults and
+      state the asymmetry in the methods.
 
 ### Audit findings (infrastructure sweep: JetClass path / plots / trials)
 - [x] **`jc_gts_and_friends_default` added** and `config/jctagging.yaml` now defaults to it (was

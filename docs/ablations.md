@@ -97,9 +97,11 @@ ParT pairwise-bias features, PE/SE, depth) live in `todo.md` §3 and are not rep
 
 ## Training-side minor tunes
 
-- EMA of weights for eval (`ema=true`, decay 0.999) — classic small, free gain; note the
-  best-checkpoint reload currently keeps the end-of-training EMA shadow (see todo).
-- `weight_decay` {0, 0.05, 0.1} beyond the shared 0.01; AdamW betas/eps.
+- EMA of weights for eval (`ema=true`, decay 0.999) — classic small, free gain (the
+  best-checkpoint reload now correctly re-pairs the EMA shadow).
+- `weight_decay` sweep {0, 0.01, 0.05, 0.1} on ONE mid-cost hybrid, freeze the winner
+  family-wide (moved from todo §1; the shared 0.01 ships as the default until then);
+  AdamW betas/eps.
 - Warmup fraction `warmup_pct_start` 0.01/0.1 and a small `cosanneal_eta_min` (1e-6) hedge.
 - `epochs` 30/35 vs the shared 20 (`training.epochs=30` is a one-flag change).
 - `best_model_metric: accuracy` vs `loss` for checkpoint selection (toggle exists).
