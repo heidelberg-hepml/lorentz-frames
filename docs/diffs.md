@@ -25,6 +25,9 @@ ParT's cls-block-only dropout zeros) are kept, commented in code, and not listed
   checkpoint is still saved/restored/reported) — a significant plateau-allowance shift.
 - Best-checkpoint restore re-pairs the EMA shadow with the restored weights (also submitted
   upstream); `best_model_metric` toggle (loss/accuracy) added for the selection metric.
+- ParT's weight-decay grouping extended from the hardcoded `{"cls_token"}` to
+  `net.no_weight_decay()`, covering the CLS-token hybrids.
+- Packaging: project renamed `gtagger-experiments` in `pyproject.toml`.
 - CI runs the tagging equivariance+invariance suites (upstream removed its broken test line
   without a replacement, leaving tagging uncovered).
 - `save` defaults true in `config/` (best-val weights kept as `model_run{idx}.pt`);
