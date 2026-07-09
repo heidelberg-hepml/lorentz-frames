@@ -639,7 +639,6 @@ class BaseExperiment:
                 checkpoint = torch.load(model_path, map_location=self.device, weights_only=False)
                 LOGGER.info(f"Loading model from {model_path}")
                 self.model.load_state_dict(checkpoint["model"])
-  #sync EMA with best val weights (otherwise EMA reflects end weights not checkpoint)
                 if self.ema is not None and checkpoint.get("ema") is not None:
                     LOGGER.info(f"Loading EMA state from {model_path}")
                     self.ema.load_state_dict(checkpoint["ema"])
