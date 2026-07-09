@@ -219,6 +219,18 @@ best-val checkpointing has equal granularity across the family. Check the val cu
 converged; the repo always reports the best-validation checkpoint, so over-budgeting
 only costs compute, not accuracy.
 
+**Best-checkpoint metric — why `loss` is the default** (`best_model_metric` in
+`tag_default`; `accuracy` is the alternative). Both are measured at the same validation
+checkpoints — the difference is in what each number can *resolve*. Accuracy is a
+thresholded count, `accuracy_score(labels, round(sigmoid(logits)))`: it only changes when
+a jet's score crosses 0.5, so it takes values k/N only, and near convergence — where
+decision flips are rare — successive checkpoints tie or differ by counting noise
+(σ ≈ √(p(1−p)/N)), leaving the argmax to chance. Val loss aggregates every jet's
+continuous margin, so it separates checkpoints accuracy sees as identical (better-calibrated
+scores with zero flips), and it tracks the threshold-free report metrics (AUC, rejections
+at ε_S = 0.3/0.5/0.8) that the table actually shows. Selection by accuracy optimizes the
+one working point (0.5) the paper doesn't report, with a coarser ruler.
+
 **After the sweeps — shakedown order for the config axes.** Once every model's
 `batchsize`/`lr` are filled in, exercise the variant knobs in this order:
 
