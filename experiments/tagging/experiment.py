@@ -24,6 +24,21 @@ class TaggingExperiment(BaseExperiment):
         modelname = self.cfg.model.net._target_.rsplit(".", 1)[-1]
         self.momentum_dtype = torch.float64 if self.cfg.data.momentum_float64 else torch.float32
 
+        # guardrail: the per-model hybrid recipes ship batchsize/lr as '???', which hydra
+        # cannot enforce (an OmegaConf MISSING never overrides the values inherited from
+        # tag_default), so an unfilled recipe silently composes to the 512 / 1e-3 fallback.
+        if (
+            self.cfg.train
+            and modelname.endswith(("GraphTrans", "GraphGPS"))
+            and float(self.cfg.training.lr) == 1e-3
+            and int(self.cfg.training.batchsize) == 512
+        ):
+            LOGGER.warning(
+                f"{modelname} is training at the UNSWEPT family fallback "
+                "(batchsize=512, lr=1e-3) -- did you forget to fill its recipe "
+                "from find_lr.py?"
+            )
+
         self.cfg.model.out_channels = self.num_outputs
         if modelname in [
             "LGATr",
