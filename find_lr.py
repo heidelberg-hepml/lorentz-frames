@@ -42,6 +42,9 @@ Pass `save=false` so no run directory is created. Tune the sweep on the CLI unde
     +lr_find.start_lr=1e-7   lowest lr in the sweep                 (default 1e-7)
     +lr_find.end_lr=1e1      highest lr in the sweep                (default 1e1)
     +lr_find.num_iter=300    number of batches in the sweep         (default 300)
+                             (dataset-size independent: 300 is right for JetClass too --
+                             the sweep samples the lr ramp, not the dataset, and raising
+                             num_iter biases the suggestion low, see the note above)
     +lr_find.beta=0.98       EMA factor for loss smoothing          (default 0.98)
     +lr_find.diverge=5.0     stop when smoothed_loss > diverge*best (default 5.0)
     +lr_find.skip_start=10    points dropped from the start          (default 10)
