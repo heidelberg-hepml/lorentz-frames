@@ -295,7 +295,11 @@ class CGENNLGATrGraphGPS(nn.Module):
         # the mean multivector.
         mv, s = self.final_norm(mv, scalars=s)
         m = mask[..., None].to(s.dtype)                  # (B, P, 1)
-        denom = m.sum(dim=1).clamp(min=1.0)              # (B, 1)
+        # Masked mean over REAL nodes only: this ABANDONS pure CGENN's quirk of dividing the
+        # graph-pool by the PADDED batch-max n_nodes (cgenn.py's `torch.mean(h, dim=1)` over the
+        # dense node axis), which makes pure CGENN's readout batch-composition dependent (~4e-2).
+        # denom is each jet's true multiplicity, so this hybrid readout is batch-invariant.
+        denom = m.sum(dim=1).clamp(min=1.0)              # (B, 1): real count, NOT padded batch-max
         inv_nodes = get_invariants(self.algebra, mv).flatten(2)      # (B, P, C_mv * n_mv_inv)
         inv = (inv_nodes * m).sum(dim=1) / denom                     # (B, C_mv * n_mv_inv)
         s_pool = (s * m).sum(dim=1) / denom                          # (B, C_s)
