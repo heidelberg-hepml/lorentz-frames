@@ -67,7 +67,15 @@ ParT pairwise-bias features, PE/SE, depth) live in `todo.md` §3 and are not rep
 - GELU vs ReLU unification across the non-equivariant pair (currently per-reference).
 - Dropout 0.1 vs 0.0 family-wide (per-reference now; the most likely of this list to actually
   matter at a fixed 20-epoch budget).
-- GPS attention dropout 0.5 (GraphGPS uses it on some datasets) vs the current 0.
+- **Attention-weight dropout on the GPS models** (`attn_dropout=0.1`, and `0.5` for the
+  GraphGPS-native value). Official GraphGPS uses 0.5 on its small benchmarks (12k–45k graphs)
+  and relaxes to 0.1 on its one large dataset (PCQM4Mv2, 3.7M) — top tagging (1.2M jets) sits
+  near the large end, JetClass (100M) beyond it, so the campaign default stays 0 and this is
+  the post-campaign ablation (PlainGraphGPS first, cheapest). Equivariance-safe everywhere:
+  attention probabilities are Lorentz invariants. Non-equivariant GPS = config-only (keys
+  exist); the equivariant L-GATr stacks need `dropout_p` plumbed through lgatr's attention
+  backends (native sdpa already accepts it; xformers needs a `dropout_p`→`p` rename; flex has
+  no dropout support — a small upstream lgatr PR, drafted in the campaign notes).
 - `num_heads` 4/8/16; `head_scale` off; `multi_query` on (L-GATr attention).
 - `head_layers` 1/2/3 for the SAN-style GPS heads; unify their GELU (equivariant) vs ReLU
   (non-equivariant) activation.
@@ -148,12 +156,28 @@ usually the fix, as lgatr already does for its own norm).
   scalar-grade like the CLS.
 - **Muon / second-order-ish optimizers** for the transformer stage — the current-gen
   optimizer family beyond Lion; a training-side swap, not an architecture change.
+- **PNA-style multi-aggregation (and other GNN aggregator tricks)** — replace the single
+  mean/max aggregation in the MPNN/EdgeConv local branches with the PNA combination
+  (mean+max+min+std, degree-scaled); the fixed-k kNN graphs make the degree scalers
+  trivial, so it reduces to concatenated multi-aggregation. Same family: softmax/powermean
+  aggregation, learnable aggregation temperature.
+- **GraphNorm** on the local-branch node features — normalizes with a learnable mean-scale
+  per graph, designed exactly for the BatchNorm-over-variable-graphs pathology the GPS
+  models flirt with. NOTE: GraphNorm is **non-equivariant** (it shifts/scales per-feature
+  across a jet's particles), so it is only a drop-in for the non-equivariant models —
+  and thus currently less promising than it could become; an invariant-statistics variant
+  (norms-only, grade-wise) would be the research version.
 
 Deliberately excluded from this list: **RoPE / ALiBi / any positional encoding along the
 token axis** (jets are unordered sets — a sequence position is physics-meaningless; the
 kinematic features already carry the real geometry), and **Mixup/CutMix-style input
 interpolation** (a mixed jet is not a physical jet; label smoothing above is the sane
 sibling).
+
+These are deliberately untouched knobs: they are here for researchers interested in
+fine-tuning these models or using them in their own experiments. If you want to pursue
+research applying any of these tricks to the tagging setting, I'd be interested in
+collaborating — open an issue or get in touch.
 
 Deliberately excluded as *conceptually broken* (not "minor"): learnable **vector/multivector**
 class tokens (pick a direction → break equivariance), BatchNorm over multivector components,
