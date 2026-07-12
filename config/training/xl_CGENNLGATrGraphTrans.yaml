@@ -1,0 +1,17 @@
+# TopTagXL training recipe for tag_CGENNLGATrGraphTrans -- fill in the (???) keys, then:
+#   python run.py -cp config -cn toptagxl model=tag_CGENNLGATrGraphTrans training=xl_CGENNLGATrGraphTrans gpus=1
+#
+#   lr         <- find_lr.py -cn toptagxl model=tag_CGENNLGATrGraphTrans         (reported loss-min / 10)
+#   batchsize  <- find_lr.py -cn toptagxl ... +lr_find.find_batch_size=true
+#   (epochs=5 + CosineAnnealingWarmup + weight_decay=0 are shared in xl_gts_and_friends_default)
+#
+# Re-sweep BOTH knobs on the toptagxl task rather than copying the top_/jc_ values:
+# TopTagXL inputs are JetClass-wide (7+10 scalar channels) but the task is binary
+# qcd-vs-top, so the memory ceiling and the loss-vs-lr curve move again. NOTE: '???'
+# is a human-facing marker only -- left unfilled, the recipe silently runs at the
+# inherited tag_default 512 / 1e-3.
+defaults:
+  - xl_gts_and_friends_default
+
+batchsize: ???
+lr: ???

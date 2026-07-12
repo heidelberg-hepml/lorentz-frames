@@ -116,6 +116,13 @@ JetClass instead of top-tagging: fetch the ~190 GB dataset with
 `data/JetClass` there), then swap `-cn toptagging` → `-cn jctagging` and
 `training=top_<Model>` → `training=jc_<Model>` in the same commands (GUIDE §5.1).
 
+TopTagXL works the same way: manual download from
+https://zenodo.org/records/10878355 (also ~JetClass-sized; `collect_data.py` does
+not fetch it) to big-file storage, point `data.data_dir` there, then
+`-cn toptagxl` + `training=xl_<Model>`, filling each `xl_<Model>.yaml`'s `???`
+from a `find_lr.py -cn toptagxl` sweep (GUIDE §5.2 — including why to shrink
+`data.val_files_range` before training).
+
 ## 5. Multiple seeds, and the table
 
 A single submission is one trial. For 3 seeds, submit the **same** run twice more as

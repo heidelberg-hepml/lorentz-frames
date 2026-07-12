@@ -160,6 +160,43 @@ reference rows keep their published budgets: `jc_ParT` (Ranger, 1M iterations),
 `data.train_files_range` — the same 5 passes then apply to the subset; don't lower
 the epochs.
 
+### 5.2 TopTagXL
+
+TopTagXL is top-tagging at JetClass scale: the same **binary qcd-vs-top** task as §5
+but with 100M training jets in the JetClass streaming format, selected with
+`-cp config -cn toptagxl` (dataset: download from
+https://zenodo.org/records/10878355 and point `data.data_dir` at it —
+`collect_data.py` does not fetch this one. Layout: `train_100M/`, `test_25M/`,
+`val_10M/`, with file numbering running *continuously* across the splits —
+`{qcd,top}_000–499 / 500–624 / 625–674` — at 100k jets per file). Everything from
+§5.1 carries over:
+
+- **Inputs are JetClass-wide** even though the task is binary: `features: default`
+  adds the 10 PID/trajectory scalars, so `in_channels = 7 + 10 = 17` (wired
+  automatically by `init_physics`).
+- **Recipes drop weight decay and keep epochs=5** (100M jets × 5 passes — the same
+  ParT-standard exposure): the family default is `xl_gts_and_friends_default`, and
+  each hybrid has a `config/training/xl_<hybrid>.yaml` whose `batchsize`/`lr` are
+  `???` until filled from the finder **on the toptagxl task** — the binary loss and
+  wide inputs move the loss-vs-lr curve a third time, so don't copy `top_` or `jc_`
+  values (the `???` fallback caveat above applies here identically):
+
+```bash
+python find_lr.py -cn toptagxl model=tag_PlainGraphGPS save=false \
+    +lr_find.find_batch_size=true
+# -> fill training.batchsize / training.lr into config/training/xl_PlainGraphGPS.yaml
+python run.py -cp config -cn toptagxl model=tag_PlainGraphGPS training=xl_PlainGraphGPS
+```
+
+Two XL-specific footnotes. First, the shipped `data.val_files_range: [625, 675]` is
+a **10M-jet validation pass**; under the family recipe's once-per-epoch cadence,
+shrink it (e.g. `[625, 626]` = 200k jets) unless you want validations costing a real
+fraction of a training epoch. Second, TopTagXL reuses the top-tagging binary
+evaluation path unchanged, so the rejection metrics and the results-table /
+`aggregate_table.py` machinery of §8 work as-is. Baseline reference rows run under
+the task default (`jc_transformer`: AdamW, 1M fixed iterations) or their own
+recipes, as in REPRODUCE.md.
+
 ---
 
 ## 6. Choosing hyperparameters

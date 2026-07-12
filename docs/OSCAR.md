@@ -150,6 +150,25 @@ jctagging sweep, not the top-tagging one):
 # train.sh:    python run.py -cp config -cn jctagging model=tag_<hybrid> training=jc_<hybrid> gpus=1
 ```
 
+### 2.2 TopTagXL (only if you run the toptagxl campaign)
+
+Same scratch treatment as JetClass (it is another ~100M-jet ROOT tree with the same
+streaming loader, so the same size and atime/purge reasoning applies), but the
+download is **manual** — `collect_data.py` does not fetch it:
+
+```bash
+interact -n 4 -m 16g -t 12:00:00
+mkdir -p ~/scratch/toptagxl && ln -s ~/scratch/toptagxl ~/GTagger-experiments/data/toptagxl
+# fetch train_100M/ test_25M/ val_10M/ from https://zenodo.org/records/10878355
+# into ~/scratch/toptagxl (e.g. via zenodo_get or wget), then exit the session
+```
+
+Commands swap exactly as in §2.1: `-cn toptagxl` + `training=xl_<hybrid>`, with the
+`???` knobs filled from a `find_lr.py -cn toptagxl` sweep (science: GUIDE §5.2 —
+binary task on JetClass-wide inputs, shared epochs=5, wd=0; shrink
+`data.val_files_range` before training, the shipped default is a 10M-jet
+validation pass).
+
 ## 3. Smoke-test on a compute node
 
 Never on the login node — grab a short interactive CPU session for the tests, then a
