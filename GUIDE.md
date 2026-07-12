@@ -164,12 +164,12 @@ the epochs.
 
 TopTagXL is top-tagging at JetClass scale: the same **binary qcd-vs-top** task as §5
 but with 100M training jets in the JetClass streaming format, selected with
-`-cp config -cn toptagxl` (dataset: download from
-https://zenodo.org/records/10878355 and point `data.data_dir` at it —
-`collect_data.py` does not fetch this one. Layout: `train_100M/`, `test_25M/`,
-`val_10M/`, with file numbering running *continuously* across the splits —
-`{qcd,top}_000–499 / 500–624 / 625–674` — at 100k jets per file). Everything from
-§5.1 carries over:
+`-cp config -cn toptagxl` (dataset: `python data/collect_data.py toptagxl` — the
+collector reads the file list and md5 checksums from Zenodo record 10878355's API
+at download time, verifies, and extracts to `data/toptagxl`. Layout: `train_100M/`,
+`test_25M/`, `val_10M/`, with file numbering running *continuously* across the
+splits — `{qcd,top}_000–499 / 500–624 / 625–674` — at 100k jets per file).
+Everything from §5.1 carries over:
 
 - **Inputs are JetClass-wide** even though the task is binary: `features: default`
   adds the 10 PID/trajectory scalars, so `in_channels = 7 + 10 = 17` (wired
@@ -177,9 +177,14 @@ https://zenodo.org/records/10878355 and point `data.data_dir` at it —
 - **Recipes drop weight decay and keep epochs=5** (100M jets × 5 passes — the same
   ParT-standard exposure): the family default is `xl_gts_and_friends_default`, and
   each hybrid has a `config/training/xl_<hybrid>.yaml` whose `batchsize`/`lr` are
-  `???` until filled from the finder **on the toptagxl task** — the binary loss and
-  wide inputs move the loss-vs-lr curve a third time, so don't copy `top_` or `jc_`
-  values (the `???` fallback caveat above applies here identically):
+  `???` until filled. **Seed them from the swept `jc_` values**: XL inputs are
+  identical to JetClass (17 channels, same multiplicity), so the batch-size memory
+  ceiling carries over unchanged and the jc lr is the right prior — only the loss
+  changed (binary sigmoid vs 10-class softmax). Upstream itself runs its XL
+  baselines under the JetClass recipe (the toptagxl task default is
+  `jc_transformer`). Confirm with the cheap finder sweep on the toptagxl task
+  rather than trusting the transfer blind (the `???` fallback caveat above applies
+  here identically):
 
 ```bash
 python find_lr.py -cn toptagxl model=tag_PlainGraphGPS save=false \

@@ -44,6 +44,18 @@ JETCLASS = {
     "test": ("Pythia", [("JetClass_Pythia_test_20M.tar", "64e5156d26d101adeb43b8388207d767")]),
 }
 
+# TopTagXL (binary qcd-vs-top at JetClass scale, 100M/25M/10M jets) --
+# https://zenodo.org/records/10878355, the LLoCa paper's extended top-tagging set.
+# Unlike JETCLASS above, the file list and md5 checksums are pulled from the Zenodo
+# API at download time (nothing hardcoded here can go stale). The loader
+# (experiments/tagging/toptagxlexperiment.py) reads
+#     <data.data_dir>/{train_100M,test_25M,val_10M}/{qcd,top}_<NNN>.root
+# with file numbering continuous across the splits (000-499 / 500-624 / 625-674),
+# and config/toptagxl.yaml sets data.data_dir = data/toptagxl.
+TOPTAGXL_RECORD = "10878355"
+TOPTAGXL_DIR = "toptagxl"
+TOPTAGXL_FOLDERS = ("train_100M", "test_25M", "val_10M")
+
 
 def load(filename):
     url = os.path.join(BASE_URL, filename)
@@ -102,11 +114,101 @@ def collect_jetclass(splits):
     print(f"JetClass ready under {base}/Pythia -- matches config/jctagging.yaml data.data_dir.")
 
 
+def _zenodo_record_files(record_id):
+    """File inventory ``[(name, md5, url), ...]`` of a Zenodo record via its public API."""
+    import json
+    import urllib.request
+
+    api_url = f"https://zenodo.org/api/records/{record_id}"
+    with urllib.request.urlopen(api_url) as response:
+        record = json.load(response)
+    files = []
+    for entry in record["files"]:
+        name = entry.get("key") or entry.get("filename")
+        checksum = entry.get("checksum") or ""
+        md5 = checksum.split(":", 1)[-1] if checksum else None  # zenodo format 'md5:<hex>'
+        url = (entry.get("links") or {}).get("self") or (
+            f"https://zenodo.org/records/{record_id}/files/{name}?download=1"
+        )
+        files.append((name, md5, url))
+    return files
+
+
+def collect_toptagxl(splits, inventory=None):
+    """Download + verify + extract the TopTagXL record for the given splits.
+
+    Mirrors ``collect_jetclass`` (md5 verification, idempotent ``.<file>.extracted``
+    markers, tars deletable after extraction), except the file list + checksums come
+    from the Zenodo API at runtime. ``splits`` filters record files by name substring
+    ('train'/'val'/'test'); files matching no split keyword (e.g. a README) are only
+    fetched when all three splits are requested.
+    """
+    dest = os.path.join(DATA_DIR, TOPTAGXL_DIR)
+    os.makedirs(dest, exist_ok=True)
+    if inventory is None:
+        inventory = _zenodo_record_files(TOPTAGXL_RECORD)
+    want_all = {"train", "val", "test"}.issubset(splits)
+
+    selected = []
+    for name, md5, url in inventory:
+        matched = [s for s in ("train", "val", "test") if s in name.lower()]
+        if want_all or any(s in splits for s in matched):
+            selected.append((name, md5, url))
+    if not selected:
+        raise RuntimeError(
+            f"No files in Zenodo record {TOPTAGXL_RECORD} match split(s) {splits}; "
+            f"record contains: {[name for name, _, _ in inventory]}"
+        )
+
+    for name, md5, url in selected:
+        path = os.path.join(dest, name)
+        marker = os.path.join(dest, f".{name}.extracted")
+        if os.path.exists(marker):
+            print(f"{name} already extracted, skipping")
+            continue
+        if os.path.exists(path) and md5 is not None and _md5(path) == md5:
+            print(f"{name} already downloaded (md5 ok)")
+        else:
+            if os.path.exists(path):
+                os.remove(path)  # partial/corrupt -> re-download
+            print(f"Downloading {url}")
+            wget.download(url, out=path)
+            print("")
+            if md5 is not None and _md5(path) != md5:
+                raise RuntimeError(f"md5 mismatch for {name}; delete it and retry")
+        if tarfile.is_tarfile(path):
+            print(f"Extracting {name} -> {dest}")
+            with tarfile.open(path) as tar:
+                try:
+                    tar.extractall(dest, filter="data")  # python >= 3.12 safe extraction
+                except TypeError:
+                    tar.extractall(dest)
+            open(marker, "w").close()
+            print(f"Extracted {name}  (you may delete {path} to reclaim disk)")
+        else:
+            open(marker, "w").close()
+
+    present = [f for f in TOPTAGXL_FOLDERS if os.path.isdir(os.path.join(dest, f))]
+    missing = [f for f in TOPTAGXL_FOLDERS if f not in present]
+    if missing and not want_all:
+        missing = [f for f in missing if any(s in f for s in splits)]
+    if missing:
+        print(
+            f"WARNING: expected folder(s) {missing} not found under {dest} after "
+            f"extraction -- inspect the extracted layout and symlink/move it so the "
+            f"loader finds <data_dir>/<split>/<class>_<NNN>.root (config/toptagxl.yaml "
+            f"data.data_dir = {dest})."
+        )
+    else:
+        print(f"TopTagXL ready under {dest} -- matches config/toptagxl.yaml data.data_dir.")
+
+
 def main():
     if len(sys.argv) < 2:
         print(
             "Usage: python data/collect_data.py "
-            "<toptagging | eventgen | jetclass [train|val|test|all]>"
+            "<toptagging | eventgen | jetclass [train|val|test|all] "
+            "| toptagxl [train|val|test|all]>"
         )
         sys.exit(1)
     dataset = sys.argv[1]
@@ -143,6 +245,18 @@ def main():
             print(f"Unknown JetClass split(s) {unknown}; choose from train/val/test/all")
             sys.exit(1)
         collect_jetclass(splits)
+
+    # collect the TopTagXL dataset (https://zenodo.org/records/10878355)
+    # second arg selects the split(s); default 'all'. ~JetClass-sized download; the
+    # file list + md5 checksums come from the Zenodo API at download time.
+    if dataset == "toptagxl":
+        arg = sys.argv[2] if len(sys.argv) > 2 else "all"
+        splits = ["train", "val", "test"] if arg == "all" else [arg]
+        unknown = [s for s in splits if s not in ("train", "val", "test")]
+        if unknown:
+            print(f"Unknown TopTagXL split(s) {unknown}; choose from train/val/test/all")
+            sys.exit(1)
+        collect_toptagxl(splits)
 
 
 if __name__ == "__main__":

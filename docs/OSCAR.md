@@ -120,7 +120,12 @@ mkdir -p ~/scratch/gtagger_runs
 ln -s ~/scratch/gtagger_runs runs
 ```
 
-(The tiny `data/*_mini.npz` smoke files ship with the repo and stay in home.)
+**Dataset placement rule of thumb** — three tiers by size and replaceability: the
+tiny `data/*_mini.npz` smoke files ship with the repo and stay in **home**; the
+1.5 GB `toptagging_full.npz` lives in **`~/data`** (permanent, backed up, symlinked
+above); anything JetClass-sized (§2.1 JetClass, §2.2 TopTagXL — ~190 GB ROOT trees)
+goes on **`~/scratch`** behind a symlink, accepting the 30-day-idle purge trade
+since a redownload is cheaper than burning the backed-up quota (§1).
 
 ### 2.1 JetClass (only if you run the jctagging campaign)
 
@@ -153,14 +158,18 @@ jctagging sweep, not the top-tagging one):
 ### 2.2 TopTagXL (only if you run the toptagxl campaign)
 
 Same scratch treatment as JetClass (it is another ~100M-jet ROOT tree with the same
-streaming loader, so the same size and atime/purge reasoning applies), but the
-download is **manual** — `collect_data.py` does not fetch it:
+streaming loader, so the same size and atime/purge reasoning applies). The collector
+reads the file list + md5 checksums from Zenodo record 10878355's API at download
+time, then verifies and extracts exactly like §2.1:
 
 ```bash
 interact -n 4 -m 16g -t 12:00:00
 mkdir -p ~/scratch/toptagxl && ln -s ~/scratch/toptagxl ~/GTagger-experiments/data/toptagxl
-# fetch train_100M/ test_25M/ val_10M/ from https://zenodo.org/records/10878355
-# into ~/scratch/toptagxl (e.g. via zenodo_get or wget), then exit the session
+cd ~/GTagger-experiments
+apptainer exec "$NGC_PYTORCH_CONTAINER" bash -lc \
+  'source venv/bin/activate && python data/collect_data.py toptagxl'
+rm ~/scratch/toptagxl/*.tar     # reclaim the tar space once extraction finished
+exit
 ```
 
 Commands swap exactly as in §2.1: `-cn toptagxl` + `training=xl_<hybrid>`, with the

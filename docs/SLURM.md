@@ -116,11 +116,12 @@ JetClass instead of top-tagging: fetch the ~190 GB dataset with
 `data/JetClass` there), then swap `-cn toptagging` → `-cn jctagging` and
 `training=top_<Model>` → `training=jc_<Model>` in the same commands (GUIDE §5.1).
 
-TopTagXL works the same way: manual download from
-https://zenodo.org/records/10878355 (also ~JetClass-sized; `collect_data.py` does
-not fetch it) to big-file storage, point `data.data_dir` there, then
-`-cn toptagxl` + `training=xl_<Model>`, filling each `xl_<Model>.yaml`'s `???`
-from a `find_lr.py -cn toptagxl` sweep (GUIDE §5.2 — including why to shrink
+TopTagXL works the same way: fetch with `python data/collect_data.py toptagxl`
+(also ~JetClass-sized; the file list + md5 checksums come from Zenodo record
+10878355's API at download time) onto big-file storage with `data/toptagxl`
+symlinked there, then `-cn toptagxl` + `training=xl_<Model>`, seeding each
+`xl_<Model>.yaml`'s `???` from the swept `jc_` values and confirming with a
+`find_lr.py -cn toptagxl` sweep (GUIDE §5.2 — including why to shrink
 `data.val_files_range` before training).
 
 ## 5. Multiple seeds, and the table
