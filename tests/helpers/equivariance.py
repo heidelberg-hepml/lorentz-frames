@@ -30,6 +30,7 @@ TRANSFORMS = {
     "lorentz": rand_lorentz,
 }
 
+
 def transform_momenta(data, trafo_fn, dtype):
     """Clone a tagging batch and apply a random ``trafo_fn`` to its four-momenta.
 

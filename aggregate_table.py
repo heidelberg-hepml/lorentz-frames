@@ -58,14 +58,19 @@ def latest_row(run_dir, split):
 
 
 def main():
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("--runs", default="runs", help="root directory to scan (default: runs)")
     ap.add_argument("--split", default="test", help="which split's row to collect (default: test)")
     ap.add_argument("--out", default=None, help="optional path to write the .tex table")
     args = ap.parse_args()
 
     run_dirs = sorted(
-        {os.path.dirname(p) for p in glob(os.path.join(args.runs, "**", "out_*.log"), recursive=True)}
+        {
+            os.path.dirname(p)
+            for p in glob(os.path.join(args.runs, "**", "out_*.log"), recursive=True)
+        }
     )
     # key on (model, frames, kNN) -- the variant axes that are table columns -- so
     # ablation runs of the SAME model (identity vs learnedpd frames, deltaR vs

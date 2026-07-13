@@ -49,3 +49,18 @@ ParT's cls-block-only dropout zeros) are kept, commented in code, and not listed
   finder; dropout kept per-reference (ParT-side blocks 0.1, GPS and L-GATr sides 0/none).
 - JetClass recipes: `weight_decay: 0`, `epochs: 5` (ParT-standard exposure), per-model
   re-sweep of batchsize/lr on the jctagging task.
+
+## Disclosures for the methods section (per-reference choices, not bugs)
+- **Head depth is per-reference, not unified.** The four GraphTrans hybrids classify with a
+  single Linear from the CLS token (the official GraphTrans head); the four GraphGPS hybrids
+  use a 2-layer SAN-style MLP after mean-pool (the official GraphGPS `SANGraphHead`). Both are
+  faithful to their lineage, so head capacity co-varies with the GT-vs-GPS axis by design.
+- **`tag_particlenet` runs `use_fusion: true`** (weaver's default + what the hybrids use),
+  ~172k params above the LLoCa-paper ParticleNet baseline row. Deliberate; note it when
+  comparing to published ParticleNet numbers.
+- **The four non-equivariant hybrids hardcode `tagging_features="all"`** in `TaggerWrapper`,
+  so the `data.tagging_features` ablation moves only the equivariant rows (headline table
+  unaffected).
+- **`deta` uses an unconditional sign flip** (`-(eta_i - eta_jet)`), not weaver's
+  hemisphere-dependent flip -- internally consistent, but the input pipeline is not
+  weaver-verbatim on this one feature.

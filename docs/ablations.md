@@ -130,8 +130,10 @@ deviation, is covered in "Capacity and shape" above.)
 - Spurion variants on the equivariant hybrids: `beam_mirror` off, `spacelike`/`timelike` beam
   forms, single vs two beams, `spurion_scale` ≠ 1 (model-level analogues of the data-level knobs).
 - LorentzNet hybrids: `use_time_spurion` / `use_beam_spurion` individually off.
-- `data.tagging_features` zinvariant/so3invariant/null rows for the equivariant hybrids (note the
-  non-equivariant four silently keep "all" — the documented D1 caveat).
+- `data.tagging_features` zinvariant/so3invariant/null rows for the equivariant hybrids. NB: the
+  four non-equivariant hybrids (`TaggerWrapper` subclasses) hardcode `tagging_features="all"`
+  internally, so this knob changes ONLY the equivariant rows; the non-equivariant headline rows
+  are unaffected (see the disclosures list in `docs/diffs.md`).
 
 ## Training-side minor tunes
 

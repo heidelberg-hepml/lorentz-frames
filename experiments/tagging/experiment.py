@@ -93,7 +93,7 @@ class TaggingExperiment(BaseExperiment):
             elif modelname == "LorentzNetLGATrSlimGraphTrans":
                 self.cfg.model.net.in_s_channels = in_s_channels
             elif modelname == "CGENNLGATrGraphGPS":
-                #same thing
+                # same thing
                 self.cfg.model.net.in_s_channels = in_s_channels
             elif modelname == "LorentzNetLGATrSlimGraphGPS":
                 self.cfg.model.net.in_s_channels = in_s_channels

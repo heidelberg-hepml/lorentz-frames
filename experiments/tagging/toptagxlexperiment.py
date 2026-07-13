@@ -60,8 +60,7 @@ class TopTagXLExperiment(TaggingExperiment):
             file_dict, resolved = to_filelist(flist)
 
             LOGGER.info(
-                f"Using {len(resolved)} of {len(flist)} requested files for "
-                f"{label}ing from {path}"
+                f"Using {len(resolved)} of {len(flist)} requested files for {label}ing from {path}"
             )
             datasets[label] = SimpleIterDataset(
                 file_dict,
@@ -73,7 +72,12 @@ class TopTagXLExperiment(TaggingExperiment):
                 file_fraction=1,
                 fetch_by_files=self.cfg.topxl_params.fetch_by_files,
                 fetch_step=self.cfg.topxl_params.fetch_step,
-                infinity_mode=self.cfg.topxl_params.steps_per_epoch is not None,
+                # infinity_mode (re-cycles the file list forever) belongs to the TRAIN
+                # split only: on val/test it makes the first validation/evaluation loop
+                # forever. steps_per_epoch bounds the train epoch length in that mode.
+                infinity_mode=(
+                    label == "train" and self.cfg.topxl_params.steps_per_epoch is not None
+                ),
                 in_memory=self.cfg.topxl_params.in_memory,
                 name=label,
                 events_per_file=self.cfg.topxl_params.events_per_file,

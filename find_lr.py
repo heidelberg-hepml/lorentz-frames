@@ -72,14 +72,14 @@ prints both the GPU-fit batchsize and the suggested lr. (On CPU the batch-size
 search is a no-op.) Verify the printed batchsize with a short real run before a
 long job -- it measures one fwd+bwd, not a full training trajectory.
 """
- 
+
 import os
- 
+
 import hydra
 import numpy as np
 import torch
 from omegaconf import OmegaConf, open_dict
- 
+
 from experiments.amplitudes.experiment import AmplitudeExperiment
 from experiments.amplitudes.experimentxl import AmplitudeXLExperiment
 from experiments.eventgen.processes import ttbarExperiment
@@ -88,7 +88,7 @@ from experiments.tagging.experiment import TopTaggingExperiment
 from experiments.tagging.finetuneexperiment import TopTaggingFineTuneExperiment
 from experiments.tagging.jetclassexperiment import JetClassTaggingExperiment
 from experiments.tagging.toptagxlexperiment import TopTagXLExperiment
- 
+
 CONSTRUCTORS = {
     "toptagging": TopTaggingExperiment,
     "toptaggingft": TopTaggingFineTuneExperiment,
@@ -98,7 +98,7 @@ CONSTRUCTORS = {
     "amplitudesxl": AmplitudeXLExperiment,
     "ttbar": ttbarExperiment,
 }
- 
+
 DEFAULTS = dict(
     start_lr=1e-7,
     end_lr=1e1,
@@ -116,15 +116,15 @@ DEFAULTS = dict(
     force_knn_metric="deltaR",
     # optional GPU batch-size search (CUDA only; no-op on CPU)
     find_batch_size=False,
-    bs_start=16,       # smallest batchsize tried
-    bs_max=16384,      # largest batchsize tried
-    bs_safety=1.0,     # fraction of the largest fitting batchsize to use (1.0 keeps a power of two)
+    bs_start=16,  # smallest batchsize tried
+    bs_max=16384,  # largest batchsize tried
+    bs_safety=1.0,  # fraction of the largest fitting batchsize to use (1.0 keeps a power of two)
 )
- 
- 
+
+
 def build_experiment(cfg):
     """Construct and partially initialize an experiment (no scheduler, no training).
- 
+
     Mirrors BaseExperiment.full_run() up to the point where the optimizer and
     scaler exist, which is all the range test needs. Matches the init sequence
     used in the equivariance tests.
@@ -133,7 +133,7 @@ def build_experiment(cfg):
         constructor = CONSTRUCTORS[cfg.exp_type]
     except KeyError as err:
         raise ValueError(f"exp_type {cfg.exp_type} not implemented") from err
- 
+
     exp = constructor(cfg, rank=0, world_size=1)
     exp._init()  # device, logger, (run dir is skipped when save=false)
     exp.init_physics()  # wire data dims -> model dims
@@ -143,11 +143,11 @@ def build_experiment(cfg):
     exp._init_loss()
     exp._init_optimizer()
     exp._init_scaler()
- 
+
     exp.model.to(exp.device)
     return exp
- 
- 
+
+
 def _is_oom(err):
     return isinstance(err, torch.cuda.OutOfMemoryError) or "out of memory" in str(err).lower()
 
@@ -191,7 +191,8 @@ def find_max_batch_size(exp, start, max_cap, safety):
             exp.scaler.unscale_(exp.optimizer)
             if exp.cfg.training.clip_grad_norm is not None:
                 torch.nn.utils.clip_grad_norm_(
-                    exp.model.parameters(), exp.cfg.training.clip_grad_norm,
+                    exp.model.parameters(),
+                    exp.cfg.training.clip_grad_norm,
                     error_if_nonfinite=False,
                 )
             exp.scaler.step(exp.optimizer)
@@ -223,12 +224,12 @@ def find_max_batch_size(exp, start, max_cap, safety):
 def _cycle(loader):
     while True:
         yield from loader
- 
- 
+
+
 def range_test(exp, start_lr, end_lr, num_iter, beta, diverge):
     """Exponentially ramp the lr and record the EMA-smoothed training loss."""
     optimizer, scaler = exp.optimizer, exp.scaler
- 
+
     # preserve the relative lr ratios between param groups (net vs framesnet vs ...)
     base_lr0 = optimizer.param_groups[0]["lr"]
     base_ratios = [pg["lr"] / base_lr0 for pg in optimizer.param_groups]
@@ -242,52 +243,52 @@ def range_test(exp, start_lr, end_lr, num_iter, beta, diverge):
     # which renormalize, but not for plain SGD -> off keeps the test optimizer-agnostic).
     for pg in optimizer.param_groups:
         pg["weight_decay"] = 0.0
- 
+
     lrs, losses = [], []
     avg_loss, best_loss = 0.0, float("inf")
- 
+
     exp.model.train()
     iterator = iter(_cycle(exp.train_loader))
     log_every = max(1, num_iter // 20)
- 
+
     for step in range(num_iter):
         lr = start_lr * gamma**step
         for pg, ratio in zip(optimizer.param_groups, base_ratios):
             pg["lr"] = lr * ratio
- 
+
         data = next(iterator)
         loss, _ = exp._batch_loss(data)
- 
+
         # update step -- NO grad clipping on purpose: it would cap the step and hide the
         # high-lr divergence the test needs to graph (see the note above the loop).
         optimizer.zero_grad()
         scaler.scale(loss).backward()
         scaler.step(optimizer)
         scaler.update()
- 
+
         loss_value = loss.detach().item()
         if not np.isfinite(loss_value):
             LOGGER.warning(f"Non-finite loss at step {step} (lr={lr:.2e}); stopping.")
             break
- 
+
         # bias-corrected EMA of the loss
         avg_loss = beta * avg_loss + (1.0 - beta) * loss_value
         smoothed = avg_loss / (1.0 - beta ** (step + 1))
         lrs.append(lr)
         losses.append(smoothed)
- 
+
         if step == 0 or smoothed < best_loss:
             best_loss = smoothed
         if smoothed > diverge * best_loss:
             LOGGER.info(f"Loss diverged at step {step} (lr={lr:.2e}); stopping early.")
             break
- 
+
         if step % log_every == 0:
             LOGGER.info(f"step {step:4d}  lr={lr:.2e}  smoothed_loss={smoothed:.4f}")
- 
+
     return np.array(lrs), np.array(losses)
- 
- 
+
+
 def suggest_lr(lrs, losses, skip_start, skip_end, beta=0.98):
     """Two heuristics: `loss-min/10` (robust, the recommended one) and the
     steepest-descent point (lr at the minimum gradient of loss vs log(lr)).
@@ -317,14 +318,14 @@ def suggest_lr(lrs, losses, skip_start, skip_end, beta=0.98):
 
     min_loss_lr = float(lr_trim[int(np.argmin(loss_trim))])
     return steepest, min_loss_lr, lr_trim, loss_trim
- 
- 
+
+
 def make_plot(lrs, losses, steepest, min_loss_lr, output, title="LR range test"):
     import matplotlib
- 
+
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
- 
+
     fig, ax = plt.subplots(figsize=(7, 5))
     ax.plot(lrs, losses, color="#1f77b4")
     ax.axvline(steepest, color="#d62728", ls="--", label=f"steepest: {steepest:.2e}")
@@ -342,8 +343,8 @@ def make_plot(lrs, losses, steepest, min_loss_lr, output, title="LR range test")
     fig.tight_layout()
     fig.savefig(output, dpi=150)
     LOGGER.info(f"Saved LR-finder plot to {os.path.abspath(output)}")
- 
- 
+
+
 # Default to the real config/ tree so a bare run matches training (clipping on, full data);
 # pass `-cp config_quick ... data.dataset=mini` for a fast smoke test of the finder itself.
 @hydra.main(config_path="config", config_name="toptagging", version_base=None)
@@ -352,7 +353,7 @@ def main(cfg):
     cfg.train = False
     cfg.evaluate = False
     cfg.plot = False
- 
+
     params = dict(DEFAULTS)
     lr_find = OmegaConf.select(cfg, "lr_find", default=None)
     if lr_find is not None:
@@ -395,7 +396,9 @@ def main(cfg):
         exp._init_dataloader()
 
     # name the plot/npz after the model + batchsize so repeated sweeps don't clobber each other
-    model_name = (OmegaConf.select(cfg, "model.net._target_", default="") or "").rsplit(".", 1)[-1] or "model"
+    model_name = (OmegaConf.select(cfg, "model.net._target_", default="") or "").rsplit(".", 1)[
+        -1
+    ] or "model"
     if params["output"] == DEFAULTS["output"]:
         params["output"] = f"lr_finder_{model_name}_bs{cfg.training.batchsize}.png"
 
@@ -403,7 +406,7 @@ def main(cfg):
         f"Running LR range test: {params['start_lr']:.1e} -> {params['end_lr']:.1e} "
         f"over <= {params['num_iter']} batches (batchsize={cfg.training.batchsize})"
     )
- 
+
     lrs, losses = range_test(
         exp,
         start_lr=params["start_lr"],
@@ -418,7 +421,7 @@ def main(cfg):
             "try a smaller start_lr, a larger diverge, or more num_iter."
         )
         return
- 
+
     steepest, min_loss_lr, _, _ = suggest_lr(
         lrs,
         losses,
@@ -427,7 +430,11 @@ def main(cfg):
         beta=params["beta"],
     )
     make_plot(
-        lrs, losses, steepest, min_loss_lr, params["output"],
+        lrs,
+        losses,
+        steepest,
+        min_loss_lr,
+        params["output"],
         title=f"LR range test - {model_name} (bs={cfg.training.batchsize})",
     )
     np.savez(os.path.splitext(params["output"])[0] + ".npz", lr=lrs, loss=losses)
@@ -446,8 +453,7 @@ def main(cfg):
         reuse = f"training.batchsize={bs} " + reuse
     LOGGER.info(f"  ->  reuse with:  {reuse}")
     LOGGER.info("=" * 64)
- 
- 
+
+
 if __name__ == "__main__":
     main()
- 

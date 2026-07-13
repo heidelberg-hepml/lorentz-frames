@@ -987,17 +987,20 @@ class CGENNLGATrGraphTransWrapper(nn.Module):
         self.net = net(num_classes=out_channels)
         self.framesnet = framesnet  # not actually used
         assert isinstance(framesnet, IdentityFrames)
+
     def forward(self, embedding):
-        fourmomenta = embedding["fourmomenta"]                 # (E, px, py, pz), incl. spurions
+        fourmomenta = embedding["fourmomenta"]  # (E, px, py, pz), incl. spurions
         scalars = torch.cat([embedding["scalars"], embedding["tagging_features"]], dim=-1)
         batch = embedding["batch"]
         is_spurion = embedding["is_spurion"]
-        keep = ~is_spurion                                     # channel-spurions in model: drop the tokens
+        keep = ~is_spurion  # channel-spurions in model: drop the tokens
         fourmomenta = fourmomenta[keep]
         scalars = scalars[keep]
         batch = batch[keep]
-        fourmomenta = (fourmomenta / 20).to(scalars.dtype)     # match the equivariant baselines; NO reorder
-        px, py, pz = fourmomenta[:, 1], fourmomenta[:, 2], fourmomenta[:, 3]   # (E, px, py, pz)
+        fourmomenta = (fourmomenta / 20).to(
+            scalars.dtype
+        )  # match the equivariant baselines; NO reorder
+        px, py, pz = fourmomenta[:, 1], fourmomenta[:, 2], fourmomenta[:, 3]  # (E, px, py, pz)
         pt = torch.sqrt(px * px + py * py).clamp(min=1e-8)
         points = torch.stack([torch.asinh(pz / pt), torch.atan2(py, px)], dim=-1)
         fourmomenta, mask = to_dense_batch(fourmomenta, batch)
@@ -1029,16 +1032,18 @@ class CGENNLGATrGraphGPSWrapper(nn.Module):
         assert isinstance(framesnet, IdentityFrames)
 
     def forward(self, embedding):
-        fourmomenta = embedding["fourmomenta"]                 # (E, px, py, pz), incl. spurions
+        fourmomenta = embedding["fourmomenta"]  # (E, px, py, pz), incl. spurions
         scalars = torch.cat([embedding["scalars"], embedding["tagging_features"]], dim=-1)
         batch = embedding["batch"]
         is_spurion = embedding["is_spurion"]
-        keep = ~is_spurion                                     # channel-spurions in model: drop the tokens
+        keep = ~is_spurion  # channel-spurions in model: drop the tokens
         fourmomenta = fourmomenta[keep]
         scalars = scalars[keep]
         batch = batch[keep]
-        fourmomenta = (fourmomenta / 20).to(scalars.dtype)     # match the equivariant baselines; NO reorder
-        px, py, pz = fourmomenta[:, 1], fourmomenta[:, 2], fourmomenta[:, 3]   # (E, px, py, pz)
+        fourmomenta = (fourmomenta / 20).to(
+            scalars.dtype
+        )  # match the equivariant baselines; NO reorder
+        px, py, pz = fourmomenta[:, 1], fourmomenta[:, 2], fourmomenta[:, 3]  # (E, px, py, pz)
         pt = torch.sqrt(px * px + py * py).clamp(min=1e-8)
         points = torch.stack([torch.asinh(pz / pt), torch.atan2(py, px)], dim=-1)
         fourmomenta, mask = to_dense_batch(fourmomenta, batch)
