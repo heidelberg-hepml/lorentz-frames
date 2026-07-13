@@ -227,6 +227,24 @@ class JetClassTaggingExperiment(TaggingExperiment):
             tex_string += r" \\"
             LOGGER.info(tex_string)
 
+            # results-table row in the same parseable `table <split>:` format as the
+            # top-tagging path, so aggregate_table.py and the multi-trial mean +- std
+            # accumulation (table_metrics_*.json) cover JetClass runs too -- only the
+            # metric columns differ (ovo AUC + one rejection per non-QCD class).
+            row = {
+                "accuracy": float(metrics["accuracy"]),
+                "auc_ovo": float(metrics["auc_ovo"]),
+                "train_time": getattr(self, "train_time", None),
+            }
+            metric_fmts = [("accuracy", ".4f"), ("auc_ovo", ".4f")]
+            for i, rej in enumerate(class_rej_dict):
+                if rej is None:
+                    continue
+                key = f"rej{str(rej).replace('.', '')}_{i}"
+                row[key] = float(metrics[key])
+                metric_fmts.append((key, ".0f"))
+            self._log_table_row(loader, title, row, metric_fmts)
+
         if self.cfg.use_mlflow:
             for key, value in metrics.items():
                 if key in ["labels_true", "labels_predict"]:
