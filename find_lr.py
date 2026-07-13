@@ -37,7 +37,8 @@ loss diverges, then report `loss-min / 10` (steepest-descent is printed too, but
 the num_iter caveat above).
  
 Pass `save=false` so no run directory is created. Tune the sweep on the CLI under
-`lr_find.*` (these keys are added at runtime, so prefix with `+` is optional):
+`lr_find.*` (these keys are not in the base config, so the `+` prefix is REQUIRED --
+a bare `lr_find.num_iter=…` raises a Hydra ConfigCompositionException):
  
     +lr_find.start_lr=1e-7   lowest lr in the sweep                 (default 1e-7)
     +lr_find.end_lr=1e1      highest lr in the sweep                (default 1e1)
@@ -155,7 +156,8 @@ def find_max_batch_size(exp, start, max_cap, safety):
     """Doubling search for the largest batchsize that survives a full training step.
 
     At each candidate it runs a real fwd + bwd + optimizer step (scaler + gradient
-    clipping, exactly as ``range_test``), so the measured memory reflects what
+    clipping as in real training -- unlike ``range_test``, which deliberately omits
+    clipping so it does not mask divergence), so the measured memory reflects what
     training actually uses -- not just a fwd+bwd lower bound. The search doubles
     until a CUDA OOM, so the largest size that fits is a power of two; with the
     default ``safety=1.0`` that power of two is returned unchanged (a fractional

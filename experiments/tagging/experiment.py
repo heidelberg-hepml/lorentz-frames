@@ -24,20 +24,38 @@ class TaggingExperiment(BaseExperiment):
         modelname = self.cfg.model.net._target_.rsplit(".", 1)[-1]
         self.momentum_dtype = torch.float64 if self.cfg.data.momentum_float64 else torch.float32
 
+        if self.world_size > 1:
+            # The tagging path is verified single-GPU only. Under DDP, attribute
+            # introspection on the wrapped framesnet silently fails (no `.module`
+            # unwrap anywhere): jet_frames returns None (CLS token silently rides the
+            # identity frame), equivectors init_standardization is skipped, the CLS
+            # no_weight_decay exemption vanishes, checkpoints get un-loadable
+            # `module.*` keys, and JetClass has no rank sharding (each rank trains the
+            # FULL budget). Erroring here is deliberate -- these failures are silent
+            # model degradations, not crashes. Use a single GPU until the DDP rework.
+            raise RuntimeError(
+                "Multi-GPU tagging is disabled: the DDP wrapping breaks learned-frames "
+                "introspection and checkpoint compatibility (see the audit notes in "
+                "docs/diffs.md). Run with gpus=1."
+            )
+
         # guardrail: the per-model hybrid recipes ship batchsize/lr as '???', which hydra
         # cannot enforce (an OmegaConf MISSING never overrides the values inherited from
         # tag_default), so an unfilled recipe silently composes to the 512 / 1e-3 fallback.
-        if (
-            self.cfg.train
-            and modelname.endswith(("GraphTrans", "GraphGPS"))
-            and float(self.cfg.training.lr) == 1e-3
-            and int(self.cfg.training.batchsize) == 512
-        ):
-            LOGGER.warning(
-                f"{modelname} is training at the UNSWEPT family fallback "
-                "(batchsize=512, lr=1e-3) -- did you forget to fill its recipe "
-                "from find_lr.py?"
-            )
+        if self.cfg.train and modelname.endswith(("GraphTrans", "GraphGPS")):
+            # each knob checked INDEPENDENTLY: filling exactly one of the two `???`
+            # placeholders must not silence the warning for the other
+            unswept = []
+            if float(self.cfg.training.lr) == 1e-3:
+                unswept.append("lr=1e-3")
+            if int(self.cfg.training.batchsize) == 512:
+                unswept.append("batchsize=512")
+            if unswept:
+                LOGGER.warning(
+                    f"{modelname} is training at the UNSWEPT family fallback "
+                    f"({', '.join(unswept)}) -- did you forget to fill its recipe "
+                    "from find_lr.py?"
+                )
 
         self.cfg.model.out_channels = self.num_outputs
         if modelname in [
@@ -201,7 +219,9 @@ class TaggingExperiment(BaseExperiment):
         # with a class token (a non-empty no_weight_decay()) belong here. The mean-pool
         # GraphGPS models have none -- CGENN/LorentzNet GPS return set() and the plain/PNet
         # GPS define no such method -- so they correctly fall through to the base default.
-        if self.cfg.model.net._target_.rsplit(".", 1)[-1] in [
+        # Caller-supplied groups (the finetune experiment's carefully split
+        # backbone/head lrs) must NOT be clobbered by the name match below.
+        if param_groups is None and self.cfg.model.net._target_.rsplit(".", 1)[-1] in [
             "ParticleTransformer",
             "MIParticleTransformer",
             "ParticleNetParTGraphTrans",

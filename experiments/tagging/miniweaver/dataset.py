@@ -351,11 +351,11 @@ class _SimpleIter(object):
         end_of_list = self.ipos >= len(self.load_filelist_and_ranges)
         if end_of_list:
             if init:
-                raise RuntimeError(
-                    "Nothing to load for worker %d" % 0
-                    if self.worker_info is None
-                    else self.worker_info.id
-                )
+                # parenthesize the ternary: without it precedence made the non-None
+                # branch raise RuntimeError(worker_id) -- a bare "1" -- dropping the
+                # message that says which worker found nothing to load
+                worker_id = 0 if self.worker_info is None else self.worker_info.id
+                raise RuntimeError("Nothing to load for worker %d" % worker_id)
             if self._infinity_mode and not self._in_memory:
                 # infinity mode: re-start
                 self.restart()

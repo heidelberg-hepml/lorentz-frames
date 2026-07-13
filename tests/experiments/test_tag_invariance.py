@@ -79,9 +79,12 @@ def test_amplitudes(
         # original data
         y_pred, _, tracker, _ = exp._get_ypred_and_label(data)
 
-        # augmented data
-        mom = data_augmented.x
-        trafo = rand_trafo(mom.shape[:-2] + (1,), dtype=mom.dtype)
+        # augmented data: one independent transform per jet (a batch-global
+        # transform could not catch cross-jet leakage)
+        mom = data_augmented.x  # sparse (total_particles, 4)
+        n_jets = int(data_augmented.batch.max().item()) + 1
+        trafo = rand_trafo((n_jets,), dtype=mom.dtype)
+        trafo = trafo.index_select(0, data_augmented.batch)
         mom_augmented = torch.einsum("...ij,...j->...i", trafo, mom)
         data_augmented.x = mom_augmented
         y_pred_augmented = exp._get_ypred_and_label(data_augmented)[0]
@@ -97,3 +100,13 @@ def test_amplitudes(
     )
     for key in tracker.keys():
         print(f"data tracker key={key}, value={tracker[key]}")
+    # the actual invariance assertion (this test printed-and-passed for months --
+    # an assertion-free test can only fail by crashing; adding this immediately
+    # exposed the boost_jet feature-degeneration bug at MSE O(10^2..10^4)).
+    # Healthy cases measure <= ~1e-6 max MSE on the mini dataset (fp32 logits);
+    # a real symmetry break measures >= 1e-2, usually much larger, so 1e-5 leaves
+    # an order of magnitude headroom on both sides.
+    assert mses.max().item() < 1e-5, (
+        f"invariance violated: max MSE {mses.max().item():.2e} "
+        f"({model_list}, {rand_trafo.__name__}, {framesnet})"
+    )

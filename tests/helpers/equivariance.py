@@ -30,16 +30,20 @@ TRANSFORMS = {
     "lorentz": rand_lorentz,
 }
 
-#maybe add z axis? 
 def transform_momenta(data, trafo_fn, dtype):
     """Clone a tagging batch and apply a random ``trafo_fn`` to its four-momenta.
 
-    One transform is drawn per jet and broadcast over its constituents, so the
-    whole event is transformed coherently (matching tests/.../test_tag_invariance).
+    One INDEPENDENT transform is drawn per jet and broadcast over that jet's
+    constituents. (A single batch-global transform is also a valid invariance
+    probe, but it cannot catch cross-jet leakage -- exactly this repo's
+    historical bug class of dense/sparse edge mixups -- so per-jet is the
+    stronger, intended check.)
     """
     out = data.clone()
-    mom = out.x
-    trafo = trafo_fn(mom.shape[:-2] + (1,), dtype=dtype)
+    mom = out.x  # sparse (total_particles, 4)
+    n_jets = int(out.batch.max().item()) + 1
+    trafo = trafo_fn((n_jets,), dtype=dtype)  # (B, 4, 4)
+    trafo = trafo.index_select(0, out.batch)  # per particle, constant within each jet
     out.x = torch.einsum("...ij,...j->...i", trafo, mom)
     return out
 

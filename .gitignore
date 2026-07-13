@@ -16,6 +16,8 @@ mlruns/
 outputs/
 scripts/
 data/jetclass/
+data/JetClass/
+data/toptagxl/
 *~
 *.hdf5
 *.npy

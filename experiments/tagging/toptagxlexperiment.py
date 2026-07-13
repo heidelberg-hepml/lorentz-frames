@@ -57,9 +57,12 @@ class TopTagXLExperiment(TaggingExperiment):
                 for classname in self.class_names
                 for i in range(*files_range[label])
             ]
-            file_dict, _ = to_filelist(flist)
+            file_dict, resolved = to_filelist(flist)
 
-            LOGGER.info(f"Using {len(flist)} files for {label}ing from {path}")
+            LOGGER.info(
+                f"Using {len(resolved)} of {len(flist)} requested files for "
+                f"{label}ing from {path}"
+            )
             datasets[label] = SimpleIterDataset(
                 file_dict,
                 self.cfg.data.data_config,

@@ -16,6 +16,7 @@ from torch import nn
 from torch_geometric.nn.aggr import MeanAggregation
 from torch_geometric.utils import scatter, to_dense_batch
 
+from experiments.logger import LOGGER
 from experiments.misc import get_attention_mask
 from experiments.tagging.embedding import get_tagging_features
 
@@ -39,35 +40,61 @@ class TaggerWrapper(nn.Module):
         self.compute_jet_frames = False
         self._jet_frames = None
 
-    def jet_frames(self, fourmomenta, scalars, ptr):
+    def jet_frames(self, fourmomenta, scalars, ptr, is_spurion=None):
         """A single covariant frame per event: the boost into the jet rest frame.
 
         orthogonalize_4d makes the first of its three reference vectors the timelike axis,
-        so we pass the jet four-momentum (the sum of the particle four-momenta) as that
-        first vector -- the frame's time axis is then the jet direction (its rest frame).
-        The two remaining axes (the spatial orientation, which a single momentum leaves
-        undetermined) are fixed covariantly by the framesnet's per-particle equivariant
-        reference vectors, averaged over the event. All inputs are covariant, so the frame
-        is covariant and the readout stays Lorentz-invariant. Returns Frames (B, 4, 4), or
-        None for a non-learned (identity) framesnet.
+        so we pass the jet four-momentum (the sum of the REAL particle four-momenta) as
+        that first vector -- the frame's time axis is then the jet direction (its rest
+        frame). The two remaining axes (the spatial orientation, which a single momentum
+        leaves undetermined) are fixed by the framesnet's per-particle equivariant
+        reference vectors, averaged over the event. The equivectors see the SAME
+        with-spurion token list as the per-particle framesnet path: the beam/time
+        spurions rank-lift the reference set (a 2-constituent or collinear jet spans
+        <3 independent directions on its own -- momenta alone would hand the
+        orthogonalizer a coplanar stack and return a non-Lorentz frame), and the CLS
+        frame then breaks exactly the symmetries the per-particle frames already break,
+        no more. Returns Frames (B, 4, 4), or None for a non-learned (identity)
+        framesnet.
+
+        Two guards for degenerate inputs:
+        - framesnets with a single learned equivector (LearnedSO2Frames) pad the
+          reference stack with the beam axis e_z -- the same trivial axis their own
+          frame construction uses, invariant under the SO(2) subgroup they canonicalize;
+        - events whose orthogonalized frame still fails the Lorentz condition
+          (|L eta L^T - eta| large; possible when spurions are disabled) fall back to
+          the identity readout frame for those events only.
         """
         fn = self.framesnet
         if not hasattr(fn, "equivectors"):
             return None  # IdentityFrames etc. -> identity readout frame (handled downstream)
         batch = get_batch_from_ptr(ptr)
-        jet_p = scatter(fourmomenta, batch, dim=0, reduce="sum")  # (B, 4): jet four-momentum
+        if is_spurion is None:
+            is_spurion = torch.zeros(fourmomenta.shape[0], dtype=torch.bool, device=batch.device)
+        B = ptr.numel() - 1
+        jet_p = scatter(
+            fourmomenta[~is_spurion], batch[~is_spurion], dim=0, reduce="sum", dim_size=B
+        )  # (B, 4): jet four-momentum from the real particles
         jet_p = fn.mass_regularize(jet_p)
         # set-level equivectors (e.g. pelican) require num_graphs; the main framesnet path
-        # passes it, so mirror that here (B events for these no-spurion particles).
+        # passes it, so mirror that here.
         vecs = fn.equivectors(
             fn.mass_regularize(fourmomenta),
             scalars=scalars,
             ptr=ptr,
-            num_graphs=ptr.numel() - 1,
+            num_graphs=B,
         )
-        vecs = scatter(vecs, batch, dim=0, reduce="mean")  # (B, n_vectors, 4) per event
-        # time axis = jet momentum; spatial orientation from the (covariant) equivectors
-        vecs = torch.cat([jet_p.unsqueeze(1), vecs[:, :2]], dim=1)  # (B, 3, 4)
+        vecs = scatter(vecs, batch, dim=0, reduce="mean", dim_size=B)  # (B, n_vectors, 4)
+        refs = [jet_p.unsqueeze(1), vecs[:, :2]]
+        n_rot_refs = min(vecs.shape[1], 2)
+        if n_rot_refs < 2:
+            # e.g. LearnedSO2Frames (n_vectors=1): its own construction fixes the missing
+            # axes to trivial vectors, so pad the same way with the beam axis e_z
+            # (invariant under the SO(2)-about-z subgroup these frames canonicalize)
+            pad = torch.zeros(B, 2 - n_rot_refs, 4, device=jet_p.device, dtype=jet_p.dtype)
+            pad[..., -1] = 1.0
+            refs.append(pad)
+        vecs = torch.cat(refs, dim=1)  # (B, 3, 4): time axis + two rotation references
         # jet_frames always uses the 4d orthogonalizer, but reuses the framesnet's
         # ortho_kwargs. The PD-family framesnets (LearnedPD/SO3/Rest/SO2/Z) key the coplanar
         # regulator as `eps_reg` -- the name their internal orthogonalize_3d expects -- whereas
@@ -75,7 +102,27 @@ class TaggerWrapper(nn.Module):
         ortho_kwargs = dict(fn.ortho_kwargs)
         if "eps_reg" in ortho_kwargs:
             ortho_kwargs.setdefault("eps_reg_coplanar", ortho_kwargs.pop("eps_reg"))
+        # library `checks` would hard-assert on a degenerate event BEFORE our per-event
+        # identity fallback below can handle it -- we do the validation ourselves
+        ortho_kwargs["checks"] = False
         trafo = orthogonalize_4d(vecs, **ortho_kwargs)  # (B, 4, 4)
+        # identity fallback for events whose reference stack was still too degenerate
+        # (generic events deviate by ~1e-6 in fp32; broken ones by O(0.01..1))
+        eta = torch.diag(
+            torch.tensor([1.0, -1.0, -1.0, -1.0], device=trafo.device, dtype=trafo.dtype)
+        )
+        dev = (trafo @ eta @ trafo.transpose(-1, -2) - eta).abs().amax(dim=(-2, -1))
+        bad = dev > 1e-3
+        if bad.any():
+            if not getattr(self, "_jet_frames_degenerate_warned", False):
+                LOGGER.warning(
+                    f"jet_frames: {int(bad.sum())} event(s) with a degenerate reference set "
+                    f"(max |L eta L^T - eta| = {dev.max().item():.2e}); using the identity "
+                    f"readout frame for those events (warning shown once)"
+                )
+                self._jet_frames_degenerate_warned = True
+            eye = lorentz_eye((1,), device=trafo.device, dtype=trafo.dtype)
+            trafo = torch.where(bad[:, None, None], eye, trafo)
         return Frames(trafo.to(fourmomenta.dtype))
 
     def init_standardization(self, fourmomenta, ptr, reduce_size=None):
@@ -129,12 +176,17 @@ class TaggerWrapper(nn.Module):
             shape=matrices.shape,
         )
 
-        # optional single covariant per-event (jet) frame, from the real particles only
+        # optional single covariant per-event (jet) frame. The equivectors get the SAME
+        # with-spurion inputs as the framesnet call above (the spurions rank-lift
+        # degenerate low-multiplicity jets and keep the CLS frame's symmetry breaking
+        # identical to the per-particle frames'); the jet momentum itself is built from
+        # the real particles only, inside jet_frames.
         if self.compute_jet_frames:
             self._jet_frames = self.jet_frames(
-                fourmomenta_nospurions,
-                scalars_withspurions.index_select(0, nospurion_idxs),
-                ptr_nospurions,
+                fourmomenta_withspurions,
+                scalars_withspurions,
+                ptr_withspurions,
+                is_spurion=is_spurion,
             )
 
         # transform features into local frames
@@ -391,8 +443,16 @@ class ParticleNetWrapper(AggregatedTaggerWrapper):
             batch,
             tracker,
         ) = super().forward(embedding)
-        # ParticleNet uses L2 norm in (phi, eta) for kNN
-        phieta_local = features_local[..., [4, 5]]
+        # ParticleNet uses L2 norm in (phi, eta) for kNN. dphi/deta live at positions
+        # 4,5 INSIDE the 7-feature local tagging block (always 'all' in TaggerWrapper),
+        # which sits AFTER any extra scalars -- a hardcoded [4, 5] is correct only for
+        # extra_scalars=0 (top-tagging); on JetClass it would silently cluster the
+        # layer-0 kNN by PID one-hots.
+        n_extra = features_local.shape[-1] - 7 - (4 if self.add_fourmomenta_backbone else 0)
+        assert n_extra >= 0, (
+            f"unexpected feature layout for ParticleNetWrapper: {features_local.shape[-1]} channels"
+        )
+        phieta_local = features_local[..., [n_extra + 4, n_extra + 5]]
         phieta_local, mask = to_dense_batch(phieta_local, batch)
         features_local, _ = to_dense_batch(features_local, batch)
         phieta_local = phieta_local.transpose(1, 2)

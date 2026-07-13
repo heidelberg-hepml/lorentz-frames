@@ -81,16 +81,20 @@ framesnet:
 
 ## 4. Running a training
 
+`run.py` defaults to the tiny `config_quick` tree (a fast debug model + toy data), so
+a bare `python run.py model=…` is a smoke test, NOT real training — and passing a
+`training=top_<...>` recipe there fails at composition (config_quick has no such
+recipes). For a real run add `-cp config` so the full `config/` tree (real models,
+data, and the `top_<...>` recipes) is used:
+
 ```bash
-# a non-equivariant hybrid, made equivariant with learned frames
-python run.py model=tag_PlainGraphGPS model/framesnet=learnedso13
+# quick smoke tests on the debug tree (no -cp config): a couple of hundred iterations
+python run.py model=tag_PlainGraphGPS model/framesnet=learnedso13   # learned frames
+python run.py model=tag_LorentzNetLGATrSlimGraphGPS                   # identity frames
 
-# an internally-equivariant hybrid (identity frames; nothing to set)
-python run.py model=tag_LorentzNetLGATrSlimGraphGPS
-
-# the hybrid's own recipe (inherits tag_gts_and_friends_default), full data, a GPU
-python run.py model=tag_ParticleNetParTGraphGPS training=top_ParticleNetParTGraphGPS \
-    data.dataset=full gpus=1
+# a REAL training: full config tree, the hybrid's own recipe, full data, a GPU
+python run.py -cp config model=tag_ParticleNetParTGraphGPS \
+    training=top_ParticleNetParTGraphGPS data.dataset=full gpus=1
 ```
 
 Useful overrides: `data.dataset={full,mini}`, `training.iterations=…`,
@@ -252,9 +256,9 @@ Lion's decay also scales with LR, so the L-GATr (`wd=0.2`, lr=3e-4) and slim
 (`wd=2`, lr=3e-5) recipes are the same `lr × wd ≈ 6e-5`; for a Lion run set
 `wd ≈ 6e-5 / lr`, not a copied raw number.
 
-**Budget / epochs.** Early stopping is on (`es_patience`), so the iteration count
-is an upper bound — but its patience is large, so in practice the budget *is* the
-cap. The GT hybrids encode the fair choice in `tag_gts_and_friends_default`:
+**Budget / epochs.** Early stopping is OFF in the shipped recipes (`es_patience: null`),
+so the epoch budget is the exact iteration count, not an upper bound. The GT hybrids
+encode the fair choice in `tag_gts_and_friends_default`:
 **epochs=20** (equal data exposure — derived per model as `epochs × batches_per_epoch`,
 not one model's ad-hoc 20-epochs / 200k-iters) and **validate once per epoch** so
 best-val checkpointing has equal granularity across the family. Check the val curve

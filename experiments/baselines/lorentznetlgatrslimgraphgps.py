@@ -140,6 +140,10 @@ class LorentzNetLGATrSlimGraphGPS(nn.Module):
                  head_layers=2,
                  **kwargs):
         super().__init__()
+        if kwargs:
+            # hydra struct mode does not protect against `+model.net.<typo>=x`;
+            # the other hybrids raise on unknown keys, so this one must too
+            raise TypeError(f"unexpected model kwargs: {sorted(kwargs)}")
         if knn_metric not in ("minkowski", "deltaR"):
             raise ValueError(f"knn_metric must be 'minkowski' or 'deltaR', got {knn_metric!r}")
         self.knn_k = knn_k
