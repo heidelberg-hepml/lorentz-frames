@@ -709,6 +709,10 @@ class BaseExperiment:
                 LOGGER.warning(
                     f"Skipping iteration {step}, gradient norm {grad_norm} exceeds maximum {self.cfg.training.max_grad_norm}"
                 )
+                # under AMP an fp16 overflow inflates grad_norm into this branch; the
+                # scaler must still update so the loss scale can DECREASE -- returning
+                # without it froze the scale and silently skipped every later iteration
+                self.scaler.update()
                 return
         self.scaler.step(self.optimizer)
         self.scaler.update()

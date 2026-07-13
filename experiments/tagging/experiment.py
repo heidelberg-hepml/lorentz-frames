@@ -160,7 +160,9 @@ class TaggingExperiment(BaseExperiment):
             self.model.init_standardization(embedding["fourmomenta"], embedding["ptr"])
 
     def _init_optimizer(self, param_groups=None):
-        if self.cfg.model.net._target_.rsplit(".", 1)[-1] in [
+        # caller-supplied param_groups (the finetune experiment's carefully split
+        # backbone/head lrs) must NOT be clobbered by the name match below
+        if param_groups is None and self.cfg.model.net._target_.rsplit(".", 1)[-1] in [
             "ParticleTransformer",
             "MIParticleTransformer",
         ]:
