@@ -205,8 +205,17 @@ ones — for *all* frames; covariant so probably fine, but note it if you revisi
         rows; not an invariance break). Zero code; the ablation rows are mildly under-fed.
   - [ ] **(c) Drop `so3`/`so2` from the symmetry-budget ablation** if the interaction makes them
         uninterpretable — but they're the point of that ablation, so (a) is better.
-  This is ptolemy-side only (the upstream `original-repo-fixes` branch has no rotation-frame
-  ablation and is correctly left untouched).
+  **Not upstream-exclusive — the identical latent interaction is present on upstream** (same
+  `TaggerWrapper` recompute from boosted momenta; `learnedso3.yaml`/`learnedso2.yaml` ship there;
+  `init_physics` keeps `boost_jet=true` for non-equivariant **learned-frames** rows — the
+  `boost_jet=False` fallback fires only for *identity* frames). So `model=tag_ParT
+  model/framesnet=learnedso3` on top-tagging strands the jet on upstream too. It is kept OFF the
+  upstream `original-repo-fixes` PR because it is a **design tradeoff (feature-quality vs framesnet
+  stability), not a correctness bug** — no invariance break, features stay invariant-but-degenerate —
+  NOT because upstream is immune. Upstream's headline results simply use full-Lorentz `learnedpd`
+  frames, which don't strand; their so3/so2 subgroup ablations (if run on top-tagging with the
+  default `boost_jet=true`) hit the same mild degeneration. If the decision below is taken, the
+  `init_physics` fix is equally applicable upstream and could be a follow-up PR there.
 
 ### Audit findings (property-based sweep — permutation / mask / determinism / degenerate jets)
 - [x] **BatchNorm-over-padding is FAITHFUL to official ParticleNet/ParT — verified, do NOT "fix".**
