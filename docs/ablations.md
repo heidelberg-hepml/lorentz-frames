@@ -188,7 +188,7 @@ usually the fix, as lgatr already does for its own norm).
 - **Muon / second-order-ish optimizers** for the transformer stage — the current-gen
   optimizer family beyond Lion; a training-side swap, not an architecture change.
   
-  ### GNN family
+  ### **GNN family**
   
 - **PNA-style multi-aggregation (and other GNN aggregator tricks)** — replace the single
   mean/max aggregation in the MPNN/EdgeConv local branches with the PNA combination
@@ -201,6 +201,8 @@ usually the fix, as lgatr already does for its own norm).
   across a jet's particles), so it is only a drop-in for the non-equivariant models —
   and thus currently less promising than it could become; an invariant-statistics variant
   (norms-only, grade-wise) would be the research version.
+- Virtual node value that intializes CLS token for GraphTrans, connecting some global GNN output to transformer (primary global net)
+- DropNode simulating pileup, but in my opinion goes too far by degrading the input, still could be promising since unexplored
 
 
 Deliberately excluded from this list: **RoPE / ALiBi / any positional encoding along the
