@@ -187,6 +187,7 @@ usually the fix, as lgatr already does for its own norm).
   scalar-grade like the CLS.
 - **Muon / second-order-ish optimizers** for the transformer stage — the current-gen
   optimizer family beyond Lion; a training-side swap, not an architecture change.
+  
   GNN family
 - **PNA-style multi-aggregation (and other GNN aggregator tricks)** — replace the single
   mean/max aggregation in the MPNN/EdgeConv local branches with the PNA combination
