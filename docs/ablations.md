@@ -202,7 +202,7 @@ usually the fix, as lgatr already does for its own norm).
   and thus currently less promising than it could become; an invariant-statistics variant
   (norms-only, grade-wise) would be the research version.
 - Virtual node value that intializes CLS token for GraphTrans, connecting some global GNN output to transformer (primary global net)
-- DropNode simulating pileup, but in my opinion goes too far by degrading the input, still could be promising since unexplored
+- DropNode simulating pileup, but in my opinion goes too far by degrading the input, still could be promising since unexplored and could be made to mimick Soft Drop (Larkoski et al.)
 
 
 Deliberately excluded from this list: **RoPE / ALiBi / any positional encoding along the
