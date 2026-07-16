@@ -9,8 +9,7 @@ ParT pairwise-bias features, PE/SE, depth) live in `todo.md` §3 and are not rep
 ## Bridges and readout tokens (GraphTrans family)
 
 - CGENN GraphTrans bridge: gate the linear bridge (`MVLinear`/`Linear`) with an equivariant
-  nonlinearity (MVSiLU / gated EquiLinear) instead of a plain linear map; or deepen it to a
-  2-layer bridge MLP.
+  nonlinearity (MVSiLU / gated EquiLinear) instead of a plain linear map; CGENN phi_x 
 - Add an equivariant norm (EquiLayerNorm) after the CGENN→L-GATr bridge (the L-GATr blocks are
   pre-norm, so this is redundant in principle — hence minor).
 - Plain/PNP GraphTrans: drop or move `bridge_norm` (LayerNorm after the bridge; also redundant
@@ -188,6 +187,7 @@ usually the fix, as lgatr already does for its own norm).
   scalar-grade like the CLS.
 - **Muon / second-order-ish optimizers** for the transformer stage — the current-gen
   optimizer family beyond Lion; a training-side swap, not an architecture change.
+  GNN family
 - **PNA-style multi-aggregation (and other GNN aggregator tricks)** — replace the single
   mean/max aggregation in the MPNN/EdgeConv local branches with the PNA combination
   (mean+max+min+std, degree-scaled); the fixed-k kNN graphs make the degree scalers
@@ -199,6 +199,7 @@ usually the fix, as lgatr already does for its own norm).
   across a jet's particles), so it is only a drop-in for the non-equivariant models —
   and thus currently less promising than it could become; an invariant-statistics variant
   (norms-only, grade-wise) would be the research version.
+
 
 Deliberately excluded from this list: **RoPE / ALiBi / any positional encoding along the
 token axis** (jets are unordered sets — a sequence position is physics-meaningless; the
