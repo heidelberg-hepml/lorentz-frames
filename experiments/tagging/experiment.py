@@ -130,6 +130,28 @@ class TaggingExperiment(BaseExperiment):
                 )
                 self.cfg.model.framesnet.equivectors.num_scalars = self.extra_scalars
                 self.cfg.model.framesnet.equivectors.num_scalars += num_tagging_features
+                # boost_jet lands each jet at rest, and PURE-ROTATION frame families cannot
+                # restore its momentum: jet_local stays at (M,0,0,0) and 4/7 of the wrapper's
+                # local tagging features degenerate (log_pt_rel duplicates log_pt; dphi/deta/dr
+                # become absolute angles at the wrong standardization scale). Measured set
+                # (median pt/E of the frame-local jet, quick tree, float64): so3/so2 4.5e-15
+                # (stranded) vs pd/so13 0.75 and z 0.37 (z frames carry TRANSVERSE boosts and
+                # un-rest the jet -- empirically NOT stranded, so it stays boosted). Not an
+                # invariance break -- a physics-consistency choice: for rotation-only frames the
+                # boost discards exactly the boost information those frames are chosen to keep.
+                frames_target = str(
+                    self.cfg.model.framesnet.get("_target_", "")
+                ).rsplit(".", 1)[-1]
+                if self.cfg.data.boost_jet and frames_target in (
+                    "LearnedSO3Frames",
+                    "LearnedSO2Frames",
+                ):
+                    LOGGER.info(
+                        f"Forcing data.boost_jet=false for the pure-rotation framesnet "
+                        f"{frames_target}: it cannot un-rest the boosted jet, which would "
+                        f"degenerate the jet-relative local tagging features."
+                    )
+                    self.cfg.data.boost_jet = False
             else:
                 # not allowed, because the network is not Lorentz-equivariant
                 self.cfg.data.boost_jet = False

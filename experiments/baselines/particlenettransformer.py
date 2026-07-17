@@ -741,6 +741,15 @@ class ParticleNetParTGraphTrans(nn.Module):
         cfg_block = copy.deepcopy(default_cfg)
         if block_params is not None:
             cfg_block.update(block_params)
+        # embed_dim (= attn_reps.dim * num_heads) and the LLoCaAttention transport are laid
+        # out from the CONSTRUCTOR num_heads above; a block_params={'num_heads': N} override
+        # would re-head the Blocks/PairEmbed but not the transport -- the identity-frames arm
+        # trains while the learned-frames arm crashes, silently poisoning an A/B ablation.
+        # Heads are a first-class arg: override via model.net.num_heads instead.
+        assert cfg_block['num_heads'] == num_heads, (
+            "override heads via model.net.num_heads, not block_params['num_heads'] "
+            f"(ctor num_heads={num_heads}, block_params gave {cfg_block['num_heads']})"
+        )
         _logger.info('cfg_block: %s' % str(cfg_block))
 
 

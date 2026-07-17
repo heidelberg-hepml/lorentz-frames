@@ -200,14 +200,17 @@ and it only affects the `so3`/`so2` ablation rows. (Aside, not part of this deci
 also boosts the beam/time **spurions** per-jet — turning fixed lab references into jet-rest-frame
 ones — for *all* frames; covariant so probably fine, but note it if you revisit the spurion design.)
 
-**Decision — pick one for the `so3`/`so2` (and transverse-`z`) ablation rows:**
-  - [ ] **(a, recommended) Force `boost_jet=false` for pure-rotation frames** in `init_physics`
-        (determine the exact set empirically, not by name — `z` needs a transverse-only carve-out or
-        just leave `z` as-is). Physically consistent; well-defined features; small stability cost.
-  - [ ] **(b) Leave as-is and document** the residual (redundant/off-scale local features on those
-        rows; not an invariance break). Zero code; the ablation rows are mildly under-fed.
-  - [ ] **(c) Drop `so3`/`so2` from the symmetry-budget ablation** if the interaction makes them
-        uninterpretable — but they're the point of that ablation, so (a) is better.
+**Decision — TAKEN: (a), with the set determined empirically (probe: median pt/E of the
+frame-local jet, quick tree, float64, random-init framesnet):**
+  - [x] **(a) `init_physics` forces `boost_jet=false` for `LearnedSO3Frames`/`LearnedSO2Frames`**
+        — measured stranded at pt/E ≈ 4.5e-15 (vs 0.75 for pd/so13). **`learnedz` is NOT in the
+        set**: empirically un-stranded (pt/E ≈ 0.37, eta_jet ≡ 0 — its frames carry TRANSVERSE
+        boosts that restore the jet's momentum in the transverse plane), so it keeps `boost_jet`.
+        The earlier "z strands transversally" guess was wrong — exactly why the set had to be
+        measured, not named. (`learnedrest` + `boost_jet` fails loudly inside lloca itself —
+        "Trying to boost spacelike vectors into their restframe" — a separate, loud issue.)
+        Also applied to `original-repo-fixes` for the upstream PR (same latent interaction there).
+  - [ ] ~~(b) leave as-is~~ / ~~(c) drop so3/so2~~ — superseded by (a).
   **Not upstream-exclusive — the identical latent interaction is present on upstream** (same
   `TaggerWrapper` recompute from boosted momenta; `learnedso3.yaml`/`learnedso2.yaml` ship there;
   `init_physics` keeps `boost_jet=true` for non-equivariant **learned-frames** rows — the
