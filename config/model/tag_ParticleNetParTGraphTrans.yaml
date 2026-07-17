@@ -42,7 +42,11 @@ net:
   pair_extra_dim: 0
   pair_embed_dims: [64, 64, 64]
   remove_self_pair: false
-  use_pre_activation_pair: true
+  # false = keep the trailing GELU on the pairwise-bias head, matching the PUBLISHED ParT
+  # recipe (jet-universe get_model sets use_pre_activation_pair=False, overriding weaver's
+  # class default True) and this repo's tag_ParT reference row. The previous `true` came
+  # from the class-default scaffolding, not a decision.
+  use_pre_activation_pair: false
 
   for_inference: false
 

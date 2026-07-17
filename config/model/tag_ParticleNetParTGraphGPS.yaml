@@ -24,7 +24,9 @@ net:
   pair_extra_dim: 0
   pair_embed_dims: [64, 64, 64]
   remove_self_pair: false
-  use_pre_activation_pair: true
+  # false = published-ParT parity (jet-universe get_model overrides weaver's default True);
+  # matches the tag_ParT reference row and the GraphTrans sibling.
+  use_pre_activation_pair: false
 
   # interleaved GPS layers (tensorial EdgeConv local + LLoCa-tensorial ParT attn global)
   dim: 128

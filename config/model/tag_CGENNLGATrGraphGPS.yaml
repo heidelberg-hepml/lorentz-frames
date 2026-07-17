@@ -20,6 +20,10 @@ net:
   increase_hidden_channels_mlp: 2
   num_hidden_layers_mlp: 1
   activation: gelu
+  # dropout_prob is the ONE dropout site on the equivariant GPS layers (external GraphGPS
+  # branch GradeDropout). No attn_dropout knob on purpose: L-GATr exposes no
+  # attention-weights dropout (its config's dropout_prob is an output GradeDropout, the
+  # same site as this knob) -- see the LN-GPS config note.
   dropout_prob: null
 
   # static kNN graph (shared by every layer's local CGENN branch)
