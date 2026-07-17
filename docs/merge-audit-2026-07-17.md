@@ -212,3 +212,58 @@ models**: (1) the unrelated-history merge must not revert main's fixes (A2–A4)
 reorder (B1) that currently invalidates every learned-frames row on the real config, and (3)
 the default-recipe swap's REPRODUCE/CLI side effects (B2/B3) and the dead CI gate (B4/B5)
 should be fixed before results from this tree back a publication.
+
+---
+
+## Addendum (post-audit resolution, same day)
+
+Applied on this branch after the report above was written:
+
+- **Merged `docs/jc-lrfind-notes`** (stranded post-PR9 commit 2a642b8 + ablations docs): clean,
+  zero conflicts. Brings the features-before-boost fix (B1), CI label-gate fix (B4), asserting
+  invariance tests (B5), jet_frames learnedso2 guard, MVLayerNorm wd exemption, AMP
+  scaler-freeze fix, GPS strict-kwargs, `attn_reps=null` clear error, multi-GPU hard error,
+  quick-jc file ranges, and the xl_* recipes.
+- **Merge pre-alignment (A2–A4 resolved):** `jc_lgatr` → `top_lgatr` (composes, Lion base),
+  `wget` restored to requirements, REPRODUCE.md gamma_max ×5 + Multi-GPU warning box, run.py
+  warning print. `REPRODUCE.md`, `config/training/jc_lgatr.yaml`, `run.py`,
+  `experiments/tagging/dataset.py` are now byte-identical to main.
+- **`use_pre_activation_pair: false`** on all four PNParT hybrid configs (published-ParT parity;
+  the `true` was weaver-class-default scaffolding).
+- **`attn_dropout`** (attention-weights dropout via sdpa `dropout_p` through lgatr's single
+  joint (mv,s) attention call) wired for the two equivariant GPS models; all four GPS models
+  now expose the same `dropout` + `attn_dropout` axis. 0.0 = exact no-op (kwarg omitted).
+- **`for_inference` sigmoid guard** for single-logit heads in the four hybrid files (softmax
+  over a 1-wide dim is identically 1.0); also ported to `original-repo-fixes` for the three
+  upstream weaver ports (4 sites).
+- **boost_jet locus-2 decision (a) implemented, set determined empirically:** `init_physics`
+  forces `boost_jet=false` for `LearnedSO3Frames`/`LearnedSO2Frames` (frame-local jet median
+  pt/E ≈ 4.5e-15) — `learnedz` is deliberately NOT in the set (pt/E ≈ 0.37: its frames carry
+  transverse boosts that un-rest the jet; the "z strands transversally" guess was wrong).
+  Ported to `original-repo-fixes`.
+- **block_params guard:** ParticleNetParTGraphTrans asserts `block_params` does not shadow the
+  ctor `num_heads` (embed_dim + LLoCaAttention transport are laid out from the ctor value).
+- **Branch convergence:** `qIXQd` (Ptolemy), `audit-gwvm88`, and `docs/jc-lrfind-notes` were
+  fast-forwarded onto the audit tip (the git proxy refuses ref deletion); every pre-operation
+  tip verified reachable from a surviving branch. To reach the clean 4-branch layout, delete
+  `claude/peaceful-ptolemy-audit-gwvm88` and `docs/jc-lrfind-notes` in the GitHub UI — both
+  are bit-identical to the audit branch.
+- **Verification at this tip:** equivariance 32/32, invariance 24/24 (asserting), all 8 real
+  configs instantiate (equivariant param counts match the ledger: 1.15/1.90/1.83/2.46M),
+  boost_jet force-off behavior checked for so3/so2/z/pd/identity, block_params guard checked
+  both ways.
+
+**Final merge surface vs main:** 95 differing files. 9 are both-sides-changed and each was
+verified a strict branch-side superset of main's hunks (base_experiment, experiment, wrappers,
+mipart, requirements, tests.yaml, experiments_tagging.yaml, test_tag_invariance — branch adds
+asserts —, README). README.md is the one deliberate content loss (branding placeholder;
+todo §5 owns the rewrite before publication). Every other file is branch-new or branch-only.
+Merge recipe (ties histories, adopts the tested tree, no manual conflict resolution):
+
+    git checkout main
+    git merge --allow-unrelated-histories --no-commit -s ours claude/peaceful-ptolemy-qIXQd
+    git read-tree -u --reset claude/peaceful-ptolemy-qIXQd
+    git commit
+
+`original-repo-fixes` (main + 3 commits: upstream-attributable fixes, for_inference sigmoid,
+boost_jet rotation-frames force-off) stays the upstream-PR vehicle; do not merge it locally.
