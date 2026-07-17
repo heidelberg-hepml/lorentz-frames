@@ -20,11 +20,12 @@ net:
   increase_hidden_channels_mlp: 2
   num_hidden_layers_mlp: 1
   activation: gelu
-  # dropout_prob is the ONE dropout site on the equivariant GPS layers (external GraphGPS
-  # branch GradeDropout). No attn_dropout knob on purpose: L-GATr exposes no
-  # attention-weights dropout (its config's dropout_prob is an output GradeDropout, the
-  # same site as this knob) -- see the LN-GPS config note.
+  # dropout_prob = the external GraphGPS branch dropout (GradeDropout on branch outputs).
+  # attn_dropout = attention-WEIGHTS dropout via sdpa dropout_p through lgatr's single
+  # joint (mv,s) attention call (same site as the non-equivariant models' attn_dropout;
+  # invariant weights -> equivariance preserved). 0.0 = exact no-op (kwarg omitted).
   dropout_prob: null
+  attn_dropout: 0.0
 
   # static kNN graph (shared by every layer's local CGENN branch)
   k: 16

@@ -3,6 +3,7 @@ hydra-core
 pytest
 pre-commit>=3.7
 mlflow-skinny # can optionally install extras, see https://pypi.org/project/mlflow-skinny/
+wget # data/collect_data.py imports it (toptagging + jetclass downloads)
 
 # standard science stack
 numpy>=1.19.5,<2.0.0 # constrain version for weaver

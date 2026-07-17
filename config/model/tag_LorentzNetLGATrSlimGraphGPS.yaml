@@ -20,13 +20,14 @@ net:
   mlp_ratio: 4                  # slim's mlp_ratio (tag_slim); lgatr lib default is 2
   num_layers_mlp: 2
   nonlinearity: gelu
-  # dropout_prob is the ONE dropout site on the equivariant GPS layers: the external
-  # GraphGPS branch dropout (grade-aware SlimDropout on the attention/local outputs).
-  # There is deliberately NO separate attn_dropout knob here: L-GATr's attention exposes
-  # no attention-weights dropout (its SelfAttentionConfig.dropout_prob is an OUTPUT
-  # GradeDropout = the same site as this knob), so mirroring the non-equivariant models'
-  # attn_dropout name would mislabel the family dropout ablation.
+  # dropout_prob = the external GraphGPS branch dropout (grade-aware, on branch outputs).
+  # attn_dropout = dropout on the attention WEIGHTS, threaded as sdpa dropout_p through
+  # lgatr's single joint (mv,s) attention call -- the same site as the non-equivariant
+  # models' attn_dropout, so the family dropout ablation is one axis. 0.0 = exact no-op
+  # (kwarg omitted; keeps non-sdpa attention backends working). Weights are Lorentz
+  # invariants, so this preserves equivariance.
   dropout_prob: null
+  attn_dropout: 0.0
 
   # static kNN graph + per-layer LorentzNet edge conv
   knn_k: 16

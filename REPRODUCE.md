@@ -30,6 +30,8 @@ python run.py -cp config_quick -cn ttbar save=false
 
 <span style="color:red">xformers on MacOS</span> The Transformer, LLoCa-Transformer and L-GATr taggers use xformers' `memory_efficient_attention` as attention backend, because it supports block-diagonal attention matrices that allow us to save a factor of ~2 of RAM usage compared to standard torch attention with zero-padding for different-length jets. Unfortunately, [xformers does not support MacOS anymore](https://github.com/facebookresearch/xformers/issues/775). As a Mac user, we recommend to run this code on a HPC cluster in an interactive session. Note that LLoCa/L-GATr taggers can also be used without xformers, but that requires modifying the data embedding and attention mask construction. If you want to run just amplitude regression or event generation, it should be possible to just comment out the xformers imports in `experiments/`.
 
+<span style="color:red">Multi-GPU not supported</span> This repo implements multi-GPU / DDP runs only in a partial way, and we do not recommend to use this feature. We will release a new repo that supports DDP properly in July 2026.
+
 ### 2) Collect datasets
 
 - Amplitude regression: Download from https://zenodo.org/records/16793011; set `data.data_path` in `config/amplitudesxl.yaml`
@@ -124,7 +126,7 @@ https://arxiv.org/abs/2508.14898 Figure 5
 ```bash
 python run.py -cp config -cn ttbar model=eg_transformer
 python run.py -cp config -cn ttbar model=eg_lgatr
-python run.py -cp config -cn ttbar model=eg_transformer model/framesnet=learnedpd
+python run.py -cp config -cn ttbar model=eg_transformer model/framesnet=learnedpd model.framesnet.gamma_max=3
 ```
 
 https://arxiv.org/abs/2508.14898 Figure 6
@@ -147,7 +149,7 @@ python run.py -cp config -cn ttbar data.n_jets=3
 python run.py -cp config -cn ttbar data.n_jets=4
 
 # Repeat each of these for different dataset sizes and multiplicities like above:
-python run.py -cp config -cn ttbar model=eg_transformer model/framesnet=learnedpd
+python run.py -cp config -cn ttbar model=eg_transformer model/framesnet=learnedpd model.framesnet.gamma_max=3
 python run.py -cp config -cn ttbar model=eg_transformer model/framesnet=randomxyrotation # only upper two plots
 python run.py -cp config -cn ttbar model=eg_lgatr # only upper two plots
 python run.py -cp config -cn ttbar model=eg_transformer model/framesnet=learnedso2 # only lower two plots
@@ -157,9 +159,9 @@ python run.py -cp config -cn ttbar model=eg_transformer model/framesnet=learneds
 https://arxiv.org/abs/2508.14898 Table 2
 ```bash
 python run.py -cp config -cn ttbar model=eg_transformer
-python run.py -cp config -cn ttbar model=eg_transformer model/framesnet=learnedpd model.net.attn_reps=13x0n
-python run.py -cp config -cn ttbar model=eg_transformer model/framesnet=learnedpd model.net.attn_reps=9x0n+1x1n
-python run.py -cp config -cn ttbar model=eg_transformer model/framesnet=learnedpd model.net.attn_reps=5x0n+2x1n
+python run.py -cp config -cn ttbar model=eg_transformer model/framesnet=learnedpd model.net.attn_reps=13x0n model.framesnet.gamma_max=3
+python run.py -cp config -cn ttbar model=eg_transformer model/framesnet=learnedpd model.net.attn_reps=9x0n+1x1n model.framesnet.gamma_max=3
+python run.py -cp config -cn ttbar model=eg_transformer model/framesnet=learnedpd model.net.attn_reps=5x0n+2x1n model.framesnet.gamma_max=3
 ```
 
 ### 5) Jet tagging

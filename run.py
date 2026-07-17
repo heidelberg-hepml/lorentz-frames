@@ -25,6 +25,9 @@ def main(cfg):
         world_size = 1
 
     if world_size > 1:
+        print(
+            "Warning: Running with multi-GPU is not fully supported in this repo; we do not recommend using this feature."
+        )
         os.environ.setdefault("TORCH_NCCL_ASYNC_ERROR_HANDLING", "1")
         os.environ.setdefault("NCCL_DEBUG", "WARN")
         os.environ.setdefault("NCCL_IB_DISABLE", "1")

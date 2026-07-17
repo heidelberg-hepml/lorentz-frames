@@ -93,8 +93,10 @@ input-skip (`model.net.use_input_concat`); residual-symmetry spurions on the equ
 (`model.net.beam_spurion`, `model.net.add_time_spurion`); dropout. Depth and width move the param
 count (a table column) — pair them with FLOPs/time for a fair efficiency plot.
 
-**Omitted by design: global spectral PE/SE (LapPE / SignNet / eigenvalue SE).** Not implemented,
-and the omission is deliberate — worth a sentence in the paper. (1) A jet has *no canonical graph*:
+**Off by design: global spectral PE/SE (LapPE / SignNet / eigenvalue SE).** A LapPE node-encoder
+now EXISTS behind `use_lappe` (+`lappe_k`) on PlainGraphGPS — implemented exactly as the
+demonstrate-the-negative-result toggle described below — but it ships OFF, and the default-off
+choice is deliberate — worth a sentence in the paper. (1) A jet has *no canonical graph*:
 the kNN adjacency/Laplacian is something we construct (eta–phi or minkowski kNN, and rebuilt in
 feature space for EdgeConv), so anything read off its spectrum encodes our graph-building choice, not
 the physics. (2) A jet is *not position-blind*: particles carry (Δη, Δφ, pT, E) — a physically
@@ -103,8 +105,9 @@ positional encoding). (3) Under LLoCa a PE must be a *Lorentz invariant* to pres
 LapPE eigenvectors have sign/basis ambiguity **and** graph dependence, so they are not clean
 invariants (SignNet exists only to patch the sign ambiguity). The encodings that transfer are the
 relative QCD pairwise features (lnΔ, ln kT, ln z, ln m²) and, on a *static* graph, RWSE — both already
-exposed above. If a reviewer wants the negative result demonstrated, a LapPE node-encoder behind a
-`use_lappe` toggle on PlainGraphGPS is the cheapest way to show it doesn't help.
+exposed above. If a reviewer wants the negative result demonstrated, run PlainGraphGPS with
+`model.net.use_lappe=true` (the toggle is implemented; sign-flip augmentation handles the
+eigenvector ambiguity) — expected to show it doesn't help, per the argument above.
 
 ## 4. Open design decisions / discrepancies
 

@@ -421,5 +421,8 @@ class PlainGraphGPS(nn.Module):
             pooled = (h * node_mask).sum(dim=1) / node_mask.sum(dim=1).clamp(min=1.0)
             output = self.head(pooled)
             if self.for_inference:
-                output = torch.softmax(output, dim=1)
+                # single-logit (binary, BCE-style) heads must use sigmoid: softmax over a
+                # 1-wide dim is identically 1.0 (constant score -> silent AUC 0.5)
+                output = (torch.sigmoid(output) if output.shape[-1] == 1
+                          else torch.softmax(output, dim=-1))
             return output

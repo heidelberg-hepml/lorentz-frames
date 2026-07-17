@@ -19,6 +19,7 @@ net:
   num_layers_mlp: 2
   nonlinearity: gelu
   dropout_prob: null
+  attn_dropout: 0.0   # attention-weights dropout (sdpa dropout_p); 0.0 = no-op
 
   # static kNN graph + per-layer LorentzNet edge conv
   knn_k: 4

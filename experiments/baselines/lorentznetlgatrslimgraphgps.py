@@ -65,7 +65,7 @@ class LorentzNetSlimGPSLayer(nn.Module):
 
     def __init__(self, v_channels, s_channels, num_heads, c_weight, use_phi_m,
                  attn_ratio, mlp_ratio, num_layers_mlp, nonlinearity, dropout_prob,
-                 n_node_attr=0):
+                 n_node_attr=0, attn_dropout=0.0):
         super().__init__()
         # local branch: LorentzNet edge conv (carries its own internal residual).
         # n_node_attr > 0 re-injects the raw input scalars into phi_h every layer,
@@ -90,6 +90,12 @@ class LorentzNetSlimGPSLayer(nn.Module):
         # equivariant norm (stateless -> shared) + dropout
         self.norm = SlimRMSNorm()
         self.dropout = SlimDropout(dropout_prob if dropout_prob is not None else 0.0)
+        # attention-WEIGHTS dropout: lgatr's sdp_attention makes a single sdpa call on the
+        # concatenated (mv, s) values and forwards **attn_kwargs, so dropout_p rides through
+        # -- one joint mask keeps the two streams consistent, and the weights are Lorentz
+        # invariants, so equivariance is preserved. 0.0 = bit-identical no-op (kwarg omitted;
+        # also keeps non-sdpa attention backends, which lack dropout_p, working).
+        self.attn_dropout = attn_dropout
 
     def forward(self, v, s, idx, nbr_mask, attn_mask, node_attr=None):
         # v: (B, P, V, 4); s: (B, P, S); slim layers take (vectors, scalars)
@@ -98,7 +104,10 @@ class LorentzNetSlimGPSLayer(nn.Module):
         v_M, s_M = self.norm(v_loc, s_loc)                  # external norm only
 
         # ---- global branch (Eq. 10): slim Lorentz attention ----
-        v_a, s_a = self.attention(v, s, attn_mask=attn_mask)
+        attn_kwargs = {"attn_mask": attn_mask}
+        if self.attn_dropout > 0:
+            attn_kwargs["dropout_p"] = self.attn_dropout if self.training else 0.0
+        v_a, s_a = self.attention(v, s, **attn_kwargs)
         v_a, s_a = self.dropout(v_a, s_a)
         v_T, s_T = self.norm(v + v_a, s + s_a)
 
@@ -126,6 +135,7 @@ class LorentzNetLGATrSlimGraphGPS(nn.Module):
                  num_layers_mlp=2,
                  nonlinearity="gelu",
                  dropout_prob=None,
+                 attn_dropout=0.0,
                  # static kNN graph + per-layer LorentzNet edge conv
                  knn_k=16,
                  knn_metric="minkowski",
@@ -173,6 +183,7 @@ class LorentzNetLGATrSlimGraphGPS(nn.Module):
                 hidden_v_channels, hidden_s_channels, num_heads, c_weight, use_phi_m,
                 attn_ratio, mlp_ratio, num_layers_mlp, nonlinearity, dropout_prob,
                 n_node_attr=in_s_channels if use_node_attr else 0,
+                attn_dropout=attn_dropout,
             )
             for _ in range(num_blocks)
         ])

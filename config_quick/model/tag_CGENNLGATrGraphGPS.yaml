@@ -21,6 +21,7 @@ net:
   num_hidden_layers_mlp: 1
   activation: gelu
   dropout_prob: null
+  attn_dropout: 0.0   # attention-weights dropout (sdpa dropout_p); 0.0 = no-op
 
   # static kNN graph (shared by every layer's local CGENN branch)
   k: 4

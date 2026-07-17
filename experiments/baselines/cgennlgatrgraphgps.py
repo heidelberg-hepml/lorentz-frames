@@ -76,7 +76,7 @@ class CGENNLGATrGPSLayer(nn.Module):
                  cgenn_aggregation, cgenn_layer_type, cgenn_normalization_init,
                  increase_hidden_channels_attention, increase_hidden_channels_mlp,
                  num_hidden_layers_mlp, head_scale, multi_query, activation, dropout_prob,
-                 edge_attr_x_dim=0, node_attr_x_dim=0, node_attr_h_dim=0):
+                 edge_attr_x_dim=0, node_attr_x_dim=0, node_attr_h_dim=0, attn_dropout=0.0):
         super().__init__()
         # ---- local branch: one CGENN message-passing layer. residual=False because the GPS
         #      layer owns the external residual. edge_attr_x_dim > 0 -> the layer consumes the
@@ -116,6 +116,12 @@ class CGENNLGATrGPSLayer(nn.Module):
         # ---- equivariant norm (stateless -> shared) + dropout ----
         self.norm = EquiLayerNorm()
         self.dropout = GradeDropout(dropout_prob if dropout_prob is not None else 0.0)
+        # attention-WEIGHTS dropout: lgatr's sdp_attention makes a single sdpa call on the
+        # concatenated (mv, s) values and forwards **attn_kwargs, so dropout_p rides through
+        # -- one joint mask keeps the streams consistent, and the weights are Lorentz
+        # invariants, so equivariance is preserved. 0.0 = bit-identical no-op (kwarg omitted;
+        # also keeps non-sdpa attention backends, which lack dropout_p, working).
+        self.attn_dropout = attn_dropout
 
     def forward(self, mv, s, edges, attn_mask, edge_attr_x=None,
                 node_attr_x=None, node_attr_h=None):
@@ -140,7 +146,10 @@ class CGENNLGATrGPSLayer(nn.Module):
         mv_M, s_M = self.norm(mv + mv_loc, scalars=s + s_loc)
 
         # ---- global branch (Eq. 10): L-GATr geometric attention ----
-        mv_att, s_att = self.attention(mv, scalars=s, attn_mask=attn_mask)
+        attn_kwargs = {"attn_mask": attn_mask}
+        if self.attn_dropout > 0:
+            attn_kwargs["dropout_p"] = self.attn_dropout if self.training else 0.0
+        mv_att, s_att = self.attention(mv, scalars=s, **attn_kwargs)
         mv_att, s_att = self.dropout(mv_att, s_att)
         mv_T, s_T = self.norm(mv + mv_att, scalars=s + s_att)
 
@@ -184,6 +193,7 @@ class CGENNLGATrGraphGPS(nn.Module):
                  num_hidden_layers_mlp: int = 1,
                  head_scale: bool = False,
                  dropout_prob: float = None,
+                 attn_dropout: float = 0.0,
                  head_layers: int = 2,
                  **kwargs):
         super().__init__()
@@ -225,6 +235,7 @@ class CGENNLGATrGraphGPS(nn.Module):
                 num_hidden_layers_mlp, head_scale, multi_query, activation, dropout_prob,
                 edge_attr_x_dim=edge_attr_x_dim,
                 node_attr_x_dim=node_attr_x_dim, node_attr_h_dim=node_attr_h_dim,
+                attn_dropout=attn_dropout,
             )
             for _ in range(num_blocks)
         ])
