@@ -75,9 +75,10 @@ log line that the regex reads.
   `randomlorentz` is the data-augmentation baseline. (CGENN / LorentzNet are already internally
   equivariant → leave on `identity`.)
 - **ParT pairwise bias (ParticleNet-ParT GraphTrans + GraphGPS).** `model.net.bias=true|false`;
-  `model.net.pair_input_dim=1|4|5|7` selects how many QCD interaction features (1=lnΔ; 4=+ln kT,
-  ln z, ln m²; 5=+lnΔs²; 7=+cosθ,Δy,Δφ — see `pairwise_lv_fts`). The learned weights compensate, so
-  the bias stays compatible with the frame transport.
+  `model.net.pair_input_dim=1|4|5|8` selects how many QCD interaction features (1=lnΔ; 4=+ln kT,
+  ln z, ln m²; 5=+lnΔs²; 8=+cosθ,Δy,Δφ — see `pairwise_lv_fts`; the weaver feature ladder jumps
+  5→8 when adding cosθ/Δy/Δφ, so 6/7 are not valid — `assert len(outputs)==num_outputs` enforces
+  this). The learned weights compensate, so the bias stays compatible with the frame transport.
 - **GraphGPS PE/SE (Plain GraphGPS).** relative edge PE `model.net.use_edge_attr=true|false`
   (Minkowski log|(pᵢ+pⱼ)²|); structural encoding `model.net.use_rwse=true|false`
   (+`model.net.rwse_k=K`); norm `model.net.norm=batch|layer`. CGENN GraphGPS relative edge features:
@@ -118,6 +119,103 @@ exposed above. If a reviewer wants the negative result demonstrated, a LapPE nod
 - [x] LLoCa transport made **strictly additive** (identity frames bit-identical to the plain backbone).
 - [x] Scheduler: shared **CosineAnnealingWarmup** available; **early termination off** (`es_patience=null`),
       best-validation checkpoint still reported.
+
+### `boost_jet` — feature/boost ordering + rotation-frame interaction (DECISION NEEDED)
+
+**Background.** `data.boost_jet` (default **`true`** on top-tagging via `config/toptagging.yaml`;
+`false` on the base `tagging.yaml`, inherited by JetClass/TopTagXL) boosts every jet to its own
+rest frame inside `embed_tagging_data` before the backbone sees it — "to avoid large boosts,"
+i.e. a numerical-stability aid for the framesnet's frame prediction. `init_physics` forces it
+**off** for equivariant models and for identity-frames non-equivariant models, so `boost_jet=true`
+is reached by exactly the **non-equivariant + learned-frames rows** (the LLoCa-on canonicalized
+models: ParT/transformer/graphnet baselines and the four non-equivariant hybrids). Two loci
+consume the boost; the audit's R-A1 flagged both.
+
+**Locus 1 — FIXED (embedding-level features → framesnet). Correctness bug, done.**
+`embed_tagging_data` used to compute the 7 tagging features (`log_pt, log_energy, log_pt_rel,
+log_energy_rel, dphi, deta, dr`) *after* the boost. In the rest frame the jet has ~0 three-momentum,
+so `pt_jet` hits its clamp and `φ_jet/η_jet` come from `atan2/eta` of a numerically-zero vector →
+the 4 jet-relative features (`log_pt_rel, dphi, deta, dr`) were measured against an arbitrary axis
+built from float residuals of the boost. That axis is **not** covariant, so these features — which
+feed the **framesnet** as scalar inputs (`scalars_withspurions = cat([scalars, tagging_features])`,
+wrappers.py) — broke the model's Lorentz invariance. Measured: `xyrotation` end-to-end output
+max-MSE **O(10²–10⁴)** before, **O(10⁻⁸)** after; feature distributions also mismatched the
+hardcoded lab-frame standardization constants (`log_pt_rel` mean ~12 vs the code's −4.7). **Fix
+(committed):** compute the features in the lab frame first, *then* boost the momenta for the
+backbone (`boost_jet=false` paths bit-identical). Invariance suite 24/24 green after.
+  - **Comparability sub-decision:** this changes trained-model results for every learned-frames
+    row. Upstream's published LLoCa numbers were trained with the old (degenerate) features, so if
+    bit-comparability with their table matters, gate the reorder behind a flag / versioned note.
+    Otherwise accept it and re-baseline (recommended — the old behavior is simply wrong).
+
+**Locus 2 — NOT fixed (backbone-level recompute). The open decision.**
+The `TaggerWrapper` backbone separately recomputes *local* tagging features from the **boosted**
+momenta (`get_tagging_features(fourmomenta_local, jet_local, "all")`). The embedding-level reorder
+does not reach this, and it can't be patched mechanically: computing local features from *pre*-boost
+momenta while the backbone sees *post*-boost momenta would be a cross-frame subtraction (features
+describing a different frame than the tokens) — likely worse. The only self-consistent option is a
+config choice: **turn `boost_jet` off for the frames where it misbehaves.**
+
+*Which frames misbehave (measured — determine empirically, the set is subtle):* a frame that
+**fixes the time axis** cannot restore the boosted jet's momentum, so it stays at `(M,0,0,0)` and
+the local jet-relative features degenerate. Transverse `pt` of the wrapper-local jet, by frame:
+
+| frame | wrapper-local jet pt | strands? |
+|---|---|---|
+| `learnedpd`, `learnedso13` (full Lorentz) | ~10²–10³ | no |
+| `learnedso3` (SO(3) rotation) | ~1e-11 | **yes** |
+| `learnedso2` (SO(2) about beam) | ~1e-11 | **yes** |
+| `learnedz` (z-boost) | real \|p_z\| | no (degenerate only in the transverse plane) |
+| `learnedrest` (contains a boost) | ~6e5 | no |
+
+So the earlier guess "(so3, so2, rest)" was wrong to include `rest` (it boosts). The pure-rotation
+frames **`so3`, `so2`** strand the jet; `z` only transversely.
+
+*What actually degenerates (measured — NOT "dead constants"):* every channel still varies across
+constituents. `log_pt_rel` becomes a shifted **exact duplicate** of `log_pt` (corr 1.0 → one wasted
+channel); `dphi/deta/dr` become the constituent's **absolute** local angles at the wrong
+standardization scale (`dr` mean ~2.1 vs expected ~0.2). It is **NOT an invariance break** (features
+computed in the canonical frame stay invariant even when degenerate — which is why 24/24 still
+passes), and it touches only these specific ablation configs.
+
+**Physics (this is the decisive argument, and why the time vector matters).** A time direction is
+provided to essentially every model: `add_time_reference: true` adds a time spurion `[1,0,0,0]`
+alongside the two beam spurions `[1,0,0,±1]` — a direct input token for the equivariant models and a
+framesnet input for the LLoCa models. Rotation-only frames (`so3`/`so2`) exist **precisely** for the
+regime where boosts are physically meaningful — the regime the beam/time reference *defines*.
+`boost_jet` then boosts each jet to rest, i.e. it **discards exactly the boost information those
+frames were chosen to preserve.** So `boost_jet` + pure-rotation frames is not just numerically
+degenerate — it is **self-defeating**: you picked rotation-only canonicalization to keep boost info,
+then boosted it away. `boost_jet=false` for `so3`/`so2` is therefore the *physically consistent*
+choice, independent of the numerical degeneration.
+
+**The remaining tradeoff.** `boost_jet`'s original job is framesnet numerical stability (small
+boosts are easier to predict frames for); turning it off feeds the framesnet lab-frame momenta.
+For 500–1000 GeV top-tagging jets this is a modest-boost regime, so the stability cost is likely
+minor — but it is a real feature-quality/physics-consistency **vs** framesnet-stability tradeoff,
+and it only affects the `so3`/`so2` ablation rows. (Aside, not part of this decision: `boost_jet`
+also boosts the beam/time **spurions** per-jet — turning fixed lab references into jet-rest-frame
+ones — for *all* frames; covariant so probably fine, but note it if you revisit the spurion design.)
+
+**Decision — pick one for the `so3`/`so2` (and transverse-`z`) ablation rows:**
+  - [ ] **(a, recommended) Force `boost_jet=false` for pure-rotation frames** in `init_physics`
+        (determine the exact set empirically, not by name — `z` needs a transverse-only carve-out or
+        just leave `z` as-is). Physically consistent; well-defined features; small stability cost.
+  - [ ] **(b) Leave as-is and document** the residual (redundant/off-scale local features on those
+        rows; not an invariance break). Zero code; the ablation rows are mildly under-fed.
+  - [ ] **(c) Drop `so3`/`so2` from the symmetry-budget ablation** if the interaction makes them
+        uninterpretable — but they're the point of that ablation, so (a) is better.
+  **Not upstream-exclusive — the identical latent interaction is present on upstream** (same
+  `TaggerWrapper` recompute from boosted momenta; `learnedso3.yaml`/`learnedso2.yaml` ship there;
+  `init_physics` keeps `boost_jet=true` for non-equivariant **learned-frames** rows — the
+  `boost_jet=False` fallback fires only for *identity* frames). So `model=tag_ParT
+  model/framesnet=learnedso3` on top-tagging strands the jet on upstream too. It is kept OFF the
+  upstream `original-repo-fixes` PR because it is a **design tradeoff (feature-quality vs framesnet
+  stability), not a correctness bug** — no invariance break, features stay invariant-but-degenerate —
+  NOT because upstream is immune. Upstream's headline results simply use full-Lorentz `learnedpd`
+  frames, which don't strand; their so3/so2 subgroup ablations (if run on top-tagging with the
+  default `boost_jet=true`) hit the same mild degeneration. If the decision below is taken, the
+  `init_physics` fix is equally applicable upstream and could be a follow-up PR there.
 
 ### Audit findings (property-based sweep — permutation / mask / determinism / degenerate jets)
 - [x] **BatchNorm-over-padding is FAITHFUL to official ParticleNet/ParT — verified, do NOT "fix".**
@@ -261,6 +359,9 @@ Critical (still point at the upstream LLoCa project):
       `model.attention_backend=flash|flex` does it as a config override (GUIDE §7, docs/OSCAR.md §2
       note). Rewrite the paragraph; upstream PR comment about it planned separately.
 - [ ] `LICENSE` — copyright currently lists the upstream LLoCa authors; add your authors / mark derivative.
+- [ ] **Humanize the prose** in the assistant-drafted texts/files before publication — `GUIDE.md`,
+      `docs/{OSCAR,SLURM,ablations,diffs}.md`, this todo, the longer code comments: pass for
+      personal voice, trim the em-dash-heavy style, keep the technical content.
 
 Minor (stale strings / metadata):
 - [ ] `pyproject.toml` — add an `authors` field (name is already `gtagger-experiments`).

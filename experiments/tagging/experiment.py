@@ -24,20 +24,38 @@ class TaggingExperiment(BaseExperiment):
         modelname = self.cfg.model.net._target_.rsplit(".", 1)[-1]
         self.momentum_dtype = torch.float64 if self.cfg.data.momentum_float64 else torch.float32
 
+        if self.world_size > 1:
+            # The tagging path is verified single-GPU only. Under DDP, attribute
+            # introspection on the wrapped framesnet silently fails (no `.module`
+            # unwrap anywhere): jet_frames returns None (CLS token silently rides the
+            # identity frame), equivectors init_standardization is skipped, the CLS
+            # no_weight_decay exemption vanishes, checkpoints get un-loadable
+            # `module.*` keys, and JetClass has no rank sharding (each rank trains the
+            # FULL budget). Erroring here is deliberate -- these failures are silent
+            # model degradations, not crashes. Use a single GPU until the DDP rework.
+            raise RuntimeError(
+                "Multi-GPU tagging is disabled: the DDP wrapping breaks learned-frames "
+                "introspection and checkpoint compatibility (see the audit notes in "
+                "docs/diffs.md). Run with gpus=1."
+            )
+
         # guardrail: the per-model hybrid recipes ship batchsize/lr as '???', which hydra
         # cannot enforce (an OmegaConf MISSING never overrides the values inherited from
         # tag_default), so an unfilled recipe silently composes to the 512 / 1e-3 fallback.
-        if (
-            self.cfg.train
-            and modelname.endswith(("GraphTrans", "GraphGPS"))
-            and float(self.cfg.training.lr) == 1e-3
-            and int(self.cfg.training.batchsize) == 512
-        ):
-            LOGGER.warning(
-                f"{modelname} is training at the UNSWEPT family fallback "
-                "(batchsize=512, lr=1e-3) -- did you forget to fill its recipe "
-                "from find_lr.py?"
-            )
+        if self.cfg.train and modelname.endswith(("GraphTrans", "GraphGPS")):
+            # each knob checked INDEPENDENTLY: filling exactly one of the two `???`
+            # placeholders must not silence the warning for the other
+            unswept = []
+            if float(self.cfg.training.lr) == 1e-3:
+                unswept.append("lr=1e-3")
+            if int(self.cfg.training.batchsize) == 512:
+                unswept.append("batchsize=512")
+            if unswept:
+                LOGGER.warning(
+                    f"{modelname} is training at the UNSWEPT family fallback "
+                    f"({', '.join(unswept)}) -- did you forget to fill its recipe "
+                    "from find_lr.py?"
+                )
 
         self.cfg.model.out_channels = self.num_outputs
         if modelname in [
@@ -75,7 +93,7 @@ class TaggingExperiment(BaseExperiment):
             elif modelname == "LorentzNetLGATrSlimGraphTrans":
                 self.cfg.model.net.in_s_channels = in_s_channels
             elif modelname == "CGENNLGATrGraphGPS":
-                #same thing
+                # same thing
                 self.cfg.model.net.in_s_channels = in_s_channels
             elif modelname == "LorentzNetLGATrSlimGraphGPS":
                 self.cfg.model.net.in_s_channels = in_s_channels
@@ -201,7 +219,9 @@ class TaggingExperiment(BaseExperiment):
         # with a class token (a non-empty no_weight_decay()) belong here. The mean-pool
         # GraphGPS models have none -- CGENN/LorentzNet GPS return set() and the plain/PNet
         # GPS define no such method -- so they correctly fall through to the base default.
-        if self.cfg.model.net._target_.rsplit(".", 1)[-1] in [
+        # Caller-supplied groups (the finetune experiment's carefully split
+        # backbone/head lrs) must NOT be clobbered by the name match below.
+        if param_groups is None and self.cfg.model.net._target_.rsplit(".", 1)[-1] in [
             "ParticleTransformer",
             "MIParticleTransformer",
             "ParticleNetParTGraphTrans",
@@ -339,46 +359,83 @@ class TaggingExperiment(BaseExperiment):
                 log_mlflow(f"{name}.{key}", value, step=step)
 
         if mode == "eval":
-            modelname = type(self.model.net).__name__
-            framesString = type(self.model.framesnet).__name__
-            num_parameters = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
-            knn = self._knn_description()
-            flops = self._count_flops(loader)
-            flops_str = f"{flops:.3e}" if flops is not None else "n/a"
-
             # per-trial scalars; accumulated across run_idx so the table can show
             # mean +- std error bars when an experiment has several trials/seeds
             row = {
-                "accuracy": metrics["accuracy"],
-                "auc": metrics["auc"],
-                "rej03": metrics["rej03"],
-                "rej05": metrics["rej05"],
-                "rej08": metrics["rej08"],
+                # float() casts: numpy scalars are not JSON-serializable
+                "accuracy": float(metrics["accuracy"]),
+                "auc": float(metrics["auc"]),
+                "rej03": float(metrics["rej03"]),
+                "rej05": float(metrics["rej05"]),
+                "rej08": float(metrics["rej08"]),
                 "train_time": getattr(self, "train_time", None),
             }
-            rows = self._collect_table_rows(title, row)
-            n_trials = len(rows)
-
-            def cell(key, fmt):
-                vals = [r[key] for r in rows if r.get(key) is not None]
-                if not vals:
-                    return "n/a"
-                if len(vals) == 1:
-                    return format(vals[0], fmt)
-                arr = np.asarray(vals, dtype=float)
-                return f"${format(arr.mean(), fmt)} \\pm {format(arr.std(ddof=1), fmt)}$"
-
-            trials = f" [{n_trials} trials]" if n_trials > 1 else ""
-            # columns: model & frames & iters[trials] & params & acc & auc & rej03
-            #          & rej05 & rej08 & traintime & flops & knn
-            LOGGER.info(
-                f"table {title}: {modelname} & {framesString}"
-                f" & {self.cfg.training.iterations}{trials}"
-                f" & {num_parameters} & {cell('accuracy', '.4f')} & {cell('auc', '.4f')}"
-                f" & {cell('rej03', '.0f')} & {cell('rej05', '.0f')} & {cell('rej08', '.0f')}"
-                f" & {cell('train_time', '.0f')}s & {flops_str} & {knn} \\\\"
+            self._log_table_row(
+                loader,
+                title,
+                row,
+                [
+                    ("accuracy", ".4f"),
+                    ("auc", ".4f"),
+                    ("rej03", ".0f"),
+                    ("rej05", ".0f"),
+                    ("rej08", ".0f"),
+                ],
             )
         return metrics
+
+    def _frames_description(self):
+        """Frames-column cell: the framesnet class name, disambiguated where one class
+        serves several config variants (all four random-frames configs -- randomlorentz /
+        randomrotation / randomxyrotation / randomztransform -- instantiate the same
+        ``RandomFrames`` class; without the transform_type they would collide into a
+        single aggregate_table row)."""
+        fn = self.model.framesnet
+        name = type(fn).__name__
+        kind = getattr(fn, "transform_type", None)
+        return f"{name}({kind})" if kind is not None else name
+
+    def _log_table_row(self, loader, title, row, metric_fmts):
+        """Emit the parseable ``table <title>:`` results row for this split.
+
+        ``row`` holds this trial's scalar metrics (every key in ``metric_fmts`` plus
+        ``train_time``); ``metric_fmts`` is the ordered ``(key, fmt)`` list of metric
+        columns, so subclasses with different metric sets (e.g. JetClass's per-class
+        rejections) share the surrounding model/frames/params/flops/kNN plumbing and
+        the multi-trial mean +- std accumulation (see ``_collect_table_rows``).
+        """
+        modelname = type(self.model.net).__name__
+        framesString = self._frames_description()
+        num_parameters = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+        knn = self._knn_description()
+        flops = self._count_flops(loader)
+        flops_str = f"{flops:.3e}" if flops is not None else "n/a"
+
+        rows = self._collect_table_rows(title, row)
+        n_trials = len(rows)
+
+        def cell(key, fmt):
+            vals = [r[key] for r in rows if r.get(key) is not None]
+            if not vals:
+                return "n/a"
+            if len(vals) == 1:
+                return format(vals[0], fmt)
+            arr = np.asarray(vals, dtype=float)
+            return f"${format(arr.mean(), fmt)} \\pm {format(arr.std(ddof=1), fmt)}$"
+
+        trials = f" [{n_trials} trials]" if n_trials > 1 else ""
+        time_cell = cell("train_time", ".0f")
+        if time_cell != "n/a":
+            time_cell += "s"
+        metric_cells = " & ".join(cell(key, fmt) for key, fmt in metric_fmts)
+        # columns: model & frames & iters[trials] & params & <metrics...> & traintime
+        #          & flops & knn
+        LOGGER.info(
+            f"table {title}: {modelname} & {framesString}"
+            f" & {self.cfg.training.iterations}{trials}"
+            f" & {num_parameters} & {metric_cells}"
+            f" & {time_cell} & {flops_str} & {knn} \\\\"
+        )
 
     def _collect_table_rows(self, title, row):
         """Persist this run's table metrics and return all trials in the run dir.
@@ -386,9 +443,16 @@ class TaggingExperiment(BaseExperiment):
         Multiple trials/seeds are launched as successive run_idx that share one
         run directory (fresh-trial warm starts: warm_start_load=false, so each
         trial trains from its own random init -- see GUIDE.md section 8), each a
-        separate process. We accumulate their scalar metrics in a JSON file so
-        the final table reports mean +- std automatically. With save=False
-        (e.g. tests) nothing is written and only the current run is returned.
+        separate process, launched SEQUENTIALLY (the JSON accumulation below is not
+        locked against concurrent writers). We accumulate their scalar metrics in a
+        JSON file so the final table reports mean +- std automatically. With
+        save=False (e.g. tests) nothing is written and only the current run is
+        returned.
+
+        Rows are keyed by trial LINEAGE: a continue-training warm start
+        (warm_start_load=true) extends an existing trial rather than adding one, so
+        its row REPLACES the parent trial's row instead of appending a duplicate
+        (which would fake an extra trial and shrink the std).
         """
         if not self.cfg.save:
             return [row]
@@ -405,6 +469,17 @@ class TaggingExperiment(BaseExperiment):
             # trial, so appending would duplicate that trial's row and shrink the std. Just
             # report the accumulated trials (or this run alone if none are persisted yet).
             return rows if rows else [row]
+        run_idx = int(self.cfg.run_idx or 0)
+        lineage = run_idx
+        if self.warm_start and self.warm_load:
+            # continue-training: inherit the parent trial's lineage root (chained
+            # continuations then still collapse onto one row)
+            parent = int(self.cfg.warm_start_idx)
+            parent_row = next((r for r in rows if r.get("run_idx") == parent), None)
+            lineage = parent_row.get("lineage", parent) if parent_row is not None else parent
+        row = dict(row, run_idx=run_idx, lineage=lineage)
+        # legacy rows without lineage bookkeeping are kept as separate trials
+        rows = [r for r in rows if r.get("lineage", object()) != lineage]
         rows.append(row)
         try:
             with open(path, "w") as f:

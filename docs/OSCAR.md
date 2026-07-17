@@ -120,7 +120,12 @@ mkdir -p ~/scratch/gtagger_runs
 ln -s ~/scratch/gtagger_runs runs
 ```
 
-(The tiny `data/*_mini.npz` smoke files ship with the repo and stay in home.)
+**Dataset placement rule of thumb** — three tiers by size and replaceability: the
+tiny `data/*_mini.npz` smoke files ship with the repo and stay in **home**; the
+1.5 GB `toptagging_full.npz` lives in **`~/data`** (permanent, backed up, symlinked
+above); anything JetClass-sized (§2.1 JetClass, §2.2 TopTagXL — ~190 GB ROOT trees)
+goes on **`~/scratch`** behind a symlink, accepting the 30-day-idle purge trade
+since a redownload is cheaper than burning the backed-up quota (§1).
 
 ### 2.1 JetClass (only if you run the jctagging campaign)
 
@@ -149,6 +154,29 @@ jctagging sweep, not the top-tagging one):
 # §4 becomes:  python find_lr.py -cn jctagging model=tag_<hybrid> save=false +lr_find.find_batch_size=true
 # train.sh:    python run.py -cp config -cn jctagging model=tag_<hybrid> training=jc_<hybrid> gpus=1
 ```
+
+### 2.2 TopTagXL (only if you run the toptagxl campaign)
+
+Same scratch treatment as JetClass (it is another ~100M-jet ROOT tree with the same
+streaming loader, so the same size and atime/purge reasoning applies). The collector
+reads the file list + md5 checksums from Zenodo record 10878355's API at download
+time, then verifies and extracts exactly like §2.1:
+
+```bash
+interact -n 4 -m 16g -t 12:00:00
+mkdir -p ~/scratch/toptagxl && ln -s ~/scratch/toptagxl ~/GTagger-experiments/data/toptagxl
+cd ~/GTagger-experiments
+apptainer exec "$NGC_PYTORCH_CONTAINER" bash -lc \
+  'source venv/bin/activate && python data/collect_data.py toptagxl'
+rm ~/scratch/toptagxl/*.tar     # reclaim the tar space once extraction finished
+exit
+```
+
+Commands swap exactly as in §2.1: `-cn toptagxl` + `training=xl_<hybrid>`, with the
+`???` knobs filled from a `find_lr.py -cn toptagxl` sweep (science: GUIDE §5.2 —
+binary task on JetClass-wide inputs, shared epochs=5, wd=0; shrink
+`data.val_files_range` before training, the shipped default is a 10M-jet
+validation pass).
 
 ## 3. Smoke-test on a compute node
 

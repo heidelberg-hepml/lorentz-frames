@@ -80,9 +80,11 @@ class JetClassTaggingExperiment(TaggingExperiment):
                 for classname in self.class_names
                 for i in range(*files_range[label])
             ]
-            file_dict, _ = to_filelist(flist)
+            file_dict, resolved = to_filelist(flist)
 
-            LOGGER.info(f"Using {len(flist)} files for {label}ing from {path}")
+            LOGGER.info(
+                f"Using {len(resolved)} of {len(flist)} requested files for {label}ing from {path}"
+            )
             datasets[label] = SimpleIterDataset(
                 file_dict,
                 self.cfg.data.data_config,
@@ -97,7 +99,10 @@ class JetClassTaggingExperiment(TaggingExperiment):
                 file_fraction=1,
                 fetch_by_files=self.cfg.jc_params.fetch_by_files,
                 fetch_step=self.cfg.jc_params.fetch_step,
-                infinity_mode=self.cfg.jc_params.steps_per_epoch is not None,
+                # infinity_mode (re-cycles the file list forever) belongs to the TRAIN
+                # split only: on val/test it makes the first validation/evaluation loop
+                # forever. steps_per_epoch bounds the train epoch length in that mode.
+                infinity_mode=(label == "train" and self.cfg.jc_params.steps_per_epoch is not None),
                 in_memory=self.cfg.jc_params.in_memory,
                 name=label,
                 events_per_file=self.cfg.jc_params.events_per_file,
@@ -226,6 +231,24 @@ class JetClassTaggingExperiment(TaggingExperiment):
                 tex_string += f" & {metrics[f'rej{rej_string}_{i}']:.0f}"
             tex_string += r" \\"
             LOGGER.info(tex_string)
+
+            # results-table row in the same parseable `table <split>:` format as the
+            # top-tagging path, so aggregate_table.py and the multi-trial mean +- std
+            # accumulation (table_metrics_*.json) cover JetClass runs too -- only the
+            # metric columns differ (ovo AUC + one rejection per non-QCD class).
+            row = {
+                "accuracy": float(metrics["accuracy"]),
+                "auc_ovo": float(metrics["auc_ovo"]),
+                "train_time": getattr(self, "train_time", None),
+            }
+            metric_fmts = [("accuracy", ".4f"), ("auc_ovo", ".4f")]
+            for i, rej in enumerate(class_rej_dict):
+                if rej is None:
+                    continue
+                key = f"rej{str(rej).replace('.', '')}_{i}"
+                row[key] = float(metrics[key])
+                metric_fmts.append((key, ".0f"))
+            self._log_table_row(loader, title, row, metric_fmts)
 
         if self.cfg.use_mlflow:
             for key, value in metrics.items():

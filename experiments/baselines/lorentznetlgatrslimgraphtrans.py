@@ -1,4 +1,4 @@
-"""Static-kNN LorentzNet -> L-GATr-slim hybrid (no per-edge attention gate).
+"""Static-kNN LorentzNet -> L-GATr-slim hybrid (per-edge attention gate on by default).
 
 The internally-equivariant analogue of ParticleNetParTGraphTrans: a LorentzNet
 edge convolution on a static Minkowski-kNN graph feeds an L-GATr-slim transformer.
@@ -310,7 +310,7 @@ class LorentzNetKNNBlock(nn.Module):
 
 
 class LorentzNetLGATrSlimGraphTrans(nn.Module):
-    """Static-kNN LorentzNet (gateless) -> L-GATr-slim hybrid with
+    """Static-kNN LorentzNet (phi_m gate on by default) -> L-GATr-slim hybrid with
     boolean-toggled input-stage spurions and a learnable scalar CLS."""
 
     def __init__(

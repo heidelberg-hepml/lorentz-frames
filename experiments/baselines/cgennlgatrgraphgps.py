@@ -21,8 +21,10 @@ by construction (symmetry broken only by the optional input spurions):
     Dropout                   GradeDropout (per-grade on mv, plain on s)
     residual adds (x + ...)   multivector + scalar addition (linear -> equivariant)
     sum fusion (X_M + X_T)    multivector + scalar addition
-    mean-pool readout         mean over real tokens (equivariant), then
-                              get_invariants(mv) (grade-0 + norms of grades 1-4) + pooled scalars
+    mean-pool readout         get_invariants(mv) PER NODE (grade-0 + norms of grades
+                              1-4), THEN mean over real tokens (extract-then-pool, as
+                              pure CGENN; the grade norms are nonlinear so the order
+                              matters) + pooled scalars
 
 The L-GATr attention / GeoMLP sublayers are used RAW -- their internal
 dropout/residual/norm are disabled (``dropout_prob=None``; the LGATrBlock's
@@ -185,6 +187,10 @@ class CGENNLGATrGraphGPS(nn.Module):
                  head_layers: int = 2,
                  **kwargs):
         super().__init__()
+        if kwargs:
+            # hydra struct mode does not protect against `+model.net.<typo>=x`;
+            # the other hybrids raise on unknown keys, so this one must too
+            raise TypeError(f"unexpected model kwargs: {sorted(kwargs)}")
         if knn_metric not in ("deltaR", "minkowski"):
             raise ValueError(f"knn_metric must be 'deltaR' or 'minkowski', got '{knn_metric}'")
         self.algebra = CliffordAlgebra((1.0, -1.0, -1.0, -1.0))

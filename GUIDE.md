@@ -81,16 +81,20 @@ framesnet:
 
 ## 4. Running a training
 
+`run.py` defaults to the tiny `config_quick` tree (a fast debug model + toy data), so
+a bare `python run.py model=…` is a smoke test, NOT real training — and passing a
+`training=top_<...>` recipe there fails at composition (config_quick has no such
+recipes). For a real run add `-cp config` so the full `config/` tree (real models,
+data, and the `top_<...>` recipes) is used:
+
 ```bash
-# a non-equivariant hybrid, made equivariant with learned frames
-python run.py model=tag_PlainGraphGPS model/framesnet=learnedso13
+# quick smoke tests on the debug tree (no -cp config): a couple of hundred iterations
+python run.py model=tag_PlainGraphGPS model/framesnet=learnedso13   # learned frames
+python run.py model=tag_LorentzNetLGATrSlimGraphGPS                   # identity frames
 
-# an internally-equivariant hybrid (identity frames; nothing to set)
-python run.py model=tag_LorentzNetLGATrSlimGraphGPS
-
-# the hybrid's own recipe (inherits tag_gts_and_friends_default), full data, a GPU
-python run.py model=tag_ParticleNetParTGraphGPS training=top_ParticleNetParTGraphGPS \
-    data.dataset=full gpus=1
+# a REAL training: full config tree, the hybrid's own recipe, full data, a GPU
+python run.py -cp config model=tag_ParticleNetParTGraphGPS \
+    training=top_ParticleNetParTGraphGPS data.dataset=full gpus=1
 ```
 
 Useful overrides: `data.dataset={full,mini}`, `training.iterations=…`,
@@ -160,6 +164,48 @@ reference rows keep their published budgets: `jc_ParT` (Ranger, 1M iterations),
 `data.train_files_range` — the same 5 passes then apply to the subset; don't lower
 the epochs.
 
+### 5.2 TopTagXL
+
+TopTagXL is top-tagging at JetClass scale: the same **binary qcd-vs-top** task as §5
+but with 100M training jets in the JetClass streaming format, selected with
+`-cp config -cn toptagxl` (dataset: `python data/collect_data.py toptagxl` — the
+collector reads the file list and md5 checksums from Zenodo record 10878355's API
+at download time, verifies, and extracts to `data/toptagxl`. Layout: `train_100M/`,
+`test_25M/`, `val_10M/`, with file numbering running *continuously* across the
+splits — `{qcd,top}_000–499 / 500–624 / 625–674` — at 100k jets per file).
+Everything from §5.1 carries over:
+
+- **Inputs are JetClass-wide** even though the task is binary: `features: default`
+  adds the 10 PID/trajectory scalars, so `in_channels = 7 + 10 = 17` (wired
+  automatically by `init_physics`).
+- **Recipes drop weight decay and keep epochs=5** (100M jets × 5 passes — the same
+  ParT-standard exposure): the family default is `xl_gts_and_friends_default`, and
+  each hybrid has a `config/training/xl_<hybrid>.yaml` whose `batchsize`/`lr` are
+  `???` until filled. **Seed them from the swept `jc_` values**: XL inputs are
+  identical to JetClass (17 channels, same multiplicity), so the batch-size memory
+  ceiling carries over unchanged and the jc lr is the right prior — only the loss
+  changed (binary sigmoid vs 10-class softmax). Upstream itself runs its XL
+  baselines under the JetClass recipe (the toptagxl task default is
+  `jc_transformer`). Confirm with the cheap finder sweep on the toptagxl task
+  rather than trusting the transfer blind (the `???` fallback caveat above applies
+  here identically):
+
+```bash
+python find_lr.py -cn toptagxl model=tag_PlainGraphGPS save=false \
+    +lr_find.find_batch_size=true
+# -> fill training.batchsize / training.lr into config/training/xl_PlainGraphGPS.yaml
+python run.py -cp config -cn toptagxl model=tag_PlainGraphGPS training=xl_PlainGraphGPS
+```
+
+Two XL-specific footnotes. First, the shipped `data.val_files_range: [625, 675]` is
+a **10M-jet validation pass**; under the family recipe's once-per-epoch cadence,
+shrink it (e.g. `[625, 626]` = 200k jets) unless you want validations costing a real
+fraction of a training epoch. Second, TopTagXL reuses the top-tagging binary
+evaluation path unchanged, so the rejection metrics and the results-table /
+`aggregate_table.py` machinery of §8 work as-is. Baseline reference rows run under
+the task default (`jc_transformer`: AdamW, 1M fixed iterations) or their own
+recipes, as in REPRODUCE.md.
+
 ---
 
 ## 6. Choosing hyperparameters
@@ -210,9 +256,9 @@ Lion's decay also scales with LR, so the L-GATr (`wd=0.2`, lr=3e-4) and slim
 (`wd=2`, lr=3e-5) recipes are the same `lr × wd ≈ 6e-5`; for a Lion run set
 `wd ≈ 6e-5 / lr`, not a copied raw number.
 
-**Budget / epochs.** Early stopping is on (`es_patience`), so the iteration count
-is an upper bound — but its patience is large, so in practice the budget *is* the
-cap. The GT hybrids encode the fair choice in `tag_gts_and_friends_default`:
+**Budget / epochs.** Early stopping is OFF in the shipped recipes (`es_patience: null`),
+so the epoch budget is the exact iteration count, not an upper bound. The GT hybrids
+encode the fair choice in `tag_gts_and_friends_default`:
 **epochs=20** (equal data exposure — derived per model as `epochs × batches_per_epoch`,
 not one model's ad-hoc 20-epochs / 200k-iters) and **validate once per epoch** so
 best-val checkpointing has equal granularity across the family. Check the val curve

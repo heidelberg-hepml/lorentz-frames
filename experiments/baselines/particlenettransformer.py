@@ -858,6 +858,12 @@ class ParticleNetParTGraphTrans(nn.Module):
             # frame, then the particles) once for the shared, parameter-free LLoCaAttention.
             block_lloca = None
             if do_transport:
+                if self.lloca_attn is None:
+                    raise ValueError(
+                        "learned frames require an attention transport, but attn_reps is "
+                        "None (the attention branch has no tensorial reps to transport "
+                        "q/k/v). Set attn_reps, or use identity frames."
+                    )
                 B = features.size(0)
                 if cls_frames is not None:
                     cls_mat = cls_frames.matrices.to(frames.dtype)
@@ -870,7 +876,8 @@ class ParticleNetParTGraphTrans(nn.Module):
             for block in self.blocks:
                 x = block(x, padding_mask=padding_mask, attn_mask=attn_mask, lloca_attn=block_lloca)
 
-            x_cls = self.norm(x[0]) #is a norm necessary here? it shows up in ParT but ParT's class token is used only in the final 2 blocks to aggregate and so needs to be normalized, but this doesn't appear to be the case in GraphTrans?
+            x_cls = self.norm(x[0])  # final pre-readout LayerNorm -- faithful to official
+            # GraphTrans (its encoder ends in `encoder_norm`) and to ParT; keep it.
 
             if self.fc is None:
                 return x_cls

@@ -189,7 +189,10 @@ class PlainTransformerBlock(nn.Module):
                 dropout_p=self.attn.dropout if self.training else 0.0,
             )
         x = x + self.dropout(attn)
-        x = x + self.ffn(self.norm2(x))
+        # residual dropout on the FFN branch too: both reference lineages have it
+        # (nn.TransformerEncoderLayer's dropout2; the ParT Block drops after fc2) --
+        # omitting it left the purest GraphTrans slightly under-regularized vs both
+        x = x + self.dropout(self.ffn(self.norm2(x)))
         return x
 
 
@@ -337,6 +340,12 @@ class PlainGraphTrans(nn.Module):
             # parameter-free LLoCaAttention once for all blocks.
             block_lloca = None
             if do_transport:
+                if self.lloca_attn is None:
+                    raise ValueError(
+                        "learned frames require an attention transport, but attn_reps is "
+                        "None (the attention branch has no tensorial reps to transport "
+                        "q/k/v). Set attn_reps, or use identity frames."
+                    )
                 N = features.size(0)
                 if cls_frames is not None:
                     cls_mat = cls_frames.matrices.to(frames.dtype)

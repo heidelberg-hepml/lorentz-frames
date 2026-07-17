@@ -44,6 +44,48 @@ JETCLASS = {
     "test": ("Pythia", [("JetClass_Pythia_test_20M.tar", "64e5156d26d101adeb43b8388207d767")]),
 }
 
+# TopTagXL (binary qcd-vs-top at JetClass scale, 100M/25M/10M jets) --
+# https://zenodo.org/records/10878355, the LLoCa paper's extended top-tagging set.
+# The dataset ships as split-tagged tars (train parts 1-5 are QCD, 6-10 are top;
+# see the Zenodo description), not the per-class-numbered layout JetClass uses. The
+# file list + md5 checksums below are the record's published inventory (revision 8);
+# the collector verifies each tar against its md5 and extracts it. config/toptagxl.yaml
+# sets data.data_dir = data/toptagxl and the loader
+# (experiments/tagging/toptagxlexperiment.py) reads
+#     <data.data_dir>/{train_100M,test_25M,val_10M}/{qcd,top}_<NNN>.root
+# -- if the tars do not unpack to exactly that tree, the collector prints how to
+# symlink/rename (the internal .root layout is not documented on Zenodo).
+TOPTAGXL_RECORD = "10878355"
+TOPTAGXL_DIR = "toptagxl"
+TOPTAGXL_FOLDERS = ("train_100M", "test_25M", "val_10M")
+TOPTAGXL_BASE = f"https://zenodo.org/api/records/{TOPTAGXL_RECORD}/files"
+TOPTAGXL = {
+    # split: [(tar filename, md5), ...]  (simulation_cards.zip is metadata, skipped)
+    "train": [
+        (f"TopTagXL_train_part{i}.tar", md5)
+        for i, md5 in zip(
+            range(1, 11),
+            [
+                "4d179db4694c793a62bd42500d44c7e7",  # part1  (QCD)
+                "1bf6264a4245cbcb4d1881c8836280a4",  # part2  (QCD)
+                "8f5bf1f62a9ef91234820bed749cf7e1",  # part3  (QCD)
+                "90544659da6724e7a4023c0bd5958f68",  # part4  (QCD)
+                "2b753db0c733d81e6b1cc3ffd06dc8e9",  # part5  (QCD)
+                "6af57a9a14141b146e3a44d8d70b5014",  # part6  (top)
+                "f37cd5f2818d8dcc63ad62517d5f308e",  # part7  (top)
+                "28d32c8e4b1614f42a5e9ec8b0b7afd9",  # part8  (top)
+                "e250a00a60a146730fb61a4a1cb4306d",  # part9  (top)
+                "e562c15ea5fa0945f127c59440127250",  # part10 (top)
+            ],
+        )
+    ],
+    "test": [
+        ("TopTagXL_test_part1.tar", "a3927369b70eba5f9d77d3b6da0c26a4"),
+        ("TopTagXL_test_part2.tar", "c48c81b3cd2a1dfb0a679033e5d74f6c"),
+    ],
+    "val": [("TopTagXL_val.tar", "120a53c067c3169bc8d3e2f1e68f0a32")],
+}
+
 
 def load(filename):
     url = os.path.join(BASE_URL, filename)
@@ -102,11 +144,65 @@ def collect_jetclass(splits):
     print(f"JetClass ready under {base}/Pythia -- matches config/jctagging.yaml data.data_dir.")
 
 
+def collect_toptagxl(splits):
+    """Download + verify + extract the TopTagXL tars for the given splits.
+
+    Mirrors ``collect_jetclass`` exactly (hardcoded md5 verification, idempotent
+    ``.<file>.extracted`` markers, tars deletable after extraction). The only
+    structural difference from JetClass is that TopTagXL ships split-tagged tars
+    (10 train / 2 test / 1 val) rather than per-class-numbered files, so there is no
+    per-class subdir list -- the tars carry their own internal layout, and the
+    post-extract check below reports if it does not match what the loader expects.
+    """
+    dest = os.path.join(DATA_DIR, TOPTAGXL_DIR)
+    os.makedirs(dest, exist_ok=True)
+    for split in splits:
+        for fname, md5 in TOPTAGXL[split]:
+            tar_path = os.path.join(dest, fname)
+            marker = os.path.join(dest, f".{fname}.extracted")
+            if os.path.exists(marker):
+                print(f"{fname} already extracted, skipping")
+                continue
+            url = f"{TOPTAGXL_BASE}/{fname}/content"
+            if os.path.exists(tar_path) and _md5(tar_path) == md5:
+                print(f"{fname} already downloaded (md5 ok)")
+            else:
+                if os.path.exists(tar_path):
+                    os.remove(tar_path)  # partial/corrupt -> re-download
+                print(f"Downloading {url}")
+                wget.download(url, out=tar_path)
+                print("")
+                if _md5(tar_path) != md5:
+                    raise RuntimeError(f"md5 mismatch for {fname}; delete it and retry")
+            print(f"Extracting {fname} -> {dest}")
+            with tarfile.open(tar_path) as tar:
+                try:
+                    tar.extractall(dest, filter="data")  # python >= 3.12 safe extraction
+                except TypeError:
+                    tar.extractall(dest)
+            open(marker, "w").close()
+            print(f"Extracted {fname}  (you may delete {tar_path} to reclaim disk)")
+
+    want = [f for f in TOPTAGXL_FOLDERS if any(s in f for s in splits) or set(splits) >= {"train", "val", "test"}]
+    missing = [f for f in want if not os.path.isdir(os.path.join(dest, f))]
+    if missing:
+        print(
+            f"WARNING: expected folder(s) {missing} not found under {dest} after "
+            f"extraction. Inspect the extracted layout and symlink/rename it so the "
+            f"loader finds <data_dir>/<split_folder>/<class>_<NNN>.root, i.e. "
+            f"{TOPTAGXL_FOLDERS} with qcd_/top_ .root files (config/toptagxl.yaml "
+            f"data.data_dir = {dest}); the Zenodo tars do not document their internal tree."
+        )
+    else:
+        print(f"TopTagXL ready under {dest} -- matches config/toptagxl.yaml data.data_dir.")
+
+
 def main():
     if len(sys.argv) < 2:
         print(
             "Usage: python data/collect_data.py "
-            "<toptagging | eventgen | jetclass [train|val|test|all]>"
+            "<toptagging | eventgen | jetclass [train|val|test|all] "
+            "| toptagxl [train|val|test|all]>"
         )
         sys.exit(1)
     dataset = sys.argv[1]
@@ -143,6 +239,18 @@ def main():
             print(f"Unknown JetClass split(s) {unknown}; choose from train/val/test/all")
             sys.exit(1)
         collect_jetclass(splits)
+
+    # collect the TopTagXL dataset (https://zenodo.org/records/10878355)
+    # second arg selects the split(s); default 'all'. ~JetClass-sized download; the
+    # file list + md5 checksums come from the Zenodo API at download time.
+    if dataset == "toptagxl":
+        arg = sys.argv[2] if len(sys.argv) > 2 else "all"
+        splits = ["train", "val", "test"] if arg == "all" else [arg]
+        unknown = [s for s in splits if s not in TOPTAGXL]
+        if unknown:
+            print(f"Unknown TopTagXL split(s) {unknown}; choose from train/val/test/all")
+            sys.exit(1)
+        collect_toptagxl(splits)
 
 
 if __name__ == "__main__":

@@ -9,8 +9,7 @@ ParT pairwise-bias features, PE/SE, depth) live in `todo.md` §3 and are not rep
 ## Bridges and readout tokens (GraphTrans family)
 
 - CGENN GraphTrans bridge: gate the linear bridge (`MVLinear`/`Linear`) with an equivariant
-  nonlinearity (MVSiLU / gated EquiLinear) instead of a plain linear map; or deepen it to a
-  2-layer bridge MLP.
+  nonlinearity (MVSiLU / gated EquiLinear) instead of a plain linear map; CGENN phi_x 
 - Add an equivariant norm (EquiLayerNorm) after the CGENN→L-GATr bridge (the L-GATr blocks are
   pre-norm, so this is redundant in principle — hence minor).
 - Plain/PNP GraphTrans: drop or move `bridge_norm` (LayerNorm after the bridge; also redundant
@@ -67,7 +66,20 @@ ParT pairwise-bias features, PE/SE, depth) live in `todo.md` §3 and are not rep
 - GELU vs ReLU unification across the non-equivariant pair (currently per-reference).
 - Dropout 0.1 vs 0.0 family-wide (per-reference now; the most likely of this list to actually
   matter at a fixed 20-epoch budget).
-- GPS attention dropout 0.5 (GraphGPS uses it on some datasets) vs the current 0.
+- **Attention-weight dropout on the GPS models** (`attn_dropout=0.5` for the GraphGPS-native
+  value, `0.1` as the softer point). Official GraphGPS uses 0.5 essentially everywhere at our
+  model scale — small benchmarks (12k–45k graphs) AND the base PCQM4Mv2-full config
+  (3.7M graphs, 5 layers, ~6M params); only the scaled-up entries (GPSmedium ~20M,
+  GPSdeep 16 layers) trade attn_dropout down to 0.1 while *raising* residual dropout 0→0.1.
+  So the driver is model capacity, not dataset size: at 1.2–2.5M params the official recipe
+  says 0.5, making it the primary ablation value (PlainGraphGPS first, cheapest); the
+  campaign default stays 0. Equivariance-safe everywhere: attention probabilities are
+  Lorentz invariants. Non-equivariant GPS = config-only (keys exist), and the LLoCa
+  transport path already forwards `dropout_p` to the native sdpa backend; the embedded
+  L-GATr stacks in the hybrids also dispatch native (dense `attn_mask`), so they accept
+  `dropout_p` on stock lgatr too. Only the *pure* LGATr/Transformer taggers default to the
+  xformers backend, which needs a `dropout_p`→`p` rename upstream (flex/varlen have no
+  dropout at all — small lgatr+lloca PRs, drafted in the campaign notes).
 - `num_heads` 4/8/16; `head_scale` off; `multi_query` on (L-GATr attention).
 - `head_layers` 1/2/3 for the SAN-style GPS heads; unify their GELU (equivariant) vs ReLU
   (non-equivariant) activation.
@@ -87,13 +99,40 @@ ParT pairwise-bias features, PE/SE, depth) live in `todo.md` §3 and are not rep
   (currently true = weaver default; the two differ in whether the pair bias passes a final GELU).
 - `remove_self_pair` true in the pair embedding.
 
+## GraphGPS recipe parity (cross-checked against the official rampasek/GraphGPS configs)
+
+Where this repo's GPS family deviates from the recipe the official configs actually run, and
+what the official repo's own precedent says about each axis. (attn_dropout, the largest
+deviation, is covered in "Capacity and shape" above.)
+
+- **PE/SE encodings.** Official GraphGPS node-encodes in essentially every config — including
+  datasets with *no real edge features*: MalNet-Tiny ships LapPE by default (plus `+RWSE`,
+  `+SignNet` variants and a `-noPE` ablation) with constant `DummyEdge` edge inputs. The
+  crucial context: MalNet nodes are *anonymous* (function-call graphs; node features are
+  synthesized via LocalDegreeProfile), so encodings are the only signal — whereas jet
+  constituents arrive with rich per-node kinematics, which is why PE/SE stays off by default
+  here (headline PE/SE ablation in todo §3: RWSE first, LapPE as the expected negative).
+  If LapPE ever shows signal, **SignNet** (LapPE with a sign-invariant DeepSets/MLP encoder
+  instead of training-time sign flips) is the canonical next step — not currently implemented.
+- **Edge features.** Official GatedGCN *requires* edge inputs, so edge-free datasets get
+  constant `DummyEdge` embeddings. This repo's local branches instead derive edge information
+  from node differences (EdgeConv) or the physically-motivated Minkowski invariant
+  (`use_edge_attr`) — a strict upgrade over constants, not a fidelity gap; worth one methods
+  sentence.
+- **Local module.** Official uses CustomGatedGCN in essentially every config; this repo swaps
+  in EdgeConv / plain MPNN / CGENN / LGEB — deliberately, that *is* the research axis. A
+  GatedGCN local arm on PlainGraphGPS would be the "faithful GPS" control if a reviewer asks
+  what the unmodified recipe scores on jets.
+
 ## Symmetry-breaking inputs
 
 - Spurion variants on the equivariant hybrids: `beam_mirror` off, `spacelike`/`timelike` beam
   forms, single vs two beams, `spurion_scale` ≠ 1 (model-level analogues of the data-level knobs).
 - LorentzNet hybrids: `use_time_spurion` / `use_beam_spurion` individually off.
-- `data.tagging_features` zinvariant/so3invariant/null rows for the equivariant hybrids (note the
-  non-equivariant four silently keep "all" — the documented D1 caveat).
+- `data.tagging_features` zinvariant/so3invariant/null rows for the equivariant hybrids. NB: the
+  four non-equivariant hybrids (`TaggerWrapper` subclasses) hardcode `tagging_features="all"`
+  internally, so this knob changes ONLY the equivariant rows; the non-equivariant headline rows
+  are unaffected (see the disclosures list in `docs/diffs.md`).
 
 ## Training-side minor tunes
 
@@ -148,12 +187,34 @@ usually the fix, as lgatr already does for its own norm).
   scalar-grade like the CLS.
 - **Muon / second-order-ish optimizers** for the transformer stage — the current-gen
   optimizer family beyond Lion; a training-side swap, not an architecture change.
+  
+  ### **GNN family**
+  
+- **PNA-style multi-aggregation (and other GNN aggregator tricks)** — replace the single
+  mean/max aggregation in the MPNN/EdgeConv local branches with the PNA combination
+  (mean+max+min+std, degree-scaled); the fixed-k kNN graphs make the degree scalers
+  trivial, so it reduces to concatenated multi-aggregation. Same family: softmax/powermean
+  aggregation, learnable aggregation temperature.
+- **GraphNorm** on the local-branch node features — normalizes with a learnable mean-scale
+  per graph, designed exactly for the BatchNorm-over-variable-graphs pathology the GPS
+  models flirt with. NOTE: GraphNorm is **non-equivariant** (it shifts/scales per-feature
+  across a jet's particles), so it is only a drop-in for the non-equivariant models —
+  and thus currently less promising than it could become; an invariant-statistics variant
+  (norms-only, grade-wise) would be the research version.
+- Virtual node value that intializes CLS token for GraphTrans, connecting some global GNN output to transformer (primary global net)
+- DropNode simulating pileup, but in my opinion goes too far by degrading the input, still could be promising since unexplored and could be made to mimick Soft Drop (Larkoski et al.)
+
 
 Deliberately excluded from this list: **RoPE / ALiBi / any positional encoding along the
 token axis** (jets are unordered sets — a sequence position is physics-meaningless; the
 kinematic features already carry the real geometry), and **Mixup/CutMix-style input
 interpolation** (a mixed jet is not a physical jet; label smoothing above is the sane
 sibling).
+
+These are deliberately untouched knobs: they are here for researchers interested in
+fine-tuning these models or using them in their own experiments. If you want to pursue
+research applying any of these tricks to the tagging setting, I'd be interested in
+collaborating — open an issue or get in touch.
 
 Deliberately excluded as *conceptually broken* (not "minor"): learnable **vector/multivector**
 class tokens (pick a direction → break equivariance), BatchNorm over multivector components,

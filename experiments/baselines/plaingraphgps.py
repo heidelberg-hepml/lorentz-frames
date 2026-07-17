@@ -373,6 +373,12 @@ class PlainGraphGPS(nn.Module):
         do_transport = frames is not None and not frames.is_global
         frames_flat = frames.reshape(-1, 4, 4) if do_transport else None
         if do_transport:
+            if self.lloca_attn is None:
+                raise ValueError(
+                    "learned frames require an attention transport, but attn_reps is None "
+                    "(the attention branch has no tensorial reps to transport q/k/v). Set "
+                    "model.net.attn_reps, or use identity frames."
+                )
             self.lloca_attn.prepare_frames(frames)
         block_lloca = self.lloca_attn if do_transport else None
 

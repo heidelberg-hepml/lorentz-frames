@@ -1,0 +1,34 @@
+# Shared TopTagXL training recipe for the GT-hybrid family ("GTs and friends") -- the
+# toptagxl analogue of jc_gts_and_friends_default, closing the same recipe-inheritance
+# trap: a naive `run.py -cp config -cn toptagxl model=tag_<hybrid>` silently trains
+# under the task default `jc_transformer` (AdamW, 1M fixed iterations), not a swept
+# family recipe.
+#
+# Budget: EPOCHS again (equal data exposure), derived per model at runtime as
+# epochs * batches_per_epoch (_resolve_epoch_budget; the streaming loader's len() is
+# the nominal files x events_per_file). TopTagXL's train split is 100M jets like
+# JetClass (2 classes x 500 files x 100k), so epochs=5 keeps the ParT-standard
+# exposure (~1M steps x batch 512). With a data.train_files_range subset the SAME
+# 5 passes apply to the subset -- shrink the range, not the epochs, to cut cost.
+#
+# Per-model batchsize + lr come from find_lr on the toptagxl task:
+#   python find_lr.py -cn toptagxl model=tag_<hybrid> save=false +lr_find.find_batch_size=true
+# (defaults below inherit tag_default: AdamW, lr=1e-3, batchsize=512, clip 1.0 --
+# runnable out of the box, but sweep before a real campaign.)
+defaults:
+  - tag_default
+
+epochs: 5
+
+# shared schedule as in the top-tagging family recipe, but NO weight decay at
+# JetClass-scale statistics (100M jets: regularization is unnecessary and only slows
+# fitting -- matching the jc_* family convention)
+scheduler: CosineAnnealingWarmup
+weight_decay: 0
+
+# validate once per (nominal) epoch. NOTE: the toptagxl default
+# data.val_files_range [625, 675] is a 10M-jet validation pass -- shrink it
+# (e.g. [625, 626] = 200k jets) unless you want epoch-boundary validations that
+# cost a substantial fraction of a training epoch.
+validate_every_n_epochs_min: 1
+validate_every_n_steps: 1000000000

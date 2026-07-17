@@ -159,7 +159,7 @@ class BaseExperiment:
                 broadcast_buffers=False,
                 find_unused_parameters=False,  # might have to turn this on for some models
             )
-            #syncs gradients across multiple gpus using DDP for non identity frames
+            # syncs gradients across multiple gpus using DDP for non identity frames
             if any(p.requires_grad for p in self.model.framesnet.parameters()):
                 self.model.framesnet = torch.nn.parallel.DistributedDataParallel(
                     self.model.framesnet,
@@ -465,6 +465,16 @@ class BaseExperiment:
         epochs = OmegaConf.select(self.cfg, "training.epochs", default=None)
         iterations = OmegaConf.select(self.cfg, "training.iterations", default=None)
         if epochs is not None:
+            if iterations is not None:
+                # a CLI `training.iterations=N` on a recipe that sets epochs would be
+                # silently discarded otherwise -- on JetClass/TopTagXL that is days of
+                # unintended GPU time; say it loudly and how to get the intended run
+                LOGGER.warning(
+                    f"Both training.epochs ({epochs}) and training.iterations "
+                    f"({iterations}) are set; epochs WINS and iterations will be "
+                    f"overwritten. For a fixed iteration count pass "
+                    f"'training.epochs=null training.iterations={iterations}'."
+                )
             batches_per_epoch = len(self.train_loader)
             self.cfg.training.iterations = int(round(epochs * batches_per_epoch))
             LOGGER.info(
@@ -818,6 +828,10 @@ class BaseExperiment:
                 LOGGER.warning(
                     f"Skipping iteration {step}, gradient norm {grad_norm} exceeds maximum {self.cfg.training.max_grad_norm}"
                 )
+                # under AMP an fp16 overflow inflates grad_norm into this branch; the
+                # scaler must still update so the loss scale can DECREASE -- returning
+                # without it froze the scale and silently skipped every later iteration
+                self.scaler.update()
                 return
         self.scaler.step(self.optimizer)
         self.scaler.update()
