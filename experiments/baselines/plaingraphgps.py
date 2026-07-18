@@ -346,6 +346,16 @@ class PlainGraphGPS(nn.Module):
         self.node_encoder = nn.Linear(enc_in, dim)
 
         edge_dim = 1 if use_edge_attr else 0
+        # Standardize the raw log|(p_i+p_j)^2| pair invariant (range ~[-18,+12] with a clamp
+        # floor at log(eps)) before it enters the messages -- the precedent is ParT's PairEmbed,
+        # which BatchNorms its pairwise_lv_fts first (and GraphNetWrapper, which standardizes
+        # its edge attr); unstandardized it sits ~10x off-scale next to the O(1) hidden
+        # features and would handicap the edge-PE ablation. BN over REAL edges only.
+        self.edge_bn = nn.BatchNorm1d(1) if use_edge_attr else None
+        # GraphGPS's KernelPENodeEncoder applies raw_norm (BatchNorm1d over the k landing
+        # probabilities; e.g. zinc-GPS+RWSE.yaml raw_norm_type: BatchNorm) before projecting
+        # the PE -- mirror it, over real nodes only.
+        self.rwse_bn = nn.BatchNorm1d(rwse_k) if use_rwse else None
         self.layers = nn.ModuleList([
             GPSLayer(dim, num_heads, edge_dim, ffn_ratio, dropout, attn_dropout, act, norm,
                      in_reps=edge_reps)
@@ -397,12 +407,28 @@ class PlainGraphGPS(nn.Module):
             edge_attr = None
             if self.use_edge_attr and v is not None:
                 edge_attr = minkowski_edge_attr(v, idx)                       # (B, 1, P, K)
-                edge_attr = edge_attr * nbr_mask.unsqueeze(1).to(edge_attr.dtype)
+                em = nbr_mask.unsqueeze(1)                                    # (B, 1, P, K)
+                vals = edge_attr[em]
+                if vals.numel():
+                    # BatchNorm over the real edges only (train: batch stats; eval: running
+                    # stats -> deterministic and padding-count invariant), then re-mask.
+                    normed = self.edge_bn(vals.unsqueeze(-1)).squeeze(-1)
+                    edge_attr = torch.zeros_like(edge_attr)
+                    edge_attr[em] = normed.to(edge_attr.dtype)
+                else:
+                    edge_attr = edge_attr * em.to(edge_attr.dtype)
 
             fts = self.bn_fts(features) * mask if self.bn_fts is not None else features
             h_in = fts.transpose(1, 2)                                        # (B, P, input_dim)
             if self.use_rwse:
                 rwse = rwse_encoding(idx, mask_p, self.rwse_k).to(h_in.dtype)  # (B, P, rwse_k)
+                vals = rwse[mask_p]                                            # (N_real, k)
+                if vals.numel():
+                    # GraphGPS raw_norm: BatchNorm the raw landing probabilities (over real
+                    # nodes only -- their graphs have no padding; masking is the equivalent)
+                    normed = self.rwse_bn(vals).to(rwse.dtype)
+                    rwse = torch.zeros_like(rwse)
+                    rwse[mask_p] = normed
                 h_in = torch.cat([h_in, rwse], dim=-1)
             if self.use_lappe:
                 lappe = lappe_encoding(
