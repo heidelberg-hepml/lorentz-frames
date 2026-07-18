@@ -56,7 +56,8 @@ ParT pairwise-bias features, PE/SE, depth) live in `todo.md` §3 and are not rep
   EdgeConv mean → max (original DGCNN uses max; ParticleNet chose mean).
 - `use_explicit_edge_features` off for CGENN GraphGPS (toggle exists; quantifies the edge/node
   re-injection).
-- Richer Minkowski edge features for Plain-GPS `use_edge_attr` (full ParT 4/7-feature set through
+- DONE: Plain-GPS `use_edge_attr` now feeds the full ParT 4-feature pair set through the MPNN
+  edge channel (ParticleNeXt-style; was a single log|(pᵢ+pⱼ)²| invariant). Remaining variant (through
   the MPNN edge channel instead of only log|(pᵢ+pⱼ)²|).
 - LorentzNet `c_weight` sweep (1e-3 / 5e-3 / 1e-2).
 

@@ -26,7 +26,8 @@ This is the "plain", non-equivariant variant:
 Three GraphGPS ingredients are exposed as toggles, all OFF in the default configs
 so that PlainGraphGPS vs PlainGraphTrans isolates the *fusion* (interleaved vs
 sequential) and nothing else:
-  * ``use_edge_attr`` -- feed the Minkowski edge invariant log|(p_i + p_j)^2| into
+  * ``use_edge_attr`` -- feed the ParT/ParticleNeXt pair features (lnDelta, ln kT,
+    ln z, ln m^2; same U-bias inputs, MPNN-routed) into
     the local MPNN messages. GraphGPS's local MPNN "encodes real edge features",
     but PlainGraphTrans's MPNN does not, so this is off by default for a fair
     head-to-head; turning it on is the "physically-motivated relative PE" ablation;
@@ -75,30 +76,33 @@ from lloca.backbone.particlenet import change_local_frame
 from lloca.reps.tensorreps import TensorReps
 from lloca.reps.tensorreps_transform import TensorRepsTransform
 
-from experiments.baselines.particlenettransformer import lloca_transport_attention
+from experiments.baselines.particlenettransformer import (
+    lloca_transport_attention,
+    pairwise_lv_fts,
+)
 from experiments.baselines.plaingraphtrans import gather_neighbors, knn
 
 _ACT = {"relu": nn.ReLU, "gelu": nn.GELU}
 
 
-def minkowski_edge_attr(v, idx, eps=1e-8):
-    """Per-edge Lorentz invariant log|(p_i + p_j)^2| on the static kNN graph.
+def pairwise_edge_attr(v, idx):
+    """ParT/ParticleNeXt pairwise features on the static kNN edges.
 
-    v: (B, 4, P) as (px, py, pz, E); idx: (B, P, K). Returns (B, 1, P, K). This is
-    the physically-motivated, frame-invariant relative encoding GraphGPS's local
-    MPNN can consume in place of PE/SE (toggle ``use_edge_attr``).
+    The SAME four QCD pair features ParT's attention bias U consumes (lnDelta,
+    ln kT, ln z, ln m^2 -- ``pairwise_lv_fts``, the bit-exact weaver port), computed
+    per (node, kNN-neighbour) pair and routed through the local MPNN's edge channel.
+    That routing is exactly ParticleNeXt's design (weaver-core: ParT-style pairwise
+    features inside the GNN aggregation instead of the attention logits), so the
+    ``use_edge_attr`` ablation vs the ParticleNetParT hybrid isolates the ROUTING of
+    identical pairwise information (MPNN messages vs attention bias), not the
+    information itself. Fills the edge-feature slot GraphGPS's local MPNN has on
+    molecular graphs, which a jet has none of.
 
-    Not a GraphGPS construct -- it is a spiritual sibling of ParT's pairwise
-    interaction features (specifically the pair invariant-mass term of the U_ij
-    attention bias), routed through the MPNN edge channel instead of the attention
-    logits; it stands in for the (molecular) edge features GraphGPS's local MPNN
-    consumes, which a jet has none of.
+    v: (B, 4, P) as (px, py, pz, E); idx: (B, P, K). Returns (B, 4, P, K).
     """
-    nbr = gather_neighbors(v, idx)            # (B, 4, P, K)
-    psum = v.unsqueeze(-1) + nbr              # (B, 4, P, K), center broadcast over K
-    px, py, pz, E = psum[:, 0], psum[:, 1], psum[:, 2], psum[:, 3]
-    m2 = E * E - px * px - py * py - pz * pz   # (B, P, K)
-    return m2.abs().clamp(min=eps).log().unsqueeze(1)   # (B, 1, P, K)
+    nbr = gather_neighbors(v, idx)              # (B, 4, P, K)
+    ctr = v.unsqueeze(-1).expand_as(nbr)        # (B, 4, P, K), center broadcast over K
+    return pairwise_lv_fts(ctr, nbr, num_outputs=4)   # (B, 4, P, K)
 
 
 def rwse_encoding(idx, mask_p, k):
@@ -345,13 +349,12 @@ class PlainGraphGPS(nn.Module):
         enc_in = input_dim + (rwse_k if use_rwse else 0) + (lappe_k if use_lappe else 0)
         self.node_encoder = nn.Linear(enc_in, dim)
 
-        edge_dim = 1 if use_edge_attr else 0
-        # Standardize the raw log|(p_i+p_j)^2| pair invariant (range ~[-18,+12] with a clamp
-        # floor at log(eps)) before it enters the messages -- the precedent is ParT's PairEmbed,
-        # which BatchNorms its pairwise_lv_fts first (and GraphNetWrapper, which standardizes
-        # its edge attr); unstandardized it sits ~10x off-scale next to the O(1) hidden
-        # features and would handicap the edge-PE ablation. BN over REAL edges only.
-        self.edge_bn = nn.BatchNorm1d(1) if use_edge_attr else None
+        edge_dim = 4 if use_edge_attr else 0
+        # Standardize the raw ParT pair features (log-scale, clamp floors near log(eps))
+        # before they enter the messages -- the precedent is ParT's own PairEmbed, whose
+        # FIRST layer BatchNorms these very pairwise_lv_fts; unstandardized they sit far
+        # off-scale next to the O(1) hidden features. BN over REAL edges only.
+        self.edge_bn = nn.BatchNorm1d(edge_dim) if use_edge_attr else None
         # GraphGPS's KernelPENodeEncoder applies raw_norm (BatchNorm1d over the k landing
         # probabilities; e.g. zinc-GPS+RWSE.yaml raw_norm_type: BatchNorm) before projecting
         # the PE -- mirror it, over real nodes only.
@@ -406,17 +409,16 @@ class PlainGraphGPS(nn.Module):
 
             edge_attr = None
             if self.use_edge_attr and v is not None:
-                edge_attr = minkowski_edge_attr(v, idx)                       # (B, 1, P, K)
-                em = nbr_mask.unsqueeze(1)                                    # (B, 1, P, K)
-                vals = edge_attr[em]
+                edge_attr = pairwise_edge_attr(v, idx)                        # (B, 4, P, K)
+                vals = edge_attr.permute(0, 2, 3, 1)[nbr_mask]                # (E_real, 4)
                 if vals.numel():
                     # BatchNorm over the real edges only (train: batch stats; eval: running
                     # stats -> deterministic and padding-count invariant), then re-mask.
-                    normed = self.edge_bn(vals.unsqueeze(-1)).squeeze(-1)
+                    normed = self.edge_bn(vals)
                     edge_attr = torch.zeros_like(edge_attr)
-                    edge_attr[em] = normed.to(edge_attr.dtype)
+                    edge_attr.permute(0, 2, 3, 1)[nbr_mask] = normed.to(edge_attr.dtype)
                 else:
-                    edge_attr = edge_attr * em.to(edge_attr.dtype)
+                    edge_attr = edge_attr * nbr_mask.unsqueeze(1).to(edge_attr.dtype)
 
             fts = self.bn_fts(features) * mask if self.bn_fts is not None else features
             h_in = fts.transpose(1, 2)                                        # (B, P, input_dim)

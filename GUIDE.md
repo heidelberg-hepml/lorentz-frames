@@ -281,7 +281,7 @@ one working point (0.5) the paper doesn't report, with a coarser ruler.
 `batchsize`/`lr` are filled in, exercise the variant knobs in this order:
 
 1. **PlainGraphGPS PE/SE variants first** (cheapest model, most toggles — confirm each
-   trains): `model.net.use_edge_attr=true|false` (relative Minkowski edge PE),
+   trains): `model.net.use_edge_attr=true|false` (ParT-pair edge features, ParticleNeXt-style),
    `model.net.use_rwse=true|false` (+ `model.net.rwse_k=K`), `model.net.norm=batch|layer`.
 2. **Then every model under both graph metrics**: `model.net.knn_metric=deltaR|minkowski`
    (minkowski is the Lorentz-invariant graph; deltaR the eta–phi one).

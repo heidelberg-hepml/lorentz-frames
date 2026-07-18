@@ -79,8 +79,8 @@ log line that the regex reads.
   ln z, ln m²; 5=+lnΔs²; 8=+cosθ,Δy,Δφ — see `pairwise_lv_fts`; the weaver feature ladder jumps
   5→8 when adding cosθ/Δy/Δφ, so 6/7 are not valid — `assert len(outputs)==num_outputs` enforces
   this). The learned weights compensate, so the bias stays compatible with the frame transport.
-- **GraphGPS PE/SE (Plain GraphGPS).** relative edge PE `model.net.use_edge_attr=true|false`
-  (Minkowski log|(pᵢ+pⱼ)²|); structural encoding `model.net.use_rwse=true|false`
+- **GraphGPS PE/SE (Plain GraphGPS).** ParT-pair edge features `model.net.use_edge_attr=true|false`
+  (lnΔ, ln kT, ln z, ln m² routed through the MPNN edge channel, ParticleNeXt-style); structural encoding `model.net.use_rwse=true|false`
   (+`model.net.rwse_k=K`); norm `model.net.norm=batch|layer`. CGENN GraphGPS relative edge features:
   `model.net.use_explicit_edge_features=true|false`.
 - **Depth (transformer / GPS blocks).** `model.net.num_layers=N` (Plain, ParticleNet-ParT) /
