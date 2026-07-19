@@ -15,7 +15,9 @@ ParT's cls-block-only dropout zeros) are kept, commented in code, and not listed
   `table_metrics_*.json` accumulation, automatic `[N trials] mean ± std` table rows.
 - Epoch budget: `training.epochs` → iterations derived at runtime (`_resolve_epoch_budget`);
   `CosineAnnealingWarmup` (linear warmup → cosine) scheduler option.
-- Table row extended with model name, trials tag, train time, per-jet FLOPs, kNN metric.
+- Table row extended with model name, trials tag, train time, per-jet FLOPs, kNN metric;
+  `aggregate_table.py` emits one table per task (top/XL/JetClass columns differ) and
+  JetClass emits an aggregator-compatible row.
 - Guardrail warnings: hybrid training at the unswept 512/1e-3 fallback; `seed` set together
   with a fresh trial; end-of-training loss-vs-accuracy checkpoint-selection cross-check.
 - Docs: `GUIDE.md`, `docs/{SLURM,OSCAR,ablations,diffs}.md`, `todo.md` ledger.
@@ -44,9 +46,19 @@ ParT's cls-block-only dropout zeros) are kept, commented in code, and not listed
   (The `jc_lgatr` `tag_gatr→top_lgatr` recipe-base rename was fixed on `main` directly,
   NOT here — it arrives via the merge, so it is not a fork-first fix.)
 
+## Fixed here, offered upstream (post-audit round)
+- `for_inference` single-logit heads use sigmoid (softmax over a 1-wide dim is constant 1.0);
+  guard/softmax on dim 1 (segmentation-safe). `pairwise_lv_fts` clamps delta_r2 BEFORE the
+  sqrt (sqrt(0) backward is NaN -> poisoned learned-frames grads on bit-identical pairs).
+  `boost_jet` forced off for pure-rotation frames (LearnedSO3/SO2; measured set).
+
 ## Conventions this fork sets (upstream has no stance)
 - Hybrid-family fairness: shared AdamW/schedule/budget, per-model batchsize+lr from the LR
-  finder; dropout kept per-reference (ParT-side blocks 0.1, GPS and L-GATr sides 0/none).
+  finder; dropout kept per-reference (ParT-side blocks 0.1, GPS and L-GATr sides 0/none);
+  `use_pre_activation_pair: false` on the PNParT hybrids (published-ParT parity); a uniform
+  `attn_dropout: 0.0` knob on all four GPS models (sdpa dropout_p; equivariance-safe);
+  Plain-GPS `use_edge_attr` = the ParT pair features MPNN-routed (ParticleNeXt-style
+  routing ablation), OFF by default so Plain stays the bare backbone.
 - JetClass recipes: `weight_decay: 0`, `epochs: 5` (ParT-standard exposure), per-model
   re-sweep of batchsize/lr on the jctagging task.
 

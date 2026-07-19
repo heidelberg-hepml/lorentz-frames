@@ -97,7 +97,9 @@ python run.py -cp config model=tag_ParticleNetParTGraphGPS \
     training=top_ParticleNetParTGraphGPS data.dataset=full gpus=1
 ```
 
-Useful overrides: `data.dataset={full,mini}`, `training.iterations=…`,
+Useful overrides: `data.dataset={full,mini}`, `training.iterations=…` (add
+`training.epochs=null` alongside it — the default recipes carry an epoch budget, and
+`epochs` takes precedence over an explicit iteration count),
 `training.batchsize=…`, `training.lr=…`, `gpus=N`, `save={true,false}`,
 `model.net.knn_metric={deltaR,minkowski}`, `model.net.num_blocks=…`.
 
@@ -342,7 +344,9 @@ its torch.compile path is version-sensitive, so smoke-test it on your GPU first)
 - **Different models do *not* merge** into one table — each lands in its own run
   directory with its own row. To build a comparison table, run
   `python aggregate_table.py --runs runs --split test --out comparison.tex` (it collects each
-  run's row into one LaTeX table; its `COLUMNS` includes `frames` and `kNN`), or do it by hand
+  run's row and emits ONE LaTeX table PER TASK -- toptagging / toptagxl / jctagging report
+  different metric columns, read from each run's saved `config.yaml` `exp_type`; JetClass
+  runs emit an aggregator-compatible `table test:` row too), or do it by hand
   from the printed `table test:` lines (`grep "table test:" runs/*/*/out_0.log`).
 
 For 3 seeds of a model: launch the run, then fresh-trial warm-start it twice more (same
@@ -365,8 +369,10 @@ invariance for the internally-equivariant ones (spurions off, fully connected,
 float64), and LLoCa-frame invariance for the canonicalized ones under both learned
 frames (`learnedpd` and `learnedso13`; `learnedpd` carries a looser float64 bound for
 its polar-decomposition boost-precision floor). The unit-test workflow
-(`.github/workflows/tests.yaml`) now runs the equivariance + invariance suites, but it
-only triggers on the `ready for review` label — so still run them locally as your gate.
+(`.github/workflows/tests.yaml`) now runs the equivariance + invariance suites on every
+push to main, on manual dispatch, and when the `ready for review` label is applied to a PR
+(a push to an already-labeled PR still skips — re-apply the label or dispatch manually;
+running locally before pushing remains the fastest gate).
 (`test_tag_flops.py` stays out of CI: its learned-frame cases need a CUDA-matched
 xformers build.)
 

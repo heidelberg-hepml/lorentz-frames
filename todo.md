@@ -60,9 +60,11 @@ All via Hydra overrides on `run.py` (use `-cp config` for the full configs). Eve
 recorded per-run in `config.yaml` + the flattened MLflow params, so any sweep is reconstructable
 from the run dir. **Surfaced in the results table** (`aggregate_table.py` `COLUMNS`): only `frames`
 (framesnet) and `kNN` (`knn_metric`); everything else (knn_k, num_layers/num_blocks, bias,
-pair_input_dim, use_rwse, use_edge_attr, …) lives only in config.yaml / MLflow. To put a knob in the
-head-to-head table, add it to `aggregate_table.py`'s `COLUMNS` string **and** the per-run `table …:`
-log line that the regex reads.
+pair_input_dim, use_rwse, use_edge_attr, …) lives only in config.yaml / MLflow. Rows are grouped into ONE
+table per task (toptagging / toptagxl / jctagging — different metric columns; `exp_type` read
+from each run's config.yaml; JetClass emits an aggregator-compatible row too). To put a knob in
+the head-to-head table, add it to `aggregate_table.py`'s per-task `COLUMNS` legend **and** the
+per-run `table …:` log line that the regex reads.
 
 - **kNN graph (all networks).** count `model.net.knn_k=K` (CGENN uses `model.net.k=K`); metric
   `model.net.knn_metric=deltaR|minkowski`; fully-connected = k ≥ P−1 (`9999`, or `model.net.k=null`

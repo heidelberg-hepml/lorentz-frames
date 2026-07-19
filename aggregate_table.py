@@ -23,10 +23,22 @@ import os
 import re
 from glob import glob
 
-COLUMNS = (
-    r"model & frames & iters & params & accuracy & AUC & "
-    r"$1/\epsilon_B$(0.3) & (0.5) & (0.8) & time & FLOPs & kNN"
-)
+COLUMNS = {
+    # toptagging / toptagxl (binary): the TaggingExperiment row format
+    "toptagging": (
+        r"model & frames & iters & params & accuracy & AUC & "
+        r"$1/\epsilon_B$(0.3) & (0.5) & (0.8) & time & FLOPs & kNN"
+    ),
+    "toptagxl": (
+        r"model & frames & iters & params & accuracy & AUC & "
+        r"$1/\epsilon_B$(0.3) & (0.5) & (0.8) & time & FLOPs & kNN"
+    ),
+    # jctagging (10-class): per-class rejections, no FLOPs column
+    "jctagging": (
+        r"model & frames & iters & params & accuracy & AUC(ovo) & "
+        r"$1/\epsilon_B$: HBB & HCC & HGG & H4Q & HQQL & TBQQ & TBL & WQQ & ZQQ & time & kNN"
+    ),
+}
 
 
 def latest_row(run_dir, split):
@@ -114,10 +126,14 @@ def main():
     tables = []
     for et in etypes:
         body = " \\\\\n".join(rows[k][1] for k in sorted(rows) if k[0] == et) + " \\\\"
+        first = next(rows[k][1] for k in sorted(rows) if k[0] == et)
+        ncols = first.count("&") + 1
+        colspec = "l l r r " + "c " * max(0, ncols - 7) + "r r l"
+        legend = COLUMNS.get(et, " & ".join(["col"] * ncols))
         tables.append(
             f"% task: {et}\n"
-            "% columns: " + COLUMNS + "\n"
-            "\\begin{tabular}{l l r r c c c c c r r l}\n"
+            "% columns: " + legend + "\n"
+            "\\begin{tabular}{" + colspec.strip() + "}\n"
             "\\hline\n" + body + "\n\\hline\n"
             "\\end{tabular}\n"
         )
