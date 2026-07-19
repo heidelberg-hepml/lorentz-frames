@@ -437,7 +437,6 @@ class BaseExperiment:
             f"Using optimizer {self.cfg.training.optimizer} with lr={self.cfg.training.lr}"
         )
 
-        # load existing optimizer if specified (skipped for fresh trials)
         if self.warm_start and self.warm_load:
             model_path = os.path.join(
                 self.cfg.run_dir, "models", f"model_run{self.cfg.warm_start_idx}.pt"
@@ -570,7 +569,6 @@ class BaseExperiment:
 
         LOGGER.debug(f"Using learning rate scheduler {self.cfg.training.scheduler}")
 
-        # load existing scheduler if specified (skipped for fresh trials)
         if self.warm_start and self.warm_load and self.scheduler is not None:
             model_path = os.path.join(
                 self.cfg.run_dir, "models", f"model_run{self.cfg.warm_start_idx}.pt"
@@ -588,7 +586,6 @@ class BaseExperiment:
         use_amp = OmegaConf.select(self.cfg.model, "use_amp", default=False)
         self.scaler = GradScaler(enabled=use_amp)
 
-        # load existing scaler if specified (skipped for fresh trials)
         if self.warm_start and self.warm_load and use_amp:
             model_path = os.path.join(
                 self.cfg.run_dir, "models", f"model_run{self.cfg.warm_start_idx}.pt"
