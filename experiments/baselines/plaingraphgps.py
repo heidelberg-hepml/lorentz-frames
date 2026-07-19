@@ -100,9 +100,16 @@ def pairwise_edge_attr(v, idx):
 
     v: (B, 4, P) as (px, py, pz, E); idx: (B, P, K). Returns (B, 4, P, K).
     """
-    nbr = gather_neighbors(v, idx)              # (B, 4, P, K)
-    ctr = v.unsqueeze(-1).expand_as(nbr)        # (B, 4, P, K), center broadcast over K
-    return pairwise_lv_fts(ctr, nbr, num_outputs=4)   # (B, 4, P, K)
+    # no_grad, matching EVERY reference implementation of these features (weaver's
+    # PairEmbed, lloca's ParT port, and this repo's hybrid PairEmbed all construct
+    # pairwise_lv_fts under no_grad): the features are a fixed relative encoding, not a
+    # framesnet learning path -- which also keeps the LLoCa treatment consistent across
+    # the family (PNParT's U bias carries no frame gradients either) and makes sqrt(0)'s
+    # NaN backward structurally unreachable (no clamp-before-sqrt needed).
+    with torch.no_grad():
+        nbr = gather_neighbors(v, idx)          # (B, 4, P, K)
+        ctr = v.unsqueeze(-1).expand_as(nbr)    # (B, 4, P, K), center broadcast over K
+        return pairwise_lv_fts(ctr, nbr, num_outputs=4)   # (B, 4, P, K)
 
 
 def rwse_encoding(idx, mask_p, k):
