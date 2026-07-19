@@ -99,9 +99,8 @@ class JetClassTaggingExperiment(TaggingExperiment):
                 file_fraction=1,
                 fetch_by_files=self.cfg.jc_params.fetch_by_files,
                 fetch_step=self.cfg.jc_params.fetch_step,
-                # infinity_mode (re-cycles the file list forever) belongs to the TRAIN
-                # split only: on val/test it makes the first validation/evaluation loop
-                # forever. steps_per_epoch bounds the train epoch length in that mode.
+                # infinity_mode (re-cycles files forever) is TRAIN-only: on val/test it
+                # would loop forever. steps_per_epoch bounds the train epoch in that mode.
                 infinity_mode=(label == "train" and self.cfg.jc_params.steps_per_epoch is not None),
                 in_memory=self.cfg.jc_params.in_memory,
                 name=label,
@@ -232,10 +231,9 @@ class JetClassTaggingExperiment(TaggingExperiment):
             tex_string += r" \\"
             LOGGER.info(tex_string)
 
-            # aggregate_table row (same machinery as the top-tagging table: per-trial
-            # accumulation via _collect_table_rows -> mean +- std across run_idx, grouped
-            # into a JetClass-specific tabular by exp_type). Columns: model & frames &
-            # iters[trials] & params & acc & auc_ovo & rej_<cls> x9 & time & kNN.
+            # aggregate_table row (per-trial accumulation via _collect_table_rows -> mean
+            # +- std across run_idx). Columns: model & frames & iters[trials] & params &
+            # acc & auc_ovo & rej_<cls> x9 & time & kNN.
             modelname = type(self.model.net).__name__
             frames_string = type(self.model.framesnet).__name__
             num_parameters = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
@@ -268,10 +266,9 @@ class JetClassTaggingExperiment(TaggingExperiment):
                 f" & {cell('train_time', '.0f')}s & {self._knn_description()} \\\\"
             )
 
-            # results-table row in the same parseable `table <split>:` format as the
-            # top-tagging path, so aggregate_table.py and the multi-trial mean +- std
-            # accumulation (table_metrics_*.json) cover JetClass runs too -- only the
-            # metric columns differ (ovo AUC + one rejection per non-QCD class).
+            # results-table row in the same `table <split>:` format as top-tagging, so
+            # aggregate_table.py covers JetClass too -- only the metric columns differ
+            # (ovo AUC + one rejection per non-QCD class).
             row = {
                 "accuracy": float(metrics["accuracy"]),
                 "auc_ovo": float(metrics["auc_ovo"]),

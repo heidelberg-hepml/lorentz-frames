@@ -78,12 +78,10 @@ class CGENNLGATrGPSLayer(nn.Module):
                  num_hidden_layers_mlp, head_scale, multi_query, activation, dropout_prob,
                  edge_attr_x_dim=0, node_attr_x_dim=0, node_attr_h_dim=0, attn_dropout=0.0):
         super().__init__()
-        # ---- local branch: one CGENN message-passing layer. residual=False because the GPS
-        #      layer owns the external residual. edge_attr_x_dim > 0 -> the layer consumes the
-        #      static relative-momentum edge multivectors; node_attr_{x,h}_dim > 0 -> the raw
-        #      inputs are re-injected as per-node attributes every layer (theta_x/theta_h) --
-        #      all three matching the GraphTrans CGENN stage. The static features are passed in
-        #      forward and shared across layers.
+        # ---- local branch: one CGENN message-passing layer. residual=False (the GPS layer
+        #      owns the residual). edge_attr_x_dim>0 consumes static relative-momentum edge
+        #      multivectors; node_attr_{x,h}_dim>0 re-injects the raw inputs every layer --
+        #      matching the GraphTrans CGENN stage. Static features are shared across layers.
         self.cgenn = CGLayer(
             algebra,
             mv_channels, mv_channels, mv_channels,
@@ -116,11 +114,10 @@ class CGENNLGATrGPSLayer(nn.Module):
         # ---- equivariant norm (stateless -> shared) + dropout ----
         self.norm = EquiLayerNorm()
         self.dropout = GradeDropout(dropout_prob if dropout_prob is not None else 0.0)
-        # attention-WEIGHTS dropout: lgatr's sdp_attention makes a single sdpa call on the
-        # concatenated (mv, s) values and forwards **attn_kwargs, so dropout_p rides through
-        # -- one joint mask keeps the streams consistent, and the weights are Lorentz
-        # invariants, so equivariance is preserved. 0.0 = bit-identical no-op (kwarg omitted;
-        # also keeps non-sdpa attention backends, which lack dropout_p, working).
+        # attention-WEIGHTS dropout: lgatr's sdp_attention forwards dropout_p to one sdpa
+        # call over concatenated (mv, s), so one joint mask keeps the streams consistent and
+        # the invariant weights preserve equivariance. 0.0 = no-op (kwarg omitted, so non-sdpa
+        # backends without dropout_p still work).
         self.attn_dropout = attn_dropout
 
     def forward(self, mv, s, edges, attn_mask, edge_attr_x=None,
@@ -130,11 +127,10 @@ class CGENNLGATrGPSLayer(nn.Module):
         # scalar inputs re-injected per node (or None when explicit edge features are off).
         B, P = mv.shape[0], mv.shape[1]
 
-        # ---- local branch (Eq. 9): CGENN message passing on the static kNN graph.
-        # The dense B*P layout (padded slots included) is kept deliberately: it
-        # matches official CGENN, whose theta_h BatchNorm also runs over the padded
-        # nodes. Edges connect real nodes only, so padding does not propagate
-        # through message passing -- only into the scalar BN statistics, as upstream.
+        # ---- local branch (Eq. 9): CGENN message passing on the static kNN graph. The
+        # dense B*P layout (padded slots included) matches official CGENN, whose theta_h
+        # BatchNorm also runs over padded nodes. Edges connect real nodes only, so padding
+        # reaches only the scalar BN stats, not message passing -- as upstream.
         s_loc, mv_loc = self.cgenn(
             s.reshape(B * P, -1), mv.reshape(B * P, -1, 16), edges,
             node_attr_h=node_attr_h, node_attr_x=node_attr_x,
@@ -241,15 +237,11 @@ class CGENNLGATrGraphGPS(nn.Module):
         ])
         self.final_norm = EquiLayerNorm()
 
-        # invariant head: the FULL multivector invariants (grade-0 plus the norms of grades
-        # 1-4) of the pooled mv, concatenated with the pooled scalars, then MLP -> logits.
-        # This is exactly pure CGENN's readout (`get_invariants` = grade-0 + qs(grades[1:])).
-        # We extract every grade's invariant rather than only extract_scalar's grade-0 because
-        # the mean-pool cannot learn to route higher-grade content into grade-0 the way a CLS
-        # token can (see the LorentzNet-slim GPS head, which likewise pools vector norms) --
-        # so the discarded-grade invariants (vector/trivector norms, the two bivector
-        # invariants, the pseudoscalar) are surfaced here. n_mv_inv = len(grades) invariants
-        # per mv channel; all are Lorentz-invariant, so the readout stays invariant.
+        # invariant head: FULL multivector invariants (grade-0 + norms of grades 1-4) of the
+        # pooled mv, concat pooled scalars, MLP -> logits. Exactly pure CGENN's readout
+        # (get_invariants). We surface every grade (not just extract_scalar's grade-0) because
+        # mean-pool can't route higher grades into grade-0 like a CLS token can. n_mv_inv =
+        # len(grades) invariants/channel, all Lorentz-invariant, so the readout stays invariant.
         n_mv_inv = len(self.algebra.grades)
         head, d = [], hidden_mv_channels * n_mv_inv + hidden_s_channels
         for _ in range(head_layers):
@@ -305,11 +297,9 @@ class CGENNLGATrGraphGPS(nn.Module):
                           node_attr_x=node_attr_x, node_attr_h=node_attr_h)
 
         # Stage 5: final norm + per-node invariants + masked mean pool + head.
-        # get_invariants is applied PER NODE and THEN mean-pooled (extract-then-pool),
-        # exactly as pure CGENN's readout (cgenn.py) and the LorentzNet-slim GPS head --
-        # NOT pool-then-extract. Grade-0 agrees either way (linear), but the grade norms
-        # are nonlinear, so the mean of the per-node norms (this) differs from the norm of
-        # the mean multivector.
+        # get_invariants is applied PER NODE then mean-pooled (extract-then-pool), as in pure
+        # CGENN -- NOT pool-then-extract. Grade-0 agrees either way (linear), but the nonlinear
+        # grade norms don't: mean of per-node norms != norm of the mean multivector.
         mv, s = self.final_norm(mv, scalars=s)
         m = mask[..., None].to(s.dtype)                  # (B, P, 1)
        

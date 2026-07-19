@@ -100,14 +100,12 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
             device=scalars.device,
         )
         scalars[~is_spurion] = scalars_buffer
-        # NB: this mutates the caller's `ptr` in place (and `fourmomenta` below, for mass_reg).
-        # Safe in the train/eval loop since each batch is embedded exactly once; if you ever embed
-        # the same batch twice, clone ptr/fourmomenta first, or the second call double-counts spurions.
+        # NB: mutates the caller's ptr (and fourmomenta below) in place. Safe since each
+        # batch is embedded once; embedding twice double-counts spurions -- clone first.
         ptr[1:] = ptr[1:] + (arange + 1) * n_spurions
 
-    # add mass regulator -- to the REAL particles only: a spacelike beam spurion
-    # (m^2 = -1) always satisfies m^2 < mass_reg^2 and would be silently converted
-    # into an effectively lightlike beam, voiding the spacelike-vs-lightlike ablation
+    # mass regulator on REAL particles only: a spacelike beam spurion (m^2=-1) satisfies
+    # m^2 < mass_reg^2 and would be forced lightlike, voiding the spacelike ablation.
     if cfg_data.mass_reg is not None:
         mass_reg = cfg_data.mass_reg
         mask = (lorentz_squarednorm(fourmomenta) < mass_reg**2) & ~is_spurion
@@ -115,14 +113,10 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
 
     batch = get_batch_from_ptr(ptr)
 
-    # tagging features are computed BEFORE any jet-rest-frame boost, from the original
-    # momenta and the true jet. Computing them after the boost (the previous order)
-    # degenerates 4 of the 7 features -- the rest-frame jet has pt ~ 0, so pt_jet hits
-    # its clamp and phi_jet/eta_jet come from atan2/eta of a numerically-zero vector,
-    # making dphi/deta/dr rotation-UNSTABLE garbage that measurably breaks even the
-    # SO(2) invariance of every learned-frames row (verified: xyrotation max MSE
-    # O(10^2..10^4) before this reordering, O(10^-8) after). This also aligns the
-    # feature semantics with boost_jet=false setups (identity-frames rows, JetClass).
+    # compute tagging features BEFORE any jet-rest-frame boost. After the boost (the old
+    # order) the rest-frame jet has pt~0, so pt_jet clamps and phi_jet/eta_jet come from a
+    # numerically-zero vector -- dphi/deta/dr become rotation-unstable and break even SO(2)
+    # invariance (verified: xyrotation max MSE O(10^2..10^4) before, O(10^-8) after).
     jet = scatter(fourmomenta[~is_spurion], batch[~is_spurion], dim=0, reduce="sum").index_select(
         0, batch
     )
