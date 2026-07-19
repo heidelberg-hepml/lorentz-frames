@@ -92,7 +92,9 @@ per-run `table …:` log line that the regex reads.
 
 Other knobs worth a sweep: width/capacity (`hidden_*_channels`, `dim`, `gnn_dims`, `embed_dim`);
 input-skip (`model.net.use_input_concat`); residual-symmetry spurions on the equivariant models
-(`model.net.beam_spurion`, `model.net.add_time_spurion`); dropout. Depth and width move the param
+(`model.net.beam_spurion`, `model.net.add_time_spurion`); dropout — incl. the uniform
+`model.net.attn_dropout` knob on all four GPS models (attention-weights dropout via sdpa;
+GraphGPS ships 0.5, jet lineage ships none — a one-override family row on top-tagging). Depth and width move the param
 count (a table column) — pair them with FLOPs/time for a fair efficiency plot.
 
 **Off by design: global spectral PE/SE (LapPE / SignNet / eigenvalue SE).** A LapPE node-encoder

@@ -106,7 +106,9 @@ Useful overrides: `data.dataset={full,mini}`, `training.iterations=…` (add
 Each run prints a paste-ready LaTeX table row at the end:
 `table test: <Model> & <frames> & <iters> [N trials] & <params> & <acc> & <auc> &
 <rej03> & <rej05> & <rej08> & <time>s & <flops> & <kNN>` (the `[N trials]` tag and
-`mean ± std` cells appear once a run directory holds more than one trial, §8).
+`mean ± std` cells appear once a run directory holds more than one trial, §8; JetClass runs
+emit the same-form row with per-class rejections instead of rej03/05/08 — toptagxl shares
+the top-tagging columns exactly, its evaluation is fully inherited).
 
 ---
 
