@@ -82,11 +82,21 @@ def main():
         row, mtime = latest_row(d, args.split)
         if row is None:
             continue
+        etype = "unknown"
+        try:
+            with open(os.path.join(d, "config.yaml")) as f:
+                m = re.search(r"^exp_type:\s*(\S+)", f.read(), re.M)
+                if m:
+                    etype = m.group(1)
+        except OSError:
+            pass
         cells = [c.strip() for c in row.split("&")]
         model = cells[0]
         frames = cells[1] if len(cells) > 1 else ""
         knn = cells[-1] if len(cells) > 2 else ""
-        key = (model, frames, knn)
+        # different tasks (toptagging / toptagxl / jctagging) report different metric
+        # columns -> group into SEPARATE tables keyed by the run's exp_type
+        key = (etype, model, frames, knn)
         if key in rows:
             prev_mtime, prev_row, prev_dir = rows[key]
             if prev_row != row:
@@ -100,13 +110,18 @@ def main():
         print(f"No 'table {args.split}:' rows found under {args.runs}/")
         return
 
-    body = " \\\\\n".join(rows[k][1] for k in sorted(rows)) + " \\\\"
-    table = (
-        "% columns: " + COLUMNS + "\n"
-        "\\begin{tabular}{l l r r c c c c c r r l}\n"
-        "\\hline\n" + body + "\n\\hline\n"
-        "\\end{tabular}\n"
-    )
+    etypes = sorted({k[0] for k in rows})
+    tables = []
+    for et in etypes:
+        body = " \\\\\n".join(rows[k][1] for k in sorted(rows) if k[0] == et) + " \\\\"
+        tables.append(
+            f"% task: {et}\n"
+            "% columns: " + COLUMNS + "\n"
+            "\\begin{tabular}{l l r r c c c c c r r l}\n"
+            "\\hline\n" + body + "\n\\hline\n"
+            "\\end{tabular}\n"
+        )
+    table = "\n".join(tables)
     print(table)
     if args.out:
         with open(args.out, "w") as f:
