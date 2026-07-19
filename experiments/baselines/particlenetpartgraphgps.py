@@ -254,6 +254,6 @@ class ParticleNetParTGraphGPS(nn.Module):
             if self.for_inference:
                 # single-logit (binary, BCE-style) heads must use sigmoid: softmax over a
                 # 1-wide dim is identically 1.0 (constant score -> silent AUC 0.5)
-                output = (torch.sigmoid(output) if output.shape[-1] == 1
-                          else torch.softmax(output, dim=-1))
+                output = (torch.sigmoid(output) if output.shape[1] == 1
+                          else torch.softmax(output, dim=1))
             return output
