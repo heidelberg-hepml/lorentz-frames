@@ -4,7 +4,7 @@
 
 
 ## GTagger WIP repo, ignore below or just view the forked repo
-# also note there is currently LLM made documentation (and guide.md) if you need it but this repo is in active development
+### also note there is currently LLM made documentation (and guide.md) if you need it but this repo is in active development
 
 [![pytorch](https://img.shields.io/badge/PyTorch_2.0+-ee4c2c?logo=pytorch&logoColor=white)](https://pytorch.org/get-started/locally/)
 [![hydra](https://img.shields.io/badge/Config-Hydra_1.3-89b8cd)](https://hydra.cc/)
