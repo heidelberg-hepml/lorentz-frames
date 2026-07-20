@@ -1,0 +1,43 @@
+_target_: experiments.tagging.wrappers.ParticleNetParTGraphGPSWrapper
+in_channels: null               # init_physics -> 7 + extra_scalars
+out_channels: null              # init_physics -> num_outputs
+use_amp: false
+add_fourmomenta_backbone: false
+
+net:
+  _target_: experiments.baselines.particlenetpartgraphgps.ParticleNetParTGraphGPS
+  _partial_: true
+  input_dim: null               # supplied by the wrapper (= in_channels)
+  num_classes: null             # supplied by the wrapper (= out_channels)
+
+  # EdgeConv local branch (dynamic kNN, rebuilt from hidden features each layer)
+  knn_k: 4
+  knn_metric: deltaR            # how layer-0 graph is seeded: 'deltaR' (eta-phi) or 'minkowski' (4-momenta)
+  edge_mlp_layers: 2
+  use_fts_bn: true
+
+  # ParT pairwise interaction bias on the global attention (ParT-style U_ij)
+  bias: true
+  pair_input_dim: 4
+  pair_extra_dim: 0
+  pair_embed_dims: [16, 16]
+  remove_self_pair: false
+  use_pre_activation_pair: false   # published-ParT parity (see config/model note)
+
+  # interleaved GPS layers (tensorial EdgeConv local + LLoCa-tensorial ParT attn global)
+  dim: 16
+  num_layers: 2
+  num_heads: 2
+  attn_reps: "4x0n+1x1n"        # attn_reps.dim(8) * num_heads(2) = 16 = dim
+  edge_reps: "8x0n+2x1n"        # edge_reps.dim = 16 = dim
+  ffn_ratio: 2                  # GraphGPS FFN inner width = 2 * dim
+  dropout: 0.0
+  attn_dropout: 0.0
+  act: relu
+  norm: batch                   # 'batch' (GraphGPS default, every config) or 'layer' (padding-safe ablation)
+
+  head_layers: 2
+  for_inference: false
+
+defaults:
+  - framesnet: identity

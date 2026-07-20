@@ -1,0 +1,53 @@
+_target_: experiments.tagging.wrappers.PlainGraphGPSWrapper
+in_channels: null               # init_physics -> 7 + extra_scalars
+out_channels: null              # init_physics -> num_outputs
+use_amp: false
+add_fourmomenta_backbone: false
+
+net:
+  _target_: experiments.baselines.plaingraphgps.PlainGraphGPS
+  _partial_: true
+  input_dim: null               # supplied by the wrapper (= in_channels)
+  num_classes: null             # supplied by the wrapper (= out_channels)
+
+  # static kNN graph (built once, reused by every GPS layer)
+  knn_k: 16
+  knn_metric: deltaR            # 'deltaR' (eta-phi L2) or 'minkowski' (4-momenta)
+  use_fts_bn: true
+
+  # GraphGPS ingredients, OFF by default so PlainGraphGPS vs PlainGraphTrans
+  # isolates the interleaved-vs-sequential fusion (see the module docstring):
+  # OFF by default, deliberately: (1) the headline Plain row must stay the BARE backbone --
+  # pairwise information is PNParT's lineage feature (ParT's U bias), and giving it to Plain
+  # by default would make Plain a second pairwise model; (2) PlainGraphTrans's MPNN is
+  # edge-free, so GT-vs-GPS stays a pure fusion comparison only while both MPNNs are; (3) on
+  # = the ROUTING ablation only (same ParT pair features lnD/lnkT/lnz/lnm2, MPNN messages vs
+  # attention bias -- ParticleNeXt's design, which did not beat ParT's routing).
+  use_edge_attr: false
+  use_rwse: false               # on -> Random-Walk Structural Encoding (local SE) on the kNN graph
+  rwse_k: 16
+  use_lappe: false              # on -> LapPE (Laplacian-eigvec PE); least motivated for jets, O(B*P^3)
+  lappe_k: 8
+
+  # interleaved GPS layers (tensorial local static-MPNN + LLoCa-tensorial torch-MHA)
+  dim: 128
+  num_layers: 10
+  num_heads: 8
+  # LLoCa message-passing reps (shared by every layer, since h keeps width dim):
+  #   attn_reps per head -> dim = attn_reps.dim(16) * num_heads(8) = 128
+  #   edge_reps for the local-MPNN hidden features -> edge_reps.dim = dim = 128
+  # Both carry vectors (Nx1n) so geometry flows through the frame transport. Purely
+  # additive -> a no-op under identity frames (bit-identical to the plain backbone).
+  attn_reps: "8x0n+2x1n"
+  edge_reps: "64x0n+16x1n"
+  ffn_ratio: 2                  # GraphGPS FFN inner width = 2 * dim
+  dropout: 0.0
+  attn_dropout: 0.0
+  act: relu
+  norm: batch                   # 'batch' (GraphGPS default, every config) or 'layer' (padding-safe ablation)
+
+  head_layers: 2
+  for_inference: false
+
+defaults:
+  - framesnet: identity

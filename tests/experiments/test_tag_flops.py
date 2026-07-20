@@ -22,6 +22,7 @@ from experiments.tagging.experiment import TopTaggingExperiment
     [
         ["model=tag_ParT"],
         ["model=tag_particlenet"],
+        ["model=tag_ParticleNetParTGraphTrans"],
         ["model=tag_transformer"],
         ["model=tag_graphnet"],
         ["model=tag_graphnet", "model.include_edges=true"],
@@ -30,6 +31,13 @@ from experiments.tagging.experiment import TopTaggingExperiment
         ["model=tag_MIParT-L"],
         ["model=tag_lorentznet"],
         ["model=tag_pelican_fair"],
+        ["model=tag_CGENNLGATrGraphTrans"],
+        ["model=tag_LorentzNetLGATrSlimGraphTrans"],
+        ["model=tag_PlainGraphTrans"],
+        ["model=tag_PlainGraphGPS"],
+        ["model=tag_ParticleNetParTGraphGPS"],
+        ["model=tag_CGENNLGATrGraphGPS"],
+        ["model=tag_LorentzNetLGATrSlimGraphGPS"],
     ],
 )
 def test_tagging(framesnet, model_list, equivectors, jet_size=50):
@@ -52,8 +60,10 @@ def test_tagging(framesnet, model_list, equivectors, jet_size=50):
     exp.init_physics()
     try:
         exp.init_model()
-    except Exception:
-        return
+    except Exception as e:
+        # environment-dependent model inits (e.g. xformers-pinned attention baselines on
+        # a CPU-only runner) are tolerated -- but VISIBLY, as a skip, not a silent PASS
+        pytest.skip(f"init_model failed (environment-dependent): {type(e).__name__}: {e}")
     exp.init_data()
     exp._init_dataloader()
     exp._init_loss()

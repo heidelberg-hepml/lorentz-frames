@@ -1,0 +1,38 @@
+_target_: experiments.tagging.wrappers.LorentzNetLGATrSlimGraphGPSWrapper
+out_channels: null              # init_physics -> num_outputs
+
+net:
+  _target_: experiments.baselines.lorentznetlgatrslimgraphgps.LorentzNetLGATrSlimGraphGPS
+  _partial_: true
+  in_s_channels: null           # init_physics -> extra_scalars + tagging features
+  # num_classes is supplied by the wrapper at call time (= out_channels)
+
+  # dual-stream hidden widths (4-vectors + scalars)
+  hidden_v_channels: 4
+  hidden_s_channels: 8
+
+  # interleaved equivariant GPS layers (LorentzNet edge conv local + slim attn global)
+  num_blocks: 2
+  num_heads: 2
+  attn_ratio: 1
+  mlp_ratio: 2
+  num_layers_mlp: 2
+  nonlinearity: gelu
+  dropout_prob: null
+  attn_dropout: 0.0   # attention-weights dropout (sdpa dropout_p); 0.0 = no-op
+
+  # static kNN graph + per-layer LorentzNet edge conv
+  knn_k: 4
+  knn_metric: minkowski         # 'minkowski' (Lorentz-invariant) or 'deltaR' (eta-phi L2)
+  c_weight: 5e-3
+  use_phi_m: true               # LorentzNet per-edge gate
+  use_node_attr: true           # official LorentzNet: raw input scalars re-injected into phi_h every layer
+
+  # input-stage spurions (both on -> residual symmetry SO(2) about the beam)
+  use_time_spurion: true
+  use_beam_spurion: true
+
+  head_layers: 2
+
+defaults:
+  - framesnet: identity

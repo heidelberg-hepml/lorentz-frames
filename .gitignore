@@ -16,8 +16,15 @@ mlruns/
 outputs/
 scripts/
 data/jetclass/
+data/JetClass/
+data/toptagxl/
 *~
 *.hdf5
 *.npy
 *.npz
 *.ipynb_checkpoint*
+
+# find_lr.py default outputs (plot; the .npz is already covered above)
+lr_finder_*.png
+
+

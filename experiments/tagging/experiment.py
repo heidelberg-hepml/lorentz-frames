@@ -1,3 +1,4 @@
+import json
 import os
 import time
 
@@ -22,6 +23,33 @@ class TaggingExperiment(BaseExperiment):
     def init_physics(self):
         modelname = self.cfg.model.net._target_.rsplit(".", 1)[-1]
         self.momentum_dtype = torch.float64 if self.cfg.data.momentum_float64 else torch.float32
+
+        if self.world_size > 1:
+            # Single-GPU only: DDP wraps the model but nothing unwraps `.module`, so
+            # learned-frames introspection silently degrades (jet_frames->None, skipped
+            # standardization, lost CLS wd-exemption, unloadable module.* keys, no rank
+            # sharding). Silent quality loss, not a crash -- so error out explicitly.
+            raise RuntimeError(
+                "Multi-GPU tagging is disabled: the DDP wrapping breaks learned-frames "
+                "introspection and checkpoint compatibility (see the audit notes in "
+                "docs/diffs.md). Run with gpus=1."
+            )
+
+        # Hybrid recipes ship batchsize/lr as '???', but OmegaConf MISSING can't override
+        # the tag_default values, so an unfilled recipe silently falls back to 512 / 1e-3.
+        if self.cfg.train and modelname.endswith(("GraphTrans", "GraphGPS")):
+            # check each knob independently: filling one placeholder must not mute the other
+            unswept = []
+            if float(self.cfg.training.lr) == 1e-3:
+                unswept.append("lr=1e-3")
+            if int(self.cfg.training.batchsize) == 512:
+                unswept.append("batchsize=512")
+            if unswept:
+                LOGGER.warning(
+                    f"{modelname} is training at the UNSWEPT family fallback "
+                    f"({', '.join(unswept)}) -- did you forget to fill its recipe "
+                    "from find_lr.py?"
+                )
 
         self.cfg.model.out_channels = self.num_outputs
         if modelname in [
@@ -54,17 +82,15 @@ class TaggingExperiment(BaseExperiment):
                 # CGENN cant handle zero scalar inputs -> give 1 input with zeros
                 self.cfg.model.net.in_features_h = 1 + in_s_channels
             elif modelname == "CGENNLGATrGraphTrans":
-                # zero scalar inputs doesn't really happen so I ignore it out of practicality
                 self.cfg.model.net.in_s_channels = in_s_channels
             elif modelname == "LorentzNetLGATrSlimGraphTrans":
                 self.cfg.model.net.in_s_channels = in_s_channels
             elif modelname == "CGENNLGATrGraphGPS":
-                #same thing
                 self.cfg.model.net.in_s_channels = in_s_channels
             elif modelname == "LorentzNetLGATrSlimGraphGPS":
                 self.cfg.model.net.in_s_channels = in_s_channels
 
-            # doesn't affect results and never needed
+            # equivariant models: boost_jet is a no-op
             self.cfg.data.boost_jet = False
         elif modelname in [
             "Transformer",
@@ -72,10 +98,10 @@ class TaggingExperiment(BaseExperiment):
             "GraphNet",
             "ParticleNet",
             "MIParticleTransformer",
-            "ParticleNetParTGraphTrans"
-            "ParticleNetParTGraphGPS"
-            "PlainGraphTrans"
-            "PlainGraphGPS"
+            "ParticleNetParTGraphTrans",
+            "ParticleNetParTGraphGPS",
+            "PlainGraphTrans",
+            "PlainGraphGPS",
         ]:
             # Non-equivariant or canonicalization
             self.cfg.model.in_channels = 7 + self.extra_scalars
@@ -96,6 +122,24 @@ class TaggingExperiment(BaseExperiment):
                 )
                 self.cfg.model.framesnet.equivectors.num_scalars = self.extra_scalars
                 self.cfg.model.framesnet.equivectors.num_scalars += num_tagging_features
+                # PURE-ROTATION frames (LearnedSO3/SO2) can't restore a boosted jet's
+                # momentum: boost_jet strands it at (M,0,0,0) and 4/7 local tagging features
+                # degenerate. Measured frame-local median pt/E (float64): so3/so2 4.5e-15
+                # (stranded) vs pd/so13 0.75, z 0.37 (z carries transverse boosts -> not
+                # stranded). Physics-consistency choice, not an invariance break.
+                frames_target = str(
+                    self.cfg.model.framesnet.get("_target_", "")
+                ).rsplit(".", 1)[-1]
+                if self.cfg.data.boost_jet and frames_target in (
+                    "LearnedSO3Frames",
+                    "LearnedSO2Frames",
+                ):
+                    LOGGER.info(
+                        f"Forcing data.boost_jet=false for the pure-rotation framesnet "
+                        f"{frames_target}: it cannot un-rest the boosted jet, which would "
+                        f"degenerate the jet-relative local tagging features."
+                    )
+                    self.cfg.data.boost_jet = False
             else:
                 # not allowed, because the network is not Lorentz-equivariant
                 self.cfg.data.boost_jet = False
@@ -178,9 +222,18 @@ class TaggingExperiment(BaseExperiment):
             self.model.init_standardization(embedding["fourmomenta"], embedding["ptr"])
 
     def _init_optimizer(self, param_groups=None):
-        if self.cfg.model.net._target_.rsplit(".", 1)[-1] in [
+        # ParT/weaver weight-decay grouping. Beyond the base default it only excludes the
+        # learnable CLS token(s) (net.no_weight_decay()) from decay -- base already exempts
+        # norms/biases and groups the framesnet. So only class-token models belong here;
+        # mean-pool GraphGPS models (empty no_weight_decay()) fall through to base. Caller
+        # groups (finetune's split backbone/head lrs) must NOT be clobbered by the match below.
+        if param_groups is None and self.cfg.model.net._target_.rsplit(".", 1)[-1] in [
             "ParticleTransformer",
             "MIParticleTransformer",
+            "ParticleNetParTGraphTrans",
+            "LorentzNetLGATrSlimGraphTrans",
+            "CGENNLGATrGraphTrans",
+            "PlainGraphTrans",
         ]:
             # special treatment for ParT, see
             # https://github.com/hqucms/weaver-core/blob/dev/custom_train_eval/weaver/train.py#L464
@@ -191,7 +244,10 @@ class TaggingExperiment(BaseExperiment):
                 if (
                     len(param.shape) == 1
                     or name.endswith(".bias")
-                    or (hasattr(self.model.net, "no_weight_decay") and name in {"cls_token"})
+                    or (
+                        hasattr(self.model.net, "no_weight_decay")
+                        and name in self.model.net.no_weight_decay()
+                    )
                 ):
                     no_decay[name] = param
                 else:
@@ -264,6 +320,8 @@ class TaggingExperiment(BaseExperiment):
         ).item()
         labels_predict = torch.nn.functional.sigmoid(labels_predict)
         if mode == "eval":
+            # store sigmoid PROBABILITIES not logits: plot_score histograms over [0,1]
+            # (matplotlib drops out-of-range values, so logits made score.pdf meaningless)
             metrics["labels_true"], metrics["labels_predict"] = (
                 labels_true,
                 labels_predict,
@@ -306,15 +364,157 @@ class TaggingExperiment(BaseExperiment):
                 log_mlflow(f"{name}.{key}", value, step=step)
 
         if mode == "eval":
-            framesString = type(self.model.framesnet).__name__
-            num_parameters = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
-
-            LOGGER.info(
-                f"table {title}: {framesString} ({self.cfg.training.iterations} iterations)"
-                f" & {num_parameters} & {metrics['accuracy']:.4f} & {metrics['auc']:.4f}"
-                f" & {metrics['rej03']:.0f} & {metrics['rej05']:.0f} & {metrics['rej08']:.0f} \\\\"
+            # per-trial scalars, accumulated across run_idx for table mean +- std
+            row = {
+                # float() casts: numpy scalars are not JSON-serializable
+                "accuracy": float(metrics["accuracy"]),
+                "auc": float(metrics["auc"]),
+                "rej03": float(metrics["rej03"]),
+                "rej05": float(metrics["rej05"]),
+                "rej08": float(metrics["rej08"]),
+                "train_time": getattr(self, "train_time", None),
+            }
+            self._log_table_row(
+                loader,
+                title,
+                row,
+                [
+                    ("accuracy", ".4f"),
+                    ("auc", ".4f"),
+                    ("rej03", ".0f"),
+                    ("rej05", ".0f"),
+                    ("rej08", ".0f"),
+                ],
             )
         return metrics
+
+    def _frames_description(self):
+        """Frames-column cell: the framesnet class name, disambiguated where one class
+        serves several config variants (all four random-frames configs -- randomlorentz /
+        randomrotation / randomxyrotation / randomztransform -- instantiate the same
+        ``RandomFrames`` class; without the transform_type they would collide into a
+        single aggregate_table row)."""
+        fn = self.model.framesnet
+        name = type(fn).__name__
+        kind = getattr(fn, "transform_type", None)
+        return f"{name}({kind})" if kind is not None else name
+
+    def _log_table_row(self, loader, title, row, metric_fmts):
+        """Emit the parseable ``table <title>:`` results row for this split.
+
+        ``row`` holds this trial's scalar metrics (every key in ``metric_fmts`` plus
+        ``train_time``); ``metric_fmts`` is the ordered ``(key, fmt)`` list of metric
+        columns, so subclasses with different metric sets (e.g. JetClass's per-class
+        rejections) share the surrounding model/frames/params/flops/kNN plumbing and
+        the multi-trial mean +- std accumulation (see ``_collect_table_rows``).
+        """
+        modelname = type(self.model.net).__name__
+        framesString = self._frames_description()
+        num_parameters = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+        knn = self._knn_description()
+        flops = self._count_flops(loader)
+        flops_str = f"{flops:.3e}" if flops is not None else "n/a"
+
+        rows = self._collect_table_rows(title, row)
+        n_trials = len(rows)
+
+        def cell(key, fmt):
+            vals = [r[key] for r in rows if r.get(key) is not None]
+            if not vals:
+                return "n/a"
+            if len(vals) == 1:
+                return format(vals[0], fmt)
+            arr = np.asarray(vals, dtype=float)
+            return f"${format(arr.mean(), fmt)} \\pm {format(arr.std(ddof=1), fmt)}$"
+
+        trials = f" [{n_trials} trials]" if n_trials > 1 else ""
+        time_cell = cell("train_time", ".0f")
+        if time_cell != "n/a":
+            time_cell += "s"
+        metric_cells = " & ".join(cell(key, fmt) for key, fmt in metric_fmts)
+        # columns: model & frames & iters[trials] & params & <metrics...> & traintime
+        #          & flops & knn
+        LOGGER.info(
+            f"table {title}: {modelname} & {framesString}"
+            f" & {self.cfg.training.iterations}{trials}"
+            f" & {num_parameters} & {metric_cells}"
+            f" & {time_cell} & {flops_str} & {knn} \\\\"
+        )
+
+    def _collect_table_rows(self, title, row):
+        """Persist this run's table metrics and return all trials in the run dir.
+
+        Trials/seeds are successive run_idx sharing one run dir (fresh-trial warm
+        starts, warm_start_load=false -- see GUIDE.md section 8), launched SEQUENTIALLY
+        (the JSON accumulation is not locked). Their scalars accumulate in a JSON file
+        so the final table reports mean +- std. save=False writes nothing.
+
+        Rows are keyed by trial LINEAGE: a continue-training warm start extends an
+        existing trial, so its row REPLACES the parent's instead of appending a
+        duplicate (which would fake a trial and shrink the std).
+        """
+        if not self.cfg.save:
+            return [row]
+        path = os.path.join(self.cfg.run_dir, f"table_metrics_{title}.json")
+        rows = []
+        if os.path.exists(path):
+            try:
+                with open(path) as f:
+                    rows = json.load(f)
+            except (json.JSONDecodeError, OSError):
+                rows = []
+        if not self.cfg.train:
+            # eval-only rerun re-evaluates an already-counted trial; appending would
+            # duplicate its row and shrink the std, so just report the persisted trials.
+            return rows if rows else [row]
+        run_idx = int(self.cfg.run_idx or 0)
+        lineage = run_idx
+        if self.warm_start and self.warm_load:
+            # continue-training: inherit the parent trial's lineage root (chained
+            # continuations then still collapse onto one row)
+            parent = int(self.cfg.warm_start_idx)
+            parent_row = next((r for r in rows if r.get("run_idx") == parent), None)
+            lineage = parent_row.get("lineage", parent) if parent_row is not None else parent
+        row = dict(row, run_idx=run_idx, lineage=lineage)
+        # legacy rows without lineage bookkeeping are kept as separate trials
+        rows = [r for r in rows if r.get("lineage", object()) != lineage]
+        rows.append(row)
+        try:
+            with open(path, "w") as f:
+                json.dump(rows, f)
+        except OSError as e:
+            LOGGER.warning(f"Could not persist table metrics to {path}: {e}")
+        return rows
+
+    def _knn_description(self):
+        """Short label for the model's kNN graph metric, or '-' if it has none."""
+        net = getattr(self.model, "net", None)
+        metric = getattr(net, "knn_metric", None)
+        if metric is not None:
+            return metric
+        if type(net).__name__ == "ParticleNet":
+            return "deltaR"  # L2 on (eta, phi)
+        return "-"
+
+    @torch.no_grad()
+    def _count_flops(self, loader):
+        """Forward FLOPs for a single jet (batchsize 1), as in test_tag_flops."""
+        try:
+            from torch.utils.flop_counter import FlopCounterMode
+
+            batch = next(iter(loader)).clone().to(self.device)
+            n = int(batch.ptr[1].item())  # keep only the first jet
+            batch.x = batch.x[:n]
+            batch.scalars = batch.scalars[:n]
+            batch.batch = batch.batch[:n]
+            batch.ptr = batch.ptr[:2]
+            batch.label = batch.label[:1]
+            with FlopCounterMode(display=False) as flop_counter:
+                self._get_ypred_and_label(batch)
+            return flop_counter.get_total_flops()
+        except Exception as e:
+            LOGGER.warning(f"FLOPs counting failed: {e}")
+            return None
 
     def plot(self):
         plot_path = os.path.join(self.cfg.run_dir, f"plots_{self.cfg.run_idx}")
@@ -356,7 +556,52 @@ class TaggingExperiment(BaseExperiment):
         else:
             metrics = self._evaluate_single(self.val_loader, "val", mode="val", step=step)
         self.val_loss.append(metrics["loss"])
+        # (step, loss, accuracy) history for _log_checkpoint_selection cross-check
+        if not hasattr(self, "val_selection_history"):
+            self.val_selection_history = []
+        self.val_selection_history.append((step, metrics["loss"], metrics["accuracy"]))
+        # best_model_metric selects which checkpoint es_load_best_model keeps. Default
+        # 'loss'; 'accuracy' returns 1 - accuracy so the loop's "lower is better" holds.
+        if self.cfg.training.get("best_model_metric", "loss") == "accuracy":
+            return 1.0 - metrics["accuracy"]
         return metrics["loss"]
+
+    def _log_checkpoint_selection(self, best_step):
+        """Cross-check the kept checkpoint against selection-by-accuracy.
+
+        Runs after the best-val-loss restore. Selection-by-loss and -by-accuracy usually
+        agree; small argmax divergence is common late in training (accuracy is a thresholded
+        count, so near-ties are settled by counting noise), but a MATERIAL accuracy gap is
+        rare and worth eyes -- it is the one signal that selection-by-loss cost accuracy.
+        Only meaningful under the default best_model_metric='loss' (under 'accuracy' the
+        kept checkpoint IS the accuracy argmax).
+        """
+        hist = getattr(self, "val_selection_history", [])
+        if len(hist) < 2 or self.cfg.training.get("best_model_metric", "loss") != "loss":
+            return
+        by_loss = min(hist, key=lambda t: t[1])
+        by_acc = max(hist, key=lambda t: t[2])
+        if by_acc[0] == by_loss[0]:
+            LOGGER.info(
+                f"Checkpoint selection: best val loss and best val accuracy agree "
+                f"(it {by_loss[0]}: loss {by_loss[1]:.5f}, acc {by_loss[2]:.5f})."
+            )
+            return
+        gap = by_acc[2] - by_loss[2]
+        msg = (
+            f"Checkpoint selection diverges: kept best-val-LOSS it {by_loss[0]} "
+            f"(loss {by_loss[1]:.5f}, acc {by_loss[2]:.5f}); best-val-ACCURACY was "
+            f"it {by_acc[0]} (loss {by_acc[1]:.5f}, acc {by_acc[2]:.5f}), "
+            f"accuracy gap {gap:+.5f}."
+        )
+        # ~1 sigma of accuracy counting noise on a few-1e5-jet val set; below this the
+        # divergence is expected tie-breaking, above it flag for eyes
+        if gap > 5e-4:
+            LOGGER.warning(
+                msg + " Material gap -- consider a best_model_metric=accuracy cross-check run."
+            )
+        else:
+            LOGGER.info(msg + " Within counting noise; selection-by-loss stands.")
 
     def _batch_loss(self, batch):
         y_pred, label, tracker, _ = self._get_ypred_and_label(batch)

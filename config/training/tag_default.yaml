@@ -1,5 +1,8 @@
 # agnostic default training hyperparameters for tagging
-iterations: ???
+# Set exactly one of `epochs` (shared data-exposure budget -> iterations are derived per model
+# as epochs * batches_per_epoch in _resolve_epoch_budget) or `iterations` (fixed step budget).
+epochs: null
+iterations: null
 batchsize: 512
 
 # optimizer: default AdamW
@@ -20,9 +23,24 @@ reduceplateau_factor: 0.1
 reduceplateau_patience: 50
 onecycle_div_factor: 25
 onecycle_pct_start: 0.3
+# CosineAnnealingWarmup: linear warmup over warmup_pct_start of the schedule (from
+# warmup_start_factor*lr up to lr), then cosine decay to cosanneal_eta_min
+warmup_pct_start: 0.05
+warmup_start_factor: 0.01
 
-es_patience: 100
+# es_patience=null -> no early *termination* (train the full iteration budget, so a late
+# post-plateau improvement is not missed); es_load_best_model still reports the best
+# validation checkpoint, so accuracy is never capped by stopping early.
+es_patience: null
 es_load_best_model: true
+# which validation metric selects the best checkpoint (es_load_best_model): 'loss' (default,
+# lowest val loss) or 'accuracy' (highest val accuracy). Only changes which checkpoint is kept
+# and reported; everything else is unaffected. 'loss' is the default because accuracy is a
+# thresholded count (accuracy_score(labels, round(sigmoid(logits)))): it only moves when a jet
+# crosses 0.5, so near convergence it plateaus/ties and the argmax is settled by counting noise,
+# while val loss sees every jet's margin and tracks the threshold-free report metrics
+# (AUC, rejections) far better. See GUIDE section 6.
+best_model_metric: loss
 
 log_every_n_steps: 200
 validate_every_n_steps: 5000

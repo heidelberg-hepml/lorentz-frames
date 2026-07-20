@@ -380,5 +380,6 @@ class CGENN(nn.Module):
             self.hidden_features_h + self.hidden_features_x * self.algebra.n_subspaces,
         )
         h = torch.mean(h, dim=1)  # average over point cloud
+        #quirk from official repo kept, this divides by the padded batch max n_nodes, not each jet's true multiplicity so the readout depends on padding 
         pred = self.graph_dec(h)
         return pred

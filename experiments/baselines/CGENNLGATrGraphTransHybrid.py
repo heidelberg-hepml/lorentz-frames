@@ -653,15 +653,17 @@ def generate_edges_vectorized(mask, points, k, M, device,
         return torch.stack([b * M + i, b * M + j])
 
     # ---- pairwise distance for the whole batch: (B, P, P) ----
+    # distances follow the input dtype: a .float() downcast here would silently
+    # defeat use_float64 runs (near-tied intervals re-rank under transforms)
     if metric == "minkowski":
         # Δp² = m_i² + m_j² - 2<p_i,p_j>, via a gram matrix (no (B,P,P,4) tensor)
-        p4 = fourmomenta.float()
+        p4 = fourmomenta
         sig = p4.new_tensor([1.0, -1.0, -1.0, -1.0])              # (E, px, py, pz) metric
         msq = (p4 * p4 * sig).sum(-1)                             # (B, P)
         gram = torch.bmm(p4 * sig, p4.transpose(1, 2))           # (B, P, P)
         dist = torch.sqrt((msq[:, :, None] + msq[:, None, :] - 2 * gram).abs() + 1e-8)
     else:  # deltaR with phi wrap
-        eta, phi = points[..., 0].float(), points[..., 1].float()
+        eta, phi = points[..., 0], points[..., 1]
         deta = eta[:, :, None] - eta[:, None, :]
         dphi = (phi[:, :, None] - phi[:, None, :]).abs()
         dphi = torch.minimum(dphi, 2 * math.pi - dphi)
@@ -678,10 +680,13 @@ def generate_edges_vectorized(mask, points, k, M, device,
     recv = (torch.arange(P, device=device)[None, :, None] + offset).expand(B, P, k_actual).reshape(-1)
     send = (nbr + offset).reshape(-1)
 
-    # keep edges with both endpoints real (drops padded senders in sparse jets,
-    # which is what a sparse graph wants -- those nodes simply get fewer edges)
+    # keep edges with both endpoints real (padded senders in sparse jets just get fewer
+    # edges). Also drop self-loops: on jets with n_real<=k, topk fills from the tied +inf
+    # pool (self + padded); padded fills fail the realness filter but a self fill has both
+    # endpoints real and would survive as a spurious, tie-break-dependent i->i message --
+    # the same sparse-jet leak fixed in the Plain/LorentzNet static-kNN nbr_masks.
     valid = mask_bool.reshape(-1)
-    keep = valid[recv] & valid[send]
+    keep = valid[recv] & valid[send] & (recv != send)
     return torch.stack([recv[keep], send[keep]])
 
 class CGLayer(nn.Module):
@@ -978,9 +983,9 @@ class CGENNLGATrGraphTrans(nn.Module):
         cgenn_hidden_h: int = 72,
         cgenn_hidden_x: int = 8,
         cgenn_aggregation: str = "mean",
-        cgenn_residual: bool = True,
+        cgenn_residual: bool = False,  # official CGENN top-tagging default (tag_cgenn row)
         cgenn_layer_type: str = "fc",
-        cgenn_normalization_init: int = 0,
+        cgenn_normalization_init=None,  # official CGENN: no NormalizationLayer (tag_cgenn row)
         concat_original: bool = True,
         use_explicit_edge_features: bool = True,
         beam_spurion: str = "xyplane",
@@ -1002,6 +1007,16 @@ class CGENNLGATrGraphTrans(nn.Module):
         self.in_s_channels = in_s_channels
         self.concat_original = concat_original
         self.use_explicit_edge_features = use_explicit_edge_features
+        if not use_explicit_edge_features:
+            # The CGENN stage's CGLayers expect the edge multivectors and re-injected node
+            # attributes (edge_attr_x / node_attr_x / node_attr_h nonzero); the forward would
+            # pass None -> a shape RuntimeError on the first layer. Fail loudly instead. (The
+            # GraphGPS sibling supports the toggle by zeroing those dims at construction.)
+            raise NotImplementedError(
+                "CGENNLGATrGraphTrans supports only use_explicit_edge_features=True; the CGENN "
+                "stage is constructed with the static edge/node attributes always enabled. Use "
+                "CGENNLGATrGraphGPS if you need the no-edge-feature ablation."
+            )
         self.spurion_kwargs = {
             "beam_spurion": beam_spurion,
             "add_time_spurion": add_time_spurion,
@@ -1033,11 +1048,9 @@ class CGENNLGATrGraphTrans(nn.Module):
             layer_type=cgenn_layer_type,
         )
 
-        # concat_original "skips" the raw particle kinematic channel (ch 0) only.
-        # Spurion channels are intentionally excluded: they are global constants
-        # (zero variance across the batch) whose information is already folded
-        # into every CGENN output channel via embedding_x. Concatenating them
-        # here would add identical constant MVs to every token — no new signal.
+        # concat_original skips the raw particle kinematic channel (ch 0) only. Spurion
+        # channels are excluded: they are global constants (zero batch variance) already
+        # folded into every CGENN channel via embedding_x, so concatenating them adds no signal.
         mv_bridge_in = cgenn_hidden_x + 1 if concat_original else cgenn_hidden_x
         self.mv_bridge = MVLinear(self.algebra, mv_bridge_in, hidden_mv_channels, subspaces=True)
 
@@ -1074,6 +1087,15 @@ class CGENNLGATrGraphTrans(nn.Module):
             checkpoint_blocks=checkpoint_blocks,
         )
 
+    @torch.jit.ignore
+    def no_weight_decay(self):
+        # both CLS tokens are learnable invariants; excluding them from weight
+        # decay is the ParT/ViT convention and does not affect equivariance
+        return {
+            "cls_mv_scalar",
+            "cls_s",
+        }
+
     def forward(self, x, v, mask, points):
    # points-first inputs from the wrapper:
         #   x: (B, P, C)   v: (B, P, 4) [E, px, py, pz]   mask: (B, P)   points: (B, P, 2)
@@ -1100,18 +1122,14 @@ class CGENNLGATrGraphTrans(nn.Module):
         B, P, _ = s.shape
         M = P
 
-        # Stage 3: Build graph edges
-        mask_fp32 = mask.float()
-        points_fp32 = points.float()
-
-        
+        # Stage 3: Build graph edges (native dtype: see generate_edges_vectorized)
         fourmomenta_flat = None
         if self.knn_metric == "minkowski" and self.k is not None:
-            fourmomenta_flat = v.float()
+            fourmomenta_flat = v
 
         edges = generate_edges_vectorized(
-            mask_fp32,
-            points_fp32,
+            mask,
+            points,
             self.k,
             M,
             device,
@@ -1119,7 +1137,9 @@ class CGENNLGATrGraphTrans(nn.Module):
             fourmomenta=fourmomenta_flat,
         )
 
-        # Stage 4: Flatten for CGENN
+        # Stage 4: Flatten for CGENN over the dense B*P layout (padded slots included),
+        # matching official CGENN, whose theta_h BatchNorm also runs over padded nodes.
+        # Edges connect real nodes only, so padding reaches only the scalar BN stats.
         total_nodes = B * M
         h_flat = s.reshape(total_nodes, -1)
         x_flat_raw = mv.reshape(total_nodes, -1, 16)  # (B*P, 1+num_spurions, 16)
@@ -1153,11 +1173,10 @@ class CGENNLGATrGraphTrans(nn.Module):
 
         # Stage 6: Linear bridge
         if self.concat_original:
-            # "Skip-connect" raw particle kinematics (channel 0) only.
-            # Spurion channels (1..num_spurions) are excluded: they are fixed
-            # constants with no per-particle variance. Their contribution is
-            # already encoded in every CGENN output channel via embedding_x,
-            # so repeating them here would be redundant and waste bridge capacity.
+            # Skip-connect raw particle kinematics (channel 0) only. Spurion channels
+            # (1..num_spurions) are excluded: fixed constants with no per-particle variance,
+            # already encoded in every CGENN channel via embedding_x -- repeating them wastes
+            # bridge capacity.
             particle_mv = mv[:, :, :1, :]                  # (B, P, 1, 16)
             x = torch.cat([particle_mv, x], dim=2)         # (B, P, 1+hidden_x, 16)
             h = torch.cat([s, h], dim=2) 
@@ -1168,12 +1187,14 @@ class CGENNLGATrGraphTrans(nn.Module):
         mv_out = self.mv_bridge(x_bridge).view(B, M, -1, 16)
         s_out = self.s_bridge(h_bridge).view(B, M, -1)
 
-        # Stage 7: Add learnable CLS token (does this break equivariance?)
+        # Stage 7: Add learnable CLS token. Equivariance-safe: only the SCALAR (grade-0)
+        # multivector component is learnable -- scalars are Lorentz-invariant, so a
+        # learned constant there transforms trivially (the equivariance suite confirms;
+        # a learnable VECTOR token would pick a direction and break it).
         cls_mv = torch.zeros(B, 1, self.hidden_mv_channels, 16, device=device, dtype=s_out.dtype)
         cls_mv[..., 0] = self.cls_mv_scalar.expand(B, 1, -1)
         cls_s = self.cls_s.expand(B, -1, -1)
         cls_mask = torch.ones(B, 1, device=device, dtype=torch.bool)
-
         mv_out = torch.cat([cls_mv, mv_out], dim=1)
         s_out = torch.cat([cls_s, s_out], dim=1)
         mask = torch.cat([cls_mask, mask], dim=1)

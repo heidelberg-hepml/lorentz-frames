@@ -17,11 +17,11 @@ net:
   k: 16
   cgenn_layers: 3
   cgenn_hidden_h: 72
-  cgenn_hidden_x: 16
+  cgenn_hidden_x: 8             # match official CGENN (tag_cgenn hidden_features_x=8); mv-bridge lifts 8->16
   cgenn_aggregation: mean
-  cgenn_residual: true
+  cgenn_residual: false           # match official CGENN top-tagging (LorentzCGGNN default) and the tag_cgenn reference row
   cgenn_layer_type: fc
-  cgenn_normalization_init: 0
+  cgenn_normalization_init: null  # match official CGENN top-tagging (LorentzCGGNN default: no NormalizationLayer) and the tag_cgenn reference row
   concat_original: true
   use_explicit_edge_features: true
 

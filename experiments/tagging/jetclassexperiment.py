@@ -80,9 +80,11 @@ class JetClassTaggingExperiment(TaggingExperiment):
                 for classname in self.class_names
                 for i in range(*files_range[label])
             ]
-            file_dict, _ = to_filelist(flist)
+            file_dict, resolved = to_filelist(flist)
 
-            LOGGER.info(f"Using {len(flist)} files for {label}ing from {path}")
+            LOGGER.info(
+                f"Using {len(resolved)} of {len(flist)} requested files for {label}ing from {path}"
+            )
             datasets[label] = SimpleIterDataset(
                 file_dict,
                 self.cfg.data.data_config,
@@ -97,7 +99,9 @@ class JetClassTaggingExperiment(TaggingExperiment):
                 file_fraction=1,
                 fetch_by_files=self.cfg.jc_params.fetch_by_files,
                 fetch_step=self.cfg.jc_params.fetch_step,
-                infinity_mode=self.cfg.jc_params.steps_per_epoch is not None,
+                # infinity_mode (re-cycles files forever) is TRAIN-only: on val/test it
+                # would loop forever. steps_per_epoch bounds the train epoch in that mode.
+                infinity_mode=(label == "train" and self.cfg.jc_params.steps_per_epoch is not None),
                 in_memory=self.cfg.jc_params.in_memory,
                 name=label,
                 events_per_file=self.cfg.jc_params.events_per_file,
@@ -226,6 +230,58 @@ class JetClassTaggingExperiment(TaggingExperiment):
                 tex_string += f" & {metrics[f'rej{rej_string}_{i}']:.0f}"
             tex_string += r" \\"
             LOGGER.info(tex_string)
+
+            # aggregate_table row (per-trial accumulation via _collect_table_rows -> mean
+            # +- std across run_idx). Columns: model & frames & iters[trials] & params &
+            # acc & auc_ovo & rej_<cls> x9 & time & kNN.
+            modelname = type(self.model.net).__name__
+            frames_string = type(self.model.framesnet).__name__
+            num_parameters = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+            rej_keys = [
+                f"rej{str(r).replace('.', '')}_{i}"
+                for i, r in enumerate(class_rej_dict)
+                if r is not None
+            ]
+            row = {k: metrics[k] for k in ["accuracy", "auc_ovo"] + rej_keys}
+            row["train_time"] = getattr(self, "train_time", None)
+            rows = self._collect_table_rows(title, row)
+            n_trials = len(rows)
+
+            def cell(key, fmt):
+                vals = [r[key] for r in rows if r.get(key) is not None]
+                if not vals:
+                    return "n/a"
+                if len(vals) == 1:
+                    return format(vals[0], fmt)
+                arr = np.asarray(vals, dtype=float)
+                return f"${format(arr.mean(), fmt)} \\pm {format(arr.std(ddof=1), fmt)}$"
+
+            trials = f" [{n_trials} trials]" if n_trials > 1 else ""
+            rej_cells = " & ".join(cell(k, ".0f") for k in rej_keys)
+            LOGGER.info(
+                f"table {title}: {modelname} & {frames_string}"
+                f" & {self.cfg.training.iterations}{trials}"
+                f" & {num_parameters} & {cell('accuracy', '.4f')} & {cell('auc_ovo', '.4f')}"
+                f" & {rej_cells}"
+                f" & {cell('train_time', '.0f')}s & {self._knn_description()} \\\\"
+            )
+
+            # results-table row in the same `table <split>:` format as top-tagging, so
+            # aggregate_table.py covers JetClass too -- only the metric columns differ
+            # (ovo AUC + one rejection per non-QCD class).
+            row = {
+                "accuracy": float(metrics["accuracy"]),
+                "auc_ovo": float(metrics["auc_ovo"]),
+                "train_time": getattr(self, "train_time", None),
+            }
+            metric_fmts = [("accuracy", ".4f"), ("auc_ovo", ".4f")]
+            for i, rej in enumerate(class_rej_dict):
+                if rej is None:
+                    continue
+                key = f"rej{str(rej).replace('.', '')}_{i}"
+                row[key] = float(metrics[key])
+                metric_fmts.append((key, ".0f"))
+            self._log_table_row(loader, title, row, metric_fmts)
 
         if self.cfg.use_mlflow:
             for key, value in metrics.items():

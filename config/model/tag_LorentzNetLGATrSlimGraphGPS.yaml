@@ -1,0 +1,46 @@
+_target_: experiments.tagging.wrappers.LorentzNetLGATrSlimGraphGPSWrapper
+out_channels: null              # init_physics -> num_outputs
+
+net:
+  _target_: experiments.baselines.lorentznetlgatrslimgraphgps.LorentzNetLGATrSlimGraphGPS
+  _partial_: true
+  in_s_channels: null           # init_physics -> extra_scalars + tagging features
+  # num_classes is supplied by the wrapper at call time (= out_channels)
+
+  # dual-stream hidden widths -- option A: one shared dim_h for the GNN + attention (as in the
+  # official GraphGPS). Set to the slim transformer's widths (tag_slim 96/32); the LorentzNet GNN
+  # rides this shared width too. (Towards-transformer; a midpoint ~84/24 is the alternative.)
+  hidden_v_channels: 32
+  hidden_s_channels: 96
+
+  # interleaved equivariant GPS layers (LorentzNet edge conv local + slim attn global)
+  num_blocks: 10
+  num_heads: 8
+  attn_ratio: 1
+  mlp_ratio: 4                  # slim's mlp_ratio (tag_slim); lgatr lib default is 2
+  num_layers_mlp: 2
+  nonlinearity: gelu
+  # dropout_prob = the external GraphGPS branch dropout (grade-aware, on branch outputs).
+  # attn_dropout = dropout on the attention WEIGHTS, threaded as sdpa dropout_p through
+  # lgatr's single joint (mv,s) attention call -- the same site as the non-equivariant
+  # models' attn_dropout, so the family dropout ablation is one axis. 0.0 = exact no-op
+  # (kwarg omitted; keeps non-sdpa attention backends working). Weights are Lorentz
+  # invariants, so this preserves equivariance.
+  dropout_prob: null
+  attn_dropout: 0.0
+
+  # static kNN graph + per-layer LorentzNet edge conv
+  knn_k: 16
+  knn_metric: minkowski         # 'minkowski' (Lorentz-invariant) or 'deltaR' (eta-phi L2)
+  c_weight: 5e-3
+  use_phi_m: true               # LorentzNet per-edge gate
+  use_node_attr: true           # official LorentzNet: raw input scalars re-injected into phi_h every layer
+
+  # input-stage spurions (both on -> residual symmetry SO(2) about the beam)
+  use_time_spurion: true
+  use_beam_spurion: true
+
+  head_layers: 2
+
+defaults:
+  - framesnet: identity

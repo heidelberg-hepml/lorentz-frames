@@ -1,0 +1,49 @@
+_target_: experiments.tagging.wrappers.PlainGraphGPSWrapper
+in_channels: null               # init_physics -> 7 + extra_scalars
+out_channels: null              # init_physics -> num_outputs
+use_amp: false
+add_fourmomenta_backbone: false
+
+net:
+  _target_: experiments.baselines.plaingraphgps.PlainGraphGPS
+  _partial_: true
+  input_dim: null               # supplied by the wrapper (= in_channels)
+  num_classes: null             # supplied by the wrapper (= out_channels)
+
+  # static kNN graph (built once, reused by every GPS layer)
+  knn_k: 4
+  knn_metric: deltaR            # 'deltaR' (eta-phi L2) or 'minkowski' (4-momenta)
+  use_fts_bn: true
+
+  # GraphGPS ingredients, OFF by default so PlainGraphGPS vs PlainGraphTrans
+  # isolates the interleaved-vs-sequential fusion (see the module docstring):
+  # OFF by default, deliberately: (1) the headline Plain row must stay the BARE backbone --
+  # pairwise information is PNParT's lineage feature (ParT's U bias), and giving it to Plain
+  # by default would make Plain a second pairwise model; (2) PlainGraphTrans's MPNN is
+  # edge-free, so GT-vs-GPS stays a pure fusion comparison only while both MPNNs are; (3) on
+  # = the ROUTING ablation only (same ParT pair features lnD/lnkT/lnz/lnm2, MPNN messages vs
+  # attention bias -- ParticleNeXt's design, which did not beat ParT's routing).
+  use_edge_attr: false
+  use_rwse: false               # on -> Random-Walk Structural Encoding (local SE) on the kNN graph
+  rwse_k: 4
+  use_lappe: false              # on -> LapPE (Laplacian-eigvec PE); least motivated for jets, O(B*P^3)
+  lappe_k: 4
+
+  # interleaved GPS layers (tensorial local static-MPNN + LLoCa-tensorial torch-MHA)
+  dim: 16
+  num_layers: 2
+  num_heads: 2
+  # LLoCa message-passing reps: attn_reps.dim(8) * num_heads(2) = 16; edge_reps.dim = dim = 16.
+  attn_reps: "4x0n+1x1n"
+  edge_reps: "8x0n+2x1n"
+  ffn_ratio: 2                  # GraphGPS FFN inner width = 2 * dim
+  dropout: 0.0
+  attn_dropout: 0.0
+  act: relu
+  norm: batch                   # 'batch' (GraphGPS default, every config) or 'layer' (padding-safe ablation)
+
+  head_layers: 2
+  for_inference: false
+
+defaults:
+  - framesnet: identity

@@ -1,0 +1,39 @@
+# Shared training recipe for "GTs and friends": the graph-transformer (GT) hybrid
+# family plus any other model you choose to put on the same fair budget (inherit this file to
+# join the shared epoch axis; it is not GT-only, hence the "and friends").
+#
+# Decision: the GT hybrids are budgeted in EPOCHS, not iterations. The study compares
+# architectures that will train at different batch sizes, and equal iterations at different
+# batch sizes is unequal data exposure; equal epochs is the fair axis. iterations are derived
+# per model at runtime as epochs * batches_per_epoch (_resolve_epoch_budget), so the loop and
+# scheduler (which are iteration-native) stay unchanged. (The repo's baselines keep their own
+# iteration budgets as reference rows: L-GATr 200k, ParT 48k = 20 epochs, ...)
+#
+# This file pins the cross-model decisions (epoch budget + scheduler + validation cadence +
+# weight decay); per-model tuning (batchsize, lr) stays in each top_*.yaml.
+defaults:
+  - tag_default
+
+# shared data-exposure budget (ParT-standard for top-tagging; raise to ~30 if the hybrids underfit)
+epochs: 20
+
+# shared schedule: linear warmup (warmup_pct_start of the budget) then cosine decay to
+# cosanneal_eta_min. Warmup stabilises the transformer/equivariant layers; one shared schedule
+# isolates architecture for the hybrid-vs-hybrid table.
+scheduler: CosineAnnealingWarmup
+
+# shared weight decay (AdamW). One value for the whole family isolates architecture: with
+# decoupled WD on normalized weights this is mostly an effective-LR / weight-norm knob
+# (scale-invariant), so a single moderate value is fair across GNN / transformer / hybrid
+# parts. 0.01 is a safe default; sweep {0, 0.01, 0.05} on val with one model to optimize.
+# (Framesnet keeps weight_decay_framesnet=0 from tag_default -- canonicalization is not decayed.)
+weight_decay: 0.01
+
+# Validate exactly once per epoch for every model, whatever batchsize find_lr ends up picking.
+# _init_scheduler sets validate_every_n_steps = min(value below, validate_every_n_epochs_min *
+# batches_per_epoch); the large sentinel base guarantees the 1-epoch cap always binds, so the whole
+# family gets identical best-val checkpoint granularity (equal epochs AND equal #validations = 20).
+# This replaces the per-model "hardcode N_train/batchsize" hack the reference recipes use, and stays
+# correct if a batchsize is re-tuned. Lower the base if you want to validate more often than once/epoch.
+validate_every_n_epochs_min: 1
+validate_every_n_steps: 1000000

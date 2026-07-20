@@ -3,7 +3,7 @@ hydra-core
 pytest
 pre-commit>=3.7
 mlflow-skinny # can optionally install extras, see https://pypi.org/project/mlflow-skinny/
-wget # for getting top tagging, could use requests instead of this abandonware if someone feels up to it
+wget # for getting datasets, could use requests instead of this abandonware if someone feels up to it
 
 # standard science stack
 numpy>=1.19.5,<2.0.0 # constrain version for weaver (for miniweaver, weaver now updated to support this but parity is unneeded)
@@ -12,7 +12,7 @@ scikit-learn
 
 # deep learning
 torch>=2.0.0
-torch-geometric>=2.6.0
+torch-geometric>=2.6.0 # ptr-only Aggregation calls (tagging/wrappers.py) raise NotImplementedError on <= 2.5
 torch-ema
 pytorch_optimizer>=3.2.0
 
@@ -21,7 +21,7 @@ torchdiffeq
 xformers # might be challenging to install, see https://github.com/facebookresearch/xformers
 pelican-lite
 lgatr[xformers-attention]>=1.4.2
-lloca[xformers-attention]>=1.3.4
+lloca[xformers-attention]>=1.3.6  # jet_frames uses fn.mass_regularize (first in 1.3.6)
 
 # weaver packages
 tqdm>=4.41.0

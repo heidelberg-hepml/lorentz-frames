@@ -1,0 +1,41 @@
+_target_: experiments.tagging.wrappers.ParticleNetParTGraphTransWrapper
+in_channels: null               # init_physics -> 7 + extra_scalars
+out_channels: null              # init_physics -> num_outputs
+use_amp: false
+add_fourmomenta_backbone: false
+
+net:
+  _target_: experiments.baselines.particlenettransformer.ParticleNetParTGraphTrans
+  _partial_: true
+  input_dim: null               # supplied by the wrapper (= in_channels)
+  num_classes: null             # supplied by the wrapper (= out_channels)
+
+  # ParticleNet (EdgeConv) graph backbone with LLoCa tensorial message-passing
+  conv_params: [[4, [16, 16, 16]], [4, [32, 32, 32]]]
+  hidden_reps_list: [null, "8x0n+2x1n"]   # layer 1 rep dim = 8 + 2*4 = 16 = prev width
+  use_fusion: true
+  use_fts_bn: true
+  use_input_concat: true
+  knn_metric: deltaR            # first-layer kNN: 'deltaR' (eta-phi L2) or 'minkowski' (4-momenta)
+
+  # ParticleTransformer-style encoder with LLoCa tensorial attention
+  attn_reps: "8x0n+2x1n"        # per-head rep; embed_dim = attn_reps.dim(16) * num_heads(2) = 32
+  num_heads: 2
+  num_layers: 2
+  block_params: null
+  activation: gelu
+  fc_params: []
+
+  # pairwise Lorentz interaction features (from v as (px, py, pz, E)).
+  # bias=true adds them as an additive attention bias; bias=false disables them.
+  bias: true
+  pair_input_dim: 4
+  pair_extra_dim: 0
+  pair_embed_dims: [16, 16]
+  remove_self_pair: false
+  use_pre_activation_pair: false   # published-ParT parity (see config/model note)
+
+  for_inference: false
+
+defaults:
+  - framesnet: identity

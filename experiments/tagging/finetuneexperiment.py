@@ -71,8 +71,10 @@ class TopTaggingFineTuneExperiment(TopTaggingExperiment):
 
         super().init_model()
 
-        if self.warm_start:
-            # nothing to do
+        if self.warm_start and self.warm_load:
+            # resumed finetune: weights already loaded by super().init_model(), nothing
+            # to do. (A fresh-trial warm start, warm_start_load=false, falls through and
+            # re-loads the PRETRAINED backbone -- a new independent finetuning trial.)
             return
 
         # load pretrained weights
@@ -121,8 +123,10 @@ class TopTaggingFineTuneExperiment(TopTaggingExperiment):
 
         if self.cfg.ema:
             LOGGER.info("Re-initializing EMA")
+            # NB: ema_decay is at the config TOP level (config/default.yaml), not under
+            # training -- the old cfg.training.ema_decay read crashed in struct mode.
             self.ema = ExponentialMovingAverage(
-                self.model.parameters(), decay=self.cfg.training.ema_decay
+                self.model.parameters(), decay=self.cfg.ema_decay
             ).to(self.device)
 
     def _init_optimizer(self):

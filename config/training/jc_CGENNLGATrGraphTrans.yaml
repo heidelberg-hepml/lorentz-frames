@@ -1,0 +1,16 @@
+# JetClass training recipe for tag_CGENNLGATrGraphTrans -- fill in the (???) keys, then:
+#   python run.py -cn jctagging model=tag_CGENNLGATrGraphTrans training=jc_CGENNLGATrGraphTrans gpus=1
+#
+#   lr         <- find_lr.py -cn jctagging model=tag_CGENNLGATrGraphTrans         (reported loss-min / 10)
+#   batchsize  <- find_lr.py -cn jctagging ... +lr_find.find_batch_size=true
+#   (epochs=5 + CosineAnnealingWarmup + weight_decay=0 are shared in jc_gts_and_friends_default)
+#
+# Re-sweep BOTH knobs on the jctagging task rather than copying the top_CGENNLGATrGraphTrans values:
+# JetClass inputs are wider (7+10 scalar channels), so the memory ceiling and the
+# loss-vs-lr curve both move. NOTE: '???' is a human-facing marker only -- left
+# unfilled, the recipe silently runs at the inherited tag_default 512 / 1e-3.
+defaults:
+  - jc_gts_and_friends_default
+
+batchsize: ???
+lr: ???

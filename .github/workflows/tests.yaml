@@ -5,11 +5,12 @@ on:
     branches:
       - main
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
   workflow_dispatch:  # Allows manual triggering
 
 jobs:
   test:
-    if: github.event.label.name == 'ready for review'
+    if: ${{ github.event_name != 'pull_request' || github.event.label.name == 'ready for review' }}
     runs-on: ubuntu-latest
 
     steps:
@@ -28,4 +29,9 @@ jobs:
 
     - name: Run unit tests
       run: |
+        # tests/lloca does not exist (the lloca library tests live in the lloca repo);
+        # run the tagging invariance/equivariance suites instead. test_tag_flops is
+        # deliberately NOT run here: its learned-frame cases require a CUDA-matched
+        # xformers build that CPU CI runners do not have.
+        pytest tests/experiments/test_tag_equivariance.py tests/experiments/test_tag_invariance.py tests/experiments/test_jc_wiring.py
         pytest tests/eventgen

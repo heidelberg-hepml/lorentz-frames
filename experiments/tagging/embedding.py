@@ -100,24 +100,23 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
             device=scalars.device,
         )
         scalars[~is_spurion] = scalars_buffer
+        # NB: mutates the caller's ptr (and fourmomenta below) in place. Safe since each
+        # batch is embedded once; embedding twice double-counts spurions -- clone first.
         ptr[1:] = ptr[1:] + (arange + 1) * n_spurions
 
-    # add mass regulator
+    # mass regulator on REAL particles only: a spacelike beam spurion (m^2=-1) satisfies
+    # m^2 < mass_reg^2 and would be forced lightlike, voiding the spacelike ablation.
     if cfg_data.mass_reg is not None:
         mass_reg = cfg_data.mass_reg
-        mask = lorentz_squarednorm(fourmomenta) < mass_reg**2
+        mask = (lorentz_squarednorm(fourmomenta) < mass_reg**2) & ~is_spurion
         fourmomenta[mask, 0] = (fourmomenta[mask, 1:] ** 2).sum(dim=-1).add(mass_reg**2).sqrt()
 
     batch = get_batch_from_ptr(ptr)
 
-    if cfg_data.boost_jet:
-        # boost to the jet rest frame to avoid large boosts
-        jet = scatter(
-            fourmomenta[~is_spurion], batch[~is_spurion], dim=0, reduce="sum"
-        ).index_select(0, batch)
-        jet_boost = restframe_boost(jet)
-        fourmomenta = torch.einsum("ijk,ik->ij", jet_boost, fourmomenta)
-
+    # compute tagging features BEFORE any jet-rest-frame boost. After the boost (the old
+    # order) the rest-frame jet has pt~0, so pt_jet clamps and phi_jet/eta_jet come from a
+    # numerically-zero vector -- dphi/deta/dr become rotation-unstable and break even SO(2)
+    # invariance (verified: xyrotation max MSE O(10^2..10^4) before, O(10^-8) after).
     jet = scatter(fourmomenta[~is_spurion], batch[~is_spurion], dim=0, reduce="sum").index_select(
         0, batch
     )
@@ -127,6 +126,11 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
         tagging_features=cfg_data.tagging_features,
     )
     tagging_features[is_spurion] = 0
+
+    if cfg_data.boost_jet:
+        # boost to the jet rest frame to avoid large boosts (framesnet stability)
+        jet_boost = restframe_boost(jet)
+        fourmomenta = torch.einsum("ijk,ik->ij", jet_boost, fourmomenta)
 
     tagging_features = tagging_features.to(scalars.dtype)
 

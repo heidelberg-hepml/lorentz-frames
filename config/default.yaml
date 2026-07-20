@@ -11,6 +11,8 @@ use_float64: false
 float32_matmul_precision: highest
 
 warm_start_idx: null
+warm_start_load: true   # false -> "fresh trial": share the run dir / run_idx, but do NOT load the
+                        # previous model/optimizer/scheduler (the multi-seed table workflow)
 save: true
 use_mlflow: false
 save_source: true

@@ -1,0 +1,18 @@
+# Training recipe for tag_LorentzNetLGATrSlimGraphGPS -- fill in the REQUIRED (???) keys, then:
+#   python run.py model=tag_LorentzNetLGATrSlimGraphGPS training=top_LorentzNetLGATrSlimGraphGPS data.dataset=full gpus=1
+#
+#   lr         <- find_lr.py                                   (reported loss-min / 10)
+#   batchsize  <- find_lr.py +lr_find.find_batch_size=true     (the GPU-fit size)
+#   (epochs=20 + CosineAnnealingWarmup are shared in tag_gts_and_friends_default; iterations auto-derived)
+#   weight_decay (optional override) -> see the weight-decay guidance
+#
+# Inherits tag_gts_and_friends_default: AdamW, CosineAnnealingWarmup, epochs=20, grad-clip 1.0, best-val checkpoint.
+defaults:
+  - tag_gts_and_friends_default
+
+batchsize: ???
+lr: ???
+
+# weight_decay: 0.01          # AdamW: tune on val {0, 0.01, 0.05, 0.1}
+# optimizer: AdamW            # AdamW | Ranger | Lion | ...
+# scheduler: OneCycleLR        # override the shared CosineAnnealingWarmup here if wanted

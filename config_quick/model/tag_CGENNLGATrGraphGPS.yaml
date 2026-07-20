@@ -1,0 +1,43 @@
+_target_: experiments.tagging.wrappers.CGENNLGATrGraphGPSWrapper
+out_channels: null              # init_physics -> num_outputs
+
+net:
+  _target_: experiments.baselines.cgennlgatrgraphgps.CGENNLGATrGraphGPS
+  _partial_: true
+  in_s_channels: null           # init_physics -> extra_scalars + tagging features
+  # num_classes is supplied by the wrapper at call time (= out_channels)
+
+  # dual-stream hidden widths
+  hidden_mv_channels: 4
+  hidden_s_channels: 8
+
+  # interleaved equivariant GPS layers (CGENN msg-passing local + L-GATr attn global)
+  num_blocks: 2
+  num_heads: 2
+  head_scale: true
+  multi_query: false
+  increase_hidden_channels_attention: 2
+  increase_hidden_channels_mlp: 2
+  num_hidden_layers_mlp: 1
+  activation: gelu
+  dropout_prob: null
+  attn_dropout: 0.0   # attention-weights dropout (sdpa dropout_p); 0.0 = no-op
+
+  # static kNN graph (shared by every layer's local CGENN branch)
+  k: 4
+  knn_metric: minkowski         # 'minkowski' (Lorentz-invariant) or 'deltaR' (eta-phi L2)
+
+  # per-layer CGENN message passing
+  cgenn_aggregation: mean
+  cgenn_layer_type: fc
+  cgenn_normalization_init: null  # match official CGENN top-tagging (LorentzCGGNN default: no NormalizationLayer) and the tag_cgenn reference row
+
+  # input-stage spurions (both on -> residual symmetry SO(2) about the beam)
+  beam_spurion: xyplane
+  add_time_spurion: true
+  beam_mirror: true
+
+  head_layers: 2
+
+defaults:
+  - framesnet: identity

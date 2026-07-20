@@ -1,0 +1,19 @@
+# TopTagXL training recipe for tag_PlainGraphGPS -- fill in the (???) keys, then:
+#   python run.py -cp config -cn toptagxl model=tag_PlainGraphGPS training=xl_PlainGraphGPS gpus=1
+#
+#   lr         <- find_lr.py -cn toptagxl model=tag_PlainGraphGPS         (reported loss-min / 10)
+#   batchsize  <- find_lr.py -cn toptagxl ... +lr_find.find_batch_size=true
+#   (epochs=5 + CosineAnnealingWarmup + weight_decay=0 are shared in xl_gts_and_friends_default)
+#
+# Seed BOTH knobs from the swept jc_PlainGraphGPS values if those exist -- TopTagXL inputs
+# are identical to JetClass (7+10 scalar channels, same multiplicity), so batchsize
+# transfers unchanged (same memory ceiling) and the jc lr is the right prior (only
+# the loss changed: binary sigmoid vs 10-class softmax; upstream itself runs XL under
+# the JetClass recipe). Confirm with the cheap finder sweep above rather than
+# trusting the transfer blind. NOTE: '???' is a human-facing marker only -- left
+# unfilled, the recipe silently runs at the inherited tag_default 512 / 1e-3.
+defaults:
+  - xl_gts_and_friends_default
+
+batchsize: ???
+lr: ???

@@ -1,3 +1,4 @@
+epochs: null          # if set, iterations = epochs * batches_per_epoch (see _resolve_epoch_budget)
 iterations: 1000
 batchsize: 128
 
@@ -17,9 +18,15 @@ reduceplateau_factor: 0.1
 reduceplateau_patience: 50
 onecycle_div_factor: 25
 onecycle_pct_start: 0.3
+# CosineAnnealingWarmup: linear warmup over warmup_pct_start of the schedule (from
+# warmup_start_factor*lr up to lr), then cosine decay to cosanneal_eta_min
+warmup_pct_start: 0.05
+warmup_start_factor: 0.01
+
 
 es_patience: 100
 es_load_best_model: true
+best_model_metric: loss   # 'loss' (lowest val loss) or 'accuracy' (highest val accuracy)
 
 log_every_n_steps: 200
 validate_every_n_steps: 5000

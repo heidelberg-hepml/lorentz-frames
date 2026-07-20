@@ -72,6 +72,7 @@ class BaseExperiment:
         self.init_model()
         self.init_data()
         self._init_dataloader()
+        self._resolve_epoch_budget()
         self._init_loss()
 
         # save config
@@ -128,8 +129,8 @@ class BaseExperiment:
             LOGGER.info("Not using EMA")
             self.ema = None
 
-        # load existing model if specified
-        if self.warm_start:
+        # load existing model if specified (skipped for fresh trials, warm_start_load=false)
+        if self.warm_start and self.warm_load:
             model_path = os.path.join(
                 self.cfg.run_dir, "models", f"model_run{self.cfg.warm_start_idx}.pt"
             )
@@ -158,6 +159,15 @@ class BaseExperiment:
                 broadcast_buffers=False,
                 find_unused_parameters=False,  # might have to turn this on for some models
             )
+            # syncs gradients across multiple gpus using DDP for non identity frames
+            if any(p.requires_grad for p in self.model.framesnet.parameters()):
+                self.model.framesnet = torch.nn.parallel.DistributedDataParallel(
+                    self.model.framesnet,
+                    device_ids=[self.rank],
+                    output_device=self.rank,
+                    broadcast_buffers=False,
+                    find_unused_parameters=False,
+                )
 
     def _init(self):
         run_name = self._init_experiment()
@@ -176,6 +186,33 @@ class BaseExperiment:
 
     def _init_experiment(self):
         self.warm_start = False if self.cfg.warm_start_idx is None else True
+        # warm_start_load=false = FRESH TRIAL: shares the run dir and increments run_idx
+        # (table_metrics_*.json accumulates mean+-std) but loads no state. The multi-seed
+        # workflow -- loading state (the default, for eval-reload/continue-training) would
+        # correlate trials and step the cosine scheduler past T_max (lr rises again).
+        self.warm_load = self.warm_start and OmegaConf.select(
+            self.cfg, "warm_start_load", default=True
+        )
+        if self.warm_start and not self.warm_load:
+            LOGGER.info(
+                "Fresh-trial warm start (warm_start_load=false): sharing the run directory "
+                "but starting from a new random initialization."
+            )
+            if not self.cfg.train:
+                LOGGER.warning(
+                    "warm_start_load=false with train=false evaluates an UNTRAINED model."
+                )
+            if self.cfg.seed is not None:
+                LOGGER.warning(
+                    f"seed={self.cfg.seed} with warm_start_load=false: successive fresh "
+                    "trials share the same initialization and data order, so the 'trials' "
+                    "are identical and the table's mean +- std is degenerate. Unset seed "
+                    "for independent trials."
+                )
+            # do NOT persist the flag: each fresh trial opts in on the CLI, so a later
+            # eval-reload/continue-training warm start gets the safe loading default back.
+            with open_dict(self.cfg):
+                self.cfg.warm_start_load = True
 
         if not self.warm_start:
             if self.cfg.run_name is None:
@@ -396,8 +433,7 @@ class BaseExperiment:
             f"Using optimizer {self.cfg.training.optimizer} with lr={self.cfg.training.lr}"
         )
 
-        # load existing optimizer if specified
-        if self.warm_start:
+        if self.warm_start and self.warm_load:
             model_path = os.path.join(
                 self.cfg.run_dir, "models", f"model_run{self.cfg.warm_start_idx}.pt"
             )
@@ -409,6 +445,40 @@ class BaseExperiment:
                 self.optimizer.load_state_dict(state_dict)
             except FileNotFoundError as err:
                 raise ValueError(f"Cannot load optimizer from {model_path}") from err
+
+    def _resolve_epoch_budget(self):
+        """Derive training.iterations from a shared epoch budget, when one is given.
+
+        If training.epochs is set, iterations = round(epochs * batches_per_epoch) with
+        batches_per_epoch = len(train_loader) -- which already reflects batchsize, any
+        subsampling and drop_last, so it is the exact per-model batch count rather than a
+        nominal ceil(N_train / batchsize). This lets every model train for the same data
+        exposure (equal passes over the dataset) while each still gets a full warmup+anneal
+        over its own iteration count (the scheduler keys off iterations). Set exactly one of
+        training.epochs / training.iterations; epochs takes precedence if both are present.
+        """
+        epochs = OmegaConf.select(self.cfg, "training.epochs", default=None)
+        iterations = OmegaConf.select(self.cfg, "training.iterations", default=None)
+        if epochs is not None:
+            if iterations is not None:
+                # a CLI training.iterations=N on an epochs-based recipe is silently
+                # discarded -- days of wasted GPU time on JetClass/TopTagXL; warn loudly.
+                LOGGER.warning(
+                    f"Both training.epochs ({epochs}) and training.iterations "
+                    f"({iterations}) are set; epochs WINS and iterations will be "
+                    f"overwritten. For a fixed iteration count pass "
+                    f"'training.epochs=null training.iterations={iterations}'."
+                )
+            batches_per_epoch = len(self.train_loader)
+            self.cfg.training.iterations = int(round(epochs * batches_per_epoch))
+            LOGGER.info(
+                f"Epoch budget: {epochs} epochs x {batches_per_epoch} batches/epoch "
+                f"-> training.iterations = {self.cfg.training.iterations}"
+            )
+        elif iterations is None:
+            raise ValueError(
+                "Set exactly one of training.epochs or training.iterations (both are unset)."
+            )
 
     def _init_scheduler(self):
         if self.cfg.training.validate_every_n_epochs_min is not None:
@@ -433,6 +503,26 @@ class BaseExperiment:
                 self.optimizer,
                 T_max=int(self.cfg.training.iterations * self.cfg.training.scheduler_scale),
                 eta_min=self.cfg.training.cosanneal_eta_min,
+            )
+        elif self.cfg.training.scheduler == "CosineAnnealingWarmup":
+            # linear warmup -> cosine decay: warmup_pct_start of the run ramps lr from
+            # warmup_start_factor*lr to lr, then cosine decays to cosanneal_eta_min.
+            total = int(self.cfg.training.iterations * self.cfg.training.scheduler_scale)
+            warmup = max(1, min(int(self.cfg.training.warmup_pct_start * total), total - 1))
+            warmup_sched = torch.optim.lr_scheduler.LinearLR(
+                self.optimizer,
+                start_factor=self.cfg.training.warmup_start_factor,
+                total_iters=warmup,
+            )
+            cosine_sched = torch.optim.lr_scheduler.CosineAnnealingLR(
+                self.optimizer,
+                T_max=total - warmup,
+                eta_min=self.cfg.training.cosanneal_eta_min,
+            )
+            self.scheduler = torch.optim.lr_scheduler.SequentialLR(
+                self.optimizer,
+                schedulers=[warmup_sched, cosine_sched],
+                milestones=[warmup],
             )
         elif self.cfg.training.scheduler == "CosineAnnealingWarmRestarts":
             self.scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
@@ -473,8 +563,7 @@ class BaseExperiment:
 
         LOGGER.debug(f"Using learning rate scheduler {self.cfg.training.scheduler}")
 
-        # load existing scheduler if specified
-        if self.warm_start and self.scheduler is not None:
+        if self.warm_start and self.warm_load and self.scheduler is not None:
             model_path = os.path.join(
                 self.cfg.run_dir, "models", f"model_run{self.cfg.warm_start_idx}.pt"
             )
@@ -491,8 +580,7 @@ class BaseExperiment:
         use_amp = OmegaConf.select(self.cfg.model, "use_amp", default=False)
         self.scaler = GradScaler(enabled=use_amp)
 
-        # load existing scaler if specified
-        if self.warm_start and use_amp:
+        if self.warm_start and self.warm_load and use_amp:
             model_path = os.path.join(
                 self.cfg.run_dir, "models", f"model_run{self.cfg.warm_start_idx}.pt"
             )
@@ -530,11 +618,17 @@ class BaseExperiment:
         patience = 0
 
         # main train loop
+        _es = self.cfg.training.es_patience
+        _es_msg = (
+            f"early stopping with patience {_es}"
+            if _es is not None
+            else "no early termination (best-validation checkpoint reported)"
+        )
         LOGGER.info(
             f"Starting to train for {self.cfg.training.iterations} iterations "
             f"= {self.cfg.training.iterations / len(self.train_loader):.1f} epochs "
             f"on a dataset with {len(self.train_loader)} batches "
-            f"using early stopping with patience {self.cfg.training.es_patience} "
+            f"using {_es_msg} "
             f"while validating every {self.cfg.training.validate_every_n_steps} iterations"
         )
         self.training_start_time = time.time()
@@ -579,7 +673,12 @@ class BaseExperiment:
                         )
                 else:
                     patience += 1
-                    if patience > self.cfg.training.es_patience:
+                    # es_patience=None disables early termination (train the full budget);
+                    # es_load_best_model still reports the best-val checkpoint.
+                    if (
+                        self.cfg.training.es_patience is not None
+                        and patience > self.cfg.training.es_patience
+                    ):
                         LOGGER.info(
                             f"Early stopping in iteration {step} = epoch {step / len(self.train_loader):.1f}"
                         )
@@ -623,6 +722,9 @@ class BaseExperiment:
             f"after {dt / 60:.2f}min = {dt / 60**2:.2f}h"
         )
         LOGGER.info(f"Spend {train_time:.2f}s training and {val_time:.2f}s validating")
+        # expose for downstream reporting (e.g. the tagging results table)
+        self.train_time = train_time
+        self.train_wallclock = dt
         if self.cfg.use_mlflow:
             log_mlflow("iterations", step)
             log_mlflow("epochs", step / len(self.train_loader))
@@ -648,6 +750,12 @@ class BaseExperiment:
                 LOGGER.warning(
                     f"Cannot load best model (epoch {smallest_val_loss_step}) from {model_path}"
                 )
+            self._log_checkpoint_selection(smallest_val_loss_step)
+
+    def _log_checkpoint_selection(self, best_step):
+        """Hook: after the best-checkpoint restore, report whether an alternative selection
+        metric would have picked a different checkpoint. No-op here; the tagging experiment
+        overrides it with a loss-vs-accuracy cross-check."""
 
     def _step(self, data, step):
         # actual update step
@@ -709,6 +817,9 @@ class BaseExperiment:
                 LOGGER.warning(
                     f"Skipping iteration {step}, gradient norm {grad_norm} exceeds maximum {self.cfg.training.max_grad_norm}"
                 )
+                # under AMP an fp16 overflow routes here; the scaler must still update so
+                # the loss scale can DECREASE -- skipping it froze the scale forever.
+                self.scaler.update()
                 return
         self.scaler.step(self.optimizer)
         self.scaler.update()
@@ -718,6 +829,7 @@ class BaseExperiment:
         if self.cfg.training.scheduler in [
             "OneCycleLR",
             "CosineAnnealingLR",
+            "CosineAnnealingWarmup",
             "CosineAnnealingWarmRestarts",
         ]:
             self.scheduler.step()

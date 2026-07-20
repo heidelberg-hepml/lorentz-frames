@@ -1,0 +1,51 @@
+_target_: experiments.tagging.wrappers.ParticleNetParTGraphGPSWrapper
+in_channels: null               # init_physics -> 7 + extra_scalars
+out_channels: null              # init_physics -> num_outputs
+use_amp: false
+add_fourmomenta_backbone: false
+
+net:
+  _target_: experiments.baselines.particlenetpartgraphgps.ParticleNetParTGraphGPS
+  _partial_: true
+  input_dim: null               # supplied by the wrapper (= in_channels)
+  num_classes: null             # supplied by the wrapper (= out_channels)
+
+  # EdgeConv local branch (dynamic kNN, rebuilt from hidden features each layer)
+  knn_k: 16
+  knn_metric: deltaR            # how layer-0 graph is seeded: 'deltaR' (eta-phi) or 'minkowski' (4-momenta)
+  edge_mlp_layers: 3            # conv layers in each EdgeConv message MLP -> out_feats=[dim]*3=[128,128,128];
+                               # matches ParticleNet/GraphTrans per-block depth (flat, NOT tapered 32/64/128:
+                               # the growth in ParticleNet is ACROSS blocks, which the 10 GPS layers already give)
+  use_fts_bn: true
+
+  # ParT pairwise interaction bias on the global attention (ParT-style U_ij)
+  bias: true                    # toggle the additive pairwise attention bias
+  pair_input_dim: 4
+  pair_extra_dim: 0
+  pair_embed_dims: [64, 64, 64]
+  remove_self_pair: false
+  # false = published-ParT parity (jet-universe get_model overrides weaver's default True);
+  # matches the tag_ParT reference row and the GraphTrans sibling.
+  use_pre_activation_pair: false
+
+  # interleaved GPS layers (tensorial EdgeConv local + LLoCa-tensorial ParT attn global)
+  dim: 128
+  num_layers: 10
+  num_heads: 8
+  # LLoCa message-passing reps (shared by every layer, since h keeps width dim):
+  #   attn_reps per head -> dim = attn_reps.dim(16) * num_heads(8) = 128
+  #   edge_reps for the EdgeConv hidden features -> edge_reps.dim = dim = 128
+  # Both carry vectors (Nx1n) so geometry flows through the frame transport.
+  attn_reps: "8x0n+2x1n"
+  edge_reps: "64x0n+16x1n"
+  ffn_ratio: 2                  # GraphGPS FFN inner width = 2 * dim
+  dropout: 0.0
+  attn_dropout: 0.0
+  act: relu
+  norm: batch                   # 'batch' (GraphGPS default, every config) or 'layer' (padding-safe ablation)
+
+  head_layers: 2
+  for_inference: false
+
+defaults:
+  - framesnet: identity

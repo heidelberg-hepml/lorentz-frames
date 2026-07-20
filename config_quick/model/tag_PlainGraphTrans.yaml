@@ -1,0 +1,38 @@
+_target_: experiments.tagging.wrappers.PlainGraphTransWrapper
+in_channels: null               # init_physics -> 7 + extra_scalars
+out_channels: null              # init_physics -> num_outputs
+use_amp: false
+add_fourmomenta_backbone: false
+
+net:
+  _target_: experiments.baselines.plaingraphtrans.PlainGraphTrans
+  _partial_: true
+  input_dim: null               # supplied by the wrapper (= in_channels)
+  num_classes: null             # supplied by the wrapper (= out_channels)
+
+  # static plain-MPNN graph backbone (3 GNN blocks) with LLoCa tensorial message-passing.
+  # hidden_reps_list types each MPNN block's input for the neighbour frame transport (block 0
+  # null = pure scalars; deeper blocks carry vectors). Each rep's dim must equal the block's
+  # input width (here gnn_dims[0]=16, gnn_dims[1]=16).
+  gnn_dims: [16, 16, 16]
+  hidden_reps_list: [null, "8x0n+2x1n", "8x0n+2x1n"]
+  knn_k: 4
+  knn_metric: deltaR            # 'deltaR' (eta-phi L2) or 'minkowski' (4-momenta)
+  use_fts_bn: true
+  use_input_concat: true
+
+  # plain transformer encoder (torch nn.MultiheadAttention) with LLoCa tensorial attention.
+  # embed_dim = attn_reps.dim * num_heads = (4 + 1*4) * 2 = 16.
+  embed_dim: 16
+  attn_reps: "4x0n+1x1n"
+  num_layers: 2
+  num_heads: 2
+  ffn_ratio: 4
+  dropout: 0.1
+  activation: gelu
+  fc_params: []
+
+  for_inference: false
+
+defaults:
+  - framesnet: identity
