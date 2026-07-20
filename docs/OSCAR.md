@@ -310,8 +310,8 @@ After trial 1 finishes, submit the same run twice more as **fresh-trial warm sta
 GUIDE §8). In `train.sh`, replace the `python run.py` line with:
 
 ```bash
-python run.py -cp ~/GTagger-experiments/runs/<exp_name>/<run_name> -cn config \
-    warm_start_idx=<prev run_idx> warm_start_load=false
+python run.py -cp ~/GTagger-experiments/runs/EXPNAME/RUNNAME -cn config \
+    warm_start_idx=PREV_RUN_IDX warm_start_load=false   # substitute EXPNAME/RUNNAME/PREV_RUN_IDX
 ```
 
 (`run_idx` is 0 for the first run, 1 after the first warm start, …; the saved `config.yaml`
