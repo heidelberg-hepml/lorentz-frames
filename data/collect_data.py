@@ -240,7 +240,7 @@ def main():
             sys.exit(1)
         collect_jetclass(splits)
 
-    # collect the TopTagXL dataset (https://zenodo.org/records/10878355)
+    # collect the TopTagXL dataset (https://zenodo.org/records/10878355) introduced in SciPost LLoCa paper
     # second arg selects the split(s); default 'all'. ~JetClass-sized download; the
     # file list + md5 checksums come from the Zenodo API at download time.
     if dataset == "toptagxl":
