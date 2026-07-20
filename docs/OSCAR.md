@@ -37,10 +37,19 @@ home, don't put it in data).
 ## 2. One-time setup (on the login node — this part is allowed there)
 
 Python ≥ 3.10 and a CUDA-tuned torch both come from the **NGC PyTorch container module**:
-`module load ngc-pytorch-container/25.08-py3-ayk4` sets `$NGC_PYTORCH_CONTAINER` to the
-container image, and every python command in this guide runs inside it via
-`apptainer exec --nv "$NGC_PYTORCH_CONTAINER" …`. Bare `python` on Oscar is the system
-3.9 — never use it for this repo (too old, and no torch).
+`module load ngc-pytorch-container/25.08-py3-ayk4` is *supposed* to set
+`$NGC_PYTORCH_CONTAINER` to the 25.08 image, and every python command in this guide runs
+inside it via `apptainer exec --nv "$NGC_PYTORCH_CONTAINER" …`. Bare `python` on Oscar is
+the system 3.9 — never use it for this repo (too old, and no torch).
+
+> **Verify the image — the module has shipped mis-labelled.** On Oscar the `25.08-py3-ayk4`
+> modulefile has `setenv`'d `$NGC_PYTORCH_CONTAINER` to the **24.03** sif
+> (check: `module show ngc-pytorch-container/25.08-py3-ayk4 | grep NGC_PYTORCH_CONTAINER`).
+> The 24.03 image silently breaks this repo — its python has no `ensurepip` (so
+> `python -m venv` fails and pip leaks into `~/.local`), and its torch 2.3 is too old for
+> `torch-geometric >= 2.6` (`torch.compiler has no attribute is_compiling` at import). So do
+> **not** trust the module's value: resolve the real 25.08 sif and hard-stop if it isn't one
+> (the block below does this). If it's still broken when you read this, file a CCV ticket.
 
 ```bash
 # repo + venv live in home
@@ -49,14 +58,27 @@ git clone https://github.com/t0mnt/GTagger-experiments.git
 cd GTagger-experiments
 
 module load ngc-pytorch-container/25.08-py3-ayk4
-echo "$NGC_PYTORCH_CONTAINER"        # -> the image everything below runs in
+echo "$NGC_PYTORCH_CONTAINER"        # -> the image the module chose (may be WRONG, see above)
+
+# Trust the resolved sif, not the module: if it isn't a 25.08 image, point at the real one
+# directly; then hard-stop if we STILL don't have 25.08 (everything below would fail on 24.03).
+case "$NGC_PYTORCH_CONTAINER" in
+  *25.08*) : ;;   # module happened to be correct -- keep it
+  *) export NGC_PYTORCH_CONTAINER="$(ls /oscar/rt/sw/external/ngc-pytorch-container/25.08-py3/*.sif | head -1)" ;;
+esac
+case "$NGC_PYTORCH_CONTAINER" in
+  *25.08*) echo "using $NGC_PYTORCH_CONTAINER" ;;
+  *) echo "ERROR: no 25.08 image resolved ($NGC_PYTORCH_CONTAINER); fix the module / path first"; return 1 2>/dev/null || exit 1 ;;
+esac
 
 # containers auto-mount only $HOME and /tmp; bind the data/scratch trees so the
 # symlinks wired up below keep working inside the container
 export APPTAINER_BINDPATH="/oscar/home/$USER,/oscar/scratch/$USER,/oscar/data"
 
-# make both permanent, for new shells and for the sbatch scripts below
+# make both permanent, for new shells and for the sbatch scripts below. Persist the RESOLVED
+# sif AFTER the module load so it overrides the module's (possibly wrong) setenv in new shells.
 echo 'module load ngc-pytorch-container/25.08-py3-ayk4' >> ~/.bashrc
+echo "export NGC_PYTORCH_CONTAINER=\"$NGC_PYTORCH_CONTAINER\"" >> ~/.bashrc
 echo 'export APPTAINER_BINDPATH="/oscar/home/$USER,/oscar/scratch/$USER,/oscar/data"' >> ~/.bashrc
 
 # a venv that INHERITS the container's stack (torch, torch-geometric, numpy, ...),
@@ -66,7 +88,9 @@ echo 'export APPTAINER_BINDPATH="/oscar/home/$USER,/oscar/scratch/$USER,/oscar/d
 #   - xformers: not in the image and won't build against its torch -- we run without it
 #   - the lgatr/lloca [xformers-attention] extras -> plain lgatr/lloca (same reason)
 apptainer exec "$NGC_PYTORCH_CONTAINER" bash -lc '
-  python -m venv --system-site-packages venv
+  # fail fast: a missing ensurepip means the WRONG image (24.03) -- do not let pip
+  # silently fall back to a ~/.local user-install against the container python.
+  python -m venv --system-site-packages venv || { echo "venv creation FAILED (no ensurepip -> not the 25.08 image); aborting"; exit 1; }
   source venv/bin/activate
   pip install --upgrade pip
   pip install -e .
