@@ -99,7 +99,8 @@ apptainer exec "$NGC_PYTORCH_CONTAINER" bash -lc '
   pip install -r /tmp/reqs-oscar.txt
 '
 
-# sanity: torch must still be the container build (an NGC "a0" version string);
+# sanity: torch must still be the CONTAINER's own build -- a local +cuXXX / nvXX.XX string
+# (e.g. 2.11.0+cu130 on the 25.08 image, or 2.3.0a0...nv24.3 on 24.03), NOT a plain pip wheel;
 # torch-geometric should now be >= 2.6
 apptainer exec "$NGC_PYTORCH_CONTAINER" bash -lc '
   source venv/bin/activate
