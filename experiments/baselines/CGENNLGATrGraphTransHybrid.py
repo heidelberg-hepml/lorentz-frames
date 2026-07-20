@@ -680,14 +680,11 @@ def generate_edges_vectorized(mask, points, k, M, device,
     recv = (torch.arange(P, device=device)[None, :, None] + offset).expand(B, P, k_actual).reshape(-1)
     send = (nbr + offset).reshape(-1)
 
-    # keep edges with both endpoints real (drops padded senders in sparse jets,
-    # which is what a sparse graph wants -- those nodes simply get fewer edges).
-    # Also drop self-loops: on jets with n_real <= k, topk fills the remaining
-    # slots from the tied +inf pool (self and padded columns), and while padded
-    # fills fail the realness filter, a self fill has BOTH endpoints real and
-    # would survive as a spurious i->i message (tie-break dependent, hence
-    # non-deterministic) -- the same sparse-jet leak fixed in the static-kNN
-    # nbr_masks of the Plain/LorentzNet hybrids.
+    # keep edges with both endpoints real (padded senders in sparse jets just get fewer
+    # edges). Also drop self-loops: on jets with n_real<=k, topk fills from the tied +inf
+    # pool (self + padded); padded fills fail the realness filter but a self fill has both
+    # endpoints real and would survive as a spurious, tie-break-dependent i->i message --
+    # the same sparse-jet leak fixed in the Plain/LorentzNet static-kNN nbr_masks.
     valid = mask_bool.reshape(-1)
     keep = valid[recv] & valid[send] & (recv != send)
     return torch.stack([recv[keep], send[keep]])
@@ -1011,12 +1008,10 @@ class CGENNLGATrGraphTrans(nn.Module):
         self.concat_original = concat_original
         self.use_explicit_edge_features = use_explicit_edge_features
         if not use_explicit_edge_features:
-            # The CGENN stage's CGLayers are built expecting the relative-momentum edge
-            # multivectors and the re-injected raw node attributes (edge_attr_x / node_attr_x /
-            # node_attr_h with nonzero dims); the forward would pass None for them, mismatching
-            # the layer dimensions -> a shape RuntimeError on the first layer. Fail loudly here
-            # instead. (The GraphGPS sibling, cgennlgatrgraphgps.py, DOES support the toggle --
-            # it zeroes those dims at construction when the flag is off.)
+            # The CGENN stage's CGLayers expect the edge multivectors and re-injected node
+            # attributes (edge_attr_x / node_attr_x / node_attr_h nonzero); the forward would
+            # pass None -> a shape RuntimeError on the first layer. Fail loudly instead. (The
+            # GraphGPS sibling supports the toggle by zeroing those dims at construction.)
             raise NotImplementedError(
                 "CGENNLGATrGraphTrans supports only use_explicit_edge_features=True; the CGENN "
                 "stage is constructed with the static edge/node attributes always enabled. Use "
@@ -1053,11 +1048,9 @@ class CGENNLGATrGraphTrans(nn.Module):
             layer_type=cgenn_layer_type,
         )
 
-        # concat_original "skips" the raw particle kinematic channel (ch 0) only.
-        # Spurion channels are intentionally excluded: they are global constants
-        # (zero variance across the batch) whose information is already folded
-        # into every CGENN output channel via embedding_x. Concatenating them
-        # here would add identical constant MVs to every token — no new signal.
+        # concat_original skips the raw particle kinematic channel (ch 0) only. Spurion
+        # channels are excluded: they are global constants (zero batch variance) already
+        # folded into every CGENN channel via embedding_x, so concatenating them adds no signal.
         mv_bridge_in = cgenn_hidden_x + 1 if concat_original else cgenn_hidden_x
         self.mv_bridge = MVLinear(self.algebra, mv_bridge_in, hidden_mv_channels, subspaces=True)
 
@@ -1144,11 +1137,9 @@ class CGENNLGATrGraphTrans(nn.Module):
             fourmomenta=fourmomenta_flat,
         )
 
-        # Stage 4: Flatten for CGENN over the dense B*P layout (padded slots
-        # included), matching official CGENN: its theta_h BatchNorm also runs over
-        # the padded nodes. Edges connect real nodes only, so padding never
-        # propagates through message passing -- it only enters the scalar BN stats,
-        # exactly as upstream.
+        # Stage 4: Flatten for CGENN over the dense B*P layout (padded slots included),
+        # matching official CGENN, whose theta_h BatchNorm also runs over padded nodes.
+        # Edges connect real nodes only, so padding reaches only the scalar BN stats.
         total_nodes = B * M
         h_flat = s.reshape(total_nodes, -1)
         x_flat_raw = mv.reshape(total_nodes, -1, 16)  # (B*P, 1+num_spurions, 16)
@@ -1182,11 +1173,10 @@ class CGENNLGATrGraphTrans(nn.Module):
 
         # Stage 6: Linear bridge
         if self.concat_original:
-            # "Skip-connect" raw particle kinematics (channel 0) only.
-            # Spurion channels (1..num_spurions) are excluded: they are fixed
-            # constants with no per-particle variance. Their contribution is
-            # already encoded in every CGENN output channel via embedding_x,
-            # so repeating them here would be redundant and waste bridge capacity.
+            # Skip-connect raw particle kinematics (channel 0) only. Spurion channels
+            # (1..num_spurions) are excluded: fixed constants with no per-particle variance,
+            # already encoded in every CGENN channel via embedding_x -- repeating them wastes
+            # bridge capacity.
             particle_mv = mv[:, :, :1, :]                  # (B, P, 1, 16)
             x = torch.cat([particle_mv, x], dim=2)         # (B, P, 1+hidden_x, 16)
             h = torch.cat([s, h], dim=2) 

@@ -25,26 +25,20 @@ class TaggingExperiment(BaseExperiment):
         self.momentum_dtype = torch.float64 if self.cfg.data.momentum_float64 else torch.float32
 
         if self.world_size > 1:
-            # The tagging path is verified single-GPU only. Under DDP, attribute
-            # introspection on the wrapped framesnet silently fails (no `.module`
-            # unwrap anywhere): jet_frames returns None (CLS token silently rides the
-            # identity frame), equivectors init_standardization is skipped, the CLS
-            # no_weight_decay exemption vanishes, checkpoints get un-loadable
-            # `module.*` keys, and JetClass has no rank sharding (each rank trains the
-            # FULL budget). Erroring here is deliberate -- these failures are silent
-            # model degradations, not crashes. Use a single GPU until the DDP rework.
+            # Single-GPU only: DDP wraps the model but nothing unwraps `.module`, so
+            # learned-frames introspection silently degrades (jet_frames->None, skipped
+            # standardization, lost CLS wd-exemption, unloadable module.* keys, no rank
+            # sharding). Silent quality loss, not a crash -- so error out explicitly.
             raise RuntimeError(
                 "Multi-GPU tagging is disabled: the DDP wrapping breaks learned-frames "
                 "introspection and checkpoint compatibility (see the audit notes in "
                 "docs/diffs.md). Run with gpus=1."
             )
 
-        # guardrail: the per-model hybrid recipes ship batchsize/lr as '???', which hydra
-        # cannot enforce (an OmegaConf MISSING never overrides the values inherited from
-        # tag_default), so an unfilled recipe silently composes to the 512 / 1e-3 fallback.
+        # Hybrid recipes ship batchsize/lr as '???', but OmegaConf MISSING can't override
+        # the tag_default values, so an unfilled recipe silently falls back to 512 / 1e-3.
         if self.cfg.train and modelname.endswith(("GraphTrans", "GraphGPS")):
-            # each knob checked INDEPENDENTLY: filling exactly one of the two `???`
-            # placeholders must not silence the warning for the other
+            # check each knob independently: filling one placeholder must not mute the other
             unswept = []
             if float(self.cfg.training.lr) == 1e-3:
                 unswept.append("lr=1e-3")
@@ -88,17 +82,15 @@ class TaggingExperiment(BaseExperiment):
                 # CGENN cant handle zero scalar inputs -> give 1 input with zeros
                 self.cfg.model.net.in_features_h = 1 + in_s_channels
             elif modelname == "CGENNLGATrGraphTrans":
-                # zero scalar inputs doesn't really happen so I ignore it out of practicality
                 self.cfg.model.net.in_s_channels = in_s_channels
             elif modelname == "LorentzNetLGATrSlimGraphTrans":
                 self.cfg.model.net.in_s_channels = in_s_channels
             elif modelname == "CGENNLGATrGraphGPS":
-                # same thing
                 self.cfg.model.net.in_s_channels = in_s_channels
             elif modelname == "LorentzNetLGATrSlimGraphGPS":
                 self.cfg.model.net.in_s_channels = in_s_channels
 
-            # doesn't affect results and never needed
+            # equivariant models: boost_jet is a no-op
             self.cfg.data.boost_jet = False
         elif modelname in [
             "Transformer",
@@ -130,15 +122,11 @@ class TaggingExperiment(BaseExperiment):
                 )
                 self.cfg.model.framesnet.equivectors.num_scalars = self.extra_scalars
                 self.cfg.model.framesnet.equivectors.num_scalars += num_tagging_features
-                # boost_jet lands each jet at rest, and PURE-ROTATION frame families cannot
-                # restore its momentum: jet_local stays at (M,0,0,0) and 4/7 of the wrapper's
-                # local tagging features degenerate (log_pt_rel duplicates log_pt; dphi/deta/dr
-                # become absolute angles at the wrong standardization scale). Measured set
-                # (median pt/E of the frame-local jet, quick tree, float64): so3/so2 4.5e-15
-                # (stranded) vs pd/so13 0.75 and z 0.37 (z frames carry TRANSVERSE boosts and
-                # un-rest the jet -- empirically NOT stranded, so it stays boosted). Not an
-                # invariance break -- a physics-consistency choice: for rotation-only frames the
-                # boost discards exactly the boost information those frames are chosen to keep.
+                # PURE-ROTATION frames (LearnedSO3/SO2) can't restore a boosted jet's
+                # momentum: boost_jet strands it at (M,0,0,0) and 4/7 local tagging features
+                # degenerate. Measured frame-local median pt/E (float64): so3/so2 4.5e-15
+                # (stranded) vs pd/so13 0.75, z 0.37 (z carries transverse boosts -> not
+                # stranded). Physics-consistency choice, not an invariance break.
                 frames_target = str(
                     self.cfg.model.framesnet.get("_target_", "")
                 ).rsplit(".", 1)[-1]
@@ -234,15 +222,11 @@ class TaggingExperiment(BaseExperiment):
             self.model.init_standardization(embedding["fourmomenta"], embedding["ptr"])
 
     def _init_optimizer(self, param_groups=None):
-        # ParT/weaver weight-decay grouping. Its ONLY effect beyond the base default
-        # (base_experiment._init_optimizer) is excluding the learnable CLS token(s) from
-        # weight decay via net.no_weight_decay() -- the base already exempts norms/biases
-        # (ndim<=1) and groups the framesnet (even splitting its biases off). So only models
-        # with a class token (a non-empty no_weight_decay()) belong here. The mean-pool
-        # GraphGPS models have none -- CGENN/LorentzNet GPS return set() and the plain/PNet
-        # GPS define no such method -- so they correctly fall through to the base default.
-        # Caller-supplied groups (the finetune experiment's carefully split
-        # backbone/head lrs) must NOT be clobbered by the name match below.
+        # ParT/weaver weight-decay grouping. Beyond the base default it only excludes the
+        # learnable CLS token(s) (net.no_weight_decay()) from decay -- base already exempts
+        # norms/biases and groups the framesnet. So only class-token models belong here;
+        # mean-pool GraphGPS models (empty no_weight_decay()) fall through to base. Caller
+        # groups (finetune's split backbone/head lrs) must NOT be clobbered by the match below.
         if param_groups is None and self.cfg.model.net._target_.rsplit(".", 1)[-1] in [
             "ParticleTransformer",
             "MIParticleTransformer",
@@ -336,9 +320,8 @@ class TaggingExperiment(BaseExperiment):
         ).item()
         labels_predict = torch.nn.functional.sigmoid(labels_predict)
         if mode == "eval":
-            # store the sigmoid PROBABILITIES, not the logits: plot_score histograms
-            # metrics["labels_predict"] over [0, 1] (matplotlib silently drops
-            # out-of-range values, so storing logits made score.pdf meaningless)
+            # store sigmoid PROBABILITIES not logits: plot_score histograms over [0,1]
+            # (matplotlib drops out-of-range values, so logits made score.pdf meaningless)
             metrics["labels_true"], metrics["labels_predict"] = (
                 labels_true,
                 labels_predict,
@@ -381,8 +364,7 @@ class TaggingExperiment(BaseExperiment):
                 log_mlflow(f"{name}.{key}", value, step=step)
 
         if mode == "eval":
-            # per-trial scalars; accumulated across run_idx so the table can show
-            # mean +- std error bars when an experiment has several trials/seeds
+            # per-trial scalars, accumulated across run_idx for table mean +- std
             row = {
                 # float() casts: numpy scalars are not JSON-serializable
                 "accuracy": float(metrics["accuracy"]),
@@ -462,19 +444,14 @@ class TaggingExperiment(BaseExperiment):
     def _collect_table_rows(self, title, row):
         """Persist this run's table metrics and return all trials in the run dir.
 
-        Multiple trials/seeds are launched as successive run_idx that share one
-        run directory (fresh-trial warm starts: warm_start_load=false, so each
-        trial trains from its own random init -- see GUIDE.md section 8), each a
-        separate process, launched SEQUENTIALLY (the JSON accumulation below is not
-        locked against concurrent writers). We accumulate their scalar metrics in a
-        JSON file so the final table reports mean +- std automatically. With
-        save=False (e.g. tests) nothing is written and only the current run is
-        returned.
+        Trials/seeds are successive run_idx sharing one run dir (fresh-trial warm
+        starts, warm_start_load=false -- see GUIDE.md section 8), launched SEQUENTIALLY
+        (the JSON accumulation is not locked). Their scalars accumulate in a JSON file
+        so the final table reports mean +- std. save=False writes nothing.
 
-        Rows are keyed by trial LINEAGE: a continue-training warm start
-        (warm_start_load=true) extends an existing trial rather than adding one, so
-        its row REPLACES the parent trial's row instead of appending a duplicate
-        (which would fake an extra trial and shrink the std).
+        Rows are keyed by trial LINEAGE: a continue-training warm start extends an
+        existing trial, so its row REPLACES the parent's instead of appending a
+        duplicate (which would fake a trial and shrink the std).
         """
         if not self.cfg.save:
             return [row]
@@ -487,9 +464,8 @@ class TaggingExperiment(BaseExperiment):
             except (json.JSONDecodeError, OSError):
                 rows = []
         if not self.cfg.train:
-            # eval-only rerun (e.g. a warm-start reload): it re-evaluates an ALREADY-COUNTED
-            # trial, so appending would duplicate that trial's row and shrink the std. Just
-            # report the accumulated trials (or this run alone if none are persisted yet).
+            # eval-only rerun re-evaluates an already-counted trial; appending would
+            # duplicate its row and shrink the std, so just report the persisted trials.
             return rows if rows else [row]
         run_idx = int(self.cfg.run_idx or 0)
         lineage = run_idx
@@ -580,15 +556,12 @@ class TaggingExperiment(BaseExperiment):
         else:
             metrics = self._evaluate_single(self.val_loader, "val", mode="val", step=step)
         self.val_loss.append(metrics["loss"])
-        # per-validation (step, loss, accuracy) history for the end-of-training
-        # loss-vs-accuracy selection cross-check (_log_checkpoint_selection)
+        # (step, loss, accuracy) history for _log_checkpoint_selection cross-check
         if not hasattr(self, "val_selection_history"):
             self.val_selection_history = []
         self.val_selection_history.append((step, metrics["loss"], metrics["accuracy"]))
-        # Best-checkpoint selection metric (es_load_best_model). Default 'loss' (lower=better).
-        # 'accuracy' keeps the highest-val-accuracy checkpoint instead; we return 1 - accuracy so
-        # the train loop's "lower is better" comparison is unchanged. Loss is still logged above,
-        # so only which checkpoint is kept/reported changes.
+        # best_model_metric selects which checkpoint es_load_best_model keeps. Default
+        # 'loss'; 'accuracy' returns 1 - accuracy so the loop's "lower is better" holds.
         if self.cfg.training.get("best_model_metric", "loss") == "accuracy":
             return 1.0 - metrics["accuracy"]
         return metrics["loss"]

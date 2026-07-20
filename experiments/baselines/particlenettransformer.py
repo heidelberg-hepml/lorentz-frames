@@ -89,26 +89,21 @@ def knn(x, k, metric='deltaR', mask=None):
         d2 = msq.transpose(2, 1) + msq - 2 * gram  # (N, P, P): (x_i - x_j)^2_mink
         pairwise_distance = -d2.abs()
         if mask is not None:
-            # Padded senders sit at a large-but-finite distance: they rank BELOW every
-            # real pair but ABOVE self (-inf). On sparse jets (n_real <= k) the surplus
-            # neighbour slots then fill deterministically with padded points (zeroed
-            # features), exactly like official ParticleNet's far coord-shifted padding --
-            # instead of non-deterministically tie-breaking between self and padding at
-            # -inf, which could admit a spurious self edge into unmasked aggregations
-            # (e.g. EdgeConvBlock's plain mean). (Under fp16 autocast -1e30 saturates to
-            # -inf and this degrades to the old tie-break -- harmless; the repo autocasts
-            # to bf16, where 1e30 is representable, and use_amp defaults to false.)
+            # Padded senders sit large-but-finite: below every real pair but above self
+            # (-inf). On sparse jets (n_real<=k) surplus slots fill deterministically with
+            # padding (like official ParticleNet), not by tie-breaking self vs padding at
+            # -inf, which could admit a spurious self edge into unmasked means (EdgeConvBlock).
+            # (fp16 -1e30 saturates to -inf and degrades to the old tie-break -- harmless;
+            # the repo uses bf16 and use_amp defaults to false.)
             pairwise_distance = pairwise_distance.masked_fill(~mask.bool().unsqueeze(1), -1e30)
         # drop self-loops explicitly (lightlike pairs can also reach |interval|=0)
         eye = torch.eye(num_points, dtype=torch.bool, device=x.device).unsqueeze(0)
         pairwise_distance = pairwise_distance.masked_fill(eye, float('-inf'))
         idx = pairwise_distance.topk(k=k, dim=-1)[1]  # (batch_size, num_points, k)
     else:
-        # 'deltaR': squared-L2 on the supplied coordinates. A 2-channel input is the
-        # (eta, phi) points (first layer), whose azimuth is PERIODIC: the true
-        # particle-particle distance is the shorter arc, so wrap d_phi into [0, pi] before
-        # the L2 (a pair straddling the +/-pi seam is adjacent, not ~2*pi apart). The dynamic
-        # deeper layers pass higher-dim features (ordinary Euclidean) -> plain gram L2.
+        # 'deltaR': squared-L2 on the coords. First-layer input is (eta, phi); azimuth is
+        # PERIODIC, so wrap d_phi into [0, pi] before the L2 (a pair across the +/-pi seam is
+        # adjacent, not ~2pi apart). Deeper layers pass higher-dim features -> plain gram L2.
         if x.size(1) == 2:
             eta, phi = x[:, 0, :], x[:, 1, :]
             deta = eta[:, :, None] - eta[:, None, :]
@@ -662,11 +657,10 @@ class ParticleNetParTGraphTrans(nn.Module):
                  remove_self_pair=False,
                  use_pre_activation_pair=True,
                  embed_dims=[128],  # transformer width (fallback when attn_reps is None)
-                 # LLoCa tensorial message-passing (purely additive; a no-op for identity/global
-                 # frames). attn_reps types the per-head q/k/v for the attention transport, so
-                 # embed_dim = attn_reps.dim * num_heads. hidden_reps_list[i] types EdgeConv i's
-                 # input for the neighbour transport (None entry -> that layer is not transported).
-                 # Both default to typed reps; the transport itself is only taken for learned frames.
+                 # LLoCa tensorial message-passing (additive; no-op for identity/global frames).
+                 # attn_reps types per-head q/k/v (embed_dim = attn_reps.dim * num_heads);
+                 # hidden_reps_list[i] types EdgeConv i's input (None -> not transported). The
+                 # transport is only taken for learned frames.
                  attn_reps="8x0n+2x1n",
                  hidden_reps_list=None,
                  pair_embed_dims=[64, 64, 64],
@@ -741,11 +735,9 @@ class ParticleNetParTGraphTrans(nn.Module):
         cfg_block = copy.deepcopy(default_cfg)
         if block_params is not None:
             cfg_block.update(block_params)
-        # embed_dim (= attn_reps.dim * num_heads) and the LLoCaAttention transport are laid
-        # out from the CONSTRUCTOR num_heads above; a block_params={'num_heads': N} override
-        # would re-head the Blocks/PairEmbed but not the transport -- the identity-frames arm
-        # trains while the learned-frames arm crashes, silently poisoning an A/B ablation.
-        # Heads are a first-class arg: override via model.net.num_heads instead.
+        # embed_dim and the LLoCaAttention transport come from the CONSTRUCTOR num_heads; a
+        # block_params={'num_heads': N} override would re-head the Blocks/PairEmbed but not
+        # the transport (learned-frames arm crashes, poisoning an A/B). Use model.net.num_heads.
         assert cfg_block['num_heads'] == num_heads, (
             "override heads via model.net.num_heads, not block_params['num_heads'] "
             f"(ctor num_heads={num_heads}, block_params gave {cfg_block['num_heads']})"

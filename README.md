@@ -2,7 +2,8 @@
 <br>
 <div align="center">
 
-## Lorentz Local Canonicalization: How to Make Any Network Lorentz-Equivariant
+
+## GTagger WIP repo, ignore below or just view the forked repo
 
 [![pytorch](https://img.shields.io/badge/PyTorch_2.0+-ee4c2c?logo=pytorch&logoColor=white)](https://pytorch.org/get-started/locally/)
 [![hydra](https://img.shields.io/badge/Config-Hydra_1.3-89b8cd)](https://hydra.cc/)

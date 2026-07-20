@@ -53,21 +53,17 @@ def knn(x, k, metric='deltaR', mask=None):
         d2 = msq.transpose(2, 1) + msq - 2 * gram
         pairwise_distance = -d2.abs()
         if mask is not None:
-            # padded senders large-but-finite, self -inf: sparse jets (n_real <= k) fill
-            # their surplus neighbour slots deterministically with padded points, never
-            # with self (a -inf tie-break could otherwise pick self; the nbr_mask in the
-            # forward rejects both, this just makes the fill choice deterministic and
-            # keeps the helper identical to the ParticleNetParT one, where it matters)
+            # padded senders large-but-finite, self -inf: on sparse jets (n_real<=k) topk
+            # fills surplus slots with padding, never self (nbr_mask rejects both; this just
+            # makes the fill deterministic, matching the ParticleNetParT helper).
             pairwise_distance = pairwise_distance.masked_fill(~mask.bool().unsqueeze(1), -1e30)
         eye = torch.eye(num_points, dtype=torch.bool, device=x.device).unsqueeze(0)
         pairwise_distance = pairwise_distance.masked_fill(eye, float('-inf'))
         idx = pairwise_distance.topk(k=k, dim=-1)[1]
     else:
-        # 'deltaR': squared-L2 on the supplied coordinates. A 2-channel input is the
-        # (eta, phi) points, whose azimuth is PERIODIC: the true particle-particle distance
-        # is the shorter arc, so wrap d_phi into [0, pi] before the L2 (a pair straddling the
-        # +/-pi seam is adjacent, not ~2*pi apart). Higher-dim deltaR is a dynamic
-        # feature-space graph (ordinary Euclidean) -> keep the plain gram L2.
+        # 'deltaR': squared-L2 on the coords. A 2-channel input is (eta, phi); azimuth is
+        # PERIODIC, so wrap d_phi into [0, pi] before the L2 (a pair across the +/-pi seam is
+        # adjacent, not ~2pi apart). Higher-dim deltaR is Euclidean -> plain gram L2.
         if x.size(1) == 2:
             eta, phi = x[:, 0, :], x[:, 1, :]
             deta = eta[:, :, None] - eta[:, None, :]
@@ -308,11 +304,9 @@ class PlainGraphTrans(nn.Module):
             else:
                 idx = knn(points, self.knn_k, metric='deltaR', mask=mask_p)
             nbr_mask = gather_neighbors(mask.float(), idx).squeeze(1) > 0.5  # (N, P, K)
-            # Exclude self. On jets with fewer real constituents than knn_k, topk pads the
-            # neighbour list from the tied -inf/self slots, and the realness-only mask above
-            # would re-admit the node's OWN index as a "valid" neighbour -- a spurious self
-            # message whose value depends on batch-mates and topk tie-breaking. The knn distance
-            # already masks self to -inf, so self is never an intended neighbour; drop it here.
+            # Exclude self: on jets with n_real < knn_k, topk fills from tied -inf/self slots
+            # and the realness-only mask would re-admit the node's own index -- a spurious,
+            # tie-break-dependent self message. knn already masks self to -inf; drop it here.
             nbr_mask = nbr_mask & (idx != torch.arange(idx.shape[1], device=idx.device)[None, :, None])
 
             fts = self.bn_fts(features) * mask if self.use_fts_bn else features

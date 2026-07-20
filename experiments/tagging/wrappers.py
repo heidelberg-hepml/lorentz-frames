@@ -88,17 +88,15 @@ class TaggerWrapper(nn.Module):
         refs = [jet_p.unsqueeze(1), vecs[:, :2]]
         n_rot_refs = min(vecs.shape[1], 2)
         if n_rot_refs < 2:
-            # e.g. LearnedSO2Frames (n_vectors=1): its own construction fixes the missing
-            # axes to trivial vectors, so pad the same way with the beam axis e_z
-            # (invariant under the SO(2)-about-z subgroup these frames canonicalize)
+            # e.g. LearnedSO2Frames (n_vectors=1) fixes the missing axes to trivial vectors,
+            # so pad with the beam axis e_z (invariant under the SO(2)-about-z subgroup)
             pad = torch.zeros(B, 2 - n_rot_refs, 4, device=jet_p.device, dtype=jet_p.dtype)
             pad[..., -1] = 1.0
             refs.append(pad)
         vecs = torch.cat(refs, dim=1)  # (B, 3, 4): time axis + two rotation references
-        # jet_frames always uses the 4d orthogonalizer, but reuses the framesnet's
-        # ortho_kwargs. The PD-family framesnets (LearnedPD/SO3/Rest/SO2/Z) key the coplanar
-        # regulator as `eps_reg` -- the name their internal orthogonalize_3d expects -- whereas
-        # orthogonalize_4d names it `eps_reg_coplanar`. Translate so any framesnet works here.
+        # jet_frames uses the 4d orthogonalizer with the framesnet's ortho_kwargs. PD-family
+        # framesnets key the coplanar regulator as `eps_reg` (for orthogonalize_3d) but
+        # orthogonalize_4d wants `eps_reg_coplanar` -- translate so any framesnet works.
         ortho_kwargs = dict(fn.ortho_kwargs)
         if "eps_reg" in ortho_kwargs:
             ortho_kwargs.setdefault("eps_reg_coplanar", ortho_kwargs.pop("eps_reg"))
@@ -176,11 +174,9 @@ class TaggerWrapper(nn.Module):
             shape=matrices.shape,
         )
 
-        # optional single covariant per-event (jet) frame. The equivectors get the SAME
-        # with-spurion inputs as the framesnet call above (the spurions rank-lift
-        # degenerate low-multiplicity jets and keep the CLS frame's symmetry breaking
-        # identical to the per-particle frames'); the jet momentum itself is built from
-        # the real particles only, inside jet_frames.
+        # optional single covariant per-event (jet) frame. The equivectors get the same
+        # with-spurion inputs as the framesnet above (spurions rank-lift degenerate jets and
+        # match the per-particle symmetry breaking); the jet momentum uses real particles only.
         if self.compute_jet_frames:
             self._jet_frames = self.jet_frames(
                 fourmomenta_withspurions,
@@ -443,11 +439,9 @@ class ParticleNetWrapper(AggregatedTaggerWrapper):
             batch,
             tracker,
         ) = super().forward(embedding)
-        # ParticleNet uses L2 norm in (phi, eta) for kNN. dphi/deta live at positions
-        # 4,5 INSIDE the 7-feature local tagging block (always 'all' in TaggerWrapper),
-        # which sits AFTER any extra scalars -- a hardcoded [4, 5] is correct only for
-        # extra_scalars=0 (top-tagging); on JetClass it would silently cluster the
-        # layer-0 kNN by PID one-hots.
+        # ParticleNet kNN uses L2 on (phi, eta) = dphi/deta at positions 4,5 of the 7-feature
+        # local block, which sits AFTER extra scalars. A hardcoded [4,5] is right only for
+        # extra_scalars=0 (top-tagging); on JetClass it would cluster layer-0 kNN by PID.
         n_extra = features_local.shape[-1] - 7 - (4 if self.add_fourmomenta_backbone else 0)
         assert n_extra >= 0, (
             f"unexpected feature layout for ParticleNetWrapper: {features_local.shape[-1]} channels"
@@ -821,13 +815,10 @@ class CGENNWrapper(nn.Module):
         fourmomenta, mask = to_dense_batch(fourmomenta, batch)
         scalars, _ = to_dense_batch(scalars, batch)
         batch_size, n_nodes, _ = fourmomenta.shape
-        # Build the fully-connected (no self-loop) edges among the REAL nodes of each jet
-        # in the DENSE b*n_nodes+i frame that the flattened tensors below actually use.
-        # The previous get_edge_index_from_ptr(ptr, ...) call produced edges in the SPARSE
-        # ptr[b]+i frame; the two frames only agree when every jet in the batch has the
-        # same length, so with variable jet sizes ~1/3 of the edges crossed jet boundaries
-        # or pointed at padded slots, silently scrambling the CGENN message passing and
-        # leaking information across batch-mates.
+        # fully-connected (no self-loop) edges among REAL nodes, in the DENSE b*n_nodes+i
+        # frame the flattened tensors use. The old get_edge_index_from_ptr produced SPARSE
+        # ptr[b]+i edges, which only match under equal jet lengths; with variable sizes ~1/3
+        # crossed jet boundaries, scrambling CGENN messages and leaking across batch-mates.
         pair = mask[:, :, None] & mask[:, None, :]
         pair &= ~torch.eye(n_nodes, dtype=torch.bool, device=mask.device)[None]
         b_idx, i_idx, j_idx = pair.nonzero(as_tuple=True)
@@ -1110,9 +1101,8 @@ class ParticleNetParTGraphTransWrapper(TaggerWrapper):
         fourmomenta_local = fourmomenta_local.transpose(1, 2).contiguous()  # (B, 4, P)
         points = points.transpose(1, 2).contiguous()  # (B, 2, P)
 
-        # densify the per-particle local frames to (B, P, 4, 4); padded particles get the
-        # identity frame (they are masked out of the kNN and attention anyway). The
-        # tensorial backbone transports neighbours/q-k-v between these frames (LLoCa).
+        # densify per-particle local frames to (B, P, 4, 4); padded particles -> identity
+        # (masked out anyway). The tensorial backbone transports q-k-v between them (LLoCa).
         frames_matrices, _ = to_dense_batch(frames.matrices, batch)
         frames_matrices[~mask] = lorentz_eye(
             frames_matrices[~mask].shape[:-2], device=frames.device, dtype=frames.dtype
@@ -1288,9 +1278,8 @@ class PlainGraphTransWrapper(TaggerWrapper):
         fourmomenta_local, _ = to_dense_batch(fourmomenta_local, batch)
         points, _ = to_dense_batch(points, batch)
 
-        # densify the per-particle local frames to (B, P, 4, 4); padded particles -> identity.
-        # The tensorial backbone transports neighbours/q-k-v between these frames (no-op for
-        # IdentityFrames -> bit-identical to the plain backbone).
+        # densify per-particle local frames to (B, P, 4, 4); padded particles -> identity.
+        # The backbone transports q-k-v between them (no-op for IdentityFrames).
         frames_matrices, _ = to_dense_batch(frames.matrices, batch)
         frames_matrices[~mask] = lorentz_eye(
             frames_matrices[~mask].shape[:-2], device=frames.device, dtype=frames.dtype
@@ -1352,9 +1341,8 @@ class PlainGraphGPSWrapper(TaggerWrapper):
         fourmomenta_local, _ = to_dense_batch(fourmomenta_local, batch)
         points, _ = to_dense_batch(points, batch)
 
-        # densify the per-particle local frames to (B, P, 4, 4); padded particles -> identity.
-        # The tensorial backbone transports neighbours/q-k-v between these frames (no-op for
-        # IdentityFrames -> bit-identical to the plain backbone).
+        # densify per-particle local frames to (B, P, 4, 4); padded particles -> identity.
+        # The backbone transports q-k-v between them (no-op for IdentityFrames).
         frames_matrices, _ = to_dense_batch(frames.matrices, batch)
         frames_matrices[~mask] = lorentz_eye(
             frames_matrices[~mask].shape[:-2], device=frames.device, dtype=frames.dtype

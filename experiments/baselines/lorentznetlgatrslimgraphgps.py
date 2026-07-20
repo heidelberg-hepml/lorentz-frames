@@ -90,11 +90,10 @@ class LorentzNetSlimGPSLayer(nn.Module):
         # equivariant norm (stateless -> shared) + dropout
         self.norm = SlimRMSNorm()
         self.dropout = SlimDropout(dropout_prob if dropout_prob is not None else 0.0)
-        # attention-WEIGHTS dropout: lgatr's sdp_attention makes a single sdpa call on the
-        # concatenated (mv, s) values and forwards **attn_kwargs, so dropout_p rides through
-        # -- one joint mask keeps the two streams consistent, and the weights are Lorentz
-        # invariants, so equivariance is preserved. 0.0 = bit-identical no-op (kwarg omitted;
-        # also keeps non-sdpa attention backends, which lack dropout_p, working).
+        # attention-WEIGHTS dropout: lgatr's sdp_attention forwards dropout_p to one sdpa
+        # call over concatenated (mv, s), so one joint mask keeps the streams consistent and
+        # the invariant weights preserve equivariance. 0.0 = no-op (kwarg omitted, so non-sdpa
+        # backends without dropout_p still work).
         self.attn_dropout = attn_dropout
 
     def forward(self, v, s, idx, nbr_mask, attn_mask, node_attr=None):
@@ -188,13 +187,11 @@ class LorentzNetLGATrSlimGraphGPS(nn.Module):
             for _ in range(num_blocks)
         ])
 
-        # invariant head: pooled scalars -> logits. SCALAR-ONLY, matching pure LorentzNet's
-        # readout (mean-pool of the scalar stream h -> graph_dec). The GraphGPS hybrid adheres
-        # to its GNN reference's readout, and pure LorentzNet reads only the scalars -- its LGEB
-        # already funnels the four-vector geometry into them via per-layer |dp|^2 / <p_i,p_j>
-        # edge invariants, and the LorentzNetKNNBlock local branch does the same into s here.
-        # So we do NOT add per-node vector self-norms |v|^2 (that would make the head richer than
-        # the GNN it mirrors). Contrast CGENN GPS, whose pure reference IS rich (get_invariants).
+        # invariant head: pooled scalars -> logits. SCALAR-ONLY, matching pure LorentzNet
+        # (mean-pool of h -> graph_dec). Its LGEB already funnels the four-vector geometry
+        # into the scalars via per-layer |dp|^2 / <p_i,p_j> edge invariants (as does the local
+        # branch here), so we do NOT add |v|^2 self-norms -- that would make the head richer
+        # than the GNN it mirrors. Contrast CGENN GPS, whose pure reference IS rich.
         head, d = [], hidden_s_channels
         for _ in range(head_layers):
             nd = max(d // 2, num_classes)

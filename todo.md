@@ -166,7 +166,7 @@ Critical (still point at the upstream LLoCa project):
 Minor (stale strings / metadata):
 - [ ] `pyproject.toml` — add an `authors` field (name is already `gtagger-experiments`).
 - [ ] add a `CITATION.cff` for the new paper.
-- [ ] `experiments/base_experiment.py:262` — `path_code = os.path.join(self.cfg.base_dir, "lloca")`
+- [ ] `experiments/base_experiment.py:299` — `path_code = os.path.join(self.cfg.base_dir, "lloca")`
       hardcodes "lloca" for the saved-source dir → project name.
 - [ ] `docs/SLURM.md:79` — `#SBATCH --job-name=lloca`.
 - [ ] `config/{toptagging,jctagging,ttbar}.yaml` + `config_quick/*` — debug `exp_name`s
