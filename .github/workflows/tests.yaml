@@ -33,5 +33,5 @@ jobs:
         # run the tagging invariance/equivariance suites instead. test_tag_flops is
         # deliberately NOT run here: its learned-frame cases require a CUDA-matched
         # xformers build that CPU CI runners do not have.
-        pytest tests/experiments/test_tag_equivariance.py tests/experiments/test_tag_invariance.py
+        pytest tests/experiments/test_tag_equivariance.py tests/experiments/test_tag_invariance.py tests/experiments/test_jc_wiring.py
         pytest tests/eventgen
