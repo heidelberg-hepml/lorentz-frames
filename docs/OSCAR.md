@@ -9,7 +9,7 @@ in [`GUIDE.md`](../GUIDE.md).
 ## 0. Connect
 
 ```bash
-ssh <your-brown-username>@ssh.ccv.brown.edu     # Brown credentials (same as Canvas)
+ssh your-brown-username@ssh.ccv.brown.edu       # replace your-brown-username; Brown credentials (same as Canvas)
 ```
 
 You land on a **login node** (`[you@login00X ~]$`). Login nodes are for file management,
@@ -133,12 +133,15 @@ Notes:
 Now wire the directories per §1 — dataset into `data`, run output into `scratch`:
 
 ```bash
-# dataset -> ~/data (permanent, backed up). <group> = your PI's group dir under ~/data
-mkdir -p ~/data/<group>/<you>/gtagger
+# dataset -> ~/data (permanent, backed up). Set your allocation ONCE (find it: `ls ~/data/`);
+# $USER fills in automatically. NB: don't paste raw <angle-bracket> placeholders -- the shell
+# reads `<` as a redirect and errors with `bash: ...: No such file or directory`.
+GROUP=your-allocation            # <-- replace with your ~/data group dir (from `ls ~/data/`)
+mkdir -p ~/data/$GROUP/$USER/gtagger
 apptainer exec "$NGC_PYTORCH_CONTAINER" bash -lc \
   'source venv/bin/activate && python data/collect_data.py toptagging'   # ~1.5 GB download (file mgmt: login node OK)
-mv data/toptagging_full.npz ~/data/<group>/<you>/gtagger/
-ln -s ~/data/<group>/<you>/gtagger/toptagging_full.npz data/toptagging_full.npz
+mv data/toptagging_full.npz ~/data/$GROUP/$USER/gtagger/
+ln -s ~/data/$GROUP/$USER/gtagger/toptagging_full.npz data/toptagging_full.npz
 
 # run output -> ~/scratch (fast, purged; we copy keepers back at the end)
 mkdir -p ~/scratch/gtagger_runs
@@ -370,8 +373,10 @@ apptainer exec "$NGC_PYTORCH_CONTAINER" bash -lc \
 ## 9. Save what matters (scratch purges!)
 
 ```bash
-# finished runs you want to keep -> data (permanent, backed up)
-cp -r ~/scratch/gtagger_runs/<exp_name> ~/data/<group>/<you>/gtagger/runs_keep/
+# finished runs you want to keep -> data (permanent, backed up). Set GROUP as in step 2
+# (`ls ~/data/`) and replace EXPNAME with your run's exp_name; $USER fills in.
+GROUP=your-allocation
+cp -r ~/scratch/gtagger_runs/EXPNAME ~/data/$GROUP/$USER/gtagger/runs_keep/
 ```
 
 Do this at the end of the campaign (and for any long pause > ~3 weeks). `comparison.tex`,
