@@ -52,6 +52,10 @@ ParT pairwise-bias features, PE/SE, depth) live in `todo.md` §3 and are not rep
 - Symmetrized (undirected) vs directed receiver-based kNN edges in the CGENN edge builder.
 - Deliberate self-loops (some GNN recipes include them; the audit removed the *accidental* ones).
 - Growing-k schedule across GNN layers (DGCNN-style) instead of a fixed k.
+- Retune the kNN `k`? The family ships small (`knn_k`/CGENN `k` at recipe defaults); a fair-k
+  for jets is unsettled — jet kNN graphs are dense and small-diameter, unlike the sparse
+  molecular graphs GNN-PE work is tuned on. Sweep `knn_k` (and CGENN `k`) jointly with the
+  deltaR/minkowski metric, since the two interact (metric changes which neighbours k selects).
 - Aggregation: `cgenn_aggregation` sum vs mean (toggle exists); Plain MPNN mean → sum or max;
   EdgeConv mean → max (original DGCNN uses max; ParticleNet chose mean).
 - `use_explicit_edge_features` off for CGENN GraphGPS (toggle exists; quantifies the edge/node
@@ -59,6 +63,15 @@ ParT pairwise-bias features, PE/SE, depth) live in `todo.md` §3 and are not rep
 - DONE: Plain-GPS `use_edge_attr` now feeds the full ParT 4-feature pair set through the MPNN
   edge channel (ParticleNeXt-style; was a single log|(pᵢ+pⱼ)²| invariant). Remaining variant (through
   the MPNN edge channel instead of only log|(pᵢ+pⱼ)²|).
+- **ParticleNeXt-style edge features vs ParT-style pairwise attention bias — two relative
+  pairwise encodings, and stacking both.** `use_edge_attr` routes the pair features into the
+  MPNN edge channel (ParticleNeXt); `bias`/`pair_input_dim` routes the same QCD invariants into
+  the attention logits (ParT). They encode the same information at different sites, so in the GPS
+  models (local MPNN ‖ global attention) one may be **redundant**. Per Jonas Spinner, both
+  compensate for the non-equivariant backbone's lack of Lorentz invariance — so measuring *which*
+  is redundant here isolates whether the MPNN or the attention is the load-bearing site for the
+  pairwise signal, and could motivate future **non-hybrid** research on single-site pairwise
+  routing (hybrids willing).
 - LorentzNet `c_weight` sweep (1e-3 / 5e-3 / 1e-2).
 
 ## Capacity and shape (kept per-reference in the study; unify-or-sweep as ablations)

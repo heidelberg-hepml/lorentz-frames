@@ -85,6 +85,11 @@ per-run `table …:` log line that the regex reads.
   (lnΔ, ln kT, ln z, ln m² routed through the MPNN edge channel, ParticleNeXt-style); structural encoding `model.net.use_rwse=true|false`
   (+`model.net.rwse_k=K`); norm `model.net.norm=batch|layer`. CGENN GraphGPS relative edge features:
   `model.net.use_explicit_edge_features=true|false`.
+  - [ ] Add general RWSE support to all GPS models (currently PlainGraphGPS-only) if it shows
+        success on Plain. Note on `rwse_k`: GraphGPS uses k=20 on sparse molecular graphs
+        (ZINC, ~23 nodes, diameter ~10); jet kNN is dense and small-diameter so the walk mixes
+        fast and ~4–8 steps likely capture the useful return-probability structure (higher k adds
+        near-saturated, redundant dims) — sweep `{4,8,16}` on Plain before generalizing.
 - **Depth (transformer / GPS blocks).** `model.net.num_layers=N` (Plain, ParticleNet-ParT) /
   `model.net.num_blocks=N` (CGENN, LorentzNet). The depth curve is the "can the transformer
   compensate for a weaker GNN" story → a performance/efficiency section (room to discuss BigBird /
