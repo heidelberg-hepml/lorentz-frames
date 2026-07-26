@@ -31,7 +31,10 @@ ParT's cls-block-only dropout zeros) are kept, commented in code, and not listed
   `net.no_weight_decay()`, covering the CLS-token hybrids.
 - Packaging: project renamed `gtagger-experiments` in `pyproject.toml`.
 - CI runs the tagging equivariance+invariance suites (upstream removed its broken test line
-  without a replacement, leaving tagging uncovered).
+  without a replacement, leaving tagging uncovered). The expected residual symmetry group
+  (SO(2)-about-beam vs full Lorentz) is now derived from each model's spurion keys
+  (`residual_symmetry_group`), keyed off the unified `beam_spurion`/`add_time_spurion` names,
+  so the asserted group tracks the config instead of a hand-maintained per-model list.
 - `save` defaults true in `config/` (best-val weights kept as `model_run{idx}.pt`);
   `validate_every_n_epochs_min` sentinel for once-per-epoch validation.
 - DDP additionally wraps the framesnet (upstream plans a different DDP rework; multi-GPU

@@ -40,6 +40,30 @@ from experiments.tagging.experiment import TopTaggingExperiment
 from tests.helpers.equivariance import check_tagging_invariance
 
 
+def residual_symmetry_group(net_cfg):
+    """The residual invariance a model's *input spurions* leave intact.
+
+    The beam/time spurions break the full Lorentz group down to azimuthal
+    rotations about the beam; with both off, the internally-equivariant
+    backbones (CGENN, LorentzNet) are invariant under the whole group. Those
+    families now share the *same* spurion keys (``beam_spurion`` /
+    ``add_time_spurion``), so this reads them directly instead of a
+    hand-maintained per-model list -- the group the tests assert then tracks
+    whatever the config actually sets (turn a spurion off in an ablation and the
+    expected group follows automatically).
+
+    Returns ``"lorentz"`` when no spurion is active, ``"xyrotation"`` otherwise,
+    or ``None`` for models with no spurion keys (the non-equivariant backbones,
+    whose invariance comes from LLoCa frames, not spurions).
+    """
+    if "beam_spurion" not in net_cfg and "add_time_spurion" not in net_cfg:
+        return None
+    beam = net_cfg.get("beam_spurion", None)
+    beam_on = beam not in (None, False)
+    time_on = bool(net_cfg.get("add_time_spurion", False))
+    return "xyrotation" if (beam_on or time_on) else "lorentz"
+
+
 def _build(overrides):
     experiments.logger.LOGGER.disabled = True
     with hydra.initialize(config_path="../../config_quick", version_base=None):
@@ -82,6 +106,15 @@ def test_xyrotation_invariance(model):
     # Minkowski kNN -> no deltaR branch cut (see module docstring). The residual
     # ~1e-3 comes only from static-kNN neighbour flips, hence the 1e-2 tolerance.
     exp = _build([f"model={model}", "model.net.knn_metric=minkowski"])
+    # For the internally-equivariant models, the spurions in the default config
+    # are what make the residual symmetry SO(2)-about-beam rather than full
+    # Lorentz -- assert that state programmatically so a config drift that drops
+    # a spurion is caught here, not silently under-tested (None => LLoCa-frame
+    # backbones, whose azimuthal invariance is not spurion-driven).
+    group = residual_symmetry_group(exp.cfg.model.net)
+    assert group in (None, "xyrotation"), (
+        f"{model}: default config implies {group} invariance, not xyrotation"
+    )
     data = next(iter(exp.train_loader))
     max_dev = check_tagging_invariance(
         exp, data, transform="xyrotation", num_checks=5, rtol=1e-2, atol=1e-2
@@ -143,6 +176,13 @@ def test_full_group_invariance(model, full_group_off, transform):
             "data.add_time_reference=false",
             *full_group_off,
         ]
+    )
+    # Precondition: the disable overrides really did turn every spurion off, so
+    # the model is now full-group invariant. If a spurion key is renamed and an
+    # override silently no-ops, this fails with a legible message instead of the
+    # invariance check failing cryptically far below.
+    assert residual_symmetry_group(exp.cfg.model.net) == "lorentz", (
+        f"{model}: full-group overrides did not disable all spurions"
     )
     data = next(iter(exp.train_loader))
     max_dev = check_tagging_invariance(
