@@ -118,29 +118,17 @@ exposed above. If a reviewer wants the negative result demonstrated, run PlainGr
 `model.net.use_lappe=true` (the toggle is implemented; sign-flip augmentation handles the
 eigenvector ambiguity) — expected to show it doesn't help, per the argument above.
 
-## 3b. Paper points (observations worth a sentence — surfaced during the build/audit)
+## 3b. Paper points (observations from the build/audit)
 
-- **The GPS global attention *rescues* a symmetry-breaking local graph.** With spurions off,
-  float64, under a random Lorentz transform, the deltaR-vs-minkowski kNN metric barely dents
-  invariance in the *GPS* hybrids but visibly breaks it in the *GraphTrans* ones — measured on
-  CGENN-LGATr (config_quick, k=8): minkowski ≈ machine-exact both families (3e-8 / 2e-6);
-  deltaR breaks **~14× more in GraphTrans (3.9e-3) than in GraphGPS (2.8e-4)**. Interpretation:
-  in GPS the Lorentz-invariant global L-GATr attention runs *in parallel* with the local graph
-  and dominates, so a non-invariant graph metric is largely absorbed; in GraphTrans the GNN
-  feeds the attention *sequentially*, so the graph's symmetry breaking propagates. The GPS
-  division of labour buys robustness to the graph-construction choice — a discussion point for
-  the deltaR/minkowski ablation and the GT-vs-GPS comparison.
-- **Two sites for the same relative pairwise encoding.** ParticleNeXt-style edge features
-  (`use_edge_attr`, into the MPNN edge channel) and ParT-style pairwise bias (`bias`, into the
-  attention logits) encode the same QCD invariants; in GPS one may be redundant, and *which*
-  one localizes the load-bearing site — could motivate single-site non-hybrid designs (per
-  J. Spinner, both compensate for the backbone's lack of Lorentz invariance). See ablations.md.
-- **Directed kNN for message passing, symmetrized graph for RWSE/LapPE** — exactly the
-  GraphGPS / GNN-benchmark (MNIST superpixel) convention (directed top-k edges; `to_undirected`
-  before the Laplacian/RWSE). A parity point backing the "faithful GPS port" claim.
-- **RWSE walk length for jets is short** (~4–8, default now 8) vs GraphGPS's k=20 on sparse
-  molecular graphs, because jet kNN is dense and small-diameter so the walk mixes fast and
-  higher k adds near-saturated, redundant dims. A one-line methods justification if RWSE ships on.
+- GPS attention *rescues* a symmetry-breaking local graph: spurions off (float64, Lorentz),
+  deltaR-vs-minkowski kNN breaks invariance ~14× more in GraphTrans (3.9e-3) than GraphGPS
+  (2.8e-4; minkowski ≈ machine-exact both) — the invariant global L-GATr branch runs parallel
+  in GPS and absorbs a non-invariant metric.
+- ParticleNeXt edge features vs ParT pairwise bias = same encoding at two sites; in GPS one is
+  likely redundant, and which one localizes the pairwise signal (per Spinner). See ablations.md.
+- Directed kNN for message passing, symmetrized graph for RWSE/LapPE — the GraphGPS/MNIST
+  convention (parity point for the "faithful port" claim).
+- RWSE k for jets is short (~8) vs GraphGPS's 20 — dense small-diameter jet kNN mixes fast.
 
 ## 4. Open design decisions / discrepancies
 
