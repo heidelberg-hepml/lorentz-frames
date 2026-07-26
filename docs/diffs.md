@@ -8,7 +8,7 @@ ParT's cls-block-only dropout zeros) are kept, commented in code, and not listed
 - Models: the 8 GraphTrans/GraphGPS hybrids ({Plain, ParticleNet-ParT, CGENN–L-GATr,
   LorentzNet–L-GATr-slim} × {GraphTrans, GraphGPS}) with configs, quick-configs and tests.
 - Tools: `find_lr.py` (LR range test + GPU batch-size finder), `aggregate_table.py`,
-  `data/collect_data.py jetclass` (download+verify+extract).
+  `data/collect_data.py {jetclass, toptagxl}` (download + md5-verify + extract).
 - Recipes: shared family defaults (`tag_/jc_gts_and_friends_default`) + per-model
   `top_/jc_<hybrid>.yaml`; both task configs default to the family recipe (was `jc_ParT`-style).
 - Trials workflow: fresh-trial warm starts (`warm_start_load=false`), per-run
@@ -30,6 +30,7 @@ ParT's cls-block-only dropout zeros) are kept, commented in code, and not listed
 - ParT's weight-decay grouping extended from the hardcoded `{"cls_token"}` to
   `net.no_weight_decay()`, covering the CLS-token hybrids.
 - Packaging: project renamed `gtagger-experiments` in `pyproject.toml`.
+- Deps: `lloca[xformers-attention]>=1.3.6` (`jet_frames` uses `fn.mass_regularize`, first in 1.3.6).
 - CI runs the tagging equivariance+invariance suites (upstream removed its broken test line
   without a replacement, leaving tagging uncovered). The expected residual symmetry group
   (SO(2)-about-beam vs full Lorentz) is now derived from each model's spurion keys
@@ -54,6 +55,28 @@ ParT's cls-block-only dropout zeros) are kept, commented in code, and not listed
   guard/softmax on dim 1 (segmentation-safe). `pairwise_lv_fts` clamps delta_r2 BEFORE the
   sqrt (sqrt(0) backward is NaN -> poisoned learned-frames grads on bit-identical pairs).
   `boost_jet` forced off for pure-rotation frames (LearnedSO3/SO2; measured set).
+- Embedding order: tagging features (deta/dphi/dr, log pt) are computed BEFORE the optional
+  jet-rest-frame boost. Post-boost the jet has pt~0, so pt_jet clamps and eta_jet/phi_jet read
+  off a numerically-zero vector -> dphi/deta rotation-unstable, breaking even SO(2) invariance
+  (xyrotation max MSE O(1e2..1e4) -> O(1e-8)). The mass regulator also excludes spurions
+  (`& ~is_spurion`), so a spacelike beam spurion (m^2=-1) is not forced lightlike (which would
+  void the spacelike-beam ablation).
+
+## Fixed here (input pipeline & training robustness)
+- CGENN `MVLayerNorm` gain reshaped (1, C) -> (C,) so it falls under the optimizer's ndim<=1
+  weight-decay exemption like every other norm gain; the official 2-d shape was silently
+  weight-decayed -- an undocumented regularization asymmetry hitting only the CGENN hybrids
+  (broadcasting unchanged: unsqueezed to (1, C) at use).
+- Streaming loaders: `infinity_mode` (file re-cycling) is TRAIN-only -- on val/test it looped
+  forever; `steps_per_epoch` bounds the train epoch (JetClass + TopTagXL).
+- Finetuning: `ema_decay` read from the config top level (`cfg.ema_decay`), not
+  `cfg.training.ema_decay` (the old path crashed in struct mode); a fresh-trial warm start
+  (`warm_start_load=false`) re-loads the pretrained backbone for an independent finetune trial.
+- miniweaver hardening: a corrupt/truncated ROOT read logs file+traceback instead of a silent
+  `None` (md5 covers only the tar download, not a scratch copy, so silent skips skewed class
+  balance across epochs); a glob matching no files warns instead of silently shrinking the
+  requested file range; the "Nothing to load for worker N" error is parenthesized so it
+  actually reports the worker id.
 
 ## Conventions this fork sets (upstream has no stance)
 - Hybrid-family fairness: shared AdamW/schedule/budget, per-model batchsize+lr from the LR
