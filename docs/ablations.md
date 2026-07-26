@@ -112,7 +112,19 @@ ParT pairwise-bias features, PE/SE, depth) live in `todo.md` §3 and are not rep
 - `increase_hidden_channels_attention/_mlp` 2 vs 4 (lgatr's own default is 4 for the MLP).
 - LorentzNet hybrid widths: `n_v_hidden` 8/16/32, `n_h_hidden` 72 vs 96.
 - `concat_original` / `use_input_concat` off (raw-input skip at the bridge; toggles exist).
-- `use_fusion` off for ParticleNet-ParT GraphTrans (toggle exists; the baseline row runs true).
+- **`use_fusion` (ParticleNet family) — unresolved consistency axis.** State across the family:
+  weaver's ParticleNet defaults it ON; the `tag_particlenet` baseline row now runs it OFF
+  (reverted to match upstream / the LLoCa-paper published ParticleNet so the baseline reproduces
+  the literature number — ~172-205k params lighter than fusion-on); the ParticleNet-ParT
+  **GraphTrans** hybrid's EdgeConv backbone runs it ON (`use_fusion: true`); the ParticleNet-ParT
+  **GraphGPS** hybrid has no fusion at all (its multi-scale growth is the 10 interleaved GPS
+  layers). So the setting is not unified and there is no single "right" value: fusion
+  concatenates all EdgeConv block outputs, natural for the 3-block standalone ParticleNet but
+  largely redundant with a 10-layer GPS stack. TO DECIDE before the paper: either (a) turn the
+  GraphTrans hybrid's fusion OFF for cross-family consistency, or (b) keep it ON as the
+  faithful-ParticleNet-backbone choice and add a fusion-ON `tag_particlenet` control row so the
+  baseline still has a matched partner. The toggle exists on the baseline and the GraphTrans
+  hybrid; the GPS hybrid has nothing to toggle.
 - `use_fts_bn` off (input BatchNorm on the non-equivariant models).
 - `add_fourmomenta_backbone` on (feed local four-momenta as extra scalar channels; wrapper toggle
   exists — off is the reference convention).

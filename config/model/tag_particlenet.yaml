@@ -11,7 +11,7 @@ net:
  fc_params: [[256, 0.1]]
  input_dims: null
  hidden_reps_list: ["7x0n", "32x0n+8x1n", "64x0n+16x1n"]
- use_fusion: true
+ use_fusion: false
 
 defaults:
  - framesnet: identity
