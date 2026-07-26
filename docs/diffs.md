@@ -77,6 +77,9 @@ ParT's cls-block-only dropout zeros) are kept, commented in code, and not listed
   balance across epochs); a glob matching no files warns instead of silently shrinking the
   requested file range; the "Nothing to load for worker N" error is parenthesized so it
   actually reports the worker id.
+- Quick configs: the JetClass smoke-test file ranges pointed at file numbers that live only in
+  `val_5M` (so train/test resolved to zero files -> a confusing worker crash); repointed to one
+  real file per split folder (train 0, test 100, val 120).
 
 ## Conventions this fork sets (upstream has no stance)
 - Hybrid-family fairness: shared AdamW/schedule/budget, per-model batchsize+lr from the LR
