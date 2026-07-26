@@ -25,7 +25,7 @@ net:
   # attention bias -- ParticleNeXt's design, which did not beat ParT's routing).
   use_edge_attr: false
   use_rwse: false               # on -> Random-Walk Structural Encoding (local SE) on the kNN graph
-  rwse_k: 4
+  rwse_k: 8
   use_lappe: false              # on -> LapPE (Laplacian-eigvec PE); least motivated for jets, O(B*P^3)
   lappe_k: 4
 

@@ -144,8 +144,8 @@ class LorentzNetLGATrSlimGraphGPS(nn.Module):
                  # every LGEB layer (node_attr); keep on for faithfulness.
                  use_node_attr=True,
                  # input-stage spurions (break equivariance to the residual symmetry)
-                 use_time_spurion=True,
-                 use_beam_spurion=True,
+                 add_time_spurion=True,
+                 beam_spurion=True,
                  head_layers=2,
                  **kwargs):
         super().__init__()
@@ -160,9 +160,9 @@ class LorentzNetLGATrSlimGraphGPS(nn.Module):
 
         # spurions: hard-coded grade-1 4-vectors in (E, px, py, pz)
         spurions = []
-        if use_time_spurion:
+        if add_time_spurion:
             spurions.append([1.0, 0.0, 0.0, 0.0])   # time direction
-        if use_beam_spurion:
+        if beam_spurion:
             spurions.append([0.0, 0.0, 0.0, 1.0])   # beam along z
         self.num_spurions = len(spurions)
         if self.num_spurions > 0:

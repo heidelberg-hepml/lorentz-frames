@@ -29,8 +29,8 @@ net:
   use_node_attr: true           # official LorentzNet: raw input scalars re-injected into phi_h every layer
 
   # input-stage spurions (both on -> residual symmetry SO(2) about the beam)
-  use_time_spurion: true
-  use_beam_spurion: true
+  add_time_spurion: true
+  beam_spurion: true
 
   head_layers: 2
 

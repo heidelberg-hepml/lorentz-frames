@@ -107,8 +107,8 @@ FULL_GROUP_MODELS = [
     (
         "tag_LorentzNetLGATrSlimGraphGPS",
         [
-            "model.net.use_time_spurion=false",
-            "model.net.use_beam_spurion=false",
+            "model.net.add_time_spurion=false",
+            "model.net.beam_spurion=false",
             "model.net.knn_k=9999",  # >= P-1 -> fully connected
         ],
     ),
@@ -123,8 +123,8 @@ FULL_GROUP_MODELS = [
     (
         "tag_LorentzNetLGATrSlimGraphTrans",
         [
-            "model.net.use_time_spurion=false",
-            "model.net.use_beam_spurion=false",
+            "model.net.add_time_spurion=false",
+            "model.net.beam_spurion=false",
             "model.net.knn_k=9999",  # >= P-1 -> fully connected
         ],
     ),

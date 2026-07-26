@@ -21,7 +21,7 @@ Three deliberate departures from canonical LorentzNet:
          for ablation / parity with ParticleNet's first layer.
 
   3. Spurions at the GNN INPUT ONLY, as pure grade-1 4-vectors, toggled by two
-     booleans (use_time_spurion -> [E=1,0,0,0]; use_beam_spurion -> [0,0,0,pz=1]).
+     booleans (add_time_spurion -> [E=1,0,0,0]; beam_spurion -> [0,0,0,pz=1]).
      With both on (default) the residual symmetry is SO(2) azimuthal rotations
      about the beam. They are broadcast as extra vector channels on every
      particle; they are NEVER graph nodes.
@@ -314,8 +314,8 @@ class LorentzNetLGATrSlimGraphTrans(nn.Module):
         # Bridge
         concat_original=True,
         # Symmetry breaking (input-stage only): time + beam reference 4-vectors.
-        use_time_spurion=True,
-        use_beam_spurion=True,
+        add_time_spurion=True,
+        beam_spurion=True,
         # Global (CLS) token
         global_token=True,
         # L-GATr-slim
@@ -340,15 +340,15 @@ class LorentzNetLGATrSlimGraphTrans(nn.Module):
         self.knn_metric = knn_metric
         self.concat_original = concat_original
         self.global_token = global_token
-        self.use_time_spurion = use_time_spurion
-        self.use_beam_spurion = use_beam_spurion
+        self.add_time_spurion = add_time_spurion
+        self.beam_spurion = beam_spurion
         self.use_node_attr = use_node_attr
 
         # ---- Spurions: hard-coded grade-1 4-vectors in (E, px, py, pz).
         spurions = []
-        if use_time_spurion:
+        if add_time_spurion:
             spurions.append([1.0, 0.0, 0.0, 0.0])   # time direction
-        if use_beam_spurion:
+        if beam_spurion:
             spurions.append([0.0, 0.0, 0.0, 1.0])   # beam along z
         num_spurions = len(spurions)
         self.num_spurions = num_spurions

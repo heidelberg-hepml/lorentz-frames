@@ -98,6 +98,13 @@ ParT pairwise-bias features, PE/SE, depth) live in `todo.md` §3 and are not rep
 - `head_layers` 1/2/3 for the SAN-style GPS heads; unify their GELU (equivariant) vs ReLU
   (non-equivariant) activation.
 - GNN:transformer depth ratio at fixed total (2:10 / 3:10 / 4:8) and blocks 8/10/12.
+- **Freeze the GNN stage (GraphTrans family).** Train with the GNN frozen at random init
+  (or freeze a pretrained GNN and train only the transformer) to test whether the local
+  message-passing does *learned* work or just supplies a fixed relative-structure feature the
+  transformer reads off. Cheap, and it directly quantifies the GNN's marginal contribution —
+  the counterpart to the depth-ratio sweep: depth asks "how much GNN", freezing asks "does the
+  GNN need to be trained at all". A strong frozen-GNN result would sharpen the "can the
+  transformer compensate for a weaker GNN" story toward "the transformer does the heavy lifting".
 - LorentzNet-GPS shared width: towards-GNN midpoint (~84 s / 24 v) vs the current
   towards-transformer 96/32 (the config notes the alternative).
 - `attn_reps` composition for the LLoCa transport (e.g. `12x0n+1x1n`, `4x0n+3x1n`, a `1x2n`
@@ -142,7 +149,7 @@ deviation, is covered in "Capacity and shape" above.)
 
 - Spurion variants on the equivariant hybrids: `beam_mirror` off, `spacelike`/`timelike` beam
   forms, single vs two beams, `spurion_scale` ≠ 1 (model-level analogues of the data-level knobs).
-- LorentzNet hybrids: `use_time_spurion` / `use_beam_spurion` individually off.
+- LorentzNet hybrids: `add_time_spurion` / `beam_spurion` individually off.
 - `data.tagging_features` zinvariant/so3invariant/null rows for the equivariant hybrids. NB: the
   four non-equivariant hybrids (`TaggerWrapper` subclasses) hardcode `tagging_features="all"`
   internally, so this knob changes ONLY the equivariant rows; the non-equivariant headline rows

@@ -19,8 +19,8 @@ net:
   concat_original: true
 
   # input-stage spurions (both on -> residual symmetry SO(2) about the beam)
-  use_time_spurion: true
-  use_beam_spurion: true
+  add_time_spurion: true
+  beam_spurion: true
 
   # global CLS token for classification
   global_token: true

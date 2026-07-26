@@ -306,7 +306,7 @@ class PlainGraphGPS(nn.Module):
                  use_fts_bn=True,
                  # positional/structural encoding (ablation; off by default)
                  use_rwse=False,
-                 rwse_k=16,
+                 rwse_k=8,
                  use_lappe=False,
                  lappe_k=8,
                  # GPS layers
