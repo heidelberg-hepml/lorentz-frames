@@ -15,6 +15,14 @@ from experiments.eventgen.processes import ttbarExperiment
 from tests.constants import TOLERANCES
 
 
+@pytest.fixture(autouse=True)
+def _seed():
+    # These tests draw unseeded random events; an occasional near-massless draw
+    # blows up the ~1/M^2 jacobian terms past tolerance (flaky failures, cf. the
+    # "sometimes fails with torch32" note below). Pin the RNG for determinism.
+    torch.manual_seed(0)
+
+
 def test_simple():
     """Some very simple tests"""
     fourmomentum = torch.tensor([[1, 1, 0, 0], [2, 1, 0, -1]]).float()
