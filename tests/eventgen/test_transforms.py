@@ -15,6 +15,14 @@ from experiments.eventgen.processes import ttbarExperiment
 from tests.constants import TOLERANCES
 
 
+@pytest.fixture(autouse=True)
+def _seed():
+    # These tests draw unseeded random events; an occasional near-massless draw
+    # blows up the ~1/M^2 jacobian terms past tolerance (flaky failures, cf. the
+    # "sometimes fails with torch32" note below). Pin the RNG for determinism.
+    torch.manual_seed(0)
+
+
 def test_simple():
     """Some very simple tests"""
     fourmomentum = torch.tensor([[1, 1, 0, 0], [2, 1, 0, -1]]).float()
@@ -158,10 +166,6 @@ def test_invertibility(transforms, distribution, experiment_np, nevents):
 @pytest.mark.parametrize("nevents", [1000])
 def test_jacobians(transforms, distribution, experiment_np, nevents):
     """test correctness of jacobians from _jac_forward() and _jac_inverse() methods, and their invertibility"""
-    # StandardLogPtPhiEtaLogM2's log(M^2) jacobian ~ 1/M^2 blows up for near-massless random
-    # draws, so the analytic-vs-numerical check is seed-sensitive (hence the float64 below);
-    # pin a seed for a deterministic suite (the eventgen tests are otherwise unseeded).
-    torch.manual_seed(42)
     experiment, nparticles = experiment_np
     cfg = OmegaConf.create({"data": {"n_jets": nparticles - 6}})
     exp = experiment(cfg)
