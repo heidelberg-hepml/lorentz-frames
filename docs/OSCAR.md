@@ -85,7 +85,8 @@ echo 'export APPTAINER_BINDPATH="/oscar/home/$USER,/oscar/scratch/$USER,/oscar/d
 # created from INSIDE the container; pip adds only what the image lacks.
 # Filtered out of requirements.txt before installing:
 #   - torch:    keep the container's CUDA-tuned build (a pip torch would clobber it)
-#   - xformers: not in the image and won't build against its torch -- we run without it
+#   - xformers: not in the image; skipped by default (opt back in later -- see the
+#     "Opting back into xformers" note below, a venv-only change)
 #   - the lgatr/lloca [xformers-attention] extras -> plain lgatr/lloca (same reason)
 apptainer exec "$NGC_PYTORCH_CONTAINER" bash -lc '
   # fail fast: a missing ensurepip means the WRONG image (24.03) -- do not let pip
@@ -127,8 +128,27 @@ Notes:
   — it usually does), else `=flex` (pure torch, slower, and its torch.compile path is
   version-sensitive). Either way, validate the override with one §3-style quick run
   on gpu-debug before a real job.
-- The venv's `bin/python` symlinks to the *container's* python — only activate it inside
-  `apptainer exec`, never in a bare login shell.
+- **Opting back into xformers** (to run `tag_lgatr`/`tag_slim` on their default backend
+  instead of the override above). This is a **venv-only change** — no re-clone, no wipe,
+  nothing outside the venv is touched; worst case `rm -rf venv` and redo this step:
+
+  ```bash
+  apptainer exec --nv "$NGC_PYTORCH_CONTAINER" bash -lc '
+    source venv/bin/activate
+    # --no-deps is the whole trick: xformers pins its own torch, and without the flag
+    # pip drags that torch into the venv, SHADOWING the container CUDA build (same
+    # failure class as the ~/.local leak). --no-deps installs only xformers itself.
+    pip install --no-deps -U xformers
+    python -m xformers.info | head -20   # want: memory_efficient_attention available,
+                                         # and the torch line matching the container build
+  '
+  ```
+
+  If `xformers.info` errors (undefined symbols = wheel built against a different torch
+  ABI than the NGC build), fall back to a source build inside the container — it has the
+  full CUDA toolchain: `TORCH_CUDA_ARCH_LIST=<your GPU arch, e.g. 8.0 for A100>
+  pip install --no-deps --no-build-isolation xformers` (slow, ~20 min). Either way,
+  finish with one §3-style quick run of `tag_slim` before a real job.
 
 Now wire the directories per §1 — dataset into `data`, run output into `scratch`:
 
