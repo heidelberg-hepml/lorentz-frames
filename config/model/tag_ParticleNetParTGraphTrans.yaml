@@ -17,7 +17,7 @@ net:
   # rep's dim must equal the previous layer's output width (here 64, 128).
   conv_params: [[16, [64, 64, 64]], [16, [128, 128, 128]], [16, [256, 256, 256]]]
   hidden_reps_list: [null, "32x0n+8x1n", "64x0n+16x1n"]
-  use_fusion: true
+  use_fusion: false
   use_fts_bn: true
   use_input_concat: true
   knn_metric: deltaR            # first-layer kNN: 'deltaR' (eta-phi L2) or 'minkowski' (4-momenta)
