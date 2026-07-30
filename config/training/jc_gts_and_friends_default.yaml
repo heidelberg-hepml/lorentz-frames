@@ -18,6 +18,10 @@ defaults:
   - tag_default
 
 epochs: 5
+# Backup FIXED-STEP budget (use INSTEAD of epochs): 1M is the JetClass convention every
+# reference recipe uses (jc_ParT, jc_lgatr, jc_transformer all 1,000,000; == this epoch
+# budget at batch 512, 5 x ~195k). Equal steps is NOT equal exposure across batch sizes:
+#   training.epochs=null training.iterations=1000000
 
 # shared schedule as in the top-tagging family recipe, but NO weight decay on JetClass
 # (matching jc_ParT: at 100M jets regularization is unnecessary and only slows fitting)

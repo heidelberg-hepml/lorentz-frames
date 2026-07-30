@@ -19,6 +19,10 @@ defaults:
   - tag_default
 
 epochs: 5
+# Backup FIXED-STEP budget (use INSTEAD of epochs): 1M, the same JetClass convention --
+# upstream runs XL under the JetClass recipe (jc_transformer: 1,000,000 iterations), and
+# XL's train split matches JetClass's 100M jets, so the equivalence holds here too:
+#   training.epochs=null training.iterations=1000000
 
 # shared schedule as in the top-tagging family recipe, but NO weight decay at
 # JetClass-scale statistics (100M jets: regularization is unnecessary and only slows

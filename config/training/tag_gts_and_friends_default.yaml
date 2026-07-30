@@ -16,6 +16,12 @@ defaults:
 
 # shared data-exposure budget (ParT-standard for top-tagging; raise to ~30 if the hybrids underfit)
 epochs: 20
+# Backup FIXED-STEP budget (use INSTEAD of epochs, not alongside -- epochs wins loudly if both
+# are set). 200k matches this epoch budget at the reference batch 128 (20 x ~9.6k batches/epoch
+# ~= 192k; the repo's L-GATr row runs 200k, the plain transformer 300k ~= 31 epochs). Equal
+# steps is NOT equal data exposure across batch sizes -- reach for this only when you want
+# step-parity with a published fixed-step budget or a batch-independent walltime:
+#   training.epochs=null training.iterations=200000
 
 # shared schedule: linear warmup (warmup_pct_start of the budget) then cosine decay to
 # cosanneal_eta_min. Warmup stabilises the transformer/equivariant layers; one shared schedule
