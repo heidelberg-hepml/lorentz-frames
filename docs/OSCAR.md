@@ -126,11 +126,17 @@ Notes:
   For those, override the backend: `model.attention_backend=flash` if the NGC image
   ships flash-attn (`apptainer exec "$NGC_PYTORCH_CONTAINER" python -c "import flash_attn"`
   — it usually does), else `=flex` (pure torch, slower, and its torch.compile path is
-  version-sensitive). Either way, validate the override with one §3-style quick run
-  on gpu-debug before a real job.
+  version-sensitive). flash is typically the *fastest* backend for ragged jets anyway
+  (xformers is the upstream default, not the speed pick — GUIDE §7), so the override
+  is a first-class choice, not a downgrade. Either way, validate the override with one
+  §3-style quick run on gpu-debug before a real job.
 - **Opting back into xformers** (to run `tag_lgatr`/`tag_slim` on their default backend
   instead of the override above). This is a **venv-only change** — no re-clone, no wipe,
-  nothing outside the venv is touched; worst case `rm -rf venv` and redo this step:
+  nothing outside the venv is touched; worst case `rm -rf venv` and redo this step.
+  (Do NOT reach for `pip install lgatr[xformers-attention]` here: the extra just declares
+  a dependency on `xformers`, whose wheel pins its *own* torch — pip would resolve that
+  pin by dragging a second torch into the venv over the container build. The extra is
+  right on machines where pip owns torch; in the container, `--no-deps` below is the way.)
 
   ```bash
   apptainer exec --nv "$NGC_PYTORCH_CONTAINER" bash -lc '

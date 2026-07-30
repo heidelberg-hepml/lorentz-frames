@@ -43,9 +43,10 @@ Notes:
   attention baselines whose configs pin `attention_backend: xformers`
   (`tag_transformer`, `tag_top_transformer`, `tag_lgatr`, `tag_slim`) would crash
   on a GPU without it — run those with `model.attention_backend=flash` (if the
-  container ships flash-attn; NGC images usually do) or `=flex` (pure torch), and
-  validate the override with a quick config_quick run first. If your cluster can
-  build xformers against the container torch, keep the lines in instead.
+  container ships flash-attn; NGC images usually do — flash is typically the
+  fastest backend for ragged jets anyway, see GUIDE §7) or `=flex` (pure torch),
+  and validate the override with a quick config_quick run first. If your cluster
+  can build xformers against the container torch, keep the lines in instead.
 
 ## 2. Get the data
 
