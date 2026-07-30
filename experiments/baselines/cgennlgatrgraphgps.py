@@ -32,7 +32,7 @@ pre-norm + residual are not used) -- so GraphGPS's external dropout -> residual 
 norm is applied exactly once (avoiding the double-residual trap of dropping a whole
 LGATrBlock into a branch). EquiLayerNorm is stateless, so one instance is shared.
 
-Uses LayerNorm instead of batchnorm for GPS layers, for equivariance. NO class token
+Uses LayerNorm instead of BatchNorm for GPS layers, for equivariance. NO class token
 (mean-pool readout).
 Equivariant by construction, so the wrapper inherits nn.Module with IdentityFrames
 (no LLoCa canonicalization), like CGENNLGATrGraphTrans.
