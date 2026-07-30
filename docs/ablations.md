@@ -189,6 +189,13 @@ inside the non-equivariant transformer stages (Plain / ParticleNet-ParT); for th
 equivariant stages each needs an equivariance check first (grade-wise application is
 usually the fix, as lgatr already does for its own norm).
 
+- **Invariant-gated attention heads** — a data-dependent sigmoid gate on each attention
+  head's *output*, computed from Lorentz invariants (scalar stream + mv inner products of the
+  head output): lgatr-2.0's SlimGLU trick moved one level up, from the FFN to attention.
+  Equivariance-safe for the L-GATr stages (the gate value is an invariant scaling), trivial for
+  the non-equivariant ones; recent LLM work credits output gating with taming attention sinks.
+  lgatr 2.0 has no attention-level gate (head_scale is the static, input-independent version),
+  so this is a genuine architecture delta — KEEP IN-REPO, do not post upstream pre-paper.
 - **SwiGLU** FFN (gated `SiLU(xW₁)·xW₂` → W₃) instead of the plain 2-layer GELU/ReLU FFN
   — the LLaMA-era default, usually a small free gain at matched params (shrink the hidden
   ratio 4 → 8/3 to compensate the third matrix).
