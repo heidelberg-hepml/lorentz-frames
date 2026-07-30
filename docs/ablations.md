@@ -125,8 +125,9 @@ ParT pairwise-bias features, PE/SE, depth) live in `todo.md` §3 and are not rep
 - `use_fts_bn` off (input BatchNorm on the non-equivariant models).
 - `add_fourmomenta_backbone` on (feed local four-momenta as extra scalar channels; wrapper toggle
   exists — off is the reference convention).
-- `use_pre_activation_pair` false for the PNP hybrids, aligning with the repo's `tag_ParT` row
-  (currently true = weaver default; the two differ in whether the pair bias passes a final GELU).
+- `use_pre_activation_pair` true (weaver's class default) vs the shipped false — the PNP hybrid
+  configs now default to false for published-ParT parity, matching the repo's `tag_ParT` row
+  (the two differ in whether the pair bias passes a final GELU).
 - `remove_self_pair` true in the pair embedding.
 
 ## GraphGPS recipe parity (cross-checked against the official rampasek/GraphGPS configs)

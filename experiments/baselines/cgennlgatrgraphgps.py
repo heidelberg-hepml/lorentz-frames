@@ -32,8 +32,11 @@ pre-norm + residual are not used) -- so GraphGPS's external dropout -> residual 
 norm is applied exactly once (avoiding the double-residual trap of dropping a whole
 LGATrBlock into a branch). EquiLayerNorm is stateless, so one instance is shared.
 
-Unlike the non-equivariant family members this uses NO BatchNorm (it would break
-equivariance over multivector components) and NO class token (mean-pool readout).
+Unlike the non-equivariant family members there is no input-stage BatchNorm and NO
+class token (mean-pool readout). BatchNorm never touches multivector components (it
+would break equivariance); the one BatchNorm in the model is official CGENN's
+BatchNorm1d on the scalar-invariant MLPs inside CGLayer (see the padded-nodes note
+in forward).
 Equivariant by construction, so the wrapper inherits nn.Module with IdentityFrames
 (no LLoCa canonicalization), like CGENNLGATrGraphTrans.
 
