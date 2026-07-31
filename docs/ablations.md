@@ -195,8 +195,7 @@ usually the fix, as lgatr already does for its own norm).
   Equivariance-safe for the L-GATr stages (the gate value is an invariant scaling), trivial for
   the non-equivariant ones; recent LLM work credits output gating with taming attention sinks.
   lgatr 2.0 has no attention-level gate (head_scale is the static, input-independent version),
-  so this is a genuine architecture delta. Not planned for this repo's campaign — fine to
-  propose upstream as a wishlist item.
+  so this is a genuine architecture delta — KEEP IN-REPO, do not post upstream pre-paper.
 - **SwiGLU** FFN (gated `SiLU(xW₁)·xW₂` → W₃) instead of the plain 2-layer GELU/ReLU FFN
   — the LLaMA-era default, usually a small free gain at matched params (shrink the hidden
   ratio 4 → 8/3 to compensate the third matrix).
