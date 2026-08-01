@@ -293,22 +293,21 @@ only `???` keys — the shared recipe pins epochs=20, AdamW, warmup-cosine; GUID
 
 ## 5. Submit the real training
 
-Two files: the sbatch header wraps a payload script that runs inside the container
-(the `apptainer run --nv "$NGC_PYTORCH_CONTAINER" script.sh` pattern).
-
-`train.sh` (the payload — one per model, or parametrize `$MODEL`; `chmod +x train.sh`):
+One parametrized sbatch file covers every model and task — the model is the argument,
+extra hydra overrides pass straight through, so no per-model payload scripts:
 
 ```bash
-#!/bin/bash
-source ~/GTagger-experiments/venv/bin/activate
-cd ~/GTagger-experiments
+sbatch train.sbatch tag_PlainGraphGPS                      # top-tagging, that model's recipe
+sbatch train.sbatch tag_CGENNLGATrGraphGPS save=false      # throwaway (no weights, no table row)
+sbatch train.sbatch tag_PlainGraphGPS warm_start_idx=0 warm_start_load=false   # fresh-trial seed (§6)
+```
 
-python run.py -cp config -cn toptagging \
-    model=tag_LorentzNetLGATrSlimGraphGPS \
-    training=top_LorentzNetLGATrSlimGraphGPS \
-    data.dataset=full gpus=1
-# -cp config is REQUIRED: run.py defaults to the tiny config_quick tree,
-# which has no top_<Model> training recipes.
+One-time before the first submission (SLURM opens the `-o` log file BEFORE your script
+runs — a missing `logs/` dir kills the job with no output at all, so no `mkdir` inside
+the script can save you):
+
+```bash
+mkdir -p ~/GTagger-experiments/logs
 ```
 
 `train.sbatch`:
@@ -319,9 +318,11 @@ python run.py -cp config -cn toptagging \
 #SBATCH -p gpu                    # partition; `allq gpu` shows load. gpu-he needs High-End priority
 #SBATCH --gres=gpu:1
 #SBATCH -n 8
-#SBATCH --mem=48G
+#SBATCH --mem=48G                 # top-tagging: full npz in RAM + fp64 momenta -> 48G safe.
+                                  # JetClass/TopTagXL (streaming, per-worker fetch buffers): 64G.
+                                  # After the first run, `myjobinfo` shows MaxRSS -- trim to fit.
 #SBATCH -t 24:00:00               # raise for the heavy CGENN-GPS (~a day/trial on a top GPU)
-#SBATCH -o slurm-%j.out
+#SBATCH -o logs/%x-%j.out         # logs/ must exist BEFORE sbatch (see above)
 #SBATCH --export=NONE             # do NOT inherit the login env (post-9.6 it carries a stale
                                   # lmod `module` function that errors on compute nodes)
 # #SBATCH -a <account>            # only if you belong to a condo/priority account (see `condos`)
@@ -336,7 +337,26 @@ APPTAINER=<paste absolute apptainer path>
 export APPTAINER_BINDPATH="/oscar/home/$USER,/oscar/scratch/$USER,/oscar/data"
 export PYTHONUNBUFFERED=1         # live logs (batch jobs have no tty -> python buffers)
 
-"$APPTAINER" run --nv "$IMG" ~/GTagger-experiments/train.sh
+MODEL=${1:?usage: sbatch train.sbatch tag_<Model> [task] [extra hydra overrides...]}
+TASK=${2:-toptagging}             # toptagging | jctagging | toptagxl
+case "$TASK" in
+  toptagging) P=top ;; jctagging) P=jc ;; toptagxl) P=xl ;;
+  *) echo "unknown task $TASK"; exit 1 ;;
+esac
+shift; [ $# -gt 0 ] && shift      # remaining args = hydra overrides, passed through
+cd "$HOME/GTagger-experiments"
+"$APPTAINER" exec --nv "$IMG" bash -c "
+  source venv/bin/activate
+  python run.py -cp config -cn $TASK \
+      model=$MODEL training=${P}_${MODEL#tag_} gpus=1 $*
+"
+# (no data.dataset override needed: config/toptagging.yaml already defaults to the
+#  full dataset, and the jc/xl configs have no such key -- it would crash there)
+# -cp config is REQUIRED: run.py defaults to the tiny config_quick tree, which has
+# no top_<Model> recipes. Recipe names are derived (tag_X + task -> top_X/jc_X/xl_X).
+#   sbatch train.sbatch tag_PlainGraphGPS                          # top-tagging
+#   sbatch train.sbatch tag_PlainGraphGPS jctagging                # JetClass
+#   sbatch train.sbatch tag_PlainGraphGPS toptagging save=false    # throwaway run
 ```
 
 ```bash
