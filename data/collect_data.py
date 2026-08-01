@@ -3,7 +3,9 @@ import os, sys
 import hashlib
 import tarfile
 import time
-import wget
+
+import requests
+from tqdm import tqdm
 
 # dataset sizes: toptagging 1.5G, event-generation 4.7G, JetClass ~190G (full)
 BASE_URL = "https://www.thphys.uni-heidelberg.de/~plehn/data"
@@ -88,13 +90,69 @@ TOPTAGXL = {
 }
 
 
+def _download(url, out, max_tries=8):
+    """Streaming download with resume + retries.
+
+    Replaces the abandoned ``wget`` package, whose urlretrieve backend dies
+    unrecoverably on any mid-transfer connection drop (ContentTooShortError at
+    13% of a 15 GB tar, observed on cluster). Partial progress lives at
+    ``out + '.part'`` and is resumed via HTTP Range (Zenodo supports it); a
+    server that ignores Range (plain 200 instead of 206) restarts the file.
+    Renames to ``out`` only when the byte count checks out, so callers never
+    see a partial file at the final path.
+    """
+    tmp = out + ".part"
+    for attempt in range(1, max_tries + 1):
+        try:
+            pos = os.path.getsize(tmp) if os.path.exists(tmp) else 0
+            headers = {"Range": f"bytes={pos}-"} if pos else {}
+            with requests.get(url, stream=True, timeout=(30, 60), headers=headers) as r:
+                if r.status_code == 416:
+                    break  # local >= remote (e.g. crash between download and rename)
+                r.raise_for_status()
+                if pos and r.status_code != 206:
+                    pos = 0  # server ignored Range -> restart from scratch
+                remaining = r.headers.get("Content-Length")
+                total = (int(remaining) + pos) if remaining is not None else None
+                with open(tmp, "ab" if pos else "wb") as f, tqdm(
+                    total=total, initial=pos, unit="B", unit_scale=True,
+                    desc=os.path.basename(out),
+                ) as bar:
+                    for chunk in r.iter_content(chunk_size=1 << 20):
+                        f.write(chunk)
+                        bar.update(len(chunk))
+                if total is not None and os.path.getsize(tmp) != total:
+                    raise IOError(f"size mismatch: got {os.path.getsize(tmp)} of {total} bytes")
+            break
+        except (requests.RequestException, IOError) as e:
+            if attempt == max_tries:
+                raise RuntimeError(f"download failed after {max_tries} tries: {url}") from e
+            wait = min(2**attempt, 60)
+            print(
+                f"\n[collect_data] {type(e).__name__}: {e} -- "
+                f"retry {attempt}/{max_tries - 1} in {wait}s (resumes from {os.path.getsize(tmp) if os.path.exists(tmp) else 0} bytes)"
+            )
+            time.sleep(wait)
+    os.replace(tmp, out)
+    print(f"Successfully downloaded {out}")
+
+
+def _download_verified(url, path, md5):
+    """Download + md5-verify; on mismatch delete and retry ONCE from scratch."""
+    for _round in range(2):
+        _download(url, path)
+        if _md5(path) == md5:
+            return
+        print(f"[collect_data] md5 mismatch for {os.path.basename(path)} -- deleting and re-downloading")
+        os.remove(path)
+    raise RuntimeError(f"md5 mismatch for {path} after a clean re-download; upstream file issue?")
+
+
 def load(filename):
     url = os.path.join(BASE_URL, filename)
     print(f"Started to download {url}")
     target_path = os.path.join(DATA_DIR, filename)
-    wget.download(url, out=target_path)
-    print("")
-    print(f"Successfully downloaded {target_path}")
+    _download(url, target_path)
 
 
 def _md5(path, chunk=1 << 20):
@@ -152,12 +210,10 @@ def collect_jetclass(splits):
                 print(f"{fname} already downloaded (md5 ok)")
             else:
                 if os.path.exists(tar_path):
-                    os.remove(tar_path)  # partial/corrupt -> re-download
+                    os.remove(tar_path)  # stale corrupt file at the FINAL path (old wget
+                    #                      runs); in-progress partials resume via .part
                 print(f"Downloading {url}")
-                wget.download(url, out=tar_path)
-                print("")
-                if _md5(tar_path) != md5:
-                    raise RuntimeError(f"md5 mismatch for {fname}; delete it and retry")
+                _download_verified(url, tar_path, md5)
             print(f"Extracting {fname} -> {dest}")
             with tarfile.open(tar_path) as tar:
                 try:
@@ -203,12 +259,10 @@ def collect_toptagxl(splits):
                 print(f"{fname} already downloaded (md5 ok)")
             else:
                 if os.path.exists(tar_path):
-                    os.remove(tar_path)  # partial/corrupt -> re-download
+                    os.remove(tar_path)  # stale corrupt file at the FINAL path (old wget
+                    #                      runs); in-progress partials resume via .part
                 print(f"Downloading {url}")
-                wget.download(url, out=tar_path)
-                print("")
-                if _md5(tar_path) != md5:
-                    raise RuntimeError(f"md5 mismatch for {fname}; delete it and retry")
+                _download_verified(url, tar_path, md5)
             print(f"Extracting {fname} -> {dest}")
             with tarfile.open(tar_path) as tar:
                 try:
