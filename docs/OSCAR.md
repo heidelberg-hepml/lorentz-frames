@@ -33,6 +33,14 @@ home, don't put it in data).
 > **Scratch purge is per-file by atime** (last read). A 3-seed campaign finishes well inside
 > 30 days, but if you pause mid-campaign, `find ~/scratch -atime +25` shows what's at risk —
 > copy checkpoints you care about to `~/data` (step 9).
+>
+> **Tar-extraction footgun (learned the hard way):** `tar`/`tarfile` restores each file's
+> *archive* timestamps, so a freshly extracted dataset whose tars were packed years ago
+> arrives on scratch already looking years-idle — and the purge daemon deletes it within
+> days, leaving only our fresh 0-byte `.extracted` markers behind. `collect_data.py` now
+> stamps every extracted file to the current time (`_refresh_times`), so this cannot recur
+> **as long as you download with a pulled repo**. If you ever extract a tar onto scratch by
+> hand, follow it with `find <dir> -type f -exec touch {} +`.
 
 ## 2. One-time setup (on the login node — this part is allowed there)
 
@@ -187,7 +195,11 @@ The JetClass dataset is ~190 GB of tars extracting to roughly as much again — 
 for home, and it strains a group's `~/data` quota, so **scratch** is the natural home.
 The purge risk manages itself while you train: the streaming loader reads the ROOT
 files continuously, refreshing their atime — an *active* campaign is purge-safe, but
-files idle > 30 days are at risk (§1).
+files idle > 30 days are at risk, and the window opens at the collector's timestamp
+stamp, not the archive dates (see the §1 tar-extraction footgun). If a purge does hit
+between download and first training run, the split dirs are empty but the `.extracted`
+markers survive and would make a naive re-run skip everything — the collector now warns
+loudly in that state; delete the `.*.extracted` markers to force the re-download.
 
 ```bash
 # download + extract (hours — run in a CPU interact session, not on the login node)

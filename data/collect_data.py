@@ -2,6 +2,7 @@ import numpy as np
 import os, sys
 import hashlib
 import tarfile
+import time
 import wget
 
 # dataset sizes: toptagging 1.5G, event-generation 4.7G, JetClass ~190G (full)
@@ -104,6 +105,24 @@ def _md5(path, chunk=1 << 20):
     return h.hexdigest()
 
 
+def _refresh_times(root):
+    """Stamp everything under ``root`` with the current time.
+
+    tarfile.extractall restores each member's ARCHIVE timestamps (atime = mtime =
+    when the file was packed, often years ago), so freshly extracted files look
+    years-idle to scratch purge daemons and get deleted on the next sweep -- observed
+    on Oscar: a fully extracted JetClass tree wiped days after extraction, with only
+    the fresh 0-byte .extracted markers surviving. Cheap insurance: touch it all.
+    """
+    now = time.time()
+    for dirpath, _dirnames, filenames in os.walk(root):
+        for f in filenames:
+            try:
+                os.utime(os.path.join(dirpath, f), (now, now))
+            except OSError:
+                pass
+
+
 def collect_jetclass(splits):
     """Download + verify + extract the JetClass (Pythia) tars for the given splits.
 
@@ -120,6 +139,12 @@ def collect_jetclass(splits):
             tar_path = os.path.join(base, fname)
             marker = os.path.join(base, f".{fname}.extracted")
             if os.path.exists(marker):
+                if not os.listdir(dest):
+                    print(
+                        f"WARNING: {fname} is marked extracted but {dest} is EMPTY -- "
+                        f"scratch purge? Delete the .*.extracted markers under {base} "
+                        f"to force a re-download/re-extract."
+                    )
                 print(f"{fname} already extracted, skipping")
                 continue
             url = f"{JETCLASS_BASE}/{fname}"
@@ -139,6 +164,7 @@ def collect_jetclass(splits):
                     tar.extractall(dest, filter="data")  # python >= 3.12 safe extraction
                 except TypeError:
                     tar.extractall(dest)
+            _refresh_times(dest)  # archive timestamps look years-idle to purge daemons
             open(marker, "w").close()
             print(f"Extracted {fname}  (you may delete {tar_path} to reclaim disk)")
     print(f"JetClass ready under {base}/Pythia -- matches config/jctagging.yaml data.data_dir.")
@@ -161,6 +187,15 @@ def collect_toptagxl(splits):
             tar_path = os.path.join(dest, fname)
             marker = os.path.join(dest, f".{fname}.extracted")
             if os.path.exists(marker):
+                if not any(
+                    os.path.isdir(os.path.join(dest, d)) and os.listdir(os.path.join(dest, d))
+                    for d in TOPTAGXL_FOLDERS
+                ):
+                    print(
+                        f"WARNING: {fname} is marked extracted but no split folder under "
+                        f"{dest} has any files -- scratch purge? Delete the .*.extracted "
+                        f"markers there to force a re-download/re-extract."
+                    )
                 print(f"{fname} already extracted, skipping")
                 continue
             url = f"{TOPTAGXL_BASE}/{fname}/content"
@@ -180,6 +215,7 @@ def collect_toptagxl(splits):
                     tar.extractall(dest, filter="data")  # python >= 3.12 safe extraction
                 except TypeError:
                     tar.extractall(dest)
+            _refresh_times(dest)  # archive timestamps look years-idle to purge daemons
             open(marker, "w").close()
             print(f"Extracted {fname}  (you may delete {tar_path} to reclaim disk)")
 
