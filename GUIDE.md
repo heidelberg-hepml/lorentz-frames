@@ -329,9 +329,11 @@ touch xformers in the framesnet — their L-GATr stages attend with dense masks
 The only models that don't are the four baselines whose configs pin
 `attention_backend: xformers` (`tag_transformer`, `tag_top_transformer`,
 `tag_lgatr`, `tag_slim`); on an xformers-free install, run those with
-`model.attention_backend=flash` (needs the flash-attn package; NGC/cluster
-containers usually ship it) or `=flex` (pure-torch FlexAttention — slower, and
-its torch.compile path is version-sensitive, so smoke-test it on your GPU first).
+`model.attention_backend=flash` (needs a WORKING flash-attn — always test
+`python -c "import flash_attn"` first: NGC containers ship it, but the 25.08
+image's copy is ABI-broken against its own torch, see docs/OSCAR.md) or `=flex`
+(pure-torch FlexAttention — slower, and its torch.compile path is
+version-sensitive, so smoke-test it on your GPU first).
 
 ---
 

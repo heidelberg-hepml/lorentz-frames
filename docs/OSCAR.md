@@ -131,13 +131,15 @@ Notes:
   `equivectors: equimlp`, already the default; GUIDE §7). Only the four attention
   baselines whose configs pin `attention_backend: xformers` — `tag_transformer`,
   `tag_top_transformer`, `tag_lgatr`, `tag_slim` — would crash on a GPU without it.
-  For those, override the backend: `model.attention_backend=flash` if the NGC image
-  ships flash-attn (`apptainer exec "$NGC_PYTORCH_CONTAINER" python -c "import flash_attn"`
-  — it usually does), else `=flex` (pure torch, slower, and its torch.compile path is
-  version-sensitive). flash is typically the *fastest* backend for ragged jets anyway
-  (xformers is the upstream default, not the speed pick — GUIDE §7), so the override
-  is a first-class choice, not a downgrade. Either way, validate the override with one
-  §3-style quick run on gpu-debug before a real job.
+  For those, override the backend. **Test flash first — the 25.08 image's own flash-attn
+  is ABI-BROKEN** (verified: `import flash_attn` dies with an undefined `c10::cuda`
+  symbol against the image's *own* torch — an NVIDIA packaging bug, flash-attn built
+  for a 2.10-era ABI shipped next to torch 2.11):
+  `apptainer exec "$NGC_PYTORCH_CONTAINER" python -c "import flash_attn"`.
+  If broken (it is, on this image), `model.attention_backend=flex` is the no-build
+  fallback (pure torch, slower); the real fix for the pure rows is the xformers source
+  build below. Either way, validate the override with one §3-style quick run on
+  gpu-debug before a real job.
 - **Opting back into xformers** (to run `tag_lgatr`/`tag_slim` on their default backend
   instead of the override above). This is a **venv-only change** — no re-clone, no wipe,
   nothing outside the venv is touched; worst case `rm -rf venv` and redo this step.
@@ -146,22 +148,46 @@ Notes:
   pin by dragging a second torch into the venv over the container build. The extra is
   right on machines where pip owns torch; in the container, `--no-deps` below is the way.)
 
+  **The PyPI wheel does NOT work on this image** (verified: the wheel is built for stable
+  torch — 2.10.0+cu128 at the time of writing — and warns then fails against the NGC
+  preview 2.11.0+cu130). The working path is a **source build against the container's own
+  torch** (the container has the full CUDA toolchain; ~20–40 min, use an `interact -n 8`
+  session, not the login node):
+
   ```bash
   apptainer exec --nv "$NGC_PYTORCH_CONTAINER" bash -lc '
     source venv/bin/activate
-    # --no-deps is the whole trick: xformers pins its own torch, and without the flag
-    # pip drags that torch into the venv, SHADOWING the container CUDA build (same
-    # failure class as the ~/.local leak). --no-deps installs only xformers itself.
-    pip install --no-deps -U xformers
-    python -m xformers.info | head -20   # want: memory_efficient_attention available,
-                                         # and the torch line matching the container build
+    pip uninstall -y xformers 2>/dev/null   # clear any mismatched wheel first
+    export TORCH_CUDA_ARCH_LIST="9.0+PTX"   # H100 (NVL) = sm_90; A100 would be 8.0
+    export MAX_JOBS=8
+    # --no-deps: never let xformers pull its own torch over the container build.
+    # --no-build-isolation: build against the CONTAINER torch headers (the whole point).
+    # --no-binary: force the sdist -- the prebuilt wheel is the thing that does not work.
+    pip install --no-deps --no-build-isolation --no-binary xformers xformers
+    python -m xformers.info | head -25   # want: memory_efficient_attention available,
+                                         # torch line matching the container build
   '
   ```
 
-  If `xformers.info` errors (undefined symbols = wheel built against a different torch
-  ABI than the NGC build), fall back to a source build inside the container — it has the
-  full CUDA toolchain: `TORCH_CUDA_ARCH_LIST=<your GPU arch, e.g. 8.0 for A100>
-  pip install --no-deps --no-build-isolation xformers` (slow, ~20 min). Either way,
+  If `xformers.info` STILL crashes — with the traceback ending in the **container's**
+  `/usr/local/.../flash_attn_2_cuda...so: undefined symbol` — that is the broken image
+  flash-attn poisoning xformers' import (xformers guards `ModuleNotFoundError`, not a
+  present-but-broken module). Shadow it with a stub in the venv (venv site-packages
+  precede the container's, so every `import flash_attn` becomes a clean
+  `ModuleNotFoundError` that xformers and lgatr both handle gracefully):
+
+  ```bash
+  apptainer exec "$NGC_PYTORCH_CONTAINER" bash -lc '
+    source venv/bin/activate
+    D=$(python -c "import sysconfig; print(sysconfig.get_paths()[\"purelib\"])")/flash_attn
+    mkdir -p "$D"
+    printf "raise ModuleNotFoundError(\"flash_attn stub: 25.08 image copy is ABI-broken vs its own torch\")\n" > "$D/__init__.py"
+    python -c "import flash_attn" 2>&1 | tail -1   # want: the stub message
+    python -m xformers.info | head -25
+  '
+  ```
+
+  Either way,
   finish with one §3-style quick run of `tag_slim` before a real job.
 
 Now wire the directories per §1 — dataset into `data`, run output into `scratch`:
