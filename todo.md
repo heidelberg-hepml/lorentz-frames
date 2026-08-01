@@ -90,6 +90,12 @@ per-run `table …:` log line that the regex reads.
         (ZINC, ~23 nodes, diameter ~10); jet kNN is dense and small-diameter so the walk mixes
         fast and ~4–8 steps likely capture the useful return-probability structure (higher k adds
         near-saturated, redundant dims) — sweep `{4,8,16}` on Plain before generalizing.
+  - [ ] **PE/SE is a PRE-campaign gate, not a post-hoc ablation** (decided): whether the
+        headline GPS rows ship with RWSE changes what those models ARE, so decide it before
+        the primary runs — Plain-GPS ± RWSE (k=8) at tuned lr/batch on top tagging; if RWSE
+        wins meaningfully, port it to the other three GPS models (item above) BEFORE the
+        campaign; if null/negative, keep off and report as the ablation. LapPE stays post-hoc
+        only (expected negative, O(P^3) — never gates the campaign).
 - **Depth (transformer / GPS blocks).** `model.net.num_layers=N` (Plain, ParticleNet-ParT) /
   `model.net.num_blocks=N` (CGENN, LorentzNet). The depth curve is the "can the transformer
   compensate for a weaker GNN" story → a performance/efficiency section (room to discuss BigBird /
