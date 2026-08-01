@@ -3,7 +3,7 @@ hydra-core
 pytest
 pre-commit>=3.7
 mlflow-skinny # can optionally install extras, see https://pypi.org/project/mlflow-skinny/
-requests # dataset downloader (resume/retry; replaced the abandoned `wget`, which died unrecoverably on any connection drop); also a transitive mlflow-skinny dep
+requests #replaces wget which is abandonware and not really suited for big downloads like the new XL dataset
 
 # standard science stack
 numpy>=1.19.5,<2.0.0 # constrain version for weaver (for miniweaver, weaver now updated to support this but parity is unneeded)
