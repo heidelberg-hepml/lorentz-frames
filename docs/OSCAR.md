@@ -322,22 +322,41 @@ python run.py -cp config -cn toptagging \
 #SBATCH --mem=48G
 #SBATCH -t 24:00:00               # raise for the heavy CGENN-GPS (~a day/trial on a top GPU)
 #SBATCH -o slurm-%j.out
+#SBATCH --export=NONE             # do NOT inherit the login env (post-9.6 it carries a stale
+                                  # lmod `module` function that errors on compute nodes)
 # #SBATCH -a <account>            # only if you belong to a condo/priority account (see `condos`)
 # #SBATCH -f ampere               # optionally pin a GPU architecture/feature
 
-module load ngc-pytorch-container/25.08-py3-ayk4
+# Do NOT `module load ngc-pytorch-container/...` here: that module setenv's the MISLABELED
+# 24.03 sif over your resolved path (the §2 container-guard story) — a batch job would
+# silently train on the wrong torch. Use the resolved sif and apptainer binary directly
+# (get the latter once on the login node: `readlink -f $(command -v apptainer)`).
+IMG=/oscar/rt/sw/external/ngc-pytorch-container/25.08-py3/pytorch-25.08-py3.sif
+APPTAINER=<paste absolute apptainer path>
 export APPTAINER_BINDPATH="/oscar/home/$USER,/oscar/scratch/$USER,/oscar/data"
+export PYTHONUNBUFFERED=1         # live logs (batch jobs have no tty -> python buffers)
 
-apptainer run --nv "$NGC_PYTORCH_CONTAINER" ~/GTagger-experiments/train.sh
+"$APPTAINER" run --nv "$IMG" ~/GTagger-experiments/train.sh
 ```
 
 ```bash
+squeue -u $USER           # ALWAYS check before sbatch: a "failed" job may still be alive
+                          # (three concurrent downloads once raced this way), and startup
+                          # noise in the .out is not proof of death -- sacct is
 sbatch train.sbatch
 myq                       # your queue; `squeue -u $USER -t PENDING --start` estimates start time
 tail -f slurm-<jobid>.out # or runs/<exp>/<run>/out_0.log once it starts
 myjobinfo                 # time/memory actually used after it finishes
 scancel <jobid>           # if needed
 ```
+
+> **Ignorable post-9.6 noise:** lines like `environment: line 17:
+> /oscar/rt/9.6/.../lmod/libexec/lmod: No such file or directory` in job output are a
+> cluster-side profile-init inconsistency from the RHEL 9.6 rollout — cosmetic as long
+> as your job uses the absolute `IMG`/`APPTAINER` paths above (verified: downloads and
+> runs proceed normally right past them). Worth a CCV ticket, not worth debugging.
+> The same `--export=NONE` + absolute-paths header applies to ANY batch job here,
+> dataset downloads included.
 
 Each finished run prints its `table test: … \\` row into the log (GUIDE §4).
 
