@@ -370,6 +370,20 @@ myjobinfo                 # time/memory actually used after it finishes
 scancel <jobid>           # if needed
 ```
 
+> **Condo partition facts** (`-p lgouskos-h100-gcondo`; read live via `scontrol show
+> partition lgouskos-h100-gcondo` + `scontrol show node gpu2703`):
+> - **`-t` is MANDATORY here: `DefaultTime=00:05:00`** — an untimed submission is killed
+>   after five minutes. `MaxTime=UNLIMITED`, so be generous (`-t 48:00:00`).
+> - One node, `Gres=gpu:nvidia_h100_nvl:4`, `OverSubscribe=NO`: **four whole 94 GB H100
+>   NVLs, exclusively allocated** — up to 4 concurrent group jobs, never sharing a GPU,
+>   so max-VRAM batch sizes cannot collide with a groupmate's job.
+> - 1.54 TB RAM / 128 CPUs on the node (≈385 G / 32 CPUs per-GPU fair share): 48–64G
+>   `--mem` stays polite; raising `--cpus-per-task` toward 16 helps the streaming
+>   JetClass/XL loaders (more workers).
+> - `State=IDLE+POWERED_DOWN`: the node powers off when idle — the first job after a
+>   quiet spell sits in `CF` (configuring) for a few minutes while it boots. Normal,
+>   not stuck.
+>
 > **Ignorable post-9.6 noise:** lines like `environment: line 17:
 > /oscar/rt/9.6/.../lmod/libexec/lmod: No such file or directory` in job output are a
 > cluster-side profile-init inconsistency from the RHEL 9.6 rollout — cosmetic as long
