@@ -22,7 +22,7 @@ pip install -r requirements.txt
 Quickly test your environment with the `config_quick/` configs. They support all options and are great to quickly get a feeling for what is going on with some manual print statements etc. These runs use small datasets shipped with the repo under `data/`.
 ```bash
 pytest tests
-python run_workflows.py
+python run_workflow.py
 python run.py -cp config_quick -cn amplitudes save=false
 python run.py -cp config_quick -cn toptagging save=false
 python run.py -cp config_quick -cn ttbar save=false
@@ -216,7 +216,7 @@ python run.py -cp config -cn toptagxl model=tag_lgatr
 python run.py -cp config -cn toptagxl model=tag_particlenet
 python run.py -cp config -cn toptagxl model=tag_particlenet model/framesnet=learnedpd
 python run.py -cp config -cn toptagxl model=tag_ParT
-python run.py -cp config -cn toptagxl model=tag_ParTmodel/framesnet=learnedpd
+python run.py -cp config -cn toptagxl model=tag_ParT model/framesnet=learnedpd
 python run.py -cp config -cn toptagxl model=tag_transformer
 python run.py -cp config -cn toptagxl model=tag_transformer model/framesnet=learnedpd
 ```
