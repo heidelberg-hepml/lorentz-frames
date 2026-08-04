@@ -2,12 +2,12 @@ exp_type: toptagxl
 exp_name: toptagxl_debug
 
 data:
- data_dir: data/topxl/
+ data_dir: data/toptagxl
  features: default
  data_config: null
- train_files_range: [622,623]
- test_files_range: [623,624]
- val_files_range: [624,625]
+ train_files_range: [0,1]     # layout: train is 000-499
+ test_files_range: [500,501]  # test is 500-624
+ val_files_range: [625,626]   # val is 625-674
 
 topxl_params:
  num_workers: 2

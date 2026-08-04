@@ -247,7 +247,11 @@ class _SimpleIter(object):
             self.load_filelist_and_ranges = [
                 (
                     self.filelist[i : i + self._fetch_step],
-                    [self.load_range] * self._fetch_step,
+                    # one range PER FILE in this chunk, not per fetch_step: the final
+                    # chunk is short whenever len(filelist) % fetch_step != 0, and
+                    # fileio asserts len(load_ranges) == len(filelist), so the old
+                    # fixed-length list raised on the last fetch.
+                    [self.load_range] * len(self.filelist[i : i + self._fetch_step]),
                 )
                 for i in range(0, len(self.filelist), self._fetch_step)
             ]
