@@ -331,27 +331,35 @@ class BaseExperiment:
     def _init_optimizer(self, param_groups=None):
         if param_groups is None:
 
-            def is_bias(param):
-                return param.ndim <= 1
+            def is_bias(name, param):
+                # upstream bug: ndim<=1 misses MULTI-DIM biases -- CGENN's MVLinear.bias is
+                # (1, C, 1) -- so they are weight-decayed here while the ParT grouping in
+                # tagging/experiment.py exempts them by name, and the same model is
+                # regularized differently depending on which path built its optimizer.
+                return param.ndim <= 1 or name.endswith(".bias")
 
             param_groups = [
                 {
-                    "params": [p for p in self.model.net.parameters() if not is_bias(p)],
+                    "params": [p for n, p in self.model.net.named_parameters() if not is_bias(n, p)],
                     "lr": self.cfg.training.lr,
                     "weight_decay": self.cfg.training.weight_decay,
                 },
                 {
-                    "params": [p for p in self.model.net.parameters() if is_bias(p)],
+                    "params": [p for n, p in self.model.net.named_parameters() if is_bias(n, p)],
                     "lr": self.cfg.training.lr,
                     "weight_decay": 0,
                 },
                 {
-                    "params": [p for p in self.model.framesnet.parameters() if not is_bias(p)],
+                    "params": [
+                        p for n, p in self.model.framesnet.named_parameters() if not is_bias(n, p)
+                    ],
                     "lr": self.cfg.training.lr_factor_framesnet * self.cfg.training.lr,
                     "weight_decay": self.cfg.training.weight_decay_framesnet,
                 },
                 {
-                    "params": [p for p in self.model.framesnet.parameters() if is_bias(p)],
+                    "params": [
+                        p for n, p in self.model.framesnet.named_parameters() if is_bias(n, p)
+                    ],
                     "lr": self.cfg.training.lr_factor_framesnet * self.cfg.training.lr,
                     "weight_decay": 0,
                 },
