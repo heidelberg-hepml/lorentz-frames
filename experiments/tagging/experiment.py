@@ -197,6 +197,13 @@ class TaggingExperiment(BaseExperiment):
                 if (
                     len(param.shape) == 1
                     or name.endswith(".bias")
+                    # NB: the hasattr check confirms no_weight_decay() exists and then
+                    # ignores it, testing a hardcoded literal instead -- unlike the weaver
+                    # reference above, which does `name in model.no_weight_decay()`. Both
+                    # classes in the branch above happen to return exactly {"cls_token"},
+                    # so nothing is mis-trained today; a model added here whose method
+                    # returns another name (or more than one) would be silently
+                    # weight-decayed. Left as-is: no behavior change for anything shipped.
                     or (hasattr(self.model.net, "no_weight_decay") and name in {"cls_token"})
                 ):
                     no_decay[name] = param
