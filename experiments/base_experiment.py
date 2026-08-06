@@ -535,6 +535,7 @@ class BaseExperiment:
 
         # early stopping
         smallest_val_loss, smallest_val_loss_step = 1e10, 0
+        self._best_state = None  # in-RAM best-val checkpoint, used only when save=False
         patience = 0
 
         # main train loop
@@ -585,6 +586,28 @@ class BaseExperiment:
                         self._save_model(
                             f"model_run{self.cfg.run_idx}_it{smallest_val_loss_step}.pt"
                         )
+                        if not self.cfg.save:
+                            # _save_model is a no-op under save=False, so keep the weights in
+                            # RAM instead -- otherwise the restore below finds nothing and the
+                            # evaluation silently reports the FINAL iterate.
+                            self._best_state = {
+                                "model": {
+                                    k: v.detach().to("cpu", copy=True)
+                                    for k, v in self.model.state_dict().items()
+                                },
+                                "ema": (
+                                    {
+                                        k: (
+                                            v.detach().to("cpu", copy=True)
+                                            if torch.is_tensor(v)
+                                            else v
+                                        )
+                                        for k, v in self.ema.state_dict().items()
+                                    }
+                                    if self.ema is not None
+                                    else None
+                                ),
+                            }
                 else:
                     patience += 1
                     if patience > self.cfg.training.es_patience:
@@ -638,6 +661,24 @@ class BaseExperiment:
 
         # wrap up early stopping
         if self.cfg.training.es_load_best_model:
+            if not self.cfg.save:
+                # dry run: the best-validation weights were kept in RAM instead of on disk
+                if self._best_state is None:
+                    LOGGER.warning(
+                        f"No best-validation state recorded (it {smallest_val_loss_step}); "
+                        f"evaluating the final iterate"
+                    )
+                else:
+                    LOGGER.info(
+                        f"Loading best model (it {smallest_val_loss_step}) from memory "
+                        f"(save=False)"
+                    )
+                    self.model.load_state_dict(self._best_state["model"])
+                    if self.ema is not None and self._best_state["ema"] is not None:
+                        self.ema.load_state_dict(self._best_state["ema"])
+                    self._best_state = None  # free the copy before evaluation allocates
+                return
+
             model_path = os.path.join(
                 self.cfg.run_dir,
                 "models",
