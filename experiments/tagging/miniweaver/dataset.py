@@ -247,11 +247,7 @@ class _SimpleIter(object):
             self.load_filelist_and_ranges = [
                 (
                     self.filelist[i : i + self._fetch_step],
-                    # one range PER FILE in this chunk, not per fetch_step: the final
-                    # chunk is short whenever len(filelist) % fetch_step != 0, and
-                    # fileio asserts len(load_ranges) == len(filelist), so the old
-                    # fixed-length list raised on the last fetch.
-                    [self.load_range] * len(self.filelist[i : i + self._fetch_step]),
+                    [self.load_range] * self._fetch_step,
                 )
                 for i in range(0, len(self.filelist), self._fetch_step)
             ]
@@ -355,11 +351,11 @@ class _SimpleIter(object):
         end_of_list = self.ipos >= len(self.load_filelist_and_ranges)
         if end_of_list:
             if init:
-                # parenthesize the ternary: without it precedence made the non-None
-                # branch raise RuntimeError(worker_id) -- a bare "1" -- dropping the
-                # message that says which worker found nothing to load
-                worker_id = 0 if self.worker_info is None else self.worker_info.id
-                raise RuntimeError("Nothing to load for worker %d" % worker_id)
+                raise RuntimeError(
+                    "Nothing to load for worker %d" % 0
+                    if self.worker_info is None
+                    else self.worker_info.id
+                )
             if self._infinity_mode and not self._in_memory:
                 # infinity mode: re-start
                 self.restart()

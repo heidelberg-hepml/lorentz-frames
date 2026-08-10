@@ -102,9 +102,7 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
         scalars[~is_spurion] = scalars_buffer
         ptr[1:] = ptr[1:] + (arange + 1) * n_spurions
 
-    # add mass regulator -- to the REAL particles only: a spacelike beam spurion
-    # (m^2 = -1) always satisfies m^2 < mass_reg^2 and would be silently converted
-    # into an effectively lightlike beam, voiding the spacelike-vs-lightlike ablation
+    # add mass regulator
     if cfg_data.mass_reg is not None:
         mass_reg = cfg_data.mass_reg
         mask = (lorentz_squarednorm(fourmomenta) < mass_reg**2) & ~is_spurion
@@ -112,13 +110,6 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
 
     batch = get_batch_from_ptr(ptr)
 
-    # tagging features are computed BEFORE any jet-rest-frame boost, from the original
-    # momenta and the true jet. Computing them after the boost (the previous order)
-    # degenerates 4 of the 7 features -- the rest-frame jet has pt ~ 0, so pt_jet hits
-    # its clamp and phi_jet/eta_jet come from atan2/eta of a numerically-zero vector,
-    # making dphi/deta/dr rotation-UNSTABLE garbage that measurably breaks even the
-    # SO(2) invariance of every learned-frames row (xyrotation max MSE O(10^2..10^4)
-    # before this reordering, O(10^-8) after).
     jet = scatter(fourmomenta[~is_spurion], batch[~is_spurion], dim=0, reduce="sum").index_select(
         0, batch
     )
@@ -130,7 +121,7 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
     tagging_features[is_spurion] = 0
 
     if cfg_data.boost_jet:
-        # boost to the jet rest frame to avoid large boosts (framesnet stability)
+        # boost to the jet rest frame to avoid large boosts
         jet_boost = restframe_boost(jet)
         fourmomenta = torch.einsum("ijk,ik->ij", jet_boost, fourmomenta)
 

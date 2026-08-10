@@ -53,8 +53,6 @@ def test_tagging(framesnet, model_list, equivectors, jet_size=50):
     try:
         exp.init_model()
     except Exception as e:
-        # environment-dependent model inits (e.g. xformers-pinned attention baselines on
-        # a CPU-only runner) are tolerated -- but VISIBLY, as a skip, not a silent PASS
         pytest.skip(f"init_model failed (environment-dependent): {type(e).__name__}: {e}")
     exp.init_data()
     exp._init_dataloader()

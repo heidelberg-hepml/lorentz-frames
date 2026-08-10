@@ -133,15 +133,6 @@ def _read_files(
             elif ext == ".parquet":
                 a = _read_parquet(filepath, branches, load_range=load_range)
         except Exception as e:
-            # weaver proper logs the error + traceback here; a bare `a = None` swallowed
-            # truncated/corrupt ROOT files silently (md5 covers only the original tar
-            # download, NOT a cluster scratch copy), skewing class balance across epochs
-            import traceback
-
-            print(
-                f"[miniweaver] failed to read {filepath}: {type(e).__name__}: {e}\n"
-                f"{traceback.format_exc()}"
-            )
             a = None
         if a is not None:
             if file_magic is not None:

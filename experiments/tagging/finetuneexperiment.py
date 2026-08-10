@@ -121,9 +121,6 @@ class TopTaggingFineTuneExperiment(TopTaggingExperiment):
 
         if self.cfg.ema:
             LOGGER.info("Re-initializing EMA")
-            # NB: ema_decay lives at the config TOP level (config/default.yaml), not under
-            # training -- the old cfg.training.ema_decay read crashed in struct mode for
-            # any pretrained backbone trained with ema=true
             self.ema = ExponentialMovingAverage(
                 self.model.parameters(), decay=self.cfg.ema_decay
             ).to(self.device)

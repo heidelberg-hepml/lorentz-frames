@@ -1029,9 +1029,6 @@ class ParticleTransformer(nn.Module):
                 # x: (P, N, C) -> output: (N, C, P)
                 output = x.transpose(1, 2).contiguous()
                 if self.for_inference:
-                    # single-logit heads (this repo's top-tagging: out_channels=1, BCE) must
-                    # use sigmoid -- softmax over a 1-wide dim is identically 1.0, silently
-                    # making every score constant (AUC 0.5). Multi-class (JetClass) unchanged.
                     output = (torch.sigmoid(output) if output.shape[1] == 1
                               else torch.softmax(output, dim=1))
                 # print('output:\n', output)
@@ -1044,9 +1041,6 @@ class ParticleTransformer(nn.Module):
             # fc
             output = self.fc(x_cls)
             if self.for_inference:
-                # single-logit heads (this repo's top-tagging: out_channels=1, BCE) must
-                # use sigmoid -- softmax over a 1-wide dim is identically 1.0, silently
-                # making every score constant (AUC 0.5). Multi-class (JetClass) unchanged.
                 output = (torch.sigmoid(output) if output.shape[1] == 1
                           else torch.softmax(output, dim=1))
             # print('output:\n', output)

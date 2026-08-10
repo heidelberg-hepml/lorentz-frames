@@ -78,18 +78,7 @@ class TaggingExperiment(BaseExperiment):
                 )
                 self.cfg.model.framesnet.equivectors.num_scalars = self.extra_scalars
                 self.cfg.model.framesnet.equivectors.num_scalars += num_tagging_features
-                # boost_jet lands each jet at rest, and PURE-ROTATION frame families cannot
-                # restore its momentum: the wrapper's jet_local stays at (M,0,0,0) and 4/7 of
-                # the local tagging features degenerate (log_pt_rel duplicates log_pt;
-                # dphi/deta/dr become absolute angles at the wrong standardization scale).
-                # Measured set (median pt/E of the frame-local jet, float64): so3/so2 4.5e-15
-                # (stranded) vs pd/so13 0.75 and z 0.37 (z frames carry TRANSVERSE boosts and
-                # un-rest the jet, so it keeps the boost). Not an invariance break -- a
-                # physics-consistency choice: for rotation-only frames the boost discards
-                # exactly the boost information those frames are chosen to preserve.
-                frames_target = str(
-                    self.cfg.model.framesnet.get("_target_", "")
-                ).rsplit(".", 1)[-1]
+                frames_target = str(self.cfg.model.framesnet.get("_target_", "")).rsplit(".", 1)[-1]
                 if self.cfg.data.boost_jet and frames_target in (
                     "LearnedSO3Frames",
                     "LearnedSO2Frames",
@@ -182,8 +171,6 @@ class TaggingExperiment(BaseExperiment):
             self.model.init_standardization(embedding["fourmomenta"], embedding["ptr"])
 
     def _init_optimizer(self, param_groups=None):
-        # caller-supplied param_groups (the finetune experiment's carefully split
-        # backbone/head lrs) must NOT be clobbered by the name match below
         if param_groups is None and self.cfg.model.net._target_.rsplit(".", 1)[-1] in [
             "ParticleTransformer",
             "MIParticleTransformer",

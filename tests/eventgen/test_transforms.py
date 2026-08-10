@@ -17,9 +17,7 @@ from tests.constants import TOLERANCES
 
 @pytest.fixture(autouse=True)
 def _seed():
-    # These tests draw unseeded random events; an occasional near-massless draw
-    # blows up the ~1/M^2 jacobian terms past tolerance (flaky failures, cf. the
-    # "sometimes fails with torch32" note below). Pin the RNG for determinism.
+    # pin the RNG, the random events are otherwise occasionally near-massless
     torch.manual_seed(0)
 
 

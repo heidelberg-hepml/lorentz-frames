@@ -12,11 +12,6 @@ class MVLayerNorm(nn.Module):
         super().__init__()
         self.algebra = algebra
         self.channels = channels
-        # 1-d (channels,) rather than the official (1, channels): a norm GAIN must fall
-        # under the optimizer's ndim<=1 weight-decay exemption like every other norm
-        # gain in the model family (the official 2-d shape silently got weight-decayed,
-        # an undocumented regularization asymmetry hitting only the CGENN hybrids).
-        # Broadcasting below is unchanged: we unsqueeze to (1, channels) before use.
         self.a = nn.Parameter(torch.ones(channels))
 
     def forward(self, input):

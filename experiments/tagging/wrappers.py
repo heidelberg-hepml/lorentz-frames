@@ -339,11 +339,7 @@ class ParticleNetWrapper(AggregatedTaggerWrapper):
             batch,
             tracker,
         ) = super().forward(embedding)
-        # ParticleNet uses L2 norm in (phi, eta) for kNN. dphi/deta live at positions
-        # 4,5 INSIDE the 7-feature local tagging block (always 'all' in TaggerWrapper),
-        # which sits AFTER any extra scalars -- a hardcoded [4, 5] is correct only for
-        # extra_scalars=0 (top-tagging); on JetClass it would silently cluster the
-        # layer-0 kNN by PID one-hots.
+        # ParticleNet uses L2 norm in (phi, eta) for kNN
         n_extra = features_local.shape[-1] - 7 - (4 if self.add_fourmomenta_backbone else 0)
         assert n_extra >= 0, (
             f"unexpected feature layout for ParticleNetWrapper: {features_local.shape[-1]} channels"
