@@ -715,7 +715,6 @@ class BaseExperiment:
                 LOGGER.warning(
                     f"Skipping iteration {step}, gradient norm {grad_norm} exceeds maximum {self.cfg.training.max_grad_norm}"
                 )
-                # still update the scaler, so the loss scale can decrease
                 self.scaler.update()
                 return
         self.scaler.step(self.optimizer)
