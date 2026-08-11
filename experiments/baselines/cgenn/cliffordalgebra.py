@@ -33,12 +33,26 @@ class CliffordAlgebra(nn.Module):
         )
         self.n_subspaces = len(self.grades)
         self.grade_to_slice = self._grade_to_slice(self.subspaces)
-        self.grade_to_index = [torch.tensor(range(*s.indices(s.stop))) for s in self.grade_to_slice]
+        for g, s in enumerate(self.grade_to_slice):
+            self.register_buffer(
+                f"_grade_to_index_{g}", torch.tensor(range(*s.indices(s.stop))), persistent=False
+            )
 
         self.register_buffer("bbo_grades", self.bbo.grades.to(torch.get_default_dtype()))
         self.register_buffer("even_grades", self.bbo_grades % 2 == 0)
         self.register_buffer("odd_grades", ~self.even_grades)
         self.register_buffer("cayley", cayley)
+        self.register_buffer("_alpha_signs", torch.pow(-1, self.bbo_grades), persistent=False)
+        self.register_buffer(
+            "_beta_signs",
+            torch.pow(-1, self.bbo_grades * (self.bbo_grades - 1) // 2),
+            persistent=False,
+        )
+        self.register_buffer(
+            "_gamma_signs",
+            torch.pow(-1, self.bbo_grades * (self.bbo_grades + 1) // 2),
+            persistent=False,
+        )
 
     def geometric_product(self, a, b, blades=None):
         cayley = self.cayley
@@ -61,17 +75,9 @@ class CliffordAlgebra(nn.Module):
             grade_to_slice.append(slice(index_start, index_end))
         return grade_to_slice
 
-    @functools.cached_property
-    def _alpha_signs(self):
-        return torch.pow(-1, self.bbo_grades)
-
-    @functools.cached_property
-    def _beta_signs(self):
-        return torch.pow(-1, self.bbo_grades * (self.bbo_grades - 1) // 2)
-
-    @functools.cached_property
-    def _gamma_signs(self):
-        return torch.pow(-1, self.bbo_grades * (self.bbo_grades + 1) // 2)
+    @property
+    def grade_to_index(self):
+        return [getattr(self, f"_grade_to_index_{g}") for g in range(len(self.grade_to_slice))]
 
     def alpha(self, mv, blades=None):
         signs = self._alpha_signs
