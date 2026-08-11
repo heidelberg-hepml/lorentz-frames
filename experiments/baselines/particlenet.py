@@ -246,6 +246,7 @@ class ParticleNet(nn.Module):
 
         output = self.fc(x)
         if self.for_inference:
-            output = torch.softmax(output, dim=1)
+            output = (torch.sigmoid(output) if output.shape[1] == 1
+                      else torch.softmax(output, dim=1))
         # print('output:\n', output)
         return output

@@ -1204,7 +1204,8 @@ class MIParticleTransformer(nn.Module):
             # print(x_cls,x_cls.shape)
             output = self.fc(x_cls)
             if self.for_inference:
-                output = torch.softmax(output, dim=1)
+                output = (torch.sigmoid(output) if output.shape[1] == 1
+                          else torch.softmax(output, dim=1))
             # print('output:\n', output)
             return output
 

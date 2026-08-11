@@ -12,9 +12,9 @@ class MVLayerNorm(nn.Module):
         super().__init__()
         self.algebra = algebra
         self.channels = channels
-        self.a = nn.Parameter(torch.ones(1, channels))
+        self.a = nn.Parameter(torch.ones(channels))
 
     def forward(self, input):
         norm = self.algebra.norm(input)[..., :1].mean(dim=1, keepdim=True) + EPS
-        a = unsqueeze_like(self.a, norm, dim=2)
+        a = unsqueeze_like(self.a.unsqueeze(0), norm, dim=2)
         return a * input / norm

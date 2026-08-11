@@ -122,7 +122,7 @@ class TopTaggingFineTuneExperiment(TopTaggingExperiment):
         if self.cfg.ema:
             LOGGER.info("Re-initializing EMA")
             self.ema = ExponentialMovingAverage(
-                self.model.parameters(), decay=self.cfg.training.ema_decay
+                self.model.parameters(), decay=self.cfg.ema_decay
             ).to(self.device)
 
     def _init_optimizer(self):

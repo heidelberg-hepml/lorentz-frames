@@ -15,6 +15,12 @@ from experiments.eventgen.processes import ttbarExperiment
 from tests.constants import TOLERANCES
 
 
+@pytest.fixture(autouse=True)
+def _seed():
+    # pin the RNG, the random events are otherwise occasionally near-massless
+    torch.manual_seed(0)
+
+
 def test_simple():
     """Some very simple tests"""
     fourmomentum = torch.tensor([[1, 1, 0, 0], [2, 1, 0, -1]]).float()
