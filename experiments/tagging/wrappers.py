@@ -340,7 +340,11 @@ class ParticleNetWrapper(AggregatedTaggerWrapper):
             tracker,
         ) = super().forward(embedding)
         # ParticleNet uses L2 norm in (phi, eta) for kNN
-        phieta_local = features_local[..., [4, 5]]
+        n_extra = features_local.shape[-1] - 7 - (4 if self.add_fourmomenta_backbone else 0)
+        assert n_extra >= 0, (
+            f"unexpected feature layout for ParticleNetWrapper: {features_local.shape[-1]} channels"
+        )
+        phieta_local = features_local[..., [n_extra + 4, n_extra + 5]]
         phieta_local, mask = to_dense_batch(phieta_local, batch)
         features_local, _ = to_dense_batch(features_local, batch)
         phieta_local = phieta_local.transpose(1, 2)
@@ -697,9 +701,7 @@ class CGENNWrapper(nn.Module):
         fourmomenta = embedding["fourmomenta"]
         scalars = torch.cat([embedding["scalars"], embedding["tagging_features"]], dim=-1)
         batch = embedding["batch"]
-        ptr = embedding["ptr"]
         is_spurion = embedding["is_spurion"]
-        edge_index = get_edge_index_from_ptr(ptr, fourmomenta.shape, remove_self_loops=True)
 
         # rescale fourmomenta (but not the spurions)
         fourmomenta[~is_spurion] = fourmomenta[~is_spurion] / 20
@@ -711,6 +713,10 @@ class CGENNWrapper(nn.Module):
         fourmomenta, mask = to_dense_batch(fourmomenta, batch)
         scalars, _ = to_dense_batch(scalars, batch)
         batch_size, n_nodes, _ = fourmomenta.shape
+        pair = mask[:, :, None] & mask[:, None, :]
+        pair &= ~torch.eye(n_nodes, dtype=torch.bool, device=mask.device)[None]
+        b_idx, i_idx, j_idx = pair.nonzero(as_tuple=True)
+        edge_index = torch.stack([b_idx * n_nodes + i_idx, b_idx * n_nodes + j_idx])
         fourmomenta = fourmomenta.view(batch_size * n_nodes, -1)
         scalars = scalars.view(batch_size * n_nodes, -1)
         mask = mask.view(batch_size * n_nodes, -1)

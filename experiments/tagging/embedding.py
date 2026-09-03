@@ -105,18 +105,10 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
     # add mass regulator
     if cfg_data.mass_reg is not None:
         mass_reg = cfg_data.mass_reg
-        mask = lorentz_squarednorm(fourmomenta) < mass_reg**2
+        mask = (lorentz_squarednorm(fourmomenta) < mass_reg**2) & ~is_spurion
         fourmomenta[mask, 0] = (fourmomenta[mask, 1:] ** 2).sum(dim=-1).add(mass_reg**2).sqrt()
 
     batch = get_batch_from_ptr(ptr)
-
-    if cfg_data.boost_jet:
-        # boost to the jet rest frame to avoid large boosts
-        jet = scatter(
-            fourmomenta[~is_spurion], batch[~is_spurion], dim=0, reduce="sum"
-        ).index_select(0, batch)
-        jet_boost = restframe_boost(jet)
-        fourmomenta = torch.einsum("ijk,ik->ij", jet_boost, fourmomenta)
 
     jet = scatter(fourmomenta[~is_spurion], batch[~is_spurion], dim=0, reduce="sum").index_select(
         0, batch
@@ -127,6 +119,11 @@ def embed_tagging_data(fourmomenta, scalars, ptr, cfg_data):
         tagging_features=cfg_data.tagging_features,
     )
     tagging_features[is_spurion] = 0
+
+    if cfg_data.boost_jet:
+        # boost to the jet rest frame to avoid large boosts
+        jet_boost = restframe_boost(jet)
+        fourmomenta = torch.einsum("ijk,ik->ij", jet_boost, fourmomenta)
 
     tagging_features = tagging_features.to(scalars.dtype)
 

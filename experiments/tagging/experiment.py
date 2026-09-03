@@ -41,7 +41,7 @@ class TaggingExperiment(BaseExperiment):
                 self.cfg.model.net.in_s_channels = 0 if self.cfg.model.mean_aggregation else 1
                 self.cfg.model.net.in_s_channels += in_s_channels
             elif modelname == "LorentzNet":
-                self.cfg.model.net.in_s_channels = in_s_channels
+                self.cfg.model.net.n_scalar = in_s_channels
             elif modelname == "PELICAN":
                 self.cfg.model.net.in_channels_rank1 = in_s_channels
             elif modelname == "PELICANOfficial":
@@ -78,6 +78,17 @@ class TaggingExperiment(BaseExperiment):
                 )
                 self.cfg.model.framesnet.equivectors.num_scalars = self.extra_scalars
                 self.cfg.model.framesnet.equivectors.num_scalars += num_tagging_features
+                frames_target = str(self.cfg.model.framesnet.get("_target_", "")).rsplit(".", 1)[-1]
+                if self.cfg.data.boost_jet and frames_target in (
+                    "LearnedSO3Frames",
+                    "LearnedSO2Frames",
+                ):
+                    LOGGER.info(
+                        f"Forcing data.boost_jet=false for the pure-rotation framesnet "
+                        f"{frames_target}: it cannot un-rest the boosted jet, which would "
+                        f"degenerate the jet-relative local tagging features."
+                    )
+                    self.cfg.data.boost_jet = False
             else:
                 # not allowed, because the network is not Lorentz-equivariant
                 self.cfg.data.boost_jet = False
@@ -160,7 +171,7 @@ class TaggingExperiment(BaseExperiment):
             self.model.init_standardization(embedding["fourmomenta"], embedding["ptr"])
 
     def _init_optimizer(self, param_groups=None):
-        if self.cfg.model.net._target_.rsplit(".", 1)[-1] in [
+        if param_groups is None and self.cfg.model.net._target_.rsplit(".", 1)[-1] in [
             "ParticleTransformer",
             "MIParticleTransformer",
         ]:
@@ -240,17 +251,16 @@ class TaggingExperiment(BaseExperiment):
             labels_predict.append(y_pred.cpu().float())
         labels_true, labels_predict = torch.cat(labels_true), torch.cat(labels_predict)
 
+        # bce loss (from the raw logits)
+        metrics["loss"] = torch.nn.functional.binary_cross_entropy_with_logits(
+            labels_predict, labels_true
+        ).item()
+        labels_predict = torch.nn.functional.sigmoid(labels_predict)
         if mode == "eval":
             metrics["labels_true"], metrics["labels_predict"] = (
                 labels_true,
                 labels_predict,
             )
-
-        # bce loss
-        metrics["loss"] = torch.nn.functional.binary_cross_entropy_with_logits(
-            labels_predict, labels_true
-        ).item()
-        labels_predict = torch.nn.functional.sigmoid(labels_predict)
         labels_true, labels_predict = labels_true.numpy(), labels_predict.numpy()
 
         # accuracy
