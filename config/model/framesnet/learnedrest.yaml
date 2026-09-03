@@ -2,6 +2,7 @@ _target_: lloca.framesnet.equi_frames.LearnedRestFrames
 is_global: false
 random: false
 compile: false
+mass_reg: ${oc.select:data.mass_reg,null}
 ortho_kwargs:
  use_float64: true
  method: gramschmidt
